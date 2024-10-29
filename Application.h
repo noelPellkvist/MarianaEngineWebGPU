@@ -20,8 +20,14 @@ namespace MarianaEngine
 			wgpu::Device* device;
 			const char* name;
 		};
-		class Application 
-		{ 
+
+		struct MyUniforms {
+			float color[4];
+			float time;
+			float padding[3];
+		};
+		class Application
+		{
 		public:
 			void Init(ApplicationInfo info);
 			void MainLoop();
@@ -39,7 +45,16 @@ namespace MarianaEngine
 			GLFWwindow* window;
 
 			wgpu::Buffer vertexBuffer;
-			uint32_t vertexCount;
+			wgpu::Buffer indexBuffer;
+			uint32_t indexCount;
+
+			wgpu::Buffer uniformBuffer;
+
+			wgpu::PipelineLayout layout;
+			wgpu::BindGroupLayout bindGroupLayout;
+
+			wgpu::BindGroup bindGroup;
+			MyUniforms uniforms;
 
 			bool isRunning();
 

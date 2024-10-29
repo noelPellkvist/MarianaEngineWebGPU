@@ -1,16 +1,46 @@
 #include "Application.h"
+#include "Resource.h"
+
+#include <string>
 
 namespace MarianaEngine
 {
 	namespace Core
 	{
 		const char shaderCode[] = R"(
-    @vertex fn vs_main(@location(0) in_vertex_position: vec2f) -> @builtin(position) vec4f {
-    return vec4f(in_vertex_position, 0.0, 1.0);
-	}
-    @fragment fn fs_main() -> @location(0) vec4f {
-        return vec4f(1, 0, 0, 1);
-    }
+	struct MyUniforms {
+    color: vec4f,
+    time: f32,
+	};
+	@group(0) @binding(0) var<uniform> uMyUniforms: MyUniforms;
+	struct VertexInput {
+    @location(0) position: vec2f,
+    @location(1) normal: vec3f,
+	};
+	struct VertexOutput {
+    @builtin(position) position: vec4f,
+    @location(0) normal: vec3f,
+};
+    @vertex
+fn vs_main(in: VertexInput) -> VertexOutput {
+    var out: VertexOutput;
+    let ratio = 640.0 / 480.0;
+
+    // We now move the scene depending on the time!
+    var offset = vec2f(-0.6875, -0.463);
+    offset += 0.3 * vec2f(cos(uMyUniforms.time), sin(uMyUniforms.time));
+
+    out.position = vec4f(in.position.x + offset.x, (in.position.y + offset.y) * ratio, 0.0, 1.0);
+    out.normal = in.normal;
+    return out;
+}
+
+@fragment
+fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+	let color = in.normal * uMyUniforms.color.rgb;
+    let corrected_color = pow(color, vec3f(2.2));
+    return vec4f(corrected_color, uMyUniforms.color.a);
+}
 )";
 
 		void Application::Init(ApplicationInfo info)
@@ -41,8 +71,9 @@ namespace MarianaEngine
 			surface = wgpu::glfw::CreateSurfaceForWindow(instance, window);
 #endif
 
-			InitGraphics();
+			
 			InitializeVertexBuffer();
+			InitGraphics();
 
 #if defined(__EMSCRIPTEN__)
 			emscripten_set_main_loop(MainLoop, 0, false);
@@ -85,23 +116,22 @@ namespace MarianaEngine
 				device.CreateShaderModule(&shaderModuleDescriptor);
 
 			wgpu::VertexBufferLayout vertexBufferLayout;
-			wgpu::VertexAttribute positionAttrib;
+			//wgpu::VertexAttribute positionAttrib;
+			std::vector<wgpu::VertexAttribute> vertexAttribs(2);
 
-			positionAttrib.shaderLocation = 0;
-			positionAttrib.format = wgpu::VertexFormat::Float32x2;
-			positionAttrib.offset = 0;
+			vertexAttribs[0].shaderLocation = 0;
+			vertexAttribs[0].format = wgpu::VertexFormat::Float32x2;
+			vertexAttribs[0].offset = 0;
 
-			vertexBufferLayout.attributeCount = 1;
-			vertexBufferLayout.attributes = &positionAttrib;
+			vertexAttribs[1].shaderLocation = 1; // @location(1)
+			vertexAttribs[1].format = wgpu::VertexFormat::Float32x3; // different type!
+			vertexAttribs[1].offset = 2 * sizeof(float); // non null offset!
 
-			vertexBufferLayout.arrayStride = 2 * sizeof(float);
+			vertexBufferLayout.attributeCount = vertexAttribs.size();
+			vertexBufferLayout.attributes = vertexAttribs.data();
+
+			vertexBufferLayout.arrayStride = 5 * sizeof(float);
 			vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
-
-			
-
-			
-
-			
 
 			wgpu::RenderPipelineDescriptor descriptor{};
 
@@ -118,6 +148,8 @@ namespace MarianaEngine
 			descriptor.primitive.frontFace = wgpu::FrontFace::CCW;
 
 			descriptor.primitive.cullMode = wgpu::CullMode::None; //Culling here
+
+			
 
 			wgpu::FragmentState fragmentState{};
 			fragmentState.module = shaderModule;
@@ -144,7 +176,42 @@ namespace MarianaEngine
 			descriptor.depthStencil = nullptr;
 			descriptor.multisample.count = 1;
 			descriptor.multisample.alphaToCoverageEnabled = false;
-			descriptor.layout = nullptr;
+
+			wgpu::BindGroupLayoutEntry bindingLayout = {};
+			bindingLayout.binding = 0;
+			bindingLayout.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
+
+			bindingLayout.buffer.type = wgpu::BufferBindingType::Uniform;
+			//bindingLayout.buffer.minBindingSize = 4 * sizeof(float);
+			bindingLayout.buffer.minBindingSize = sizeof(MyUniforms);
+
+			
+
+
+			wgpu::BindGroupLayoutDescriptor bindGroupLayoutDesc{};
+			bindGroupLayoutDesc.entryCount = 1;
+			bindGroupLayoutDesc.entries = &bindingLayout;
+			bindGroupLayout = device.CreateBindGroupLayout(&bindGroupLayoutDesc);
+
+			wgpu::BindGroupEntry binding{};
+			wgpu::BindGroupDescriptor bindGroupDesc{};
+			bindGroupDesc.layout = bindGroupLayout;
+
+			binding.binding = 0;
+			binding.buffer = uniformBuffer;
+			binding.offset = 0;
+			binding.size = sizeof(MyUniforms);
+
+			bindGroupDesc.entryCount = 1;
+			bindGroupDesc.entries = &binding;
+			bindGroup = device.CreateBindGroup(&bindGroupDesc);
+
+			// Create the pipeline layout
+			wgpu::PipelineLayoutDescriptor layoutDesc{};
+			layoutDesc.bindGroupLayoutCount = 1;
+			layoutDesc.bindGroupLayouts = &bindGroupLayout;
+			layout = device.CreatePipelineLayout(&layoutDesc);
+			descriptor.layout = layout;
 
 			pipeline = device.CreateRenderPipeline(&descriptor);
 		}
@@ -167,11 +234,17 @@ namespace MarianaEngine
 			wgpu::RenderPassDescriptor renderpass{ .colorAttachmentCount = 1,
 												  .colorAttachments = &attachment };
 
+			float t = static_cast<float>(glfwGetTime()); // glfwGetTime returns a double
+			uniforms.time = t;
+			queue.WriteBuffer(uniformBuffer, 0, &uniforms, sizeof(MyUniforms));
+
 			wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
 			wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
 			pass.SetPipeline(pipeline);
 			pass.SetVertexBuffer(0, vertexBuffer, 0, vertexBuffer.GetSize());
-			pass.Draw(vertexCount, 1, 0, 0);
+			pass.SetIndexBuffer(indexBuffer, wgpu::IndexFormat::Uint16, 0, indexBuffer.GetSize());
+			pass.SetBindGroup(0, bindGroup, 0, nullptr);
+			pass.DrawIndexed(indexCount, 1, 0, 0);
 			pass.End();
 			wgpu::CommandBuffer commands = encoder.Finish();
 			queue.Submit(1, &commands);
@@ -180,29 +253,31 @@ namespace MarianaEngine
 
 
 		bool Application::isRunning()
-		{ 
+		{
 			return !glfwWindowShouldClose(window);
 		}
 
 		void Application::CleanUp()
 		{
 			vertexBuffer.Destroy();
+			indexBuffer.Destroy();
+			uniformBuffer.Destroy();
 		}
 
 		void Application::InitializeVertexBuffer()
 		{
 			std::vector<float> vertexData = {
-				// Define a first triangle:
-				-0.5, -0.5,
-				+0.5, -0.5,
-				+0.0, +0.5,
-
-				// Add a second triangle:
-				-0.55f, -0.5,
-				-0.05f, +0.5,
-				-0.55f, +0.5
+				// x,   y,     r,   g,   b
+	-0.5, -0.5,   1.0, 0.0, 0.0,
+	+0.5, -0.5,   0.0, 1.0, 0.0,
+	+0.5, +0.5,   0.0, 0.0, 1.0,
+	-0.5, +0.5,   1.0, 1.0, 0.0
 			};
-			vertexCount = static_cast<uint32_t>(vertexData.size() / 2);
+			std::vector<uint16_t> indexData = {
+				0, 1, 2, // Triangle #0 connects points #0, #1 and #2
+				0, 2, 3  // Triangle #1 connects points #0, #2 and #3
+			};
+			indexCount = static_cast<uint32_t>(indexData.size());
 
 			// Create vertex buffer
 			wgpu::BufferDescriptor bufferDesc;
@@ -213,6 +288,27 @@ namespace MarianaEngine
 
 			// Upload geometry data to the buffer
 			queue.WriteBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
+
+			bufferDesc.size = vertexData.size() * sizeof(uint16_t);
+			bufferDesc.size = (bufferDesc.size + 3) & ~3;
+			bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
+			bufferDesc.mappedAtCreation = false;
+			indexBuffer = device.CreateBuffer(&bufferDesc);
+			queue.WriteBuffer(indexBuffer, 0, indexData.data(), bufferDesc.size);
+
+			bufferDesc.size = sizeof(MyUniforms);
+
+			bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
+
+			bufferDesc.mappedAtCreation = false;
+			uniformBuffer = device.CreateBuffer(&bufferDesc);
+			
+			uniforms.time = 1.0f;
+			uniforms.color[0] = 0.0f;
+			uniforms.color[1] = 1.0f;
+			uniforms.color[2] = 0.4f;
+			uniforms.color[3] = 1.0f;
+			queue.WriteBuffer(uniformBuffer, 0, &uniforms, sizeof(MyUniforms));
 		}
 	}
 }
