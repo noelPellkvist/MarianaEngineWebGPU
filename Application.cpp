@@ -5,12 +5,26 @@ namespace MarianaEngine
 	namespace Core
 	{
 		const char shaderCode[] = R"(
-    @vertex fn vs_main(@location(0) in_vertex_position: vec2f) -> @builtin(position) vec4f {
-    return vec4f(in_vertex_position, 0.0, 1.0);
-	}
-    @fragment fn fs_main() -> @location(0) vec4f {
-        return vec4f(1, 0, 0, 1);
-    }
+	struct VertexInput {
+    @location(0) position: vec2f,
+    @location(1) normal: vec3f,
+	};
+	struct VertexOutput {
+    @builtin(position) position: vec4f,
+    @location(0) normal: vec3f,
+};
+    @vertex
+fn vs_main(in: VertexInput) -> VertexOutput {
+    var out: VertexOutput; // create the output struct
+    out.position = vec4f(in.position, 0.0, 1.0); // same as what we used to directly return
+    out.normal = in.normal; // forward the color attribute to the fragment shader
+    return out;
+}
+
+@fragment
+fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+    return vec4f(in.normal, 1.0); // use the interpolated color coming from the vertex shader
+}
 )";
 
 		void Application::Init(ApplicationInfo info)
@@ -85,23 +99,22 @@ namespace MarianaEngine
 				device.CreateShaderModule(&shaderModuleDescriptor);
 
 			wgpu::VertexBufferLayout vertexBufferLayout;
-			wgpu::VertexAttribute positionAttrib;
+			//wgpu::VertexAttribute positionAttrib;
+			std::vector<wgpu::VertexAttribute> vertexAttribs(2);
 
-			positionAttrib.shaderLocation = 0;
-			positionAttrib.format = wgpu::VertexFormat::Float32x2;
-			positionAttrib.offset = 0;
+			vertexAttribs[0].shaderLocation = 0;
+			vertexAttribs[0].format = wgpu::VertexFormat::Float32x2;
+			vertexAttribs[0].offset = 0;
 
-			vertexBufferLayout.attributeCount = 1;
-			vertexBufferLayout.attributes = &positionAttrib;
+			vertexAttribs[1].shaderLocation = 1; // @location(1)
+			vertexAttribs[1].format = wgpu::VertexFormat::Float32x3; // different type!
+			vertexAttribs[1].offset = 2 * sizeof(float); // non null offset!
 
-			vertexBufferLayout.arrayStride = 2 * sizeof(float);
-			vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
+			vertexBufferLayout.attributeCount = vertexAttribs.size();
+			vertexBufferLayout.attributes = vertexAttribs.data();
 
-			
-
-			
-
-			
+			vertexBufferLayout.arrayStride = 5 * sizeof(float);
+			vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;			
 
 			wgpu::RenderPipelineDescriptor descriptor{};
 
@@ -171,7 +184,8 @@ namespace MarianaEngine
 			wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
 			pass.SetPipeline(pipeline);
 			pass.SetVertexBuffer(0, vertexBuffer, 0, vertexBuffer.GetSize());
-			pass.Draw(vertexCount, 1, 0, 0);
+			pass.SetIndexBuffer(indexBuffer, wgpu::IndexFormat::Uint16, 0, indexBuffer.GetSize());
+			pass.DrawIndexed(indexCount, 1, 0, 0);
 			pass.End();
 			wgpu::CommandBuffer commands = encoder.Finish();
 			queue.Submit(1, &commands);
@@ -187,22 +201,23 @@ namespace MarianaEngine
 		void Application::CleanUp()
 		{
 			vertexBuffer.Destroy();
+			indexBuffer.Destroy();
 		}
 
 		void Application::InitializeVertexBuffer()
 		{
 			std::vector<float> vertexData = {
-				// Define a first triangle:
-				-0.5, -0.5,
-				+0.5, -0.5,
-				+0.0, +0.5,
-
-				// Add a second triangle:
-				-0.55f, -0.5,
-				-0.05f, +0.5,
-				-0.55f, +0.5
+				// x,   y,     r,   g,   b
+	-0.5, -0.5,   1.0, 0.0, 0.0,
+	+0.5, -0.5,   0.0, 1.0, 0.0,
+	+0.5, +0.5,   0.0, 0.0, 1.0,
+	-0.5, +0.5,   1.0, 1.0, 0.0
 			};
-			vertexCount = static_cast<uint32_t>(vertexData.size() / 2);
+			std::vector<uint16_t> indexData = {
+				0, 1, 2, // Triangle #0 connects points #0, #1 and #2
+				0, 2, 3  // Triangle #1 connects points #0, #2 and #3
+			};
+			indexCount = static_cast<uint32_t>(indexData.size());
 
 			// Create vertex buffer
 			wgpu::BufferDescriptor bufferDesc;
@@ -213,6 +228,13 @@ namespace MarianaEngine
 
 			// Upload geometry data to the buffer
 			queue.WriteBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
+
+			bufferDesc.size = vertexData.size() * sizeof(uint16_t);
+			bufferDesc.size = (bufferDesc.size + 3) & ~3;
+			bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
+			bufferDesc.mappedAtCreation = false;
+			indexBuffer = device.CreateBuffer(&bufferDesc);
+			queue.WriteBuffer(indexBuffer, 0, indexData.data(), bufferDesc.size);
 		}
 	}
 }
