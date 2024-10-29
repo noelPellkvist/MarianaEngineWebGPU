@@ -39,7 +39,8 @@ namespace MarianaEngine
 			GLFWwindow* window;
 
 			wgpu::Buffer vertexBuffer;
-			uint32_t vertexCount;
+			wgpu::Buffer indexBuffer;
+			uint32_t indexCount;
 
 			bool isRunning();
 
