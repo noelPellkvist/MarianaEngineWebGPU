@@ -7,62 +7,42 @@
 #else
 #include <webgpu/webgpu_glfw.h>
 #endif
+#include <webgpu/webgpu_glfw.h>
 namespace MarianaEngine
 {
 	namespace Core
 	{
+		using namespace wgpu;
 		struct ApplicationInfo
 		{
-			uint32_t Width = 512;
-			uint32_t Height = 512;
-			wgpu::Instance* instance;
-			wgpu::Adapter* adapter;
-			wgpu::Device* device;
 			const char* name;
 		};
 
-		struct MyUniforms {
-			float color[4];
-			float time;
-			float padding[3];
-		};
 		class Application
 		{
+			
 		public:
-			void Init(ApplicationInfo info);
+			Application(const ApplicationInfo& info);
+			~Application();
+
+			
+		private:
+			ApplicationInfo info;
+			Device m_device;
+			Queue m_queue;
+			GLFWwindow* m_window;
+			Surface surface;
+
+			void Init();
 			void MainLoop();
 			void CleanUp();
-		private:
-			uint32_t kWidth = 512;
-			uint32_t kHeight = 512;
-			wgpu::Instance instance;
-			wgpu::Adapter adapter;
-			wgpu::Device device;
-			wgpu::Queue queue;
-			wgpu::Surface surface;
-			wgpu::TextureFormat format;
-			wgpu::RenderPipeline pipeline;
-			GLFWwindow* window;
-
-			wgpu::Buffer vertexBuffer;
-			wgpu::Buffer indexBuffer;
-			uint32_t indexCount;
-
-			wgpu::Buffer uniformBuffer;
-
-			wgpu::PipelineLayout layout;
-			wgpu::BindGroupLayout bindGroupLayout;
-
-			wgpu::BindGroup bindGroup;
-			MyUniforms uniforms;
-
 			bool isRunning();
+			void SetupHardware();
 
-			void Render();
-			void InitGraphics();
-			void ConfigureSurface();
-			void CreateRenderPipeline();
-			void InitializeVertexBuffer();
+			void SetupWindow();
+
+			WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions const* options);
+			WGPUDevice requestDeviceSync(WGPUAdapter adapter, WGPUDeviceDescriptor const* descriptor);
 		};
 	}
 }
