@@ -14,7 +14,7 @@ namespace MarianaEngine
 	};
 	@group(0) @binding(0) var<uniform> uMyUniforms: MyUniforms;
 	struct VertexInput {
-    @location(0) position: vec2f,
+    @location(0) position: vec3f,
     @location(1) normal: vec3f,
 	};
 	struct VertexOutput {
@@ -27,7 +27,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let ratio = 640.0 / 480.0;
 
     // We now move the scene depending on the time!
-    var offset = vec2f(-0.6875, -0.463);
+    var offset = vec2f(0, 0);
     offset += 0.3 * vec2f(cos(uMyUniforms.time), sin(uMyUniforms.time));
 
     out.position = vec4f(in.position.x + offset.x, (in.position.y + offset.y) * ratio, 0.0, 1.0);
@@ -120,17 +120,17 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
 			std::vector<wgpu::VertexAttribute> vertexAttribs(2);
 
 			vertexAttribs[0].shaderLocation = 0;
-			vertexAttribs[0].format = wgpu::VertexFormat::Float32x2;
+			vertexAttribs[0].format = wgpu::VertexFormat::Float32x3;
 			vertexAttribs[0].offset = 0;
 
 			vertexAttribs[1].shaderLocation = 1; // @location(1)
 			vertexAttribs[1].format = wgpu::VertexFormat::Float32x3; // different type!
-			vertexAttribs[1].offset = 2 * sizeof(float); // non null offset!
+			vertexAttribs[1].offset = 3 * sizeof(float); // non null offset!
 
 			vertexBufferLayout.attributeCount = vertexAttribs.size();
 			vertexBufferLayout.attributes = vertexAttribs.data();
 
-			vertexBufferLayout.arrayStride = 5 * sizeof(float);
+			vertexBufferLayout.arrayStride = 6 * sizeof(float);
 			vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
 
 			wgpu::RenderPipelineDescriptor descriptor{};
@@ -268,14 +268,19 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
 		{
 			std::vector<float> vertexData = {
 				// x,   y,     r,   g,   b
-	-0.5, -0.5,   1.0, 0.0, 0.0,
-	+0.5, -0.5,   0.0, 1.0, 0.0,
-	+0.5, +0.5,   0.0, 0.0, 1.0,
-	-0.5, +0.5,   1.0, 1.0, 0.0
+			-0.5f, -0.5f, -0.3f, 1.0f, 1.0f, 1.0f,
+			+0.5f, -0.5f, -0.3f, 1.0f, 1.0f, 1.0f,
+			+0.5f, +0.5f, -0.3f, 1.0f, 1.0f, 1.0f,
+			-0.5f, +0.5f, -0.3f, 1.0f, 1.0f, 1.0f,
+			0.0f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f
 			};
 			std::vector<uint16_t> indexData = {
-				0, 1, 2, // Triangle #0 connects points #0, #1 and #2
-				0, 2, 3  // Triangle #1 connects points #0, #2 and #3
+				0, 1, 2, 
+				0, 2, 3,
+				0, 1, 4,
+				1, 2, 4,
+				2, 3, 4,
+				3, 0, 4
 			};
 			indexCount = static_cast<uint32_t>(indexData.size());
 
@@ -289,7 +294,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
 			// Upload geometry data to the buffer
 			queue.WriteBuffer(vertexBuffer, 0, vertexData.data(), bufferDesc.size);
 
-			bufferDesc.size = vertexData.size() * sizeof(uint16_t);
+			bufferDesc.size = indexData.size() * sizeof(uint16_t);
 			bufferDesc.size = (bufferDesc.size + 3) & ~3;
 			bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
 			bufferDesc.mappedAtCreation = false;
