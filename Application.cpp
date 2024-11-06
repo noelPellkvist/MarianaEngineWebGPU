@@ -20,10 +20,15 @@ const char shaderCode[] = R"(
         @location(0) normal: vec3f,
     };
 
+    @group(0) @binding(0) var<uniform> uTime: f32;
+
 
     @vertex fn vertexMain(in: VertexInput) -> VertexOutput {
         var out: VertexOutput; // create the output struct
-        out.position = vec4f(in.position, 0.0, 1.0); // same as what we used to directly return
+
+        var offset = 0.3 * vec2f(cos(uTime), sin(uTime));
+
+        out.position = vec4f(in.position.x + offset.x, in.position.y + offset.y, 0.0, 1.0); // same as what we used to directly return
         out.normal = in.normal; // forward the color attribute to the fragment shader
         return out;
     }
@@ -95,7 +100,20 @@ void Application::InitGraphics()
 {
     mesh.BuildMesh();
     ConfigureSurface();
+    InitUniforms();
     CreateRenderPipeline();
+}
+
+void Application::InitUniforms()
+{
+    using namespace wgpu;
+    BufferDescriptor bufferDesc;
+    bufferDesc.size = 4 * sizeof(float);
+    bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
+    bufferDesc.mappedAtCreation = false;
+    globalUBO = device.CreateBuffer(&bufferDesc);
+    float currentTime = 1.0f;
+    device.GetQueue().WriteBuffer(globalUBO, 0, &currentTime, sizeof(float));
 }
 
 void Application::Render()
@@ -113,9 +131,14 @@ void Application::Render()
 
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
+
+  float t = static_cast<float>(glfwGetTime());
+  device.GetQueue().WriteBuffer(globalUBO, 0, &t, sizeof(float));
+
   pass.SetPipeline(pipeline);
   pass.SetVertexBuffer(0, mesh.GetVertexBuffer(), 0, mesh.GetVertexBuffer().GetSize());
   pass.SetIndexBuffer(mesh.GetIndexBuffer(), wgpu::IndexFormat::Uint16, 0, mesh.GetIndexBuffer().GetSize());
+  pass.SetBindGroup(0, bindGroup, 0, nullptr);
   pass.DrawIndexed(mesh.getIndexCount(), 1, 0, 0);
   pass.End();
   wgpu::CommandBuffer commands = encoder.Finish();
@@ -140,19 +163,6 @@ void Application::CreateRenderPipeline()
                                     .targets = &colorTargetState};
 
   VertexBufferLayout vertexBufferLayout;
-
-//   VertexAttribute positionAttrib[2]; = {
-//     {.format = VertexFormat::Float32x2,
-//      .offset = 0,
-//      .shaderLocation = 0},
-//     {.format = VertexFormat::Float32x2,
-//      .offset = sizeof(glm::vec2)
-//      .shaderLocation = 1}
-//   };
-//   positionAttrib.shaderLocation = 0;
-//   positionAttrib.format = VertexFormat::Float32x2;
-//   positionAttrib.offset = 0;
-
   std::vector<VertexAttribute> attributes(2);
 
   attributes[0].format = VertexFormat::Float32x2;
@@ -168,7 +178,37 @@ void Application::CreateRenderPipeline()
   vertexBufferLayout.arrayStride = sizeof(Mesh::Vertex);
   vertexBufferLayout.stepMode = VertexStepMode::Vertex;
 
+  BindGroupLayoutEntry bindingLayout = {};
+  bindingLayout.binding = 0;
+  bindingLayout.visibility = ShaderStage::Vertex;
+  bindingLayout.buffer.type = BufferBindingType::Uniform;
+  bindingLayout.buffer.minBindingSize = 4 * sizeof(float);
+
+  BindGroupLayoutDescriptor bindGroupLayoutDesc{};
+  bindGroupLayoutDesc.entryCount = 1;
+  bindGroupLayoutDesc.entries = &bindingLayout;
+  bindGroupLayout = device.CreateBindGroupLayout(&bindGroupLayoutDesc);
+
+  BindGroupEntry binding{};
+
+  binding.binding = 0;
+  binding.buffer = globalUBO;
+  binding.offset = 0;
+  binding.size = 4 * sizeof(float);
+
+  BindGroupDescriptor bindGroupDesc{};
+  bindGroupDesc.layout = bindGroupLayout;
+  bindGroupDesc.entryCount = 1;
+  bindGroupDesc.entries = &binding;
+  bindGroup = device.CreateBindGroup(&bindGroupDesc);
+
+  PipelineLayoutDescriptor layoutDesc{};
+  layoutDesc.bindGroupLayoutCount = 1;
+  layoutDesc.bindGroupLayouts = &bindGroupLayout;
+  layout = device.CreatePipelineLayout(&layoutDesc);
+
   RenderPipelineDescriptor descriptor{
+      .layout = layout,
       .vertex = {.module = shaderModule,
                  .bufferCount = 1,
                  .buffers = &vertexBufferLayout},

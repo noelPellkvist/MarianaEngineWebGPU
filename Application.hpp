@@ -17,10 +17,17 @@ class Application
     wgpu::TextureFormat format;
     wgpu::RenderPipeline pipeline;
 
+
+    wgpu::Buffer globalUBO;
+    wgpu::PipelineLayout layout;
+    wgpu::BindGroupLayout bindGroupLayout;
+    wgpu::BindGroup bindGroup;
+
     
 
     void ConfigureSurface();
     void InitGraphics();
+    void InitUniforms();
     void CreateRenderPipeline();
     void Render();
 };
