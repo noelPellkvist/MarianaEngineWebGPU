@@ -9,12 +9,28 @@
 #include <iostream>
 
 const char shaderCode[] = R"(
-    @vertex fn vertexMain(@location(0) in_vertex_position: vec2f) -> @builtin(position) vec4f {
-	return vec4f(in_vertex_position, 0.0, 1.0);
-}
-    @fragment fn fragmentMain() -> @location(0) vec4f {
-        return vec4f(0.0, 0.4, 1.0, 1.0);
+
+    struct VertexInput {
+        @location(0) position: vec2f,
+        @location(1) normal: vec3f,
+    };
+
+    struct VertexOutput {
+        @builtin(position) position: vec4f,
+        @location(0) normal: vec3f,
+    };
+
+
+    @vertex fn vertexMain(in: VertexInput) -> VertexOutput {
+        var out: VertexOutput; // create the output struct
+        out.position = vec4f(in.position, 0.0, 1.0); // same as what we used to directly return
+        out.normal = in.normal; // forward the color attribute to the fragment shader
+        return out;
     }
+
+    @fragment fn fragmentMain(in: VertexOutput) -> @location(0) vec4f {
+        return vec4f(in.normal, 1.0); // use the interpolated color coming from the vertex shader
+}
 )";
 
 Mesh mesh;
@@ -124,13 +140,30 @@ void Application::CreateRenderPipeline()
 
   VertexBufferLayout vertexBufferLayout;
 
-  VertexAttribute positionAttrib;
-  positionAttrib.shaderLocation = 0;
-  positionAttrib.format = VertexFormat::Float32x2;
-  positionAttrib.offset = 0;
+//   VertexAttribute positionAttrib[2]; = {
+//     {.format = VertexFormat::Float32x2,
+//      .offset = 0,
+//      .shaderLocation = 0},
+//     {.format = VertexFormat::Float32x2,
+//      .offset = sizeof(glm::vec2)
+//      .shaderLocation = 1}
+//   };
+//   positionAttrib.shaderLocation = 0;
+//   positionAttrib.format = VertexFormat::Float32x2;
+//   positionAttrib.offset = 0;
 
-  vertexBufferLayout.attributeCount = 1;
-  vertexBufferLayout.attributes = &positionAttrib;
+  std::vector<VertexAttribute> attributes(2);
+
+  attributes[0].format = VertexFormat::Float32x2;
+  attributes[0].offset = 0;
+  attributes[0].shaderLocation = 0;
+
+  attributes[1].format = VertexFormat::Float32x3;
+  attributes[1].offset = sizeof(glm::vec2);
+  attributes[1].shaderLocation = 1;
+
+  vertexBufferLayout.attributeCount = attributes.size();
+  vertexBufferLayout.attributes = attributes.data();
   vertexBufferLayout.arrayStride = sizeof(Mesh::Vertex);
   vertexBufferLayout.stepMode = VertexStepMode::Vertex;
 

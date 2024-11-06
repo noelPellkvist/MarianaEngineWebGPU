@@ -5,13 +5,13 @@
 Mesh::Mesh()
 {
     vertices = {
-        {glm::vec2(-0.5, -0.5)},
-        {glm::vec2(0.5, -0.5)},
-        {glm::vec2(0.0, 0.5)},
+        {glm::vec2(-0.5, -0.5), glm::vec3(1,0,0)},
+        {glm::vec2(0.5, -0.5), glm::vec3(0,1,0)},
+        {glm::vec2(0.0, 0.5), glm::vec3(0,0,1)},
 
-        {glm::vec2(-0.55f, -0.5)},
-        {glm::vec2(-0.05f, 0.5)},
-        {glm::vec2(-0.55f, 0.5)}
+        {glm::vec2(-0.55f, -0.5), glm::vec3(1,1,0)},
+        {glm::vec2(-0.05f, 0.5), glm::vec3(1,0,1)},
+        {glm::vec2(-0.55f, 0.5), glm::vec3(0,1,1)}
     };
 }
 
