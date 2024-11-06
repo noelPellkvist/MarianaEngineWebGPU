@@ -7,11 +7,13 @@ Mesh::Mesh()
     vertices = {
         {glm::vec2(-0.5, -0.5), glm::vec3(1,0,0)},
         {glm::vec2(0.5, -0.5), glm::vec3(0,1,0)},
-        {glm::vec2(0.0, 0.5), glm::vec3(0,0,1)},
+        {glm::vec2(0.5, 0.5), glm::vec3(0,0,1)},
+        {glm::vec2(-0.5, 0.5), glm::vec3(1,1,0)}
+    };
 
-        {glm::vec2(-0.55f, -0.5), glm::vec3(1,1,0)},
-        {glm::vec2(-0.05f, 0.5), glm::vec3(1,0,1)},
-        {glm::vec2(-0.55f, 0.5), glm::vec3(0,1,1)}
+    indices = {
+        0,1,2,
+        0,2,3
     };
 }
 
@@ -24,8 +26,14 @@ void Mesh::BuildMesh()
     bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
     bufferDesc.mappedAtCreation = false;
     vertexBuffer = device.CreateBuffer(&bufferDesc);
-
     device.GetQueue().WriteBuffer(vertexBuffer, 0, vertices.data(), bufferDesc.size); 
+
+    bufferDesc.size = indices.size() * sizeof(uint16_t);
+    bufferDesc.size = (bufferDesc.size + 3) & ~3;
+    bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
+    
+    indexBuffer = device.CreateBuffer(&bufferDesc);
+    device.GetQueue().WriteBuffer(indexBuffer, 0, indices.data(), bufferDesc.size); 
 }
 
 Mesh::~Mesh()

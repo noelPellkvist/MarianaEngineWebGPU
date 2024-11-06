@@ -20,13 +20,15 @@ class Mesh
 
     void BuildMesh();
 
-    uint32_t getVertexCount() { return vertices.size(); }
+    uint32_t getIndexCount() { return indices.size(); }
 
     const wgpu::Buffer& GetVertexBuffer() { return vertexBuffer; }
+    const wgpu::Buffer& GetIndexBuffer() { return indexBuffer; }
 
     private:
     std::vector<Vertex> vertices;
     std::vector<uint16_t> indices;
 
     wgpu::Buffer vertexBuffer;
+    wgpu::Buffer indexBuffer;
 };
