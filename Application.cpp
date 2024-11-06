@@ -20,13 +20,18 @@ const char shaderCode[] = R"(
         @location(0) normal: vec3f,
     };
 
-    @group(0) @binding(0) var<uniform> uTime: f32;
+    struct GB {
+        color: vec4f,
+        time: f32,
+    };
+
+    @group(0) @binding(0) var<uniform> UBO: GB;
 
 
     @vertex fn vertexMain(in: VertexInput) -> VertexOutput {
         var out: VertexOutput; // create the output struct
 
-        var offset = 0.3 * vec2f(cos(uTime), sin(uTime));
+        var offset = 0.3 * vec2f(cos(UBO.time), sin(UBO.time));
 
         out.position = vec4f(in.position.x + offset.x, in.position.y + offset.y, 0.0, 1.0); // same as what we used to directly return
         out.normal = in.normal; // forward the color attribute to the fragment shader
@@ -34,7 +39,9 @@ const char shaderCode[] = R"(
     }
 
     @fragment fn fragmentMain(in: VertexOutput) -> @location(0) vec4f {
-        return vec4f(in.normal, 1.0); // use the interpolated color coming from the vertex shader
+        let color = in.normal * UBO.color.rgb;
+        let corrected_color = pow(color, vec3f(2.2));
+        return vec4f(corrected_color, UBO.color.a);
 }
 )";
 
@@ -108,12 +115,19 @@ void Application::InitUniforms()
 {
     using namespace wgpu;
     BufferDescriptor bufferDesc;
-    bufferDesc.size = 4 * sizeof(float);
+    bufferDesc.size = sizeof(UBO);
     bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
     bufferDesc.mappedAtCreation = false;
     globalUBO = device.CreateBuffer(&bufferDesc);
-    float currentTime = 1.0f;
-    device.GetQueue().WriteBuffer(globalUBO, 0, &currentTime, sizeof(float));
+    
+    
+    ubo.time = 1.0f;
+    ubo.color[0] = 0;
+    ubo.color[1] = 1;
+    ubo.color[2] = 0.4;
+    ubo.color[3] = 1;
+
+    device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 }
 
 void Application::Render()
@@ -132,8 +146,8 @@ void Application::Render()
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
 
-  float t = static_cast<float>(glfwGetTime());
-  device.GetQueue().WriteBuffer(globalUBO, 0, &t, sizeof(float));
+  ubo.time = static_cast<float>(glfwGetTime());
+  device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 
   pass.SetPipeline(pipeline);
   pass.SetVertexBuffer(0, mesh.GetVertexBuffer(), 0, mesh.GetVertexBuffer().GetSize());
@@ -180,9 +194,9 @@ void Application::CreateRenderPipeline()
 
   BindGroupLayoutEntry bindingLayout = {};
   bindingLayout.binding = 0;
-  bindingLayout.visibility = ShaderStage::Vertex;
+  bindingLayout.visibility = ShaderStage::Vertex | ShaderStage::Fragment;
   bindingLayout.buffer.type = BufferBindingType::Uniform;
-  bindingLayout.buffer.minBindingSize = 4 * sizeof(float);
+  bindingLayout.buffer.minBindingSize = sizeof(UBO);
 
   BindGroupLayoutDescriptor bindGroupLayoutDesc{};
   bindGroupLayoutDesc.entryCount = 1;
@@ -194,7 +208,7 @@ void Application::CreateRenderPipeline()
   binding.binding = 0;
   binding.buffer = globalUBO;
   binding.offset = 0;
-  binding.size = 4 * sizeof(float);
+  binding.size = sizeof(UBO);
 
   BindGroupDescriptor bindGroupDesc{};
   bindGroupDesc.layout = bindGroupLayout;

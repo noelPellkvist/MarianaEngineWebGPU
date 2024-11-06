@@ -23,6 +23,14 @@ class Application
     wgpu::BindGroupLayout bindGroupLayout;
     wgpu::BindGroup bindGroup;
 
+    struct UBO {
+        float color[4];
+        float time;
+        float _pad[3];
+    };
+
+    UBO ubo;
+
     
 
     void ConfigureSurface();
