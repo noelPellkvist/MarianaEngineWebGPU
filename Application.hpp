@@ -1,7 +1,7 @@
 #pragma once
 #include "GlobalVaribles.hpp"
 #include "Mesh.hpp"
-
+#include <glm.hpp>
 #include <vector>
 
 class Application
@@ -15,8 +15,8 @@ class Application
     uint32_t kWidth, kHeight;
     wgpu::Surface surface;
     wgpu::TextureFormat format;
-    wgpu::RenderPipeline pipeline;
-
+    wgpu::RenderPipeline pipeline;  
+    wgpu::TextureView depthTextureView;
 
     wgpu::Buffer globalUBO;
     wgpu::PipelineLayout layout;
@@ -34,6 +34,7 @@ class Application
     
 
     void ConfigureSurface();
+    void SetupWindow();
     void InitGraphics();
     void InitUniforms();
     void CreateRenderPipeline();

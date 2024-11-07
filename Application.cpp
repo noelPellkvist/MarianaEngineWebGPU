@@ -11,7 +11,7 @@
 const char shaderCode[] = R"(
 
     struct VertexInput {
-        @location(0) position: vec2f,
+        @location(0) position: vec3f,
         @location(1) normal: vec3f,
     };
 
@@ -29,12 +29,19 @@ const char shaderCode[] = R"(
 
 
     @vertex fn vertexMain(in: VertexInput) -> VertexOutput {
-        var out: VertexOutput; // create the output struct
+        var out: VertexOutput;
+        let ratio = 768.0 / 480.0;
+        let angle = UBO.time;
+        let alpha = cos(angle);
+	      let beta = sin(angle);
+	      var position = vec3f(
+		      in.position.x,
+		      alpha * in.position.y + beta * in.position.z,
+		      alpha * in.position.z - beta * in.position.y,
+	      );
 
-        var offset = 0.3 * vec2f(cos(UBO.time), sin(UBO.time));
-
-        out.position = vec4f(in.position.x + offset.x, in.position.y + offset.y, 0.0, 1.0); // same as what we used to directly return
-        out.normal = in.normal; // forward the color attribute to the fragment shader
+        out.position = vec4f(position.x, position.y * ratio, position.z * 0.5 + 0.5, 1.0);
+        out.normal = in.normal;
         return out;
     }
 
@@ -50,7 +57,12 @@ Mesh mesh;
 Application::Application() : name("Mariana Engine"), kWidth(768), kHeight(480)
 {
     std::cout << "Starting app" << std::endl;
-    if (!glfwInit()) {
+    SetupWindow();
+}
+
+void Application::SetupWindow()
+{
+  if (!glfwInit()) {
     return;
   }
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -122,9 +134,9 @@ void Application::InitUniforms()
     
     
     ubo.time = 1.0f;
-    ubo.color[0] = 0;
+    ubo.color[0] = 1;
     ubo.color[1] = 1;
-    ubo.color[2] = 0.4;
+    ubo.color[2] = 1;
     ubo.color[3] = 1;
 
     device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
@@ -140,8 +152,21 @@ void Application::Render()
       .loadOp = wgpu::LoadOp::Clear,
       .storeOp = wgpu::StoreOp::Store};
 
+  wgpu::RenderPassDepthStencilAttachment depthStencilAttachment;
+
+  depthStencilAttachment.view = depthTextureView;
+  depthStencilAttachment.depthClearValue = 1;
+  depthStencilAttachment.depthLoadOp = wgpu::LoadOp::Clear;
+  depthStencilAttachment.depthStoreOp = wgpu::StoreOp::Store;
+  depthStencilAttachment.depthReadOnly = false;
+  depthStencilAttachment.stencilClearValue = 0;
+  depthStencilAttachment.stencilLoadOp = wgpu::LoadOp::Undefined;
+  depthStencilAttachment.stencilStoreOp = wgpu::StoreOp::Undefined;
+  depthStencilAttachment.stencilReadOnly = true;
+
   wgpu::RenderPassDescriptor renderpass{.colorAttachmentCount = 1,
-                                        .colorAttachments = &attachment};
+                                        .colorAttachments = &attachment,
+                                        .depthStencilAttachment = &depthStencilAttachment};
 
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
@@ -179,12 +204,12 @@ void Application::CreateRenderPipeline()
   VertexBufferLayout vertexBufferLayout;
   std::vector<VertexAttribute> attributes(2);
 
-  attributes[0].format = VertexFormat::Float32x2;
+  attributes[0].format = VertexFormat::Float32x3;
   attributes[0].offset = 0;
   attributes[0].shaderLocation = 0;
 
   attributes[1].format = VertexFormat::Float32x3;
-  attributes[1].offset = sizeof(glm::vec2);
+  attributes[1].offset = sizeof(glm::vec3);
   attributes[1].shaderLocation = 1;
 
   vertexBufferLayout.attributeCount = attributes.size();
@@ -221,11 +246,41 @@ void Application::CreateRenderPipeline()
   layoutDesc.bindGroupLayouts = &bindGroupLayout;
   layout = device.CreatePipelineLayout(&layoutDesc);
 
+  TextureFormat depthTextureFormat = TextureFormat::Depth24Plus;
+  TextureDescriptor depthTextureDesc;
+  depthTextureDesc.dimension = TextureDimension::e2D;
+  depthTextureDesc.format = depthTextureFormat;
+  depthTextureDesc.mipLevelCount = 1;
+  depthTextureDesc.sampleCount = 1;
+  depthTextureDesc.size = {kWidth, kHeight, 1};
+  depthTextureDesc.usage = TextureUsage::RenderAttachment;
+  depthTextureDesc.viewFormatCount = 1;
+  depthTextureDesc.viewFormats = &depthTextureFormat;
+  Texture depthTexture = device.CreateTexture(&depthTextureDesc);
+
+  TextureViewDescriptor depthTextureViewDesc;
+  depthTextureViewDesc.aspect = TextureAspect::DepthOnly;
+  depthTextureViewDesc.baseArrayLayer = 0;
+  depthTextureViewDesc.arrayLayerCount = 1;
+  depthTextureViewDesc.baseMipLevel = 0;
+  depthTextureViewDesc.mipLevelCount = 1;
+  depthTextureViewDesc.dimension = TextureViewDimension::e2D;
+  depthTextureViewDesc.format = depthTextureFormat;
+  depthTextureView = depthTexture.CreateView(&depthTextureViewDesc);
+
+  DepthStencilState depthStencilState = {};
+  depthStencilState.depthCompare = CompareFunction::LessEqual;
+  depthStencilState.depthWriteEnabled = true;
+  depthStencilState.format = depthTextureFormat;
+  depthStencilState.stencilReadMask = 0;
+  depthStencilState.stencilWriteMask = 0;
+
   RenderPipelineDescriptor descriptor{
       .layout = layout,
       .vertex = {.module = shaderModule,
                  .bufferCount = 1,
                  .buffers = &vertexBufferLayout},
+      .depthStencil = &depthStencilState,
       .fragment = &fragmentState};
   pipeline = device.CreateRenderPipeline(&descriptor);
 }

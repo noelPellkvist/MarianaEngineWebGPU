@@ -6,12 +6,10 @@
 
 class Mesh 
 {
-    
-
     public:
 
     struct Vertex {
-        glm::vec2 position;
+        glm::vec3 position;
         glm::vec3 normal;
     };
 
@@ -20,7 +18,7 @@ class Mesh
 
     void BuildMesh();
 
-    uint32_t getIndexCount() { return indices.size(); }
+    uint32_t getIndexCount() { return static_cast<uint32_t>(indices.size()); }
 
     const wgpu::Buffer& GetVertexBuffer() { return vertexBuffer; }
     const wgpu::Buffer& GetIndexBuffer() { return indexBuffer; }
