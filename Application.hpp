@@ -2,6 +2,7 @@
 #include "GlobalVaribles.hpp"
 #include "Mesh.hpp"
 #include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
 #include <vector>
 
 class Application
@@ -24,6 +25,9 @@ class Application
     wgpu::BindGroup bindGroup;
 
     struct UBO {
+        glm::mat4x4 projectionMatrix;
+        glm::mat4x4 viewMatrix;
+        glm::mat4x4 modelMatrix;
         float color[4];
         float time;
         float _pad[3];

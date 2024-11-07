@@ -21,6 +21,9 @@ const char shaderCode[] = R"(
     };
 
     struct GB {
+        projectionMatrix: mat4x4f,
+        viewMatrix: mat4x4f,
+        modelMatrix: mat4x4f,
         color: vec4f,
         time: f32,
     };
@@ -30,18 +33,9 @@ const char shaderCode[] = R"(
 
     @vertex fn vertexMain(in: VertexInput) -> VertexOutput {
         var out: VertexOutput;
-        let ratio = 768.0 / 480.0;
-        let angle = UBO.time;
-        let alpha = cos(angle);
-	      let beta = sin(angle);
-	      var position = vec3f(
-		      in.position.x,
-		      alpha * in.position.y + beta * in.position.z,
-		      alpha * in.position.z - beta * in.position.y,
-	      );
 
-        out.position = vec4f(position.x, position.y * ratio, position.z * 0.5 + 0.5, 1.0);
-        out.normal = in.normal;
+        out.position = UBO.projectionMatrix * UBO.viewMatrix * UBO.modelMatrix * vec4f(in.position, 1.0);
+        out.normal = (UBO.modelMatrix * vec4f(in.normal, 0.0)).xyz;
         return out;
     }
 
@@ -139,6 +133,11 @@ void Application::InitUniforms()
     ubo.color[2] = 1;
     ubo.color[3] = 1;
 
+    float aspect = kWidth/kHeight;
+    ubo.projectionMatrix = glm::perspective(45.0f * 0.01745329251f, aspect, 0.01f, 100.0f);
+    ubo.viewMatrix = glm::lookAt(glm::vec3(-0.5f, -2.5f, 2.0f), glm::vec3(0.0f), glm::vec3(0, 0, 1));
+    ubo.modelMatrix = glm::mat4x4(1);
+
     device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 }
 
@@ -172,6 +171,7 @@ void Application::Render()
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
 
   ubo.time = static_cast<float>(glfwGetTime());
+  ubo.modelMatrix = glm::rotate(ubo.modelMatrix, 0.01f, glm::vec3(0,0,1));
   device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 
   pass.SetPipeline(pipeline);
