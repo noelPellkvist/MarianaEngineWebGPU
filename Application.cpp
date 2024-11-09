@@ -5,7 +5,7 @@
 #else
 #include <webgpu/webgpu_glfw.h>
 #endif
-
+#include "Resources.h"
 #include <iostream>
 
 const char shaderCode[] = R"(
@@ -187,13 +187,19 @@ void Application::Render()
 void Application::CreateRenderPipeline()
 {
     using namespace wgpu;
-    ShaderModuleWGSLDescriptor wgslDesc{};
-  wgslDesc.code = shaderCode;
+  //   ShaderModuleWGSLDescriptor wgslDesc{};
+  // wgslDesc.code = shaderCode;
 
-  ShaderModuleDescriptor shaderModuleDescriptor{
-      .nextInChain = &wgslDesc};
-  ShaderModule shaderModule =
-      device.CreateShaderModule(&shaderModuleDescriptor);
+  // ShaderModuleDescriptor shaderModuleDescriptor{
+  //     .nextInChain = &wgslDesc};
+  // ShaderModule shaderModule =
+  //     device.CreateShaderModule(&shaderModuleDescriptor);
+  std::cout << "Creating shader module: " << (RESOURCE_DIR "/Shaders/standard.wgsl") << std::endl;
+  ShaderModule shaderModule = Resources::LoadShader(RESOURCE_DIR "/Shaders/standard.wgsl");
+  if (shaderModule == nullptr) {
+    std::cerr << "Could not load shader!" << std::endl;
+    exit(1);
+  } else std::cout << "Loaded shader succesfully" << std::endl;
 
   ColorTargetState colorTargetState{.format = format};
 

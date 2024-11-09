@@ -2,8 +2,10 @@ cmake_minimum_required(VERSION 3.13) # CMake version check
 project(app)                         # Create project "app"
 set(CMAKE_CXX_STANDARD 20)           # Enable C++20 standard
 
-add_executable(app "main.cpp" "GlobalVaribles.cpp" "Application.cpp" "Mesh.cpp")
-
+add_executable(app "main.cpp" "GlobalVaribles.cpp" "Application.cpp" "Mesh.cpp" "Resources.cpp")
+target_compile_definitions(app PRIVATE
+    RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Resources"
+)
 target_include_directories(app PRIVATE "${CMAKE_SOURCE_DIR}/glm")
 
 if(EMSCRIPTEN)
