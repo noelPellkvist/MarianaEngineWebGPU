@@ -17,6 +17,7 @@ class Mesh
     ~Mesh();
 
     void BuildMesh();
+    void LoadObjMesh();
 
     uint32_t getIndexCount() { return static_cast<uint32_t>(indices.size()); }
 

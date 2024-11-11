@@ -5,6 +5,8 @@
 
 class Resources 
 {
+    private:
+    static std::string LoadString(const std::string& path);
     public:
-    static wgpu::ShaderModule LoadShader(const std::filesystem::path& path);
+    static wgpu::ShaderModule LoadShader(const std::string& path);
 };

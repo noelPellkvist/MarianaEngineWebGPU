@@ -194,8 +194,8 @@ void Application::CreateRenderPipeline()
   //     .nextInChain = &wgslDesc};
   // ShaderModule shaderModule =
   //     device.CreateShaderModule(&shaderModuleDescriptor);
-  std::cout << "Creating shader module: " << (RESOURCE_DIR "/Shaders/standard.wgsl") << std::endl;
-  ShaderModule shaderModule = Resources::LoadShader(RESOURCE_DIR "/Shaders/standard.wgsl");
+  //std::cout << "Creating shader module: " << (RESOURCE_DIR "/Shaders/standard.wgsl") << std::endl;
+  ShaderModule shaderModule = Resources::LoadShader("/Shaders/standard.wgsl");
   if (shaderModule == nullptr) {
     std::cerr << "Could not load shader!" << std::endl;
     exit(1);
