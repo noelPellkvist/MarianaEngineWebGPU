@@ -23,6 +23,10 @@ Mesh::Mesh()
     };
 }
 
+Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indices) : vertices(vertices), indices(indices)
+{
+}
+
 void Mesh::BuildMesh()
 {
     

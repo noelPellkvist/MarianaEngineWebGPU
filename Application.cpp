@@ -111,6 +111,7 @@ void Application::ConfigureSurface()
 
 void Application::InitGraphics()
 {
+    mesh = Resources::LoadOBJMesh("/Cube.obj");
     mesh.BuildMesh();
     ConfigureSurface();
     InitUniforms();
@@ -133,10 +134,10 @@ void Application::InitUniforms()
     ubo.color[2] = 1;
     ubo.color[3] = 1;
 
-    float aspect = kWidth/kHeight;
+    float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
     ubo.projectionMatrix = glm::perspective(45.0f * 0.01745329251f, aspect, 0.01f, 100.0f);
-    ubo.viewMatrix = glm::lookAt(glm::vec3(-0.5f, -2.5f, 2.0f), glm::vec3(0.0f), glm::vec3(0, 0, 1));
-    ubo.modelMatrix = glm::mat4x4(1);
+    ubo.viewMatrix = glm::lookAt(glm::vec3(-1.0f, -5.0f, 4.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.modelMatrix = glm::mat4x4(1.0f);
 
     device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 }
