@@ -48,7 +48,7 @@ const char shaderCode[] = R"(
 
 Mesh mesh;
 
-Application::Application() : name("Mariana Engine"), kWidth(768), kHeight(480)
+Application::Application() : name("Mariana Engine"), kWidth(1280), kHeight(768)
 {
     std::cout << "Starting app" << std::endl;
     SetupWindow();
@@ -136,8 +136,9 @@ void Application::InitUniforms()
 
     float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
     ubo.projectionMatrix = glm::perspective(45.0f * 0.01745329251f, aspect, 0.01f, 100.0f);
-    ubo.viewMatrix = glm::lookAt(glm::vec3(-1.0f, -5.0f, 4.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.viewMatrix = glm::lookAt(glm::vec3(-10.0f, -10.0f, 1.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.modelMatrix = glm::mat4x4(1.0f);
+    ubo.modelMatrix = glm::rotate(ubo.modelMatrix, 3.14f, glm::vec3(0,1,0));
 
     device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 }
@@ -209,7 +210,7 @@ void Application::CreateRenderPipeline()
                                     .targets = &colorTargetState};
 
   VertexBufferLayout vertexBufferLayout;
-  std::vector<VertexAttribute> attributes(2);
+  std::vector<VertexAttribute> attributes(4);
 
   attributes[0].format = VertexFormat::Float32x3;
   attributes[0].offset = 0;
@@ -218,6 +219,14 @@ void Application::CreateRenderPipeline()
   attributes[1].format = VertexFormat::Float32x3;
   attributes[1].offset = sizeof(glm::vec3);
   attributes[1].shaderLocation = 1;
+
+  attributes[2].format = VertexFormat::Float32x3;
+  attributes[2].offset = 2 * sizeof(glm::vec3);
+  attributes[2].shaderLocation = 2;
+
+  attributes[3].format = VertexFormat::Float32x2;
+  attributes[3].offset = 3 * sizeof(glm::vec3);
+  attributes[3].shaderLocation = 3;
 
   vertexBufferLayout.attributeCount = attributes.size();
   vertexBufferLayout.attributes = attributes.data();

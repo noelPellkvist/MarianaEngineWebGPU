@@ -29,8 +29,6 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& ind
 
 void Mesh::BuildMesh()
 {
-    
-
     wgpu::BufferDescriptor bufferDesc;
     bufferDesc.size = vertices.size() * sizeof(Vertex);
     bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;

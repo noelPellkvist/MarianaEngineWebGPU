@@ -42,8 +42,8 @@ std::string Resources::LoadString(const std::string& path)
 #include "tiny_obj_loader.h"
 Mesh Resources::LoadOBJMesh(const std::string& path)
 {
-    std::filesystem::path realPath = std::string(RESOURCE_DIR) + path;
-    std::cout << "Loading model: " << realPath.string() << std::endl;
+    std::string str = LoadString(path);
+    std::istringstream stream(str);
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -51,7 +51,7 @@ Mesh Resources::LoadOBJMesh(const std::string& path)
     std::string warn;
     std::string err;
 
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, realPath.string().c_str())) {
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, &stream)) {
 				throw std::runtime_error(warn + err);
 			}
 
@@ -77,10 +77,12 @@ Mesh Resources::LoadOBJMesh(const std::string& path)
 				attrib.normals[3 * index.normal_index + 2]
 			};
 
-			// vertex.uv = {
-			// 	attrib.texcoords[2 * index.texcoord_index + 0],
-			// 	1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-			// };
+            vertex.color = { 1.0f, 1.0f, 1.0f };
+
+			vertex.uv = {
+				attrib.texcoords[2 * index.texcoord_index + 0],
+				1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+			};
 
             vertices.push_back(vertex);
             indices.push_back(i);
