@@ -8,44 +8,6 @@
 #include "Resources.h"
 #include <iostream>
 
-const char shaderCode[] = R"(
-
-    struct VertexInput {
-        @location(0) position: vec3f,
-        @location(1) normal: vec3f,
-    };
-
-    struct VertexOutput {
-        @builtin(position) position: vec4f,
-        @location(0) normal: vec3f,
-    };
-
-    struct GB {
-        projectionMatrix: mat4x4f,
-        viewMatrix: mat4x4f,
-        modelMatrix: mat4x4f,
-        color: vec4f,
-        time: f32,
-    };
-
-    @group(0) @binding(0) var<uniform> UBO: GB;
-
-
-    @vertex fn vertexMain(in: VertexInput) -> VertexOutput {
-        var out: VertexOutput;
-
-        out.position = UBO.projectionMatrix * UBO.viewMatrix * UBO.modelMatrix * vec4f(in.position, 1.0);
-        out.normal = (UBO.modelMatrix * vec4f(in.normal, 0.0)).xyz;
-        return out;
-    }
-
-    @fragment fn fragmentMain(in: VertexOutput) -> @location(0) vec4f {
-        let color = in.normal * UBO.color.rgb;
-        let corrected_color = pow(color, vec3f(2.2));
-        return vec4f(corrected_color, UBO.color.a);
-}
-)";
-
 Mesh mesh;
 
 Application::Application() : name("Mariana Engine"), kWidth(1280), kHeight(768)
@@ -71,7 +33,6 @@ void Application::SetupWindow()
 #else
   surface = wgpu::glfw::CreateSurfaceForWindow(instance, window);
 #endif
-
     InitGraphics();
 
   #if defined(__EMSCRIPTEN__)
@@ -141,6 +102,58 @@ void Application::InitUniforms()
     ubo.modelMatrix = glm::rotate(ubo.modelMatrix, 3.14f, glm::vec3(0,1,0));
 
     device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
+
+
+    //Create Texture
+    TextureFormat textureFormat = TextureFormat::RGBA8Unorm;
+    TextureDescriptor textureDesc;
+    textureDesc.dimension = TextureDimension::e2D;
+    textureDesc.format = textureFormat;
+    textureDesc.mipLevelCount = 1;
+    textureDesc.sampleCount = 1;
+    textureDesc.size = {kWidth, kHeight, 1};
+    textureDesc.usage = TextureUsage::TextureBinding | TextureUsage::CopyDst;
+    textureDesc.viewFormatCount = 1;
+    textureDesc.viewFormats = &textureFormat;
+    Texture texture = device.CreateTexture(&textureDesc);
+
+    TextureViewDescriptor textureViewDesc;
+    textureViewDesc.aspect = TextureAspect::All;
+    textureViewDesc.baseArrayLayer = 0;
+    textureViewDesc.arrayLayerCount = 1;
+    textureViewDesc.baseMipLevel = 0;
+    textureViewDesc.mipLevelCount = 1;
+    textureViewDesc.dimension = TextureViewDimension::e2D;
+    textureViewDesc.format = textureFormat;
+    textureView = texture.CreateView(&textureViewDesc);
+
+    std::vector<uint8_t> pixels(4 * textureDesc.size.width * textureDesc.size.height);
+	for (uint32_t i = 0; i < textureDesc.size.width; ++i) {
+		for (uint32_t j = 0; j < textureDesc.size.height; ++j) {
+			uint8_t *p = &pixels[4 * (j * textureDesc.size.width + i)];
+			p[0] = (uint8_t)i; // r
+			p[1] = (uint8_t)j; // g
+			p[2] = 128; // b
+			p[3] = 255; // a
+		}
+	}
+
+	// Upload texture data
+	// Arguments telling which part of the texture we upload to
+	// (together with the last argument of writeTexture)
+	ImageCopyTexture destination;
+	destination.texture = texture;
+	destination.mipLevel = 0;
+	destination.origin = { 0, 0, 0 }; // equivalent of the offset argument of Queue::writeBuffer
+	destination.aspect = TextureAspect::All; // only relevant for depth/Stencil textures
+
+	// Arguments telling how the C++ side pixel memory is laid out
+	TextureDataLayout source;
+	source.offset = 0;
+	source.bytesPerRow = 4 * textureDesc.size.width;
+	source.rowsPerImage = textureDesc.size.height;
+
+  device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &source, &textureDesc.size);
 }
 
 void Application::Render()
@@ -189,14 +202,6 @@ void Application::Render()
 void Application::CreateRenderPipeline()
 {
     using namespace wgpu;
-  //   ShaderModuleWGSLDescriptor wgslDesc{};
-  // wgslDesc.code = shaderCode;
-
-  // ShaderModuleDescriptor shaderModuleDescriptor{
-  //     .nextInChain = &wgslDesc};
-  // ShaderModule shaderModule =
-  //     device.CreateShaderModule(&shaderModuleDescriptor);
-  //std::cout << "Creating shader module: " << (RESOURCE_DIR "/Shaders/standard.wgsl") << std::endl;
   ShaderModule shaderModule = Resources::LoadShader("/Shaders/standard.wgsl");
   if (shaderModule == nullptr) {
     std::cerr << "Could not load shader!" << std::endl;
@@ -233,28 +238,40 @@ void Application::CreateRenderPipeline()
   vertexBufferLayout.arrayStride = sizeof(Mesh::Vertex);
   vertexBufferLayout.stepMode = VertexStepMode::Vertex;
 
-  BindGroupLayoutEntry bindingLayout = {};
-  bindingLayout.binding = 0;
-  bindingLayout.visibility = ShaderStage::Vertex | ShaderStage::Fragment;
-  bindingLayout.buffer.type = BufferBindingType::Uniform;
-  bindingLayout.buffer.minBindingSize = sizeof(UBO);
+  std::vector<BindGroupLayoutEntry> bindingLayouts(2);
+  bindingLayouts[0] = {};
+  bindingLayouts[0].binding = 0;
+  bindingLayouts[0].visibility = ShaderStage::Vertex | ShaderStage::Fragment;
+  bindingLayouts[0].buffer.type = BufferBindingType::Uniform;
+  bindingLayouts[0].buffer.minBindingSize = sizeof(UBO);
+
+  bindingLayouts[1] = {};
+  bindingLayouts[1].binding = 1;
+  bindingLayouts[1].visibility = ShaderStage::Fragment;
+  bindingLayouts[1].texture.sampleType = TextureSampleType::Float;
+  bindingLayouts[1].texture.viewDimension = TextureViewDimension::e2D;
 
   BindGroupLayoutDescriptor bindGroupLayoutDesc{};
-  bindGroupLayoutDesc.entryCount = 1;
-  bindGroupLayoutDesc.entries = &bindingLayout;
+  bindGroupLayoutDesc.entryCount = (uint32_t)bindingLayouts.size();
+  bindGroupLayoutDesc.entries = bindingLayouts.data();
   bindGroupLayout = device.CreateBindGroupLayout(&bindGroupLayoutDesc);
 
-  BindGroupEntry binding{};
+  std::vector<BindGroupEntry> bindings(2);
 
-  binding.binding = 0;
-  binding.buffer = globalUBO;
-  binding.offset = 0;
-  binding.size = sizeof(UBO);
+  bindings[0] = {};
+  bindings[0].binding = 0;
+  bindings[0].buffer = globalUBO;
+  bindings[0].offset = 0;
+  bindings[0].size = sizeof(UBO);
+
+  bindings[1] = {};
+  bindings[1].binding = 1;
+  bindings[1].textureView = textureView;
 
   BindGroupDescriptor bindGroupDesc{};
   bindGroupDesc.layout = bindGroupLayout;
-  bindGroupDesc.entryCount = 1;
-  bindGroupDesc.entries = &binding;
+  bindGroupDesc.entryCount = (uint32_t)bindings.size();
+  bindGroupDesc.entries = bindings.data();
   bindGroup = device.CreateBindGroup(&bindGroupDesc);
 
   PipelineLayoutDescriptor layoutDesc{};

@@ -34,7 +34,7 @@ class Application
     };
 
     UBO ubo;
-
+    wgpu::TextureView textureView;
     
 
     void ConfigureSurface();
