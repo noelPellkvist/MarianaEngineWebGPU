@@ -72,7 +72,7 @@ void Application::ConfigureSurface()
 
 void Application::InitGraphics()
 {
-    mesh = Resources::LoadOBJMesh("/Cube.obj");
+    mesh = Resources::LoadOBJMesh("/viking_room.obj");
     mesh.BuildMesh();
     ConfigureSurface();
     InitUniforms();
@@ -98,7 +98,7 @@ void Application::InitUniforms()
     float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
     ubo.projectionMatrix = glm::perspective(45.0f * 0.01745329251f, aspect, 0.01f, 100.0f);
     ubo.viewMatrix = glm::lookAt(glm::vec3(-10.0f, -10.0f, 1.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.modelMatrix = glm::mat4x4(1.0f);
+    ubo.modelMatrix = glm::mat4x4(4.0f);
     ubo.modelMatrix = glm::rotate(ubo.modelMatrix, 3.14f, glm::vec3(0,1,0));
 
     device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
@@ -214,7 +214,7 @@ void Application::CreateRenderPipeline()
 
   bindings[1] = {};
   bindings[1].binding = 1;
-  bindings[1].textureView = Resources::LoadTexture("BANANA.jpeg");
+  bindings[1].textureView = Resources::LoadTexture("viking_room.png");
 
   BindGroupDescriptor bindGroupDesc{};
   bindGroupDesc.layout = bindGroupLayout;
