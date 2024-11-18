@@ -102,58 +102,6 @@ void Application::InitUniforms()
     ubo.modelMatrix = glm::rotate(ubo.modelMatrix, 3.14f, glm::vec3(0,1,0));
 
     device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
-
-
-    //Create Texture
-    TextureFormat textureFormat = TextureFormat::RGBA8Unorm;
-    TextureDescriptor textureDesc;
-    textureDesc.dimension = TextureDimension::e2D;
-    textureDesc.format = textureFormat;
-    textureDesc.mipLevelCount = 1;
-    textureDesc.sampleCount = 1;
-    textureDesc.size = {kWidth, kHeight, 1};
-    textureDesc.usage = TextureUsage::TextureBinding | TextureUsage::CopyDst;
-    textureDesc.viewFormatCount = 1;
-    textureDesc.viewFormats = &textureFormat;
-    Texture texture = device.CreateTexture(&textureDesc);
-
-    TextureViewDescriptor textureViewDesc;
-    textureViewDesc.aspect = TextureAspect::All;
-    textureViewDesc.baseArrayLayer = 0;
-    textureViewDesc.arrayLayerCount = 1;
-    textureViewDesc.baseMipLevel = 0;
-    textureViewDesc.mipLevelCount = 1;
-    textureViewDesc.dimension = TextureViewDimension::e2D;
-    textureViewDesc.format = textureFormat;
-    textureView = texture.CreateView(&textureViewDesc);
-
-    std::vector<uint8_t> pixels(4 * textureDesc.size.width * textureDesc.size.height);
-	for (uint32_t i = 0; i < textureDesc.size.width; ++i) {
-		for (uint32_t j = 0; j < textureDesc.size.height; ++j) {
-			uint8_t *p = &pixels[4 * (j * textureDesc.size.width + i)];
-			p[0] = (uint8_t)i; // r
-			p[1] = (uint8_t)j; // g
-			p[2] = 128; // b
-			p[3] = 255; // a
-		}
-	}
-
-	// Upload texture data
-	// Arguments telling which part of the texture we upload to
-	// (together with the last argument of writeTexture)
-	ImageCopyTexture destination;
-	destination.texture = texture;
-	destination.mipLevel = 0;
-	destination.origin = { 0, 0, 0 }; // equivalent of the offset argument of Queue::writeBuffer
-	destination.aspect = TextureAspect::All; // only relevant for depth/Stencil textures
-
-	// Arguments telling how the C++ side pixel memory is laid out
-	TextureDataLayout source;
-	source.offset = 0;
-	source.bytesPerRow = 4 * textureDesc.size.width;
-	source.rowsPerImage = textureDesc.size.height;
-
-  device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &source, &textureDesc.size);
 }
 
 void Application::Render()
@@ -266,7 +214,7 @@ void Application::CreateRenderPipeline()
 
   bindings[1] = {};
   bindings[1].binding = 1;
-  bindings[1].textureView = textureView;
+  bindings[1].textureView = Resources::LoadTexture("BANANA.jpeg");
 
   BindGroupDescriptor bindGroupDesc{};
   bindGroupDesc.layout = bindGroupLayout;

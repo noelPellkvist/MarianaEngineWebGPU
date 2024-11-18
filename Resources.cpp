@@ -8,6 +8,9 @@
 #include <emscripten/emscripten.h>
 #include <emscripten/bind.h>
 #endif
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 
 wgpu::ShaderModule Resources::LoadShader(const std::string& path)
 {
@@ -91,4 +94,69 @@ Mesh Resources::LoadOBJMesh(const std::string& path)
     }
 
     return Mesh(vertices, indices);
+}
+
+
+
+
+
+wgpu::TextureView Resources::LoadTexture(const std::string& name)
+{
+    using namespace wgpu;
+
+    std::string fullpath = std::string(RESOURCE_DIR) + "/Textures/" + name;
+    std::cout << fullpath << std::endl;
+    int width, height, channels;
+    
+    unsigned char* imageData = stbi_load(fullpath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+
+    if (imageData == nullptr) {
+        // Handle error if image loading failed
+        std::cerr << "Failed to load texture: " << fullpath << std::endl;
+        return {};
+    }
+
+    std::vector<uint8_t> pixels(4 * width * height);
+    std::memcpy(pixels.data(), imageData, pixels.size());
+    stbi_image_free(imageData);
+
+    //Create Texture
+    TextureFormat textureFormat = TextureFormat::RGBA8Unorm;
+    TextureDescriptor textureDesc;
+    textureDesc.dimension = TextureDimension::e2D;
+    textureDesc.format = textureFormat;
+    textureDesc.mipLevelCount = 1;
+    textureDesc.sampleCount = 1;
+    textureDesc.size = {static_cast<unsigned int>(width), static_cast<unsigned int>(height), 1};
+    textureDesc.usage = TextureUsage::TextureBinding | TextureUsage::CopyDst;
+    textureDesc.viewFormatCount = 1;
+    textureDesc.viewFormats = &textureFormat;
+    Texture texture = device.CreateTexture(&textureDesc);
+
+    TextureViewDescriptor textureViewDesc;
+    textureViewDesc.aspect = TextureAspect::All;
+    textureViewDesc.baseArrayLayer = 0;
+    textureViewDesc.arrayLayerCount = 1;
+    textureViewDesc.baseMipLevel = 0;
+    textureViewDesc.mipLevelCount = 1;
+    textureViewDesc.dimension = TextureViewDimension::e2D;
+    textureViewDesc.format = textureFormat;
+    TextureView textureView = texture.CreateView(&textureViewDesc);
+
+
+
+	ImageCopyTexture destination;
+	destination.texture = texture;
+	destination.mipLevel = 0;
+	destination.origin = { 0, 0, 0 };
+	destination.aspect = TextureAspect::All;
+
+	TextureDataLayout source;
+	source.offset = 0;
+	source.bytesPerRow = 4 * textureDesc.size.width;
+	source.rowsPerImage = textureDesc.size.height;
+
+    device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &source, &textureDesc.size);
+
+    return textureView;
 }
