@@ -42,6 +42,7 @@ class Application
     void ConfigureSurface();
     void SetupWindow();
     void InitGraphics();
+    void InitDepthTexture();
     void InitUniforms();
     void CreateRenderPipeline();
     void InitGUI();

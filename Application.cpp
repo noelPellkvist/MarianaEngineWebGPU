@@ -41,9 +41,11 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 void Application::WindowResized()
 {
   //TODO: update depth stencil when this happens
-  //surface.Unconfigure();
-
-  //ConfigureSurface();
+  surface.Unconfigure();
+  float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
+  ubo.projectionMatrix = glm::perspective(45.0f * 0.01745329251f, aspect, 0.01f, 100.0f);
+  ConfigureSurface();
+  InitDepthTexture();
 }
 
 void Application::SetupWindow()
@@ -52,7 +54,7 @@ void Application::SetupWindow()
     return;
   }
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
   window = glfwCreateWindow(kWidth, kHeight, name, nullptr, nullptr);
   glfwSetWindowUserPointer(window, this);
 
@@ -240,6 +242,37 @@ void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
   ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass.Get());
 }
 
+void Application::InitDepthTexture()
+{ 
+  using namespace wgpu;
+  if(depthTextureView) 
+  {
+    wgpuTextureViewRelease(depthTextureView.Get());
+  }
+
+  TextureFormat depthTextureFormat = TextureFormat::Depth24Plus;
+  TextureDescriptor depthTextureDesc;
+  depthTextureDesc.dimension = TextureDimension::e2D;
+  depthTextureDesc.format = depthTextureFormat;
+  depthTextureDesc.mipLevelCount = 1;
+  depthTextureDesc.sampleCount = 1;
+  depthTextureDesc.size = {(uint32_t)kWidth, (uint32_t)kHeight, 1};
+  depthTextureDesc.usage = TextureUsage::RenderAttachment;
+  depthTextureDesc.viewFormatCount = 1;
+  depthTextureDesc.viewFormats = &depthTextureFormat;
+  Texture depthTexture = device.CreateTexture(&depthTextureDesc);
+
+  TextureViewDescriptor depthTextureViewDesc;
+  depthTextureViewDesc.aspect = TextureAspect::DepthOnly;
+  depthTextureViewDesc.baseArrayLayer = 0;
+  depthTextureViewDesc.arrayLayerCount = 1;
+  depthTextureViewDesc.baseMipLevel = 0;
+  depthTextureViewDesc.mipLevelCount = 1;
+  depthTextureViewDesc.dimension = TextureViewDimension::e2D;
+  depthTextureViewDesc.format = depthTextureFormat;
+  depthTextureView = depthTexture.CreateView(&depthTextureViewDesc);
+}
+
 void Application::CreateRenderPipeline()
 {
     using namespace wgpu;
@@ -320,32 +353,12 @@ void Application::CreateRenderPipeline()
   layoutDesc.bindGroupLayouts = &bindGroupLayout;
   layout = device.CreatePipelineLayout(&layoutDesc);
 
-  TextureFormat depthTextureFormat = TextureFormat::Depth24Plus;
-  TextureDescriptor depthTextureDesc;
-  depthTextureDesc.dimension = TextureDimension::e2D;
-  depthTextureDesc.format = depthTextureFormat;
-  depthTextureDesc.mipLevelCount = 1;
-  depthTextureDesc.sampleCount = 1;
-  depthTextureDesc.size = {(uint32_t)kWidth, (uint32_t)kHeight, 1};
-  depthTextureDesc.usage = TextureUsage::RenderAttachment;
-  depthTextureDesc.viewFormatCount = 1;
-  depthTextureDesc.viewFormats = &depthTextureFormat;
-  Texture depthTexture = device.CreateTexture(&depthTextureDesc);
-
-  TextureViewDescriptor depthTextureViewDesc;
-  depthTextureViewDesc.aspect = TextureAspect::DepthOnly;
-  depthTextureViewDesc.baseArrayLayer = 0;
-  depthTextureViewDesc.arrayLayerCount = 1;
-  depthTextureViewDesc.baseMipLevel = 0;
-  depthTextureViewDesc.mipLevelCount = 1;
-  depthTextureViewDesc.dimension = TextureViewDimension::e2D;
-  depthTextureViewDesc.format = depthTextureFormat;
-  depthTextureView = depthTexture.CreateView(&depthTextureViewDesc);
+  InitDepthTexture();
 
   DepthStencilState depthStencilState = {};
   depthStencilState.depthCompare = CompareFunction::LessEqual;
   depthStencilState.depthWriteEnabled = true;
-  depthStencilState.format = depthTextureFormat;
+  depthStencilState.format = TextureFormat::Depth24Plus;
   depthStencilState.stencilReadMask = 0;
   depthStencilState.stencilWriteMask = 0;
 
