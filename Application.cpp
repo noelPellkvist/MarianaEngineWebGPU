@@ -1,5 +1,5 @@
 #include "Application.hpp"
-#include <GLFW/glfw3.h>
+
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
 #else
@@ -8,32 +8,19 @@
 #include "Resources.h"
 #include <iostream>
 
+#include <imgui.h>
+#include <backends/imgui_impl_wgpu.h>
+#include <backends/imgui_impl_glfw.h>
+
 Mesh mesh;
 
-Application::Application() : name("Mariana Engine"), kWidth(1280), kHeight(768)
+Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 {
     std::cout << "Starting app" << std::endl;
     SetupWindow();
-}
 
-void Application::SetupWindow()
-{
-  if (!glfwInit()) {
-    return;
-  }
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  GLFWwindow* window = glfwCreateWindow(kWidth, kHeight, name, nullptr, nullptr);
-
-    #if defined(__EMSCRIPTEN__)
-  wgpu::SurfaceDescriptorFromCanvasHTMLSelector canvasDesc{};
-  canvasDesc.selector = "#canvas";
-
-  wgpu::SurfaceDescriptor surfaceDesc{.nextInChain = &canvasDesc};
-  surface = instance.CreateSurface(&surfaceDesc);
-#else
-  surface = wgpu::glfw::CreateSurfaceForWindow(instance, window);
-#endif
     InitGraphics();
+    
 
   #if defined(__EMSCRIPTEN__)
   auto callback = [](void *arg) {
@@ -51,22 +38,86 @@ void Application::SetupWindow()
 #endif
 }
 
+void Application::WindowResized()
+{
+  //TODO: update depth stencil when this happens
+  //surface.Unconfigure();
+
+  //ConfigureSurface();
+}
+
+void Application::SetupWindow()
+{
+  if (!glfwInit()) {
+    return;
+  }
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+  window = glfwCreateWindow(kWidth, kHeight, name, nullptr, nullptr);
+  glfwSetWindowUserPointer(window, this);
+
+  glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int, int){
+        auto that = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+        if (that != nullptr) that->WindowResized();
+    });
+
+    #if defined(__EMSCRIPTEN__)
+  wgpu::SurfaceDescriptorFromCanvasHTMLSelector canvasDesc{};
+  canvasDesc.selector = "#canvas";
+
+  wgpu::SurfaceDescriptor surfaceDesc{.nextInChain = &canvasDesc};
+  surface = instance.CreateSurface(&surfaceDesc);
+#else
+  surface = wgpu::glfw::CreateSurfaceForWindow(instance, window);
+#endif
+    
+}
+
+void Application::InitGUI()
+{
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO();
+
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+  ImGui_ImplGlfw_InitForOther(window, true);
+  
+  //ImGui_ImplWGPU_Init()
+  ImGui_ImplWGPU_InitInfo info = {};
+  info.Device = device.Get();
+  info.NumFramesInFlight = 3;
+  info.RenderTargetFormat = static_cast<WGPUTextureFormat>(format);
+  info.DepthStencilFormat = WGPUTextureFormat_Depth24Plus;
+  if(ImGui_ImplWGPU_Init(&info))
+  {
+    std::cout << "Inited imgui" << std::endl;
+  }
+  else
+    std::cout << "Failed to initialize gui" << std::endl;
+}
+
 Application::~Application()
 {
+    ImGui_ImplGlfw_Shutdown();
+    ImGui_ImplWGPU_Shutdown();
     std::cout << "Ending app" << std::endl;
 }
 
 void Application::ConfigureSurface()
 {
+  glfwGetFramebufferSize(window, &kWidth, &kHeight);
     wgpu::SurfaceCapabilities capabilities;
   surface.GetCapabilities(adapter, &capabilities);
   format = capabilities.formats[0];
+  
 
   wgpu::SurfaceConfiguration config{
       .device = device,
       .format = format,
-      .width = kWidth,
-      .height = kHeight};
+      .width = (uint32_t)kWidth,
+      .height = (uint32_t)kHeight
+    };
   surface.Configure(&config);
 }
 
@@ -77,6 +128,8 @@ void Application::InitGraphics()
     ConfigureSurface();
     InitUniforms();
     CreateRenderPipeline();
+    InitGUI();
+  
 }
 
 void Application::InitUniforms()
@@ -129,7 +182,6 @@ void Application::Render()
   wgpu::RenderPassDescriptor renderpass{.colorAttachmentCount = 1,
                                         .colorAttachments = &attachment,
                                         .depthStencilAttachment = &depthStencilAttachment};
-
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
 
@@ -142,9 +194,50 @@ void Application::Render()
   pass.SetIndexBuffer(mesh.GetIndexBuffer(), wgpu::IndexFormat::Uint16, 0, mesh.GetIndexBuffer().GetSize());
   pass.SetBindGroup(0, bindGroup, 0, nullptr);
   pass.DrawIndexed(mesh.getIndexCount(), 1, 0, 0);
+  UpdateGUI(pass);
   pass.End();
   wgpu::CommandBuffer commands = encoder.Finish();
+  
   device.GetQueue().Submit(1, &commands);
+}
+
+void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
+{
+
+
+  ImGui_ImplWGPU_NewFrame();
+  ImGui_ImplGlfw_NewFrame();
+  ImGui::NewFrame();
+
+  ImGui::DockSpaceOverViewport(0, NULL, ImGuiDockNodeFlags_PassthruCentralNode);
+
+  static float f = 0.0f;
+  static int counter = 0;
+  static bool show_demo_window = true;
+  static bool show_another_window = false;
+  static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+  ImGui::Begin("Hello, world!");                                // Create a window called "Hello, world!" and append into it.
+
+  ImGui::Text("This is some useful text.");                     // Display some text (you can use a format strings too)
+  ImGui::Checkbox("Demo Window", &show_demo_window);            // Edit bools storing our window open/close state
+  ImGui::Checkbox("Another Window", &show_another_window);
+
+  ImGui::SliderFloat("float", &f, 0.0f, 1.0f);                  // Edit 1 float using a slider from 0.0f to 1.0f
+  ImGui::ColorEdit3("clear color", (float*)&clear_color);       // Edit 3 floats representing a color
+
+  if (ImGui::Button("Button"))                                  // Buttons return true when clicked (most widgets return true when edited/activated)
+      counter++;
+  ImGui::SameLine();
+  ImGui::Text("counter = %d", counter);
+
+  ImGuiIO& io = ImGui::GetIO();
+  ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+  ImGui::End();
+
+  ImGui::EndFrame();
+  ImGui::Render();
+  ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass.Get());
 }
 
 void Application::CreateRenderPipeline()
@@ -233,7 +326,7 @@ void Application::CreateRenderPipeline()
   depthTextureDesc.format = depthTextureFormat;
   depthTextureDesc.mipLevelCount = 1;
   depthTextureDesc.sampleCount = 1;
-  depthTextureDesc.size = {kWidth, kHeight, 1};
+  depthTextureDesc.size = {(uint32_t)kWidth, (uint32_t)kHeight, 1};
   depthTextureDesc.usage = TextureUsage::RenderAttachment;
   depthTextureDesc.viewFormatCount = 1;
   depthTextureDesc.viewFormats = &depthTextureFormat;

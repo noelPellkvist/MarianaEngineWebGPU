@@ -3,7 +3,6 @@
 #include "Application.hpp"
 #include <iostream>
 
-
 void GetAdapter(void (*callback)(wgpu::Adapter)) {
   #if defined(__EMSCRIPTEN__)
   instance.RequestAdapter(

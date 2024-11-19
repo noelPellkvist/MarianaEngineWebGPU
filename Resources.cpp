@@ -96,10 +96,6 @@ Mesh Resources::LoadOBJMesh(const std::string& path)
     return Mesh(vertices, indices);
 }
 
-
-
-
-
 wgpu::TextureView Resources::LoadTexture(const std::string& name)
 {
     using namespace wgpu;

@@ -4,6 +4,7 @@
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 #include <vector>
+#include <GLFW/glfw3.h>
 
 class Application
 {
@@ -13,7 +14,7 @@ class Application
 
     private:
     const char* name;
-    uint32_t kWidth, kHeight;
+    int kWidth, kHeight;
     wgpu::Surface surface;
     wgpu::TextureFormat format;
     wgpu::RenderPipeline pipeline;  
@@ -23,6 +24,8 @@ class Application
     wgpu::PipelineLayout layout;
     wgpu::BindGroupLayout bindGroupLayout;
     wgpu::BindGroup bindGroup;
+
+    GLFWwindow* window;
 
     struct UBO {
         glm::mat4x4 projectionMatrix;
@@ -41,5 +44,9 @@ class Application
     void InitGraphics();
     void InitUniforms();
     void CreateRenderPipeline();
+    void InitGUI();
+    void UpdateGUI(wgpu::RenderPassEncoder renderPass);
     void Render();
+
+    void WindowResized();
 };

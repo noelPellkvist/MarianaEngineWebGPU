@@ -10,9 +10,17 @@ target_include_directories(app PRIVATE "${CMAKE_SOURCE_DIR}/glm")
 
 if(EMSCRIPTEN)
   set_target_properties(app PROPERTIES SUFFIX ".html")
-  target_link_options(app PRIVATE "-sUSE_WEBGPU=1" "-sUSE_GLFW=3" -sALLOW_MEMORY_GROWTH --preload-file "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+  target_link_options(app PRIVATE
+	 "-sUSE_WEBGPU=1"
+	 "-sUSE_GLFW=3"
+	 -sALLOW_MEMORY_GROWTH
+	 --preload-file "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+
+  add_subdirectory(imgui)
+  target_link_libraries(app PRIVATE imgui)
 else()
   set(DAWN_FETCH_DEPENDENCIES ON)
   add_subdirectory("dawn" EXCLUDE_FROM_ALL)
-  target_link_libraries(app PRIVATE dawn::webgpu_dawn glfw webgpu_glfw)
+  add_subdirectory(imgui)
+  target_link_libraries(app PRIVATE dawn::webgpu_dawn glfw webgpu_glfw imgui)
 endif()
