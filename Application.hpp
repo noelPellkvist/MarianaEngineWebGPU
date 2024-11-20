@@ -20,6 +20,8 @@ class Application
     wgpu::RenderPipeline pipeline;  
     wgpu::TextureView depthTextureView;
 
+    wgpu::TextureView banana;
+
     wgpu::Buffer globalUBO;
     wgpu::PipelineLayout layout;
     wgpu::BindGroupLayout bindGroupLayout;

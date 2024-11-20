@@ -131,7 +131,7 @@ void Application::InitGraphics()
     InitUniforms();
     CreateRenderPipeline();
     InitGUI();
-  
+    banana = Resources::LoadTexture("BANANA.jpeg");
 }
 
 void Application::InitUniforms()
@@ -198,6 +198,7 @@ void Application::Render()
   pass.DrawIndexed(mesh.getIndexCount(), 1, 0, 0);
   UpdateGUI(pass);
   pass.End();
+  
   wgpu::CommandBuffer commands = encoder.Finish();
   
   device.GetQueue().Submit(1, &commands);
@@ -235,6 +236,8 @@ void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
 
   ImGuiIO& io = ImGui::GetIO();
   ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+  ImTextureID texture_id = reinterpret_cast<ImTextureID>(banana.Get());
+  ImGui::Image(texture_id, ImVec2(512, 512));
   ImGui::End();
 
   ImGui::EndFrame();
