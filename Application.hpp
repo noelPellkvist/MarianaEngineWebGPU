@@ -1,6 +1,7 @@
 #pragma once
+
 #include "GlobalVaribles.hpp"
-#include "Mesh.hpp"
+#include "GameObject.hpp"
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 #include <vector>
@@ -37,8 +38,10 @@ class Application
         float time;
         float _pad[3];
     };
-
+    GameObject* gameObject;
     UBO ubo;
+
+    
     
 
     void ConfigureSurface();

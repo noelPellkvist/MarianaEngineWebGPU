@@ -12,7 +12,7 @@
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
 
-Mesh mesh;
+
 
 Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 {
@@ -103,6 +103,7 @@ Application::~Application()
 {
     ImGui_ImplGlfw_Shutdown();
     ImGui_ImplWGPU_Shutdown();
+    delete gameObject;
     std::cout << "Ending app" << std::endl;
 }
 
@@ -125,11 +126,10 @@ void Application::ConfigureSurface()
 
 void Application::InitGraphics()
 {
-    mesh = Resources::LoadOBJMesh("/viking_room.obj");
-    mesh.BuildMesh();
     ConfigureSurface();
     InitUniforms();
     CreateRenderPipeline();
+    gameObject = new GameObject("First Gameobject", "/viking_room.obj", &bindGroup);
     InitGUI();
     banana = Resources::LoadTexture("BANANA.jpeg");
 }
@@ -161,6 +161,7 @@ void Application::InitUniforms()
 
 void Application::Render()
 {
+ 
     wgpu::SurfaceTexture surfaceTexture;
   surface.GetCurrentTexture(&surfaceTexture);
 
@@ -192,10 +193,9 @@ void Application::Render()
   device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 
   pass.SetPipeline(pipeline);
-  pass.SetVertexBuffer(0, mesh.GetVertexBuffer(), 0, mesh.GetVertexBuffer().GetSize());
-  pass.SetIndexBuffer(mesh.GetIndexBuffer(), wgpu::IndexFormat::Uint16, 0, mesh.GetIndexBuffer().GetSize());
-  pass.SetBindGroup(0, bindGroup, 0, nullptr);
-  pass.DrawIndexed(mesh.getIndexCount(), 1, 0, 0);
+  
+  gameObject->Draw(pass);
+  
   UpdateGUI(pass);
   pass.End();
   
