@@ -129,9 +129,9 @@ void Application::InitGraphics()
     ConfigureSurface();
     InitUniforms();
     CreateRenderPipeline();
-    gameObject = new GameObject("First Gameobject", "/viking_room.obj", &bindGroup);
+    gameObject = new GameObject("First Gameobject", "helmet.obj", &bindGroup);
     InitGUI();
-    banana = Resources::LoadTexture("BANANA.jpeg");
+    banana = Resources::LoadTexture("Avocado_baseColor.png");
 }
 
 void Application::InitUniforms()
@@ -206,7 +206,8 @@ void Application::Render()
 
 void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
 {
-
+  // ImTextureID texture_id = reinterpret_cast<ImTextureID>(banana.Get());
+  // ImGui::Image(texture_id, ImVec2(512, 512));
 
   ImGui_ImplWGPU_NewFrame();
   ImGui_ImplGlfw_NewFrame();
@@ -214,30 +215,11 @@ void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
 
   ImGui::DockSpaceOverViewport(0, NULL, ImGuiDockNodeFlags_PassthruCentralNode);
 
-  static float f = 0.0f;
-  static int counter = 0;
-  static bool show_demo_window = true;
-  static bool show_another_window = false;
-  static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-  ImGui::Begin("Hello, world!");                                // Create a window called "Hello, world!" and append into it.
-
-  ImGui::Text("This is some useful text.");                     // Display some text (you can use a format strings too)
-  ImGui::Checkbox("Demo Window", &show_demo_window);            // Edit bools storing our window open/close state
-  ImGui::Checkbox("Another Window", &show_another_window);
-
-  ImGui::SliderFloat("float", &f, 0.0f, 1.0f);                  // Edit 1 float using a slider from 0.0f to 1.0f
-  ImGui::ColorEdit3("clear color", (float*)&clear_color);       // Edit 3 floats representing a color
-
-  if (ImGui::Button("Button"))                                  // Buttons return true when clicked (most widgets return true when edited/activated)
-      counter++;
-  ImGui::SameLine();
-  ImGui::Text("counter = %d", counter);
+  ImGui::Begin("Stats");
 
   ImGuiIO& io = ImGui::GetIO();
   ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-  ImTextureID texture_id = reinterpret_cast<ImTextureID>(banana.Get());
-  ImGui::Image(texture_id, ImVec2(512, 512));
+  
   ImGui::End();
 
   ImGui::EndFrame();
@@ -343,7 +325,7 @@ void Application::CreateRenderPipeline()
 
   bindings[1] = {};
   bindings[1].binding = 1;
-  bindings[1].textureView = Resources::LoadTexture("viking_room.png");
+  bindings[1].textureView = Resources::LoadTexture("helmetAlbedo.jpg");
 
   BindGroupDescriptor bindGroupDesc{};
   bindGroupDesc.layout = bindGroupLayout;

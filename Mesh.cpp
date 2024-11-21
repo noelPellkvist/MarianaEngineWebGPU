@@ -34,7 +34,7 @@ void Mesh::BuildMesh()
     bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
     bufferDesc.mappedAtCreation = false;
     vertexBuffer = device.CreateBuffer(&bufferDesc);
-    device.GetQueue().WriteBuffer(vertexBuffer, 0, vertices.data(), bufferDesc.size); 
+    device.GetQueue().WriteBuffer(vertexBuffer, 0, vertices.data(), bufferDesc.size);
 
     bufferDesc.size = indices.size() * sizeof(uint16_t);
     bufferDesc.size = (bufferDesc.size + 3) & ~3;

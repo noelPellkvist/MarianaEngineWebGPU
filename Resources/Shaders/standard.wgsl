@@ -35,15 +35,11 @@
     }
 
     @fragment fn fragmentMain(in: VertexOutput) -> @location(0) vec4f {
-        // let normal = normalize(in.normal);
-        // let lightDirection1 = vec3f(0.5, -0.9, 0.1);
-        // let shading = max(0.0, dot(lightDirection1, normal));
-        // let color = in.color * shading;
-        // let corrected_color = pow(color, vec3f(2.2));
-        // return vec4f(corrected_color, UBO.color.a);
-
+        let normal = normalize(in.normal);
+        let lightDirection1 = vec3f(0.5, 0.9, 0.1);
+        let shading = max(0.0, dot(lightDirection1, normal));
         let texelCoords = vec2i(in.uv * vec2f(textureDimensions(gradientTexture)));
-        let color = textureLoad(gradientTexture, texelCoords, 0).rgb;
+        let color = max(textureLoad(gradientTexture, texelCoords, 0).rgb * shading, vec3<f32>(0.2));
 	    let corrected_color = pow(color, vec3f(2.2));
 	    return vec4f(corrected_color, UBO.color.a);
 }
