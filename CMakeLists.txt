@@ -11,10 +11,12 @@ target_include_directories(app PRIVATE "${CMAKE_SOURCE_DIR}/glm")
 if(EMSCRIPTEN)
   set_target_properties(app PROPERTIES SUFFIX ".html")
   target_link_options(app PRIVATE
+	 --shell-file=${CMAKE_CURRENT_SOURCE_DIR}/custom_template.html 
 	 "-sUSE_WEBGPU=1"
 	 "-sUSE_GLFW=3"
 	 -sALLOW_MEMORY_GROWTH
-	 --preload-file "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+	 --preload-file "${CMAKE_CURRENT_SOURCE_DIR}/Resources"
+	 )
 
   add_subdirectory(imgui)
   target_link_libraries(app PRIVATE imgui)

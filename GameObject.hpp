@@ -9,11 +9,12 @@ class GameObject
 {
     private:
     std::vector<GameObject> children;
-    std::string name;
+    
     wgpu::BindGroup* bindGroup;
     Mesh mesh;
 
     public:
+    std::string name;
     GameObject();
     GameObject(std::string name, std::string meshName, wgpu::BindGroup* group);
     ~GameObject();

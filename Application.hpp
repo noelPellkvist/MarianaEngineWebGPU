@@ -39,6 +39,7 @@ class Application
     };
     GameObject* gameObject;
     UBO ubo;
+    wgpu::Sampler sampler;
 
     
     
@@ -48,6 +49,7 @@ class Application
     void InitGraphics();
     void InitDepthTexture();
     void InitUniforms();
+    void InitSampler();
     void CreateRenderPipeline();
     void InitGUI();
     void UpdateGUI(wgpu::RenderPassEncoder renderPass);

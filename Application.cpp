@@ -128,6 +128,7 @@ void Application::InitGraphics()
 {
     ConfigureSurface();
     InitUniforms();
+    InitSampler();
     CreateRenderPipeline();
     gameObject = new GameObject("First Gameobject", "helmet.obj", &bindGroup);
     InitGUI();
@@ -203,11 +204,12 @@ void Application::Render()
   device.GetQueue().Submit(1, &commands);
 }
 
-void RenderGameObjectInInspector(GameObject* gameObject)
+void RenderGameObjectInInspector(GameObject* gameObject, glm::vec4& light)
 {
   float position[3] = {gameObject->position.x, gameObject->position.y, gameObject->position.z};
   float rotation[3] = {gameObject->rotation.x, gameObject->rotation.y, gameObject->rotation.z};
   float scale[3] = {gameObject->scale.x, gameObject->scale.y, gameObject->scale.z};
+  float lightdirection[3] = {light.x, light.y, light.z};
   ImGui::Begin("Inspector");
   ImGui::Text("Position");
   ImGui::SameLine();
@@ -220,11 +222,45 @@ void RenderGameObjectInInspector(GameObject* gameObject)
   ImGui::Text("Scale");
   ImGui::SameLine();
   ImGui::DragFloat3("##Scale", scale);
+
+  ImGui::Text("LightDirection");
+  ImGui::SameLine();
+  ImGui::DragFloat3("##LightDirection", lightdirection);
   ImGui::End();
 
   gameObject->position = {position[0], position[1], position[2]};
   gameObject->rotation = {rotation[0], rotation[1], rotation[2]};
   gameObject->scale = {scale[0], scale[1], scale[2]};
+  light = {lightdirection[0], lightdirection[1], lightdirection[2], 0};
+}
+
+bool DrawGameObjectNode(GameObject* g)
+{
+  bool selected = false;
+
+  if (ImGui::TreeNode(g->name.c_str())) {
+        // Right-click context menu for the tree node
+         ImGui::TreePop();
+    }
+
+    if (ImGui::BeginPopupContextItem("Gameobject Options")) {
+            // Add items to the context menu
+            if (ImGui::MenuItem("View in inspector")) {
+                selected = true;
+            }
+            else selected = false;
+            ImGui::EndPopup();
+        }
+
+  return selected = true;;
+       
+}
+
+void renderSceneHierarchy(GameObject* g)
+{
+  ImGui::Begin("Scene");
+  DrawGameObjectNode(g);
+  ImGui::End();
 }
 
 void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
@@ -243,7 +279,13 @@ void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
   ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
   ImGui::End();
 
-  RenderGameObjectInInspector(gameObject);
+  glm::vec4 l = {ubo.color[0], ubo.color[1], ubo.color[2], 0};
+  RenderGameObjectInInspector(gameObject, l);
+  ubo.color[0] = l.x;
+  ubo.color[1] = l.y;
+  ubo.color[2] = l.z;
+
+  renderSceneHierarchy(gameObject);
 
   ImGui::EndFrame();
   ImGui::Render();
@@ -279,6 +321,24 @@ void Application::InitDepthTexture()
   depthTextureViewDesc.dimension = TextureViewDimension::e2D;
   depthTextureViewDesc.format = depthTextureFormat;
   depthTextureView = depthTexture.CreateView(&depthTextureViewDesc);
+}
+
+void Application::InitSampler()
+{
+  using namespace wgpu;
+  SamplerDescriptor samplerDesc;
+  samplerDesc.addressModeU = AddressMode::ClampToEdge;
+  samplerDesc.addressModeV = AddressMode::ClampToEdge;
+  samplerDesc.addressModeW = AddressMode::ClampToEdge;
+  samplerDesc.magFilter = FilterMode::Linear;
+  samplerDesc.minFilter = FilterMode::Linear;
+  samplerDesc.mipmapFilter = MipmapFilterMode::Linear;
+  samplerDesc.lodMinClamp = 0.0f;
+  samplerDesc.lodMaxClamp = 1.0f;
+  samplerDesc.compare = CompareFunction::Undefined;
+  samplerDesc.maxAnisotropy = 1;
+
+  sampler = device.CreateSampler(&samplerDesc);
 }
 
 void Application::CreateRenderPipeline()
@@ -320,7 +380,7 @@ void Application::CreateRenderPipeline()
   vertexBufferLayout.arrayStride = sizeof(Mesh::Vertex);
   vertexBufferLayout.stepMode = VertexStepMode::Vertex;
 
-  std::vector<BindGroupLayoutEntry> bindingLayouts(3);
+  std::vector<BindGroupLayoutEntry> bindingLayouts(5);
   bindingLayouts[0] = {};
   bindingLayouts[0].binding = 0;
   bindingLayouts[0].visibility = ShaderStage::Vertex | ShaderStage::Fragment;
@@ -330,8 +390,7 @@ void Application::CreateRenderPipeline()
   bindingLayouts[1] = {};
   bindingLayouts[1].binding = 1;
   bindingLayouts[1].visibility = ShaderStage::Fragment;
-  bindingLayouts[1].texture.sampleType = TextureSampleType::Float;
-  bindingLayouts[1].texture.viewDimension = TextureViewDimension::e2D;
+  bindingLayouts[1].sampler.type = SamplerBindingType::Filtering;
 
   bindingLayouts[2] = {};
   bindingLayouts[2].binding = 2;
@@ -339,12 +398,24 @@ void Application::CreateRenderPipeline()
   bindingLayouts[2].texture.sampleType = TextureSampleType::Float;
   bindingLayouts[2].texture.viewDimension = TextureViewDimension::e2D;
 
+  bindingLayouts[3] = {};
+  bindingLayouts[3].binding = 3;
+  bindingLayouts[3].visibility = ShaderStage::Fragment;
+  bindingLayouts[3].texture.sampleType = TextureSampleType::Float;
+  bindingLayouts[3].texture.viewDimension = TextureViewDimension::e2D;
+
+  bindingLayouts[4] = {};
+  bindingLayouts[4].binding = 4;
+  bindingLayouts[4].visibility = ShaderStage::Fragment;
+  bindingLayouts[4].texture.sampleType = TextureSampleType::Float;
+  bindingLayouts[4].texture.viewDimension = TextureViewDimension::e2D;
+
   BindGroupLayoutDescriptor bindGroupLayoutDesc{};
   bindGroupLayoutDesc.entryCount = (uint32_t)bindingLayouts.size();
   bindGroupLayoutDesc.entries = bindingLayouts.data();
   bindGroupLayout = device.CreateBindGroupLayout(&bindGroupLayoutDesc);
 
-  std::vector<BindGroupEntry> bindings(3);
+  std::vector<BindGroupEntry> bindings(5);
 
   bindings[0] = {};
   bindings[0].binding = 0;
@@ -354,11 +425,20 @@ void Application::CreateRenderPipeline()
 
   bindings[1] = {};
   bindings[1].binding = 1;
-  bindings[1].textureView = Resources::LoadTexture("helmetAlbedo.jpg");
+  bindings[1].sampler = sampler;
+
 
   bindings[2] = {};
   bindings[2].binding = 2;
-  bindings[2].textureView = Resources::LoadTexture("Default_AO.jpg");
+  bindings[2].textureView = Resources::LoadTexture("helmetAlbedo.jpg");
+
+  bindings[3] = {};
+  bindings[3].binding = 3;
+  bindings[3].textureView = Resources::LoadTexture("Default_metalRoughness.jpg");
+
+  bindings[4] = {};
+  bindings[4].binding = 4;
+  bindings[4].textureView = Resources::LoadTexture("Default_AO.jpg");
 
   BindGroupDescriptor bindGroupDesc{};
   bindGroupDesc.layout = bindGroupLayout;
@@ -374,7 +454,7 @@ void Application::CreateRenderPipeline()
   InitDepthTexture();
 
   DepthStencilState depthStencilState = {};
-  depthStencilState.depthCompare = CompareFunction::LessEqual;
+  depthStencilState.depthCompare = CompareFunction::Less;
   depthStencilState.depthWriteEnabled = true;
   depthStencilState.format = TextureFormat::Depth24Plus;
   depthStencilState.stencilReadMask = 0;
