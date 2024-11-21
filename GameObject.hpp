@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include "Mesh.hpp"
+#include <glm.hpp>
 
 class GameObject
 {
@@ -17,4 +18,6 @@ class GameObject
     GameObject(std::string name, std::string meshName, wgpu::BindGroup* group);
     ~GameObject();
     void Draw(wgpu::RenderPassEncoder& renderPass);
+    glm::vec3 position, rotation, scale;
+    glm::mat4 modelMatrix;
 };

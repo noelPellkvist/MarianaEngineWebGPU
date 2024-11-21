@@ -11,6 +11,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
+#include <gtc/matrix_transform.hpp>
 
 
 
@@ -40,11 +41,10 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 
 void Application::WindowResized()
 {
-  //TODO: update depth stencil when this happens
   surface.Unconfigure();
+  ConfigureSurface();
   float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
   ubo.projectionMatrix = glm::perspective(45.0f * 0.01745329251f, aspect, 0.01f, 100.0f);
-  ConfigureSurface();
   InitDepthTexture();
 }
 
@@ -188,8 +188,7 @@ void Application::Render()
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
 
-  ubo.time = static_cast<float>(glfwGetTime());
-  ubo.modelMatrix = glm::rotate(ubo.modelMatrix, 0.01f, glm::vec3(0,0,1));
+  ubo.modelMatrix = glm::rotate(gameObject->modelMatrix, 0.01f, glm::vec3(0,0,1));
   device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 
   pass.SetPipeline(pipeline);
@@ -204,6 +203,30 @@ void Application::Render()
   device.GetQueue().Submit(1, &commands);
 }
 
+void RenderGameObjectInInspector(GameObject* gameObject)
+{
+  float position[3] = {gameObject->position.x, gameObject->position.y, gameObject->position.z};
+  float rotation[3] = {gameObject->rotation.x, gameObject->rotation.y, gameObject->rotation.z};
+  float scale[3] = {gameObject->scale.x, gameObject->scale.y, gameObject->scale.z};
+  ImGui::Begin("Inspector");
+  ImGui::Text("Position");
+  ImGui::SameLine();
+  ImGui::DragFloat3("##Position", position);
+
+  ImGui::Text("Rotation");
+  ImGui::SameLine();
+  ImGui::DragFloat3("##Rotation", rotation);
+
+  ImGui::Text("Scale");
+  ImGui::SameLine();
+  ImGui::DragFloat3("##Scale", scale);
+  ImGui::End();
+
+  gameObject->position = {position[0], position[1], position[2]};
+  gameObject->rotation = {rotation[0], rotation[1], rotation[2]};
+  gameObject->scale = {scale[0], scale[1], scale[2]};
+}
+
 void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
 {
   // ImTextureID texture_id = reinterpret_cast<ImTextureID>(banana.Get());
@@ -216,11 +239,11 @@ void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
   ImGui::DockSpaceOverViewport(0, NULL, ImGuiDockNodeFlags_PassthruCentralNode);
 
   ImGui::Begin("Stats");
-
   ImGuiIO& io = ImGui::GetIO();
   ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-  
   ImGui::End();
+
+  RenderGameObjectInInspector(gameObject);
 
   ImGui::EndFrame();
   ImGui::Render();
@@ -297,7 +320,7 @@ void Application::CreateRenderPipeline()
   vertexBufferLayout.arrayStride = sizeof(Mesh::Vertex);
   vertexBufferLayout.stepMode = VertexStepMode::Vertex;
 
-  std::vector<BindGroupLayoutEntry> bindingLayouts(2);
+  std::vector<BindGroupLayoutEntry> bindingLayouts(3);
   bindingLayouts[0] = {};
   bindingLayouts[0].binding = 0;
   bindingLayouts[0].visibility = ShaderStage::Vertex | ShaderStage::Fragment;
@@ -310,12 +333,18 @@ void Application::CreateRenderPipeline()
   bindingLayouts[1].texture.sampleType = TextureSampleType::Float;
   bindingLayouts[1].texture.viewDimension = TextureViewDimension::e2D;
 
+  bindingLayouts[2] = {};
+  bindingLayouts[2].binding = 2;
+  bindingLayouts[2].visibility = ShaderStage::Fragment;
+  bindingLayouts[2].texture.sampleType = TextureSampleType::Float;
+  bindingLayouts[2].texture.viewDimension = TextureViewDimension::e2D;
+
   BindGroupLayoutDescriptor bindGroupLayoutDesc{};
   bindGroupLayoutDesc.entryCount = (uint32_t)bindingLayouts.size();
   bindGroupLayoutDesc.entries = bindingLayouts.data();
   bindGroupLayout = device.CreateBindGroupLayout(&bindGroupLayoutDesc);
 
-  std::vector<BindGroupEntry> bindings(2);
+  std::vector<BindGroupEntry> bindings(3);
 
   bindings[0] = {};
   bindings[0].binding = 0;
@@ -326,6 +355,10 @@ void Application::CreateRenderPipeline()
   bindings[1] = {};
   bindings[1].binding = 1;
   bindings[1].textureView = Resources::LoadTexture("helmetAlbedo.jpg");
+
+  bindings[2] = {};
+  bindings[2].binding = 2;
+  bindings[2].textureView = Resources::LoadTexture("Default_AO.jpg");
 
   BindGroupDescriptor bindGroupDesc{};
   bindGroupDesc.layout = bindGroupLayout;

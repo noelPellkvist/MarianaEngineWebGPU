@@ -21,7 +21,8 @@
     };
 
     @group(0) @binding(0) var<uniform> UBO: GB;
-    @group(0) @binding(1) var gradientTexture: texture_2d<f32>;
+    @group(0) @binding(1) var albedoTexture: texture_2d<f32>;
+    @group(0) @binding(2) var aoTexture: texture_2d<f32>;
 
 
     @vertex fn vertexMain(in: VertexInput) -> VertexOutput {
@@ -38,8 +39,11 @@
         let normal = normalize(in.normal);
         let lightDirection1 = vec3f(0.5, 0.9, 0.1);
         let shading = max(0.0, dot(lightDirection1, normal));
-        let texelCoords = vec2i(in.uv * vec2f(textureDimensions(gradientTexture)));
-        let color = max(textureLoad(gradientTexture, texelCoords, 0).rgb * shading, vec3<f32>(0.2));
+        let texelCoords = vec2i(in.uv * vec2f(textureDimensions(albedoTexture)));
+        //let color = max(textureLoad(albedoTexture, texelCoords, 0).rgb * shading, vec3<f32>(0.2));
+        let ao = textureLoad(aoTexture, texelCoords, 0).rgb;
+        let color = textureLoad(albedoTexture, texelCoords, 0).rgb * ao * shading;
+        
 	    let corrected_color = pow(color, vec3f(2.2));
 	    return vec4f(corrected_color, UBO.color.a);
 }
