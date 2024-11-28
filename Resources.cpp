@@ -156,3 +156,30 @@ wgpu::TextureView Resources::LoadTexture(const std::string& name)
 
     return textureView;
 }
+
+wgpu::TextureView Resources::CreateEmptyTexture(int width, int height, wgpu::TextureFormat format)
+{
+    using namespace wgpu;
+    TextureDescriptor textureDesc;
+    textureDesc.dimension = TextureDimension::e2D;
+    textureDesc.format = format;
+    textureDesc.mipLevelCount = 1;
+    textureDesc.sampleCount = 1;
+    textureDesc.size = {static_cast<unsigned int>(width), static_cast<unsigned int>(height), 1};
+    textureDesc.usage = TextureUsage::TextureBinding | TextureUsage::RenderAttachment;
+    textureDesc.viewFormatCount = 1;
+    textureDesc.viewFormats = &format;
+    Texture texture = device.CreateTexture(&textureDesc);
+
+    TextureViewDescriptor textureViewDesc;
+    textureViewDesc.aspect = TextureAspect::All;
+    textureViewDesc.baseArrayLayer = 0;
+    textureViewDesc.arrayLayerCount = 1;
+    textureViewDesc.baseMipLevel = 0;
+    textureViewDesc.mipLevelCount = 1;
+    textureViewDesc.dimension = TextureViewDimension::e2D;
+    textureViewDesc.format = format;
+    TextureView textureView = texture.CreateView(&textureViewDesc);
+
+    return textureView;
+}

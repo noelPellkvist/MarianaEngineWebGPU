@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GlobalVaribles.hpp"
+#include "Renderpass.hpp"
 #include "GameObject.hpp"
 #include <glm.hpp>
 #include <vector>
@@ -19,6 +20,7 @@ class Application
     wgpu::TextureFormat format;
     wgpu::RenderPipeline pipeline;  
     wgpu::TextureView depthTextureView;
+    wgpu::TextureView tmpRender;
 
     wgpu::TextureView banana;
 
@@ -38,6 +40,8 @@ class Application
         float _pad[3];
     };
     GameObject* gameObject;
+    Renderpass* finalRenderPass;
+    Renderpass* firstRenderpass;
     UBO ubo;
     wgpu::Sampler sampler;
 
