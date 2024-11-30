@@ -18,6 +18,9 @@
 Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 {
     std::cout << "Starting app" << std::endl;
+    wgpu::SupportedLimits lim;
+    device.GetLimits(&lim);
+    std::cout << "MAX SIZE: " << lim.limits.maxUniformBufferBindingSize << std::endl;
     SetupWindow();
 
     InitGraphics();
@@ -105,7 +108,8 @@ Application::~Application()
 {
     ImGui_ImplGlfw_Shutdown();
     ImGui_ImplWGPU_Shutdown();
-    delete gameObject;
+    for(GameObject* g : gameobjects)
+    delete g;
     std::cout << "Ending app" << std::endl;
 }
 
@@ -132,8 +136,7 @@ void Application::InitGraphics()
     InitUniforms();
     InitSampler();
     CreateRenderPipeline();
-    gameObject = new GameObject("First Gameobject", "helmet.obj", &bindGroup);
-    finalRenderPass = new Renderpass(banana, depthTextureView);
+    gameobjects.push_back(new GameObject("First Gameobject", "helmet.obj", &bindGroup));
     tmpRender = Resources::CreateEmptyTexture(1366, 768);
     firstRenderpass = new Renderpass(tmpRender, depthTextureView);
     InitGUI();
@@ -173,7 +176,8 @@ void Application::Render()
   
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();  
 
-  firstRenderpass->Draw(encoder, pipeline, gameObject);
+  for(GameObject* g : gameobjects)
+    firstRenderpass->Draw(encoder, pipeline, g);
   //finalRenderPass->Draw(encoder, pipeline, gameObject, surfaceTexture);
 
   wgpu::RenderPassColorAttachment attachment{
@@ -200,12 +204,12 @@ void Application::Render()
 
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
 
-  ubo.modelMatrix = glm::rotate(gameObject->modelMatrix, 0.01f, glm::vec3(0,0,1));
+  ubo.modelMatrix = glm::rotate(gameobjects[0]->modelMatrix, 0.01f, glm::vec3(0,0,1));
   device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 
   pass.SetPipeline(pipeline);
-  
-  gameObject->Draw(pass);
+  for(GameObject* g : gameobjects)
+  g->Draw(pass);
   
   UpdateGUI(pass);
   pass.End();
@@ -224,19 +228,19 @@ void RenderGameObjectInInspector(GameObject* gameObject, glm::vec4& light)
   ImGui::Begin("Inspector");
   ImGui::Text("Position");
   ImGui::SameLine();
-  ImGui::DragFloat3("##Position", position);
+  ImGui::DragFloat3((std::string("##Position") + gameObject->name).c_str(), position);
 
   ImGui::Text("Rotation");
   ImGui::SameLine();
-  ImGui::DragFloat3("##Rotation", rotation);
+  ImGui::DragFloat3((std::string("##Rotation") + gameObject->name).c_str(), rotation);
 
   ImGui::Text("Scale");
   ImGui::SameLine();
-  ImGui::DragFloat3("##Scale", scale);
+  ImGui::DragFloat3((std::string("##scale") + gameObject->name).c_str(), scale);
 
   ImGui::Text("LightDirection");
   ImGui::SameLine();
-  ImGui::DragFloat3("##LightDirection", lightdirection);
+  ImGui::DragFloat3((std::string("##light") + gameObject->name).c_str(), lightdirection);
   ImGui::End();
 
   gameObject->position = {position[0], position[1], position[2]};
@@ -267,10 +271,11 @@ bool DrawGameObjectNode(GameObject* g)
        
 }
 
-void renderSceneHierarchy(GameObject* g)
+void renderSceneHierarchy(std::vector<GameObject*>& g)
 {
   ImGui::Begin("Scene");
-  DrawGameObjectNode(g);
+  for(GameObject* o : g)
+  DrawGameObjectNode(o);
   ImGui::End();
 }
 
@@ -293,12 +298,13 @@ void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
   ImGui::End();
 
   glm::vec4 l = {ubo.color[0], ubo.color[1], ubo.color[2], 0};
-  RenderGameObjectInInspector(gameObject, l);
+  for(GameObject* g : gameobjects)
+  RenderGameObjectInInspector(g, l);
   ubo.color[0] = l.x;
   ubo.color[1] = l.y;
   ubo.color[2] = l.z;
 
-  renderSceneHierarchy(gameObject);
+  renderSceneHierarchy(gameobjects);
 
   ImGui::EndFrame();
   ImGui::Render();

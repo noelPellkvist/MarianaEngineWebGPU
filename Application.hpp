@@ -39,8 +39,7 @@ class Application
         float time;
         float _pad[3];
     };
-    GameObject* gameObject;
-    Renderpass* finalRenderPass;
+    std::vector<GameObject*> gameobjects;
     Renderpass* firstRenderpass;
     UBO ubo;
     wgpu::Sampler sampler;
