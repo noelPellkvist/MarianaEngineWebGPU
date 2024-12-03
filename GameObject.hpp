@@ -10,13 +10,15 @@ class GameObject
     private:
     std::vector<GameObject> children;
     
-    wgpu::BindGroup* bindGroup;
+    
     Mesh mesh;
 
     public:
     std::string name;
+    wgpu::BindGroup* bindGroup;
     GameObject();
     GameObject(std::string name, std::string meshName, wgpu::BindGroup* group);
+    GameObject(std::string name, Mesh& mesh);
     ~GameObject();
     void Draw(wgpu::RenderPassEncoder& renderPass);
     glm::vec3 position, rotation, scale;

@@ -60,7 +60,6 @@ void Renderpass::Draw(wgpu::CommandEncoder encoder, wgpu::RenderPipeline pipelin
     depthStencilAttachment.stencilReadOnly = true;
 
     wgpu::RenderPassDescriptor renderpass{
-                                        .label = wgpu::StringView("first"),
                                         .colorAttachmentCount = 1,
                                         .colorAttachments = &attachment,
                                         .depthStencilAttachment = &depthStencilAttachment};

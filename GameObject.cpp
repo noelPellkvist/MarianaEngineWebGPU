@@ -17,6 +17,13 @@ GameObject::GameObject(std::string name, std::string meshName, wgpu::BindGroup* 
     scale = glm::vec3(1);
 }
 
+GameObject::GameObject(std::string name, Mesh& mesh): name(name), mesh(mesh)
+{
+    position = glm::vec3(0);
+    rotation = glm::vec3(180, 0, 0);
+    scale = glm::vec3(3);
+}
+
 GameObject::~GameObject()   
 {
 

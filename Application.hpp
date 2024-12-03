@@ -22,6 +22,8 @@ class Application
     wgpu::TextureView depthTextureView;
     wgpu::TextureView tmpRender;
 
+    std::vector<wgpu::TextureView> loadedTextures;
+
     wgpu::TextureView banana;
 
     wgpu::Buffer globalUBO;
@@ -40,6 +42,7 @@ class Application
         float _pad[3];
     };
     GameObject* gameObject;
+    GameObject kub;
     Renderpass* finalRenderPass;
     Renderpass* firstRenderpass;
     UBO ubo;

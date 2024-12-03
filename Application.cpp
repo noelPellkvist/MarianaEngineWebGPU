@@ -133,9 +133,12 @@ void Application::InitGraphics()
     InitSampler();
     CreateRenderPipeline();
     gameObject = new GameObject("First Gameobject", "helmet.obj", &bindGroup);
+    kub = Resources::LoadGLTFMesh("DamagedHelmet.glb");
+    kub.bindGroup = &bindGroup;
     finalRenderPass = new Renderpass(banana, depthTextureView);
-    tmpRender = Resources::CreateEmptyTexture(1366, 768);
-    firstRenderpass = new Renderpass(tmpRender, depthTextureView);
+    loadedTextures = Resources::LoadTextures();
+    //tmpRender = Resources::CreateEmptyTexture(1366, 768);
+    //firstRenderpass = new Renderpass(tmpRender, depthTextureView);
     InitGUI();
     banana = Resources::LoadTexture("Avocado_baseColor.png");
 }
@@ -173,7 +176,7 @@ void Application::Render()
   
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();  
 
-  firstRenderpass->Draw(encoder, pipeline, gameObject);
+  //firstRenderpass->Draw(encoder, pipeline, gameObject);
   //finalRenderPass->Draw(encoder, pipeline, gameObject, surfaceTexture);
 
   wgpu::RenderPassColorAttachment attachment{
@@ -193,19 +196,19 @@ void Application::Render()
   depthStencilAttachment.stencilStoreOp = wgpu::StoreOp::Undefined;
   depthStencilAttachment.stencilReadOnly = true;
 
-  wgpu::RenderPassDescriptor renderpass{.label = wgpu::StringView("final"),
+  wgpu::RenderPassDescriptor renderpass{
                                         .colorAttachmentCount = 1,
                                         .colorAttachments = &attachment,
                                         .depthStencilAttachment = &depthStencilAttachment};
 
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
 
-  ubo.modelMatrix = glm::rotate(gameObject->modelMatrix, 0.01f, glm::vec3(0,0,1));
+  ubo.modelMatrix = glm::rotate(kub.modelMatrix, 0.01f, glm::vec3(0,0,1));
   device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 
   pass.SetPipeline(pipeline);
   
-  gameObject->Draw(pass);
+  kub.Draw(pass);
   
   UpdateGUI(pass);
   pass.End();
@@ -287,18 +290,21 @@ void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
   ImGui::Begin("Stats");
   ImGuiIO& io = ImGui::GetIO();
   ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-  ImTextureID texture_id = reinterpret_cast<ImTextureID>(tmpRender.Get());
-  ImVec2 window_size = ImGui::GetWindowSize();
-  ImGui::Image(texture_id, ImVec2(window_size.x, window_size.x * 9 / 16));
+  for(int i = 0; i < loadedTextures.size(); i++)
+  {
+    ImTextureID texture_id = reinterpret_cast<ImTextureID>(loadedTextures[i].Get());
+    ImVec2 window_size = ImGui::GetWindowSize();
+    ImGui::Image(texture_id, ImVec2(window_size.x, window_size.x));
+  }
   ImGui::End();
 
   glm::vec4 l = {ubo.color[0], ubo.color[1], ubo.color[2], 0};
-  RenderGameObjectInInspector(gameObject, l);
+  RenderGameObjectInInspector(&kub, l);
   ubo.color[0] = l.x;
   ubo.color[1] = l.y;
   ubo.color[2] = l.z;
 
-  renderSceneHierarchy(gameObject);
+  renderSceneHierarchy(&kub);
 
   ImGui::EndFrame();
   ImGui::Render();
