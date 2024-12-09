@@ -132,7 +132,6 @@ void Application::InitGraphics()
     InitUniforms();
     InitSampler();
     CreateRenderPipeline();
-    gameObject = new GameObject("First Gameobject", "helmet.obj", &bindGroup);
     kub = Resources::LoadGLTFMesh("DamagedHelmet.glb");
     kub.bindGroup = &bindGroup;
     finalRenderPass = new Renderpass(banana, depthTextureView);
@@ -154,9 +153,9 @@ void Application::InitUniforms()
     
     
     ubo.time = 1.0f;
-    ubo.color[0] = 1;
-    ubo.color[1] = 1;
-    ubo.color[2] = 1;
+    ubo.color[0] = -1;
+    ubo.color[1] = -1;
+    ubo.color[2] = 3;
     ubo.color[3] = 1;
 
     float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
@@ -202,7 +201,6 @@ void Application::Render()
                                         .depthStencilAttachment = &depthStencilAttachment};
 
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
-
   ubo.modelMatrix = glm::rotate(kub.modelMatrix, 0.01f, glm::vec3(0,0,1));
   device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 

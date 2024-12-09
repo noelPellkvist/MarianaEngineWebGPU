@@ -121,7 +121,7 @@ wgpu::TextureView Resources::LoadTexture(const std::string& name)
     stbi_image_free(imageData);
 
     //Create Texture
-    TextureFormat textureFormat = TextureFormat::RGBA8Unorm;
+    TextureFormat textureFormat = TextureFormat::RGBA8UnormSrgb;
     TextureDescriptor textureDesc;
     textureDesc.dimension = TextureDimension::e2D;
     textureDesc.format = textureFormat;
