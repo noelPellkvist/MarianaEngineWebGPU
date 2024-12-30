@@ -1,4 +1,5 @@
 #include "Resources.h"
+#include "Application.hpp"
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -12,10 +13,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
+#include "../External/tiny_gltf.h"
 
-#include "tiny_gltf.h"
 #define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h"
+#include "../External/tiny_obj_loader.h"
 
 
 wgpu::ShaderModule Resources::LoadShader(const std::string& path)
@@ -271,159 +272,4 @@ wgpu::TextureView Resources::CreateEmptyTexture(int width, int height, wgpu::Tex
     TextureView textureView = texture.CreateView(&textureViewDesc);
 
     return textureView;
-}
-
-Mesh LoadGLTFPrimitives(tinygltf::Model& model)
-{
-    std::vector<Mesh::Vertex> vertexData;
-    std::vector<uint16_t> indices;
-
-    for (const auto& primitive : model.meshes[0].primitives) {
-        // Extract position data
-        std::vector<glm::vec3> positions;
-        if (primitive.attributes.find("POSITION") != primitive.attributes.end()) {
-            int posAccessorIndex = primitive.attributes.at("POSITION");
-            const tinygltf::Accessor& posAccessor = model.accessors[posAccessorIndex];
-            const tinygltf::BufferView& posBufferView = model.bufferViews[posAccessor.bufferView];
-            const tinygltf::Buffer& posBuffer = model.buffers[posBufferView.buffer];
-
-            const float* posData = reinterpret_cast<const float*>(&posBuffer.data[posBufferView.byteOffset]);
-            size_t numVertices = posAccessor.count;
-            vertexData.reserve(numVertices);
-            for (size_t i = 0; i < numVertices; ++i) {
-                positions.push_back(glm::vec3(posData[i * 3 + 0], posData[i * 3 + 1], posData[i * 3 + 2]));
-            }
-        }
-
-        std::cout << "Loading positions" << std::endl;
-
-        std::vector<glm::vec3> normals;
-        if (primitive.attributes.find("NORMAL") != primitive.attributes.end()) {
-            int normalAccessorIndex = primitive.attributes.at("NORMAL");
-            const tinygltf::Accessor& normalAccessor = model.accessors[normalAccessorIndex];
-            const tinygltf::BufferView& normalBufferView = model.bufferViews[normalAccessor.bufferView];
-            const tinygltf::Buffer& normalBuffer = model.buffers[normalBufferView.buffer];
-
-            const float* normalData = reinterpret_cast<const float*>(&normalBuffer.data[normalBufferView.byteOffset]);
-            size_t numNormals = normalAccessor.count;
-
-            for (size_t i = 0; i < numNormals; ++i) {
-                normals.push_back(glm::vec3(normalData[i * 3 + 0], normalData[i * 3 + 1], normalData[i * 3 + 2]));
-            }
-        }
-
-        std::cout << "Loading normals" << std::endl;
-
-        std::vector<glm::vec2> uvs;
-        if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
-            int uvAccessorIndex = primitive.attributes.at("TEXCOORD_0");
-            const tinygltf::Accessor& uvAccessor = model.accessors[uvAccessorIndex];
-            const tinygltf::BufferView& uvBufferView = model.bufferViews[uvAccessor.bufferView];
-            const tinygltf::Buffer& uvBuffer = model.buffers[uvBufferView.buffer];
-
-            const float* uvData = reinterpret_cast<const float*>(&uvBuffer.data[uvBufferView.byteOffset]);
-            size_t numUVs = uvAccessor.count;
-
-            for (size_t i = 0; i < numUVs; ++i) {
-                uvs.push_back(glm::vec2(uvData[i * 2 + 0], uvData[i * 2 + 1] - 1));
-            }
-        }
-        std::cout << "Loading uvs" << std::endl;
-
-        std::vector<glm::vec4> colors;
-        if (primitive.attributes.find("COLOR_0") != primitive.attributes.end()) {
-            int colorAccessorIndex = primitive.attributes.at("COLOR_0");
-            const tinygltf::Accessor& colorAccessor = model.accessors[colorAccessorIndex];
-            const tinygltf::BufferView& colorBufferView = model.bufferViews[colorAccessor.bufferView];
-            const tinygltf::Buffer& colorBuffer = model.buffers[colorBufferView.buffer];
-
-            const float* colorData = reinterpret_cast<const float*>(&colorBuffer.data[colorBufferView.byteOffset]);
-            size_t numColors = colorAccessor.count;
-
-            for (size_t i = 0; i < numColors; ++i) {
-                colors.push_back(glm::vec4(colorData[i * 4 + 0], colorData[i * 4 + 1], colorData[i * 4 + 2], colorData[i * 4 + 3]));
-            }
-        }
-
-        std::cout << "Loading colors" << std::endl;
-
-        size_t numVertices = positions.size();
-        if (normals.size() != numVertices || uvs.size() != numVertices) {
-            std::cerr << "Error: Mismatch in number of positions, normals, or UVs\n";
-            return {};
-        }
-        else
-            std::cout << "Mesh created succesfully" << std::endl;
-
-        for (size_t i = 0; i < numVertices; ++i) {
-            Mesh::Vertex v = {};
-            v.position = positions[i];
-            v.normal = normals[i];
-            if(colors.size() > 0)
-                v.color = colors[i];
-            v.uv = uvs[i];
-            vertexData.push_back(v);
-        }
-        
-        if (primitive.indices > -1) {
-            int indicesAccessorIndex = primitive.indices;
-            const tinygltf::Accessor& indicesAccessor = model.accessors[indicesAccessorIndex];
-            const tinygltf::BufferView& indicesBufferView = model.bufferViews[indicesAccessor.bufferView];
-            const tinygltf::Buffer& indicesBuffer = model.buffers[indicesBufferView.buffer];
-
-            if (indicesAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
-                const uint16_t* indicesData = reinterpret_cast<const uint16_t*>(&indicesBuffer.data[indicesBufferView.byteOffset]);
-                size_t numIndices = indicesAccessor.count;
-
-                for (size_t i = 0; i < numIndices; ++i) {
-                    indices.push_back(indicesData[i]);
-                }
-            } else {
-                std::cerr << "Unsupported index component type: " << indicesAccessor.componentType << std::endl;
-            }
-        }   
-    }
-    Mesh newMesh(vertexData, indices);
-    newMesh.BuildMesh();
-    return newMesh;
-}
-
-std::vector<wgpu::TextureView> LoadGLTFTextures(tinygltf::Model& model)
-{
-    for(auto& t : model.images)
-        std::cout << "Model has texture named: " << t.name << std::endl;
-
-    return {};
-}
-
-GameObject Resources::LoadGLTFMesh(const std::string& path)
-{
-    std::string fullpath = std::string(RESOURCE_DIR) + "/" + path;
-
-    tinygltf::Model model;
-    tinygltf::TinyGLTF loader;
-    std::string err;
-    std::string warn;
-
-    bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, fullpath);
-
-    if (!warn.empty()) {
-      printf("Warn: %s\n", warn.c_str());
-    }
-
-    if (!err.empty()) {
-      printf("Err: %s\n", err.c_str());
-    }
-
-    if (!ret) {
-      printf("Failed to parse glTF\n");
-      return GameObject();
-    }
-
-    std::cout << "Succesfully loaded GLTF: " << model.meshes[0].name << std::endl;
-    
-    Mesh newMesh = LoadGLTFPrimitives(model);
-    std::vector<wgpu::TextureView> textures = LoadGLTFTextures(model);
-    
-    return GameObject(model.meshes[0].name, newMesh);
 }

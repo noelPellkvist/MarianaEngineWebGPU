@@ -12,6 +12,8 @@
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
 #include <gtc/matrix_transform.hpp>
+#include <gtc/quaternion.hpp>
+#include <gtx/euler_angles.hpp>
 
 
 
@@ -22,6 +24,7 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 
     InitGraphics();
     
+    model = new Model("Bot.glb");
 
   #if defined(__EMSCRIPTEN__)
   auto callback = [](void *arg) {
@@ -44,7 +47,7 @@ void Application::WindowResized()
   surface.Unconfigure();
   ConfigureSurface();
   float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
-  ubo.projectionMatrix = glm::perspective(45.0f * 0.01745329251f, aspect, 0.01f, 100.0f);
+  ubo.projectionMatrix = glm::perspective(60.0f * 0.01745329251f, aspect, 0.01f, 100.0f);
   InitDepthTexture();
 }
 
@@ -85,7 +88,6 @@ void Application::InitGUI()
 
   ImGui_ImplGlfw_InitForOther(window, true);
   
-  //ImGui_ImplWGPU_Init()
   ImGui_ImplWGPU_InitInfo info = {};
   info.Device = device.Get();
   info.NumFramesInFlight = 3;
@@ -98,6 +100,8 @@ void Application::InitGUI()
   else
     std::cout << "Failed to initialize gui" << std::endl;
 
+  ImGui::GetIO().FontGlobalScale = 1.2f;
+
   ImGui::LoadIniSettingsFromDisk((std::string(RESOURCE_DIR) + "/imgui.ini").c_str());
 }
 
@@ -105,7 +109,6 @@ Application::~Application()
 {
     ImGui_ImplGlfw_Shutdown();
     ImGui_ImplWGPU_Shutdown();
-    delete gameObject;
     std::cout << "Ending app" << std::endl;
 }
 
@@ -132,14 +135,7 @@ void Application::InitGraphics()
     InitUniforms();
     InitSampler();
     CreateRenderPipeline();
-    kub = Resources::LoadGLTFMesh("DamagedHelmet.glb");
-    kub.bindGroup = &bindGroup;
-    finalRenderPass = new Renderpass(banana, depthTextureView);
-    loadedTextures = Resources::LoadTextures();
-    //tmpRender = Resources::CreateEmptyTexture(1366, 768);
-    //firstRenderpass = new Renderpass(tmpRender, depthTextureView);
     InitGUI();
-    banana = Resources::LoadTexture("Avocado_baseColor.png");
 }
 
 void Application::InitUniforms()
@@ -159,10 +155,12 @@ void Application::InitUniforms()
     ubo.color[3] = 1;
 
     float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
-    ubo.projectionMatrix = glm::perspective(45.0f * 0.01745329251f, aspect, 0.01f, 100.0f);
-    ubo.viewMatrix = glm::lookAt(glm::vec3(-10.0f, -10.0f, 1.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.modelMatrix = glm::mat4x4(4.0f);
-    ubo.modelMatrix = glm::rotate(ubo.modelMatrix, 3.14f, glm::vec3(0,1,0));
+    ubo.projectionMatrix = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
+    ubo.viewMatrix = glm::lookAt(glm::vec3(-6, 0, 0), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.modelMatrix = glm::mat4x4(12.0f);
+    //ubo.modelMatrix = glm::rotate(ubo.modelMatrix, 3.14f, glm::vec3(0,1,0));
+    ubo.modelMatrix = glm::rotate(ubo.modelMatrix, glm::radians(90.0f), glm::vec3(1,0,0));
+    ubo.modelMatrix = glm::rotate(ubo.modelMatrix, glm::radians(-90.0f), glm::vec3(0,1,0));
 
     device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 }
@@ -174,9 +172,6 @@ void Application::Render()
   surface.GetCurrentTexture(&surfaceTexture);
   
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();  
-
-  //firstRenderpass->Draw(encoder, pipeline, gameObject);
-  //finalRenderPass->Draw(encoder, pipeline, gameObject, surfaceTexture);
 
   wgpu::RenderPassColorAttachment attachment{
       .view = surfaceTexture.texture.CreateView(),
@@ -201,12 +196,15 @@ void Application::Render()
                                         .depthStencilAttachment = &depthStencilAttachment};
 
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
-  ubo.modelMatrix = glm::rotate(kub.modelMatrix, 0.01f, glm::vec3(0,0,1));
-  device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
+  // ubo.modelMatrix = glm::rotate(kub.modelMatrix, 0.01f, glm::vec3(0,0,1));
+  // device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 
   pass.SetPipeline(pipeline);
+  pass.SetBindGroup(0, bindGroup, 0, nullptr);
+  //model->gameObject.Draw(pass);
+  model->Draw(pass);
   
-  kub.Draw(pass);
+  //kub.Draw(pass);
   
   UpdateGUI(pass);
   pass.End();
@@ -216,13 +214,19 @@ void Application::Render()
   device.GetQueue().Submit(1, &commands);
 }
 
-void RenderGameObjectInInspector(GameObject* gameObject, glm::vec4& light)
+void RenderGameObjectInInspector(Node* selectedNode)
 {
-  float position[3] = {gameObject->position.x, gameObject->position.y, gameObject->position.z};
-  float rotation[3] = {gameObject->rotation.x, gameObject->rotation.y, gameObject->rotation.z};
-  float scale[3] = {gameObject->scale.x, gameObject->scale.y, gameObject->scale.z};
-  float lightdirection[3] = {light.x, light.y, light.z};
   ImGui::Begin("Inspector");
+  if (selectedNode == nullptr)
+  { 
+    
+    ImGui::End();
+    return;
+  } //localPosition
+  float position[3] = {selectedNode->localPosition.x, selectedNode->localPosition.y, selectedNode->localPosition.z};
+  glm::vec3 newRot = glm::eulerAngles(selectedNode->localRotation);
+  float rotation[3] = {newRot.x, newRot.y, newRot.z};
+  float scale[3] = {selectedNode->localScale.x, selectedNode->localScale.y, selectedNode->localScale.z};
   ImGui::Text("Position");
   ImGui::SameLine();
   ImGui::DragFloat3("##Position", position);
@@ -234,50 +238,53 @@ void RenderGameObjectInInspector(GameObject* gameObject, glm::vec4& light)
   ImGui::Text("Scale");
   ImGui::SameLine();
   ImGui::DragFloat3("##Scale", scale);
-
-  ImGui::Text("LightDirection");
-  ImGui::SameLine();
-  ImGui::DragFloat3("##LightDirection", lightdirection);
   ImGui::End();
 
-  gameObject->position = {position[0], position[1], position[2]};
-  gameObject->rotation = {rotation[0], rotation[1], rotation[2]};
-  gameObject->scale = {scale[0], scale[1], scale[2]};
-  light = {lightdirection[0], lightdirection[1], lightdirection[2], 0};
+  selectedNode->localPosition = {position[0], position[1], position[2]};
+  newRot = {rotation[0], rotation[1], rotation[2]};
+  selectedNode->localRotation = glm::quat(newRot);
+  selectedNode->localScale = {scale[0], scale[1], scale[2]};
 }
 
-bool DrawGameObjectNode(GameObject* g)
-{
-  bool selected = false;
-
-  if (ImGui::TreeNode(g->name.c_str())) {
-        // Right-click context menu for the tree node
-         ImGui::TreePop();
+void DrawGameObjectNode(Node* g, Node*& selectedNode) {
+    // Set flags for the TreeNode
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick; // Expand only on arrow or double-click
+    if (g == selectedNode) {
+        flags |= ImGuiTreeNodeFlags_Selected; // Highlight if this node is selected
+    }
+    if (g->children.empty()) {
+        flags |= ImGuiTreeNodeFlags_Leaf; // Mark as a leaf node if it has no children
     }
 
-    if (ImGui::BeginPopupContextItem("Gameobject Options")) {
-            // Add items to the context menu
-            if (ImGui::MenuItem("View in inspector")) {
-                selected = true;
-            }
-            else selected = false;
-            ImGui::EndPopup();
-        }
+    // Create the TreeNode
+    bool nodeOpen = ImGui::TreeNodeEx(g->name.c_str(), flags);
 
-  return selected = true;;
-       
+    // Check if the node is clicked (but not toggled open/closed by the arrow)
+    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
+        selectedNode = g; // Mark this node as selected
+    }
+
+    // If the node is open, draw its children
+    if (nodeOpen) {
+        for (auto* child : g->children) {
+            DrawGameObjectNode(child, selectedNode);
+        }
+        ImGui::TreePop(); // Close the TreeNode
+    }
 }
 
-void renderSceneHierarchy(GameObject* g)
+
+void renderSceneHierarchy(Model* g, Node*& selectedNode)
 {
+  
   ImGui::Begin("Scene");
-  DrawGameObjectNode(g);
+  DrawGameObjectNode(g->rootNode, selectedNode);
   ImGui::End();
 }
 
 void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
 {
-  
+  static Node* selectedNode = nullptr;
 
   ImGui_ImplWGPU_NewFrame();
   ImGui_ImplGlfw_NewFrame();
@@ -288,21 +295,10 @@ void Application::UpdateGUI(wgpu::RenderPassEncoder renderPass)
   ImGui::Begin("Stats");
   ImGuiIO& io = ImGui::GetIO();
   ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-  for(int i = 0; i < loadedTextures.size(); i++)
-  {
-    ImTextureID texture_id = reinterpret_cast<ImTextureID>(loadedTextures[i].Get());
-    ImVec2 window_size = ImGui::GetWindowSize();
-    ImGui::Image(texture_id, ImVec2(window_size.x, window_size.x));
-  }
   ImGui::End();
+  RenderGameObjectInInspector(selectedNode);
 
-  glm::vec4 l = {ubo.color[0], ubo.color[1], ubo.color[2], 0};
-  RenderGameObjectInInspector(&kub, l);
-  ubo.color[0] = l.x;
-  ubo.color[1] = l.y;
-  ubo.color[2] = l.z;
-
-  renderSceneHierarchy(&kub);
+  renderSceneHierarchy(model, selectedNode);
 
   ImGui::EndFrame();
   ImGui::Render();
@@ -397,42 +393,39 @@ void Application::CreateRenderPipeline()
   vertexBufferLayout.arrayStride = sizeof(Mesh::Vertex);
   vertexBufferLayout.stepMode = VertexStepMode::Vertex;
 
-  std::vector<BindGroupLayoutEntry> bindingLayouts(5);
-  bindingLayouts[0] = {};
-  bindingLayouts[0].binding = 0;
-  bindingLayouts[0].visibility = ShaderStage::Vertex | ShaderStage::Fragment;
-  bindingLayouts[0].buffer.type = BufferBindingType::Uniform;
-  bindingLayouts[0].buffer.minBindingSize = sizeof(UBO);
+  std::vector<BindGroupLayoutEntry> globalBindingLayouts(2);
+  globalBindingLayouts[0] = {};
+  globalBindingLayouts[0].binding = 0;
+  globalBindingLayouts[0].visibility = ShaderStage::Vertex | ShaderStage::Fragment;
+  globalBindingLayouts[0].buffer.type = BufferBindingType::Uniform;
+  globalBindingLayouts[0].buffer.minBindingSize = sizeof(UBO);
 
-  bindingLayouts[1] = {};
-  bindingLayouts[1].binding = 1;
-  bindingLayouts[1].visibility = ShaderStage::Fragment;
-  bindingLayouts[1].sampler.type = SamplerBindingType::Filtering;
+  globalBindingLayouts[1] = {};
+  globalBindingLayouts[1].binding = 1;
+  globalBindingLayouts[1].visibility = ShaderStage::Fragment;
+  globalBindingLayouts[1].sampler.type = SamplerBindingType::Filtering;
 
-  bindingLayouts[2] = {};
-  bindingLayouts[2].binding = 2;
-  bindingLayouts[2].visibility = ShaderStage::Fragment;
-  bindingLayouts[2].texture.sampleType = TextureSampleType::Float;
-  bindingLayouts[2].texture.viewDimension = TextureViewDimension::e2D;
+  BindGroupLayoutDescriptor bindGroupLayoutDesc1{};
+  bindGroupLayoutDesc1.entryCount = (uint32_t)globalBindingLayouts.size();
+  bindGroupLayoutDesc1.entries = globalBindingLayouts.data();
+  wgpu::BindGroupLayout bindGroupLayout1 = device.CreateBindGroupLayout(&bindGroupLayoutDesc1);
 
-  bindingLayouts[3] = {};
-  bindingLayouts[3].binding = 3;
-  bindingLayouts[3].visibility = ShaderStage::Fragment;
-  bindingLayouts[3].texture.sampleType = TextureSampleType::Float;
-  bindingLayouts[3].texture.viewDimension = TextureViewDimension::e2D;
 
-  bindingLayouts[4] = {};
-  bindingLayouts[4].binding = 4;
-  bindingLayouts[4].visibility = ShaderStage::Fragment;
-  bindingLayouts[4].texture.sampleType = TextureSampleType::Float;
-  bindingLayouts[4].texture.viewDimension = TextureViewDimension::e2D;
+  std::vector<BindGroupLayoutEntry> modelBindingLayouts(1);
+  modelBindingLayouts[0] = {};
+  modelBindingLayouts[0].binding = 0;
+  modelBindingLayouts[0].visibility = ShaderStage::Vertex | ShaderStage::Fragment;
+  modelBindingLayouts[0].buffer.type = BufferBindingType::Uniform;
+  modelBindingLayouts[0].buffer.hasDynamicOffset = true;
+  modelBindingLayouts[0].buffer.minBindingSize = sizeof(ModelData);
 
-  BindGroupLayoutDescriptor bindGroupLayoutDesc{};
-  bindGroupLayoutDesc.entryCount = (uint32_t)bindingLayouts.size();
-  bindGroupLayoutDesc.entries = bindingLayouts.data();
-  bindGroupLayout = device.CreateBindGroupLayout(&bindGroupLayoutDesc);
+  BindGroupLayoutDescriptor bindGroupLayoutDesc2{};
+  bindGroupLayoutDesc2.entryCount = (uint32_t)modelBindingLayouts.size();
+  bindGroupLayoutDesc2.entries = modelBindingLayouts.data();
+  wgpu::BindGroupLayout bindGroupLayout2 = device.CreateBindGroupLayout(&bindGroupLayoutDesc2);
+  
 
-  std::vector<BindGroupEntry> bindings(5);
+  std::vector<BindGroupEntry> bindings(2);
 
   bindings[0] = {};
   bindings[0].binding = 0;
@@ -444,28 +437,17 @@ void Application::CreateRenderPipeline()
   bindings[1].binding = 1;
   bindings[1].sampler = sampler;
 
-
-  bindings[2] = {};
-  bindings[2].binding = 2;
-  bindings[2].textureView = Resources::LoadTexture("helmetAlbedo.jpg");
-
-  bindings[3] = {};
-  bindings[3].binding = 3;
-  bindings[3].textureView = Resources::LoadTexture("Default_metalRoughness.jpg");
-
-  bindings[4] = {};
-  bindings[4].binding = 4;
-  bindings[4].textureView = Resources::LoadTexture("Default_AO.jpg");
-
   BindGroupDescriptor bindGroupDesc{};
-  bindGroupDesc.layout = bindGroupLayout;
+  bindGroupDesc.layout = bindGroupLayout1;
   bindGroupDesc.entryCount = (uint32_t)bindings.size();
   bindGroupDesc.entries = bindings.data();
   bindGroup = device.CreateBindGroup(&bindGroupDesc);
 
+  std::vector<wgpu::BindGroupLayout> bindgroupLayouts = { bindGroupLayout1, bindGroupLayout2 };
+
   PipelineLayoutDescriptor layoutDesc{};
-  layoutDesc.bindGroupLayoutCount = 1;
-  layoutDesc.bindGroupLayouts = &bindGroupLayout;
+  layoutDesc.bindGroupLayoutCount = 2;
+  layoutDesc.bindGroupLayouts = bindgroupLayouts.data();
   layout = device.CreatePipelineLayout(&layoutDesc);
 
   InitDepthTexture();

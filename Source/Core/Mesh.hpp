@@ -30,7 +30,6 @@ class Mesh
     private:
     std::vector<Vertex> vertices;
     std::vector<uint16_t> indices;
-
     wgpu::Buffer vertexBuffer;
     wgpu::Buffer indexBuffer;
 };

@@ -7,13 +7,20 @@
 #include <vector>
 #include <GLFW/glfw3.h>
 
+#include "Model.hpp"
+
 class Application
 {
     public:
     Application();
     ~Application();
 
+    wgpu::Buffer globalUBO;
+
+    wgpu::Sampler sampler;
+
     private:
+    Model* model;
     const char* name;
     int kWidth, kHeight;
     wgpu::Surface surface;
@@ -26,27 +33,20 @@ class Application
 
     wgpu::TextureView banana;
 
-    wgpu::Buffer globalUBO;
+    
     wgpu::PipelineLayout layout;
-    wgpu::BindGroupLayout bindGroupLayout;
+    
     wgpu::BindGroup bindGroup;
 
     GLFWwindow* window;
 
-    struct UBO {
-        glm::mat4x4 projectionMatrix;
-        glm::mat4x4 viewMatrix;
-        glm::mat4x4 modelMatrix;
-        float color[4];
-        float time;
-        float _pad[3];
-    };
-    GameObject* gameObject;
-    GameObject kub;
+    
+    // GameObject gameObject;
+    // GameObject kub;
     Renderpass* finalRenderPass;
     Renderpass* firstRenderpass;
     UBO ubo;
-    wgpu::Sampler sampler;
+   
 
     
     
