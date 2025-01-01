@@ -376,7 +376,6 @@ void Model::InitUniforms(tinygltf::Model& model)
 
     for (int i = 0; i < meshes.size(); i++)
         device.GetQueue().WriteBuffer(modelsBuffer, 0, &LoadedModels[i], sizeof(ModelData));
-    //device.GetQueue().WriteBuffer(modelsBuffer, uniformStride, &LoadedModels[1], sizeof(ModelData));
 
     BindGroupEntry entry = {};
     entry = {};
