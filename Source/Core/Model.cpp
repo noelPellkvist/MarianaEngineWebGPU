@@ -7,8 +7,10 @@ NodesMesh LoadGLTFPrimitives(tinygltf::Model& model, int index)
 {
     std::vector<Vertex> vertexData;
     std::vector<uint16_t> indices;
+    int matIndex = -1;
 
     for (const auto& primitive : model.meshes[index].primitives) {
+        matIndex = primitive.material;
         // Extract position data
         std::vector<glm::vec3> positions;
         if (primitive.attributes.find("POSITION") != primitive.attributes.end()) {
@@ -78,7 +80,7 @@ NodesMesh LoadGLTFPrimitives(tinygltf::Model& model, int index)
         std::cout << "Loading colors" << std::endl;
 
         size_t numVertices = positions.size();
-        if (normals.size() != numVertices || uvs.size() != numVertices) {
+        if (normals.size() != numVertices/* || uvs.size() != numVertices*/) {
             std::cerr << "Error: Mismatch in number of positions, normals, or UVs\n";
             return {};
         }
@@ -91,7 +93,8 @@ NodesMesh LoadGLTFPrimitives(tinygltf::Model& model, int index)
             v.normal = normals[i];
             if(colors.size() > 0)
                 v.color = colors[i];
-            v.uv = uvs[i];
+            if(colors.size() > 0)
+                v.uv = uvs[i];
             vertexData.push_back(v);
         }
         
@@ -127,7 +130,8 @@ NodesMesh LoadGLTFPrimitives(tinygltf::Model& model, int index)
     
     newMesh.indexBuffer = device.CreateBuffer(&bufferDesc);
     device.GetQueue().WriteBuffer(newMesh.indexBuffer, 0, indices.data(), bufferDesc.size); 
-    newMesh.indexCount =  indices.size();
+    newMesh.indexCount = indices.size();
+    newMesh.matIndex = matIndex;
     return newMesh;
 }
 
@@ -184,7 +188,8 @@ Model::Model(std::string name)
 
 Node* Model::LoadNodes(tinygltf::Model& m)
 {
-    std::vector<Node*> nodes;
+    
+    int i = 0;
     for (tinygltf::Node& node : m.nodes)
     {
         Node* newNode = new Node();
@@ -223,19 +228,22 @@ Node* Model::LoadNodes(tinygltf::Model& m)
             newNode->localRotation = {1,0,0,0};
         }
 
-        // glm::mat4x4 modelMatrix = glm::translate(glm::mat4(1.0f), newNode->localPosition) *
-        //                   glm::mat4_cast(newNode->localRotation) *
-        //                   glm::scale(glm::mat4(1.0f), newNode->localScale);  
+        glm::mat4x4 modelMatrix = glm::translate(glm::mat4(1.0f), newNode->localPosition);/*
+                          glm::mat4_cast(newNode->localRotation) *
+                          glm::scale(glm::mat4(1.0f), newNode->localScale);  */
         //glm::mat4x4 modelMatrix = glm::translate(glm::mat4(1.0f), newNode->localPosition);
         
-        glm::mat4x4 modelMatrix = glm::mat4(1.0f); // Start with an identity matrix
-        modelMatrix = glm::rotate(modelMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate 90 degrees on X-axis
-        modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        modelMatrix = glm::scale(modelMatrix, glm::vec3(2.0f, 2.0f, 2.0f));
-        modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.0f, 0.0f));
+        // glm::mat4x4 modelMatrix = glm::mat4(1.0f); // Start with an identity matrix
+        // modelMatrix = glm::rotate(modelMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate 90 degrees on X-axis
+        // modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        // modelMatrix = glm::scale(modelMatrix, glm::vec3(1.0f, 1.0f, 1.0f));
+        // modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.0f, 0.0f));
         newNode->modelMatrix = modelMatrix;
-        newNode->index = node.mesh;
+        if (node.mesh != -1)
+            meshes[node.mesh].nodeIndex = i;
+        //newNode->meshIndex = node.mesh;
         nodes.push_back(newNode);
+        i++;
     }
     for (int i = 0; i < m.nodes.size(); i++)
     {
@@ -328,18 +336,23 @@ void Model::InitUniforms(tinygltf::Model& model)
             static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[3])
         );
 
-
+        materialProps.push_back(newMaterial);
+    }
+    std::cout << std::endl;
+    for (NodesMesh& NodeMesh : meshes)
+    {
         ModelData data;
-        data.modelMatrix = rootNode->modelMatrix;
-        data.materialProps = newMaterial;
+        
+        data.modelMatrix = nodes[NodeMesh.nodeIndex]->modelMatrix;
+        data.materialProps = materialProps[NodeMesh.matIndex];
 
 
-        if (mat.pbrMetallicRoughness.baseColorTexture.index != -1)
-            textures[mat.pbrMetallicRoughness.baseColorTexture.index].bindingIndex = 2;
-        if (mat.pbrMetallicRoughness.metallicRoughnessTexture.index != -1)
-            textures[mat.pbrMetallicRoughness.metallicRoughnessTexture.index].bindingIndex = 3;
-        if (mat.occlusionTexture.index != -1)
-            textures[mat.occlusionTexture.index].bindingIndex = 4;
+        // if (mat.pbrMetallicRoughness.baseColorTexture.index != -1)
+        //     textures[mat.pbrMetallicRoughness.baseColorTexture.index].bindingIndex = 2;
+        // if (mat.pbrMetallicRoughness.metallicRoughnessTexture.index != -1)
+        //     textures[mat.pbrMetallicRoughness.metallicRoughnessTexture.index].bindingIndex = 3;
+        // if (mat.occlusionTexture.index != -1)
+        //     textures[mat.occlusionTexture.index].bindingIndex = 4;
 
         LoadedModels.push_back(data);
     }
@@ -356,13 +369,14 @@ void Model::InitUniforms(tinygltf::Model& model)
     );
 
     BufferDescriptor bufferDesc;
-    bufferDesc.size = uniformStride + sizeof(ModelData);
+    bufferDesc.size = uniformStride * (meshes.size() - 1) + sizeof(ModelData);
     bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
     bufferDesc.mappedAtCreation = false;
     modelsBuffer = device.CreateBuffer(&bufferDesc);
 
-    device.GetQueue().WriteBuffer(modelsBuffer, 0, &LoadedModels[0], sizeof(ModelData));
-    device.GetQueue().WriteBuffer(modelsBuffer, uniformStride, &LoadedModels[1], sizeof(ModelData));
+    for (int i = 0; i < meshes.size(); i++)
+        device.GetQueue().WriteBuffer(modelsBuffer, 0, &LoadedModels[i], sizeof(ModelData));
+    //device.GetQueue().WriteBuffer(modelsBuffer, uniformStride, &LoadedModels[1], sizeof(ModelData));
 
     BindGroupEntry entry = {};
     entry = {};
@@ -394,7 +408,7 @@ void Model::InitUniforms(tinygltf::Model& model)
 
 void Model::Draw(wgpu::RenderPassEncoder& renderPass)
 {
-    for(int i = 0; i < 2; i++)
+    for(int i = 0; i < meshes.size(); i++)
     {
         uint32_t dynamicOffset = i * uniformStride;
         renderPass.SetVertexBuffer(0, meshes[i].vertexBuffer, 0, meshes[i].vertexBuffer.GetSize());
@@ -402,6 +416,7 @@ void Model::Draw(wgpu::RenderPassEncoder& renderPass)
         renderPass.SetBindGroup(1, bindGroup, 1, &dynamicOffset);
         renderPass.DrawIndexed(meshes[i].indexCount, 1, 0, 0);
     }
+    std::cout << std::endl;
 }
 
 Model::~Model()

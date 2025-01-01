@@ -54,8 +54,7 @@ struct Node
     glm::vec3 localPosition = {};
     glm::quat localRotation = {};
     glm::vec3 localScale = {};
-    glm::mat4x4 modelMatrix = {};
-    int index = -1;
+    glm::mat4x4 modelMatrix = {};    
 };
 
 struct NodesMesh
@@ -63,4 +62,6 @@ struct NodesMesh
     wgpu::Buffer vertexBuffer;
     wgpu::Buffer indexBuffer;
     uint32_t indexCount;
+    int matIndex = -1;
+    int nodeIndex = -1;
 };

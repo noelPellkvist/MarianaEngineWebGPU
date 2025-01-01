@@ -25,13 +25,6 @@ struct Submesh
     MaterialProperties materialProps;
 };
 
-struct DrawData
-{
-    ModelData* data;
-    NodesMesh* mesh;
-    Node* node;
-};
-
 class Model {
     public:
         Model(std::string name);
@@ -46,8 +39,9 @@ class Model {
         std::vector<ModelData> LoadedModels;
         std::vector<TextureProperties> textures;
         std::vector<wgpu::BindGroupEntry> bindings;
+        std::vector<MaterialProperties> materialProps;
         std::vector<NodesMesh> meshes;
-        std::vector<DrawData> renderData;
+        std::vector<Node*> nodes;
         
         wgpu::BindGroup bindGroup;
         wgpu::Buffer modelsBuffer;

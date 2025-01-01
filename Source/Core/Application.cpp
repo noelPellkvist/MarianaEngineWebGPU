@@ -24,7 +24,7 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 
     InitGraphics();
     
-    model = new Model("Bot.glb");
+    model = new Model("AnimatedColorsCube.glb");
 
   #if defined(__EMSCRIPTEN__)
   auto callback = [](void *arg) {
@@ -156,7 +156,7 @@ void Application::InitUniforms()
 
     float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
     ubo.projectionMatrix = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
-    ubo.viewMatrix = glm::lookAt(glm::vec3(-6, 0, 0), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.viewMatrix = glm::lookAt(glm::vec3(-30, 0, 0), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.modelMatrix = glm::mat4x4(12.0f);
     //ubo.modelMatrix = glm::rotate(ubo.modelMatrix, 3.14f, glm::vec3(0,1,0));
     ubo.modelMatrix = glm::rotate(ubo.modelMatrix, glm::radians(90.0f), glm::vec3(1,0,0));
