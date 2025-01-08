@@ -8,12 +8,10 @@
 #include "Resources.h"
 #include <iostream>
 
-#include <imgui.h>
-#include <backends/imgui_impl_wgpu.h>
-#include <backends/imgui_impl_glfw.h>
 #include <gtc/matrix_transform.hpp>
 #include <gtc/quaternion.hpp>
 #include <gtx/euler_angles.hpp>
+#include <chrono>
 
 
 
@@ -24,7 +22,7 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 
     InitGraphics();
     
-    model = new Model("AnimatedColorsCube.glb");
+    model = new Model("anim.glb");
 
   #if defined(__EMSCRIPTEN__)
   auto callback = [](void *arg) {
@@ -102,6 +100,55 @@ void Application::InitGUI()
 
   ImGui::GetIO().FontGlobalScale = 1.2f;
 
+  ImGuiStyle* style = &ImGui::GetStyle();
+    style->WindowPadding = ImVec2(15, 15);
+    style->WindowRounding = 2.5f;
+    style->FramePadding = ImVec2(5, 5);
+    style->FrameRounding = 4.0f;
+    style->ItemSpacing = ImVec2(12, 8);
+    style->ItemInnerSpacing = ImVec2(8, 6);
+    style->IndentSpacing = 25.0f;
+    style->ScrollbarSize = 15.0f;
+    style->ScrollbarRounding = 9.0f;
+    style->GrabMinSize = 5.0f;
+    style->GrabRounding = 3.0f;
+
+    style->Colors[ImGuiCol_Text] = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
+    style->Colors[ImGuiCol_TextDisabled] = ImVec4(0.24f, 0.23f, 0.29f, 1.00f);
+    style->Colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
+    style->Colors[ImGuiCol_PopupBg] = ImVec4(0.07f, 0.07f, 0.09f, 1.00f);
+    style->Colors[ImGuiCol_Border] = ImVec4(0.80f, 0.80f, 0.83f, 0.88f);
+    style->Colors[ImGuiCol_BorderShadow] = ImVec4(0.92f, 0.91f, 0.88f, 0.00f);
+    style->Colors[ImGuiCol_FrameBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+    style->Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.24f, 0.23f, 0.29f, 1.00f);
+    style->Colors[ImGuiCol_FrameBgActive] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
+    style->Colors[ImGuiCol_TitleBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+    style->Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(1.00f, 0.98f, 0.95f, 0.75f);
+    style->Colors[ImGuiCol_TitleBgActive] = ImVec4(0.07f, 0.07f, 0.09f, 1.00f);
+    style->Colors[ImGuiCol_MenuBarBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+    style->Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+    style->Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.80f, 0.80f, 0.83f, 0.31f);
+    style->Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
+    style->Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
+    style->Colors[ImGuiCol_CheckMark] = ImVec4(0.80f, 0.80f, 0.83f, 0.31f);
+    style->Colors[ImGuiCol_SliderGrab] = ImVec4(0.80f, 0.80f, 0.83f, 0.31f);
+    style->Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
+    style->Colors[ImGuiCol_Button] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+    style->Colors[ImGuiCol_ButtonHovered] = ImVec4(0.24f, 0.23f, 0.29f, 1.00f);
+    style->Colors[ImGuiCol_ButtonActive] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
+    style->Colors[ImGuiCol_Header] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+    style->Colors[ImGuiCol_HeaderHovered] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
+    style->Colors[ImGuiCol_HeaderActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
+    style->Colors[ImGuiCol_ResizeGrip] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    style->Colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
+    style->Colors[ImGuiCol_ResizeGripActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
+    style->Colors[ImGuiCol_PlotLines] = ImVec4(0.40f, 0.39f, 0.38f, 0.63f);
+    style->Colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.25f, 1.00f, 0.00f, 1.00f);
+    style->Colors[ImGuiCol_PlotHistogram] = ImVec4(0.40f, 0.39f, 0.38f, 0.63f);
+    style->Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.25f, 1.00f, 0.00f, 1.00f);
+    style->Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.25f, 1.00f, 0.00f, 0.43f);
+    //style->Colors[ImGuiCol_ModalWindowDarkening] = ImVec4(1.00f, 0.98f, 0.95f, 0.73f);
+
   ImGui::LoadIniSettingsFromDisk((std::string(RESOURCE_DIR) + "/imgui.ini").c_str());
 }
 
@@ -156,7 +203,8 @@ void Application::InitUniforms()
 
     float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
     ubo.projectionMatrix = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
-    ubo.viewMatrix = glm::lookAt(glm::vec3(-30, 0, 0), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    float currentTime = 0;
+    ubo.viewMatrix = glm::lookAt(glm::vec3(15 * glm::sin(currentTime), 0, 15 * glm::cos(currentTime)), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.modelMatrix = glm::mat4x4(12.0f);
     //ubo.modelMatrix = glm::rotate(ubo.modelMatrix, 3.14f, glm::vec3(0,1,0));
     ubo.modelMatrix = glm::rotate(ubo.modelMatrix, glm::radians(90.0f), glm::vec3(1,0,0));
@@ -196,8 +244,13 @@ void Application::Render()
                                         .depthStencilAttachment = &depthStencilAttachment};
 
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
+  static float currentTime = 0;
+  currentTime += 1.0f / 144.0f;
+  currentTime = 0;
+  float distance = 15;
+  ubo.viewMatrix = glm::lookAt(glm::vec3(distance * glm::sin(currentTime), 0, distance * glm::cos(currentTime)), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
   // ubo.modelMatrix = glm::rotate(kub.modelMatrix, 0.01f, glm::vec3(0,0,1));
-  // device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
+  device.GetQueue().WriteBuffer(globalUBO, 0, &ubo, sizeof(UBO));
 
   pass.SetPipeline(pipeline);
   pass.SetBindGroup(0, bindGroup, 0, nullptr);
@@ -205,7 +258,6 @@ void Application::Render()
   model->Draw(pass);
   
   //kub.Draw(pass);
-  
   UpdateGUI(pass);
   pass.End();
   
@@ -219,12 +271,11 @@ void RenderGameObjectInInspector(Node* selectedNode)
   ImGui::Begin("Inspector");
   if (selectedNode == nullptr)
   { 
-    
     ImGui::End();
     return;
   } //localPosition
   float position[3] = {selectedNode->localPosition.x, selectedNode->localPosition.y, selectedNode->localPosition.z};
-  glm::vec3 newRot = glm::eulerAngles(selectedNode->localRotation);
+  glm::vec3 newRot = glm::degrees(glm::eulerAngles(selectedNode->localRotation));
   float rotation[3] = {newRot.x, newRot.y, newRot.z};
   float scale[3] = {selectedNode->localScale.x, selectedNode->localScale.y, selectedNode->localScale.z};
   ImGui::Text("Position");
@@ -242,7 +293,7 @@ void RenderGameObjectInInspector(Node* selectedNode)
 
   selectedNode->localPosition = {position[0], position[1], position[2]};
   newRot = {rotation[0], rotation[1], rotation[2]};
-  selectedNode->localRotation = glm::quat(newRot);
+  selectedNode->localRotation = glm::quat(glm::radians(newRot));
   selectedNode->localScale = {scale[0], scale[1], scale[2]};
 }
 
@@ -257,6 +308,9 @@ void DrawGameObjectNode(Node* g, Node*& selectedNode) {
     }
 
     // Create the TreeNode
+    if (g->name.empty())
+      return;
+
     bool nodeOpen = ImGui::TreeNodeEx(g->name.c_str(), flags);
 
     // Check if the node is clicked (but not toggled open/closed by the arrow)
@@ -278,7 +332,8 @@ void renderSceneHierarchy(Model* g, Node*& selectedNode)
 {
   
   ImGui::Begin("Scene");
-  DrawGameObjectNode(g->rootNode, selectedNode);
+  for (Node* n : g->rootNodes)
+    DrawGameObjectNode(n, selectedNode);
   ImGui::End();
 }
 
@@ -417,12 +472,26 @@ void Application::CreateRenderPipeline()
   modelBindingLayouts[0].visibility = ShaderStage::Vertex | ShaderStage::Fragment;
   modelBindingLayouts[0].buffer.type = BufferBindingType::Uniform;
   modelBindingLayouts[0].buffer.hasDynamicOffset = true;
+  //modelBindingLayouts[0].buffer.minBindingSize = sizeof(ModelData);
   modelBindingLayouts[0].buffer.minBindingSize = sizeof(ModelData);
 
-  BindGroupLayoutDescriptor bindGroupLayoutDesc2{};
-  bindGroupLayoutDesc2.entryCount = (uint32_t)modelBindingLayouts.size();
-  bindGroupLayoutDesc2.entries = modelBindingLayouts.data();
-  wgpu::BindGroupLayout bindGroupLayout2 = device.CreateBindGroupLayout(&bindGroupLayoutDesc2);
+  BindGroupLayoutDescriptor modelBindGroupLayoutDesc{};
+  modelBindGroupLayoutDesc.entryCount = (uint32_t)modelBindingLayouts.size();
+  modelBindGroupLayoutDesc.entries = modelBindingLayouts.data();
+  wgpu::BindGroupLayout modelBindGroupLayout = device.CreateBindGroupLayout(&modelBindGroupLayoutDesc);
+
+
+  std::vector<BindGroupLayoutEntry> textureBindingLayouts(1);
+  textureBindingLayouts[0] = {};
+  textureBindingLayouts[0].binding = 0;
+  textureBindingLayouts[0].visibility = ShaderStage::Fragment;
+  textureBindingLayouts[0].texture.sampleType = TextureSampleType::Float;
+  textureBindingLayouts[0].texture.viewDimension = TextureViewDimension::e2D;
+
+  BindGroupLayoutDescriptor textureBindGroupLayoutDesc{};
+  textureBindGroupLayoutDesc.entryCount = (uint32_t)textureBindingLayouts.size();
+  textureBindGroupLayoutDesc.entries = textureBindingLayouts.data();
+  wgpu::BindGroupLayout textureBindGroupLayout = device.CreateBindGroupLayout(&textureBindGroupLayoutDesc);
   
 
   std::vector<BindGroupEntry> bindings(2);
@@ -443,10 +512,10 @@ void Application::CreateRenderPipeline()
   bindGroupDesc.entries = bindings.data();
   bindGroup = device.CreateBindGroup(&bindGroupDesc);
 
-  std::vector<wgpu::BindGroupLayout> bindgroupLayouts = { bindGroupLayout1, bindGroupLayout2 };
+  std::vector<wgpu::BindGroupLayout> bindgroupLayouts = { bindGroupLayout1, modelBindGroupLayout/*, textureBindGroupLayout*/ };
 
   PipelineLayoutDescriptor layoutDesc{};
-  layoutDesc.bindGroupLayoutCount = 2;
+  layoutDesc.bindGroupLayoutCount = bindgroupLayouts.size();
   layoutDesc.bindGroupLayouts = bindgroupLayouts.data();
   layout = device.CreatePipelineLayout(&layoutDesc);
 

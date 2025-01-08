@@ -1,143 +1,16 @@
 #include "Model.hpp"
 #include <iostream>
 
-#include "Mesh.hpp"
-
-NodesMesh LoadGLTFPrimitives(tinygltf::Model& model, int index)
+Model::Model(std::string name, bool bin)
 {
-    std::vector<Vertex> vertexData;
-    std::vector<uint16_t> indices;
-    int matIndex = -1;
+    wgpu::SupportedLimits supportedLimits;
+    device.GetLimits(&supportedLimits);
+    wgpu::Limits deviceLimits = supportedLimits.limits;
 
-    for (const auto& primitive : model.meshes[index].primitives) {
-        matIndex = primitive.material;
-        // Extract position data
-        std::vector<glm::vec3> positions;
-        if (primitive.attributes.find("POSITION") != primitive.attributes.end()) {
-            int posAccessorIndex = primitive.attributes.at("POSITION");
-            const tinygltf::Accessor& posAccessor = model.accessors[posAccessorIndex];
-            const tinygltf::BufferView& posBufferView = model.bufferViews[posAccessor.bufferView];
-            const tinygltf::Buffer& posBuffer = model.buffers[posBufferView.buffer];
-
-            const float* posData = reinterpret_cast<const float*>(&posBuffer.data[posBufferView.byteOffset]);
-            size_t numVertices = posAccessor.count;
-            vertexData.reserve(numVertices);
-            for (size_t i = 0; i < numVertices; ++i) {
-                positions.push_back(glm::vec3(posData[i * 3 + 0], posData[i * 3 + 1], posData[i * 3 + 2]));
-            }
-        }
-
-        std::cout << "Loading positions" << std::endl;
-
-        std::vector<glm::vec3> normals;
-        if (primitive.attributes.find("NORMAL") != primitive.attributes.end()) {
-            int normalAccessorIndex = primitive.attributes.at("NORMAL");
-            const tinygltf::Accessor& normalAccessor = model.accessors[normalAccessorIndex];
-            const tinygltf::BufferView& normalBufferView = model.bufferViews[normalAccessor.bufferView];
-            const tinygltf::Buffer& normalBuffer = model.buffers[normalBufferView.buffer];
-
-            const float* normalData = reinterpret_cast<const float*>(&normalBuffer.data[normalBufferView.byteOffset]);
-            size_t numNormals = normalAccessor.count;
-
-            for (size_t i = 0; i < numNormals; ++i) {
-                normals.push_back(glm::vec3(normalData[i * 3 + 0], normalData[i * 3 + 1], normalData[i * 3 + 2]));
-            }
-        }
-
-        std::cout << "Loading normals" << std::endl;
-
-        std::vector<glm::vec2> uvs;
-        if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
-            int uvAccessorIndex = primitive.attributes.at("TEXCOORD_0");
-            const tinygltf::Accessor& uvAccessor = model.accessors[uvAccessorIndex];
-            const tinygltf::BufferView& uvBufferView = model.bufferViews[uvAccessor.bufferView];
-            const tinygltf::Buffer& uvBuffer = model.buffers[uvBufferView.buffer];
-
-            const float* uvData = reinterpret_cast<const float*>(&uvBuffer.data[uvBufferView.byteOffset]);
-            size_t numUVs = uvAccessor.count;
-
-            for (size_t i = 0; i < numUVs; ++i) {
-                uvs.push_back(glm::vec2(uvData[i * 2 + 0], uvData[i * 2 + 1] - 1));
-            }
-        }
-        std::cout << "Loading uvs" << std::endl;
-
-        std::vector<glm::vec4> colors;
-        if (primitive.attributes.find("COLOR_0") != primitive.attributes.end()) {
-            int colorAccessorIndex = primitive.attributes.at("COLOR_0");
-            const tinygltf::Accessor& colorAccessor = model.accessors[colorAccessorIndex];
-            const tinygltf::BufferView& colorBufferView = model.bufferViews[colorAccessor.bufferView];
-            const tinygltf::Buffer& colorBuffer = model.buffers[colorBufferView.buffer];
-
-            const float* colorData = reinterpret_cast<const float*>(&colorBuffer.data[colorBufferView.byteOffset]);
-            size_t numColors = colorAccessor.count;
-
-            for (size_t i = 0; i < numColors; ++i) {
-                colors.push_back(glm::vec4(colorData[i * 4 + 0], colorData[i * 4 + 1], colorData[i * 4 + 2], colorData[i * 4 + 3]));
-            }
-        }
-
-        std::cout << "Loading colors" << std::endl;
-
-        size_t numVertices = positions.size();
-        if (normals.size() != numVertices/* || uvs.size() != numVertices*/) {
-            std::cerr << "Error: Mismatch in number of positions, normals, or UVs\n";
-            return {};
-        }
-        else
-            std::cout << "Mesh created succesfully" << std::endl;
-
-        for (size_t i = 0; i < numVertices; ++i) {
-            Vertex v = {};
-            v.position = positions[i];
-            v.normal = normals[i];
-            if(colors.size() > 0)
-                v.color = colors[i];
-            if(colors.size() > 0)
-                v.uv = uvs[i];
-            vertexData.push_back(v);
-        }
-        
-        if (primitive.indices > -1) {
-            int indicesAccessorIndex = primitive.indices;
-            const tinygltf::Accessor& indicesAccessor = model.accessors[indicesAccessorIndex];
-            const tinygltf::BufferView& indicesBufferView = model.bufferViews[indicesAccessor.bufferView];
-            const tinygltf::Buffer& indicesBuffer = model.buffers[indicesBufferView.buffer];
-
-            if (indicesAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
-                const uint16_t* indicesData = reinterpret_cast<const uint16_t*>(&indicesBuffer.data[indicesBufferView.byteOffset]);
-                size_t numIndices = indicesAccessor.count;
-
-                for (size_t i = 0; i < numIndices; ++i) {
-                    indices.push_back(indicesData[i]);
-                }
-            } else {
-                std::cerr << "Unsupported index component type: " << indicesAccessor.componentType << std::endl;
-            }
-        }   
-    }
-    NodesMesh newMesh;
-    wgpu::BufferDescriptor bufferDesc;
-    bufferDesc.size = vertexData.size() * sizeof(Vertex);
-    bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
-    bufferDesc.mappedAtCreation = false;
-    newMesh.vertexBuffer = device.CreateBuffer(&bufferDesc);
-    device.GetQueue().WriteBuffer(newMesh.vertexBuffer, 0, vertexData.data(), bufferDesc.size);
-
-    bufferDesc.size = indices.size() * sizeof(uint16_t);
-    bufferDesc.size = (bufferDesc.size + 3) & ~3;
-    bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
-    
-    newMesh.indexBuffer = device.CreateBuffer(&bufferDesc);
-    device.GetQueue().WriteBuffer(newMesh.indexBuffer, 0, indices.data(), bufferDesc.size); 
-    newMesh.indexCount = indices.size();
-    newMesh.matIndex = matIndex;
-    return newMesh;
-}
-
-
-Model::Model(std::string name)
-{
+    uniformStride = ceilToNextMultiple(
+        (uint32_t)sizeof(ModelData),
+        (uint32_t)deviceLimits.minUniformBufferOffsetAlignment
+    );
     
     std::string fullpath = std::string(RESOURCE_DIR) + "/" + name;
 
@@ -146,8 +19,11 @@ Model::Model(std::string name)
     std::string err;
     std::string warn;
 
-    bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, fullpath);
-
+    bool ret;
+    if (bin)
+        ret = loader.LoadBinaryFromFile(&model, &err, &warn, fullpath);
+    else
+        ret = loader.LoadASCIIFromFile(&model, &err, &warn, fullpath);
     if (!warn.empty()) {
       printf("Warn: %s\n", warn.c_str());
     }
@@ -160,40 +36,33 @@ Model::Model(std::string name)
       printf("Failed to parse glTF\n");
       return;
     }
-    
-    for (int i = 0; i < model.meshes.size(); i++)
-    {
-        meshes.push_back(LoadGLTFPrimitives(model, i));
-    }
-    
-    //gameObject = GameObject(model.meshes[0].name, mesh, bindGroup);
-    rootNode = LoadNodes(model);
-    textures.resize(model.images.size());
-    InitUniforms(model);
-    return;
+    meshes.resize(model.meshes.size());
+    LoadNodes(model);
+    LoadMaterials(model);
+    LoadMeshes(model);
+    InitUniforms();
+    InitModelBindgroups();
+    LoadAnimations(model);
 
+    startTime = std::chrono::high_resolution_clock::now();
+    UpdateAnimatedNodes();
     
-    // for (tinygltf::Material& m : model.materials)
-    //     LoadMaterial(m);
-
-    int i = 0;
-    for (tinygltf::Image& m : model.images)
-    {
-        LoadTexture(m, i);
-        i++;
-    }
-
-    std::cout << "Succesfully loaded GLTF: " << model.meshes[0].name << std::endl;
+    std::cout << "Succesfully loaded model" << std::endl;
 }
 
-Node* Model::LoadNodes(tinygltf::Model& m)
+void Model::LoadNodes(tinygltf::Model& m)
 {
-    
     int i = 0;
     for (tinygltf::Node& node : m.nodes)
     {
         Node* newNode = new Node();
         newNode->name = node.name;
+        if(node.mesh != -1)
+        {
+            MeshData newMeshData;
+            newMeshData.nodeIndex = i;
+            meshes[node.mesh] = newMeshData;
+        }
         if (node.translation.size() == 3)
         {
             newNode->localPosition = glm::vec3(static_cast<float>(node.translation[0]), 
@@ -218,30 +87,20 @@ Node* Model::LoadNodes(tinygltf::Model& m)
 
         if (node.rotation.size() == 4)
         {
-            newNode->localRotation = glm::quat(static_cast<float>(node.rotation[0]), 
-                     static_cast<float>(node.rotation[1]), 
-                     static_cast<float>(node.rotation[2]),
-                     static_cast<float>(node.rotation[3]));  
+            newNode->localRotation = glm::quat(static_cast<float>(node.rotation[3]), 
+                     static_cast<float>(node.rotation[0]), 
+                     static_cast<float>(node.rotation[1]),
+                     static_cast<float>(node.rotation[2]));  
         }
         else
         {
             newNode->localRotation = {1,0,0,0};
         }
 
-        glm::mat4x4 modelMatrix = glm::translate(glm::mat4(1.0f), newNode->localPosition);/*
-                          glm::mat4_cast(newNode->localRotation) *
-                          glm::scale(glm::mat4(1.0f), newNode->localScale);  */
-        //glm::mat4x4 modelMatrix = glm::translate(glm::mat4(1.0f), newNode->localPosition);
-        
-        // glm::mat4x4 modelMatrix = glm::mat4(1.0f); // Start with an identity matrix
-        // modelMatrix = glm::rotate(modelMatrix, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate 90 degrees on X-axis
-        // modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        // modelMatrix = glm::scale(modelMatrix, glm::vec3(1.0f, 1.0f, 1.0f));
-        // modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.0f, 0.0f));
+        glm::mat4x4 modelMatrix = glm::translate(glm::mat4(1.0f), newNode->localPosition)
+         * glm::mat4_cast(newNode->localRotation)
+         * glm::scale(glm::mat4(1.0f), newNode->localScale);
         newNode->modelMatrix = modelMatrix;
-        if (node.mesh != -1)
-            meshes[node.mesh].nodeIndex = i;
-        //newNode->meshIndex = node.mesh;
         nodes.push_back(newNode);
         i++;
     }
@@ -254,110 +113,28 @@ Node* Model::LoadNodes(tinygltf::Model& m)
         }
     }
 
-    Node* rootNode = nodes[0];
-    while (rootNode->parent != nullptr)
+    for (int i = 0; i < m.scenes[0].nodes.size(); i++)
     {
-        rootNode = rootNode->parent;
+        rootNodes.push_back(nodes[m.scenes[0].nodes[i]]);
     }
-    return rootNode;
 }
 
-void Model::LoadTexture(tinygltf::Image& img, int i)
+void Model::InitUniforms()
 {
     using namespace wgpu;
-    if (textures[i].bindingIndex == -1)
-        return;
-    TextureFormat textureFormat = TextureFormat::RGBA8UnormSrgb;
-    if(textures[i].bindingIndex != 2) textureFormat = TextureFormat::RGBA8Unorm;
-    
-    int width = img.width;
-    int height = img.height;
-    int channels = img.component;
-    unsigned char* imageData = img.image.data();
-    if (imageData == nullptr) {
-        // Handle error if image loading failed
-        std::cerr << "Failed to load texture from gltf model!" << std::endl;
-        return;
-    }
-    std::vector<uint8_t> pixels(channels * width * height);
-    std::memcpy(pixels.data(), imageData, pixels.size());
-    TextureDescriptor textureDesc;
-    textureDesc.dimension = TextureDimension::e2D;
-    textureDesc.format = textureFormat;
-    textureDesc.mipLevelCount = 1;
-    textureDesc.sampleCount = 1;
-    textureDesc.size = {static_cast<unsigned int>(width), static_cast<unsigned int>(height), 1};
-    textureDesc.usage = TextureUsage::TextureBinding | TextureUsage::CopyDst;
-    textureDesc.viewFormatCount = 1;
-    textureDesc.viewFormats = &textureFormat;
-    Texture texture = device.CreateTexture(&textureDesc);
-    TextureViewDescriptor textureViewDesc;
-    textureViewDesc.aspect = TextureAspect::All;
-    textureViewDesc.baseArrayLayer = 0;
-    textureViewDesc.arrayLayerCount = 1;
-    textureViewDesc.baseMipLevel = 0;
-    textureViewDesc.mipLevelCount = 1;
-    textureViewDesc.dimension = TextureViewDimension::e2D;
-    textureViewDesc.format = textureFormat;
-    TextureView textureView = texture.CreateView(&textureViewDesc);
-	ImageCopyTexture destination;
-	destination.texture = texture;
-	destination.mipLevel = 0;
-	destination.origin = { 0, 0, 0 };
-	destination.aspect = TextureAspect::All;
-	TextureDataLayout source;
-	source.offset = 0;
-	source.bytesPerRow = 4 * textureDesc.size.width;
-	source.rowsPerImage = textureDesc.size.height;
-    device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &source, &textureDesc.size);
-
-    bindings[i].binding = i;
-    bindings[i].textureView = textureView;
-}
-
-void Model::InitUniforms(tinygltf::Model& model)
-{
-    for(tinygltf::Material& mat : model.materials) 
-    {
-        MaterialProperties newMaterial;
-        newMaterial.alphaCutoff = mat.alphaCutoff;
-        newMaterial.metallicFactor = mat.pbrMetallicRoughness.metallicFactor;
-        newMaterial.roughnessFactor = mat.pbrMetallicRoughness.roughnessFactor;
-        newMaterial.emissiveFactor = glm::vec3(
-            static_cast<float>(mat.emissiveFactor[0]),
-            static_cast<float>(mat.emissiveFactor[1]),
-            static_cast<float>(mat.emissiveFactor[2])
-        );
-
-        newMaterial.baseColorFactor = glm::vec4(
-            static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[0]),
-            static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[1]),
-            static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[2]),
-            static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[3])
-        );
-
-        materialProps.push_back(newMaterial);
-    }
-    std::cout << std::endl;
-    for (NodesMesh& NodeMesh : meshes)
+    for (int i = 0; i < subMeshes.size(); i++)
     {
         ModelData data;
-        
-        data.modelMatrix = nodes[NodeMesh.nodeIndex]->modelMatrix;
-        data.materialProps = materialProps[NodeMesh.matIndex];
-
-
-        // if (mat.pbrMetallicRoughness.baseColorTexture.index != -1)
-        //     textures[mat.pbrMetallicRoughness.baseColorTexture.index].bindingIndex = 2;
-        // if (mat.pbrMetallicRoughness.metallicRoughnessTexture.index != -1)
-        //     textures[mat.pbrMetallicRoughness.metallicRoughnessTexture.index].bindingIndex = 3;
-        // if (mat.occlusionTexture.index != -1)
-        //     textures[mat.occlusionTexture.index].bindingIndex = 4;
-
-        LoadedModels.push_back(data);
+        if (subMeshes[i].materialIndex == -1)
+        {
+            MaterialProperties newProps;
+            materials.push_back(newProps);
+            subMeshes[i].materialIndex = static_cast<int>(materials.size()) - 1;
+        }
+        data.material = materials[subMeshes[i].materialIndex];
+        data.modelMatrix = nodes[subMeshes[i].nodeIndex]->modelMatrix;
+        modelData.push_back(data);
     }
-
-    using namespace wgpu;
 
     SupportedLimits supportedLimits;
     device.GetLimits(&supportedLimits);
@@ -369,14 +146,18 @@ void Model::InitUniforms(tinygltf::Model& model)
     );
 
     BufferDescriptor bufferDesc;
-    bufferDesc.size = uniformStride * (meshes.size() - 1) + sizeof(ModelData);
+    bufferDesc.size = uniformStride * (subMeshes.size() - 1) + sizeof(ModelData);
     bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
     bufferDesc.mappedAtCreation = false;
     modelsBuffer = device.CreateBuffer(&bufferDesc);
 
-    for (int i = 0; i < meshes.size(); i++)
-        device.GetQueue().WriteBuffer(modelsBuffer, 0, &LoadedModels[i], sizeof(ModelData));
+    for (int i = 0; i < subMeshes.size(); i++)
+        device.GetQueue().WriteBuffer(modelsBuffer, i * uniformStride, &modelData[i], sizeof(ModelData));
+}
 
+void Model::InitModelBindgroups()
+{
+    using namespace wgpu;
     BindGroupEntry entry = {};
     entry = {};
     entry.binding = 0;
@@ -401,24 +182,343 @@ void Model::InitUniforms(tinygltf::Model& model)
     bindGroupDesc.layout = bindGroupLayout;
     bindGroupDesc.entryCount = 1;
     bindGroupDesc.entries = &entry;
-    bindGroup = device.CreateBindGroup(&bindGroupDesc);
-    std::cout << "Created bindgroup inside model class with modeldata struct" << std::endl;
+    modelDataBindGroup = device.CreateBindGroup(&bindGroupDesc);
+}
+
+void Model::InitTextureBindgroups()
+{
+    using namespace wgpu;
+    std::vector<BindGroupLayoutEntry> textureBindingLayouts(1);
+    textureBindingLayouts[0] = {};
+    textureBindingLayouts[0].binding = 0;
+    textureBindingLayouts[0].visibility = ShaderStage::Fragment;
+    textureBindingLayouts[0].texture.sampleType = TextureSampleType::Float;
+    textureBindingLayouts[0].texture.viewDimension = TextureViewDimension::e2D;
+
+    BindGroupLayoutDescriptor textureBindGroupLayoutDesc{};
+    textureBindGroupLayoutDesc.entryCount = (uint32_t)textureBindingLayouts.size();
+    textureBindGroupLayoutDesc.entries = textureBindingLayouts.data();
+    wgpu::BindGroupLayout textureBindGroupLayout = device.CreateBindGroupLayout(&textureBindGroupLayoutDesc);
+
+
+    for(int i = 0; i < subMeshes.size(); i++)
+    {
+        std::vector<BindGroupEntry> bindings(1);
+        bindings[0] = {};
+        bindings[0].binding = 0;
+
+
+        BindGroupDescriptor bindGroupDesc{};
+        bindGroupDesc.layout = textureBindGroupLayout;
+        bindGroupDesc.entryCount = bindings.size();
+        bindGroupDesc.entries = bindings.data();
+        wgpu::BindGroup textureBindGroup = device.CreateBindGroup(&bindGroupDesc);
+        TextureBindings.push_back(textureBindGroup);
+    }
+}
+
+void Model::TraverseNodes(Node* node, glm::mat4x4 parentMatrix)
+{
+    node->modelMatrix = parentMatrix * glm::translate(glm::mat4(1.0f), node->localPosition)
+         * glm::mat4_cast(node->localRotation)
+         * glm::scale(glm::mat4(1.0f), node->localScale);
+    for (Node* n : node->children)
+        TraverseNodes(n, node->modelMatrix);
+}
+
+void Model::UpdateAnimatedNodes()
+{
+    std::chrono::duration<float> elapsed = std::chrono::high_resolution_clock::now() - startTime;
+    // if(elapsed >= 1)
+    //     startTime = std::chrono::high_resolution_clock::now();
+    float time = elapsed.count() ;
+    glm::vec3 newPosition = animations[0].channels[0].InterpolatePosition(time);
+    //std::cout << "Position: " << newPosition.x << ", " << newPosition.y << ", " << newPosition.z << std::endl;
+}
+
+void Model::UpdateNodes()
+{
+    UpdateAnimatedNodes();
+    for (Node* n : rootNodes)
+        TraverseNodes(n, glm::mat4x4(1.0f));
+    for (int i = 0; i < subMeshes.size(); i++)
+    {
+        modelData[i].material = materials[subMeshes[i].materialIndex];
+        modelData[i].modelMatrix = nodes[subMeshes[i].nodeIndex]->modelMatrix;
+    }
+    for (int i = 0; i < subMeshes.size(); i++)
+        device.GetQueue().WriteBuffer(modelsBuffer, uniformStride * i, &modelData[i], sizeof(ModelData));
+}
+
+void Model::LoadMaterials(tinygltf::Model& m)
+{
+    for(tinygltf::Material& mat : m.materials) 
+    {
+        MaterialProperties newMaterial;
+        newMaterial.textureFlags = 0;
+        newMaterial.alphaCutoff = mat.alphaCutoff;
+        newMaterial.metallicFactor = mat.pbrMetallicRoughness.metallicFactor;
+        newMaterial.roughnessFactor = mat.pbrMetallicRoughness.roughnessFactor;
+        newMaterial.emissiveFactor = glm::vec3(
+            static_cast<float>(mat.emissiveFactor[0]),
+            static_cast<float>(mat.emissiveFactor[1]),
+            static_cast<float>(mat.emissiveFactor[2])
+        );
+
+        newMaterial.baseColorFactor = glm::vec4(
+            static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[0]),
+            static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[1]),
+            static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[2]),
+            static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[3])
+        );
+
+        if(mat.pbrMetallicRoughness.baseColorTexture.index != -1)
+        {
+            newMaterial.textureFlags |= (1 << 0);
+        }
+
+        materials.push_back(newMaterial);
+    }
+}
+
+void Model::LoadMeshes(tinygltf::Model& model)
+{
+    for (int i = 0; i < model.meshes.size(); i++)
+    {
+        std::vector<Vertex> vertexData;
+        std::vector<uint16_t> indices;
+        for (const auto& primitive : model.meshes[i].primitives) {
+            Submesh subMesh;
+            subMesh.materialIndex = primitive.material;
+            subMesh.nodeIndex = meshes[i].nodeIndex;
+            subMesh.meshIndex = i;
+            subMesh.startIndex = indices.size();
+            subMesh.startVertex = vertexData.size();
+            std::vector<glm::vec3> positions;
+            if (primitive.attributes.find("POSITION") != primitive.attributes.end()) {
+                int posAccessorIndex = primitive.attributes.at("POSITION");
+                const tinygltf::Accessor& posAccessor = model.accessors[posAccessorIndex];
+                const tinygltf::BufferView& posBufferView = model.bufferViews[posAccessor.bufferView];
+                const tinygltf::Buffer& posBuffer = model.buffers[posBufferView.buffer];
+
+                const float* posData = reinterpret_cast<const float*>(&posBuffer.data[posBufferView.byteOffset]);
+                size_t numVertices = posAccessor.count;
+                vertexData.reserve(numVertices);
+                for (size_t i = 0; i < numVertices; ++i) {
+                    positions.push_back(glm::vec3(posData[i * 3 + 0], posData[i * 3 + 1], posData[i * 3 + 2]));
+                }
+            }
+
+            std::cout << "Loading positions" << std::endl;
+
+            std::vector<glm::vec3> normals;
+            if (primitive.attributes.find("NORMAL") != primitive.attributes.end()) {
+                int normalAccessorIndex = primitive.attributes.at("NORMAL");
+                const tinygltf::Accessor& normalAccessor = model.accessors[normalAccessorIndex];
+                const tinygltf::BufferView& normalBufferView = model.bufferViews[normalAccessor.bufferView];
+                const tinygltf::Buffer& normalBuffer = model.buffers[normalBufferView.buffer];
+
+                const float* normalData = reinterpret_cast<const float*>(&normalBuffer.data[normalBufferView.byteOffset]);
+                size_t numNormals = normalAccessor.count;
+
+                for (size_t i = 0; i < numNormals; ++i) {
+                    normals.push_back(glm::vec3(normalData[i * 3 + 0], normalData[i * 3 + 1], normalData[i * 3 + 2]));
+                }
+            }
+
+            std::cout << "Loading normals" << std::endl;
+
+            std::vector<glm::vec2> uvs;
+            if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
+                int uvAccessorIndex = primitive.attributes.at("TEXCOORD_0");
+                const tinygltf::Accessor& uvAccessor = model.accessors[uvAccessorIndex];
+                const tinygltf::BufferView& uvBufferView = model.bufferViews[uvAccessor.bufferView];
+                const tinygltf::Buffer& uvBuffer = model.buffers[uvBufferView.buffer];
+
+                const float* uvData = reinterpret_cast<const float*>(&uvBuffer.data[uvBufferView.byteOffset]);
+                size_t numUVs = uvAccessor.count;
+
+                for (size_t i = 0; i < numUVs; ++i) {
+                    uvs.push_back(glm::vec2(uvData[i * 2 + 0], uvData[i * 2 + 1] - 1));
+                }
+            }
+            std::cout << "Loading uvs" << std::endl;
+
+            std::vector<glm::vec4> colors;
+            if (primitive.attributes.find("COLOR_0") != primitive.attributes.end()) {
+                int colorAccessorIndex = primitive.attributes.at("COLOR_0");
+                const tinygltf::Accessor& colorAccessor = model.accessors[colorAccessorIndex];
+                const tinygltf::BufferView& colorBufferView = model.bufferViews[colorAccessor.bufferView];
+                const tinygltf::Buffer& colorBuffer = model.buffers[colorBufferView.buffer];
+
+                const float* colorData = reinterpret_cast<const float*>(&colorBuffer.data[colorBufferView.byteOffset]);
+                size_t numColors = colorAccessor.count;
+
+                for (size_t i = 0; i < numColors; ++i) {
+                    colors.push_back(glm::vec4(colorData[i * 4 + 0], colorData[i * 4 + 1], colorData[i * 4 + 2], colorData[i * 4 + 3]));
+                }
+            }
+
+            std::cout << "Loading colors" << std::endl;
+
+            size_t numVertices = positions.size();
+            // if (normals.size() != numVertices/* || uvs.size() != numVertices*/) {
+            //     std::cerr << "Error: Mismatch in number of positions, normals, or UVs\n";
+            //     continue;
+            // }
+            // else
+            //     std::cout << "Mesh created succesfully" << std::endl;
+
+            for (size_t i = 0; i < numVertices; ++i) {
+                Vertex v = {};
+                v.position = positions[i];
+                if(normals.size() > 0)
+                    v.normal = normals[i];
+                if(colors.size() > 0)
+                    v.color = colors[i];
+                if(uvs.size() > 0)
+                    v.uv = uvs[i];
+                vertexData.push_back(v);
+            }
+
+            if (primitive.indices > -1) {
+                int indicesAccessorIndex = primitive.indices;
+                const tinygltf::Accessor& indicesAccessor = model.accessors[indicesAccessorIndex];
+                const tinygltf::BufferView& indicesBufferView = model.bufferViews[indicesAccessor.bufferView];
+                const tinygltf::Buffer& indicesBuffer = model.buffers[indicesBufferView.buffer];
+
+                if (indicesAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+                    const uint16_t* indicesData = reinterpret_cast<const uint16_t*>(&indicesBuffer.data[indicesBufferView.byteOffset]);
+                    size_t numIndices = indicesAccessor.count;
+
+                    for (size_t i = 0; i < numIndices; ++i) {
+                        indices.push_back(indicesData[i] + subMesh.startVertex);
+                    }
+                } else {
+                    std::cerr << "Unsupported index component type: " << indicesAccessor.componentType << std::endl;
+                }
+            }  
+            else std::cout << "WHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl; 
+            subMesh.indexxCount = indices.size() - subMesh.startIndex;
+            subMesh.vertexCount = vertexData.size() - subMesh.startVertex;
+            subMeshes.push_back(subMesh);
+        }
+        wgpu::BufferDescriptor bufferDesc;
+        bufferDesc.size = vertexData.size() * sizeof(Vertex);
+        bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
+        bufferDesc.mappedAtCreation = false;
+        meshes[i].vertexBuffer = device.CreateBuffer(&bufferDesc);
+        device.GetQueue().WriteBuffer(meshes[i].vertexBuffer, 0, vertexData.data(), bufferDesc.size);
+
+        bufferDesc.size = indices.size() * sizeof(uint16_t);
+        bufferDesc.size = (bufferDesc.size + 3) & ~3;
+        bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
+
+        meshes[i].indexBuffer = device.CreateBuffer(&bufferDesc);
+        device.GetQueue().WriteBuffer(meshes[i].indexBuffer, 0, indices.data(), bufferDesc.size); 
+        meshes[i].indexCount = indices.size();
+    }
+}
+
+void Model::LoadAnimations(tinygltf::Model& m)
+{
+    if (m.animations.size() == 0()) {
+        std::cerr << "No animations found in the model." << std::endl;
+        return;
+    }
+
+    // Load the first animation
+    const tinygltf::Animation& animation = m.animations[0];
+    std::cout << "Loading animation: " << animation.name << std::endl;
+    AnimationData animationData;
+    animationData.name = animation.name;
+
+    if (animation.channels.size() == 0) {
+        std::cerr << "No channels in the first animation." << std::endl;
+        return;
+    }
+
+    // Assume the first channel targets translation
+    const tinygltf::AnimationChannel& channel = animation.channels[0];
+    AnimationChannel animationChannel;
+    
+
+    if (channel.target_path != "translation") {
+        std::cerr << "The channel does not target translation." << std::endl;
+        return;
+    }
+    animationChannel.type = AnimationChannelType::TRANSLATION;
+    animationChannel.targetNodeIndex = channel.target_node;
+
+    int samplerIndex = channel.sampler;
+    if (samplerIndex < 0 || samplerIndex >= animation.samplers.size()) {
+        std::cerr << "Invalid sampler index." << std::endl;
+        return;
+    }
+
+    const tinygltf::AnimationSampler& sampler = animation.samplers[samplerIndex];
+
+    // Access input accessor (keyframe times)
+    const tinygltf::Accessor& inputAccessor = m.accessors[sampler.input];
+    const tinygltf::BufferView& inputBufferView = m.bufferViews[inputAccessor.bufferView];
+    const tinygltf::Buffer& inputBuffer = m.buffers[inputBufferView.buffer];
+
+    std::vector<float> keyframeTimes(inputAccessor.count);
+    animationChannel.keyFrames.resize(inputAccessor.count);
+    memcpy(
+        keyframeTimes.data(),
+        inputBuffer.data.data() + inputBufferView.byteOffset + inputAccessor.byteOffset,
+        inputAccessor.count * sizeof(float)
+    );
+
+    // Access output accessor (keyframe values, vec3 for translation)
+    const tinygltf::Accessor& outputAccessor = m.accessors[sampler.output];
+    const tinygltf::BufferView& outputBufferView = m.bufferViews[outputAccessor.bufferView];
+    const tinygltf::Buffer& outputBuffer = m.buffers[outputBufferView.buffer];
+
+    if (outputAccessor.type != TINYGLTF_TYPE_VEC3) {
+        std::cerr << "Output accessor does not contain vec3 data." << std::endl;
+        return;
+    }
+
+    size_t numKeyframes = outputAccessor.count;
+    std::vector<glm::vec3> keyframeValues(numKeyframes);
+
+    memcpy(
+        keyframeValues.data(),
+        outputBuffer.data.data() + outputBufferView.byteOffset + outputAccessor.byteOffset,
+        numKeyframes * sizeof(glm::vec3)
+    );
+    
+    for(int i = 0; i < keyframeTimes.size(); i++)
+    {
+        animationChannel.keyFrames[i].time = keyframeTimes[i];
+    }
+    for(int i = 0; i < keyframeValues.size(); i++)
+    {
+        animationChannel.keyFrames[i].data = { keyframeValues[i].x, keyframeValues[i].y, keyframeValues[i].z };
+    }
+    animationData.channels.push_back(animationChannel);
+
+    animations.push_back(animationData);
 }
 
 void Model::Draw(wgpu::RenderPassEncoder& renderPass)
 {
-    for(int i = 0; i < meshes.size(); i++)
+    UpdateNodes();
+    for(int i = 0; i < subMeshes.size(); i++)
     {
         uint32_t dynamicOffset = i * uniformStride;
-        renderPass.SetVertexBuffer(0, meshes[i].vertexBuffer, 0, meshes[i].vertexBuffer.GetSize());
-        renderPass.SetIndexBuffer(meshes[i].indexBuffer, wgpu::IndexFormat::Uint16, 0, meshes[i].indexBuffer.GetSize());
-        renderPass.SetBindGroup(1, bindGroup, 1, &dynamicOffset);
-        renderPass.DrawIndexed(meshes[i].indexCount, 1, 0, 0);
+        renderPass.SetVertexBuffer(0, meshes[subMeshes[i].meshIndex].vertexBuffer, 0, meshes[subMeshes[i].meshIndex].vertexBuffer.GetSize());
+        renderPass.SetIndexBuffer(meshes[subMeshes[i].meshIndex].indexBuffer, wgpu::IndexFormat::Uint16,  subMeshes[i].startIndex * sizeof(uint16_t), subMeshes[i].indexxCount * sizeof(uint16_t));
+        renderPass.SetBindGroup(1, modelDataBindGroup, 1, &dynamicOffset);
+        renderPass.DrawIndexed(subMeshes[i].indexxCount, 1, 0, 0);
     }
-    std::cout << std::endl;
 }
 
 Model::~Model()
 {
-    std::cout << "Unloading model with name IDK" << std::endl;
+    for (Node* n : nodes)
+        delete n;
+    std::cout << "Unloading model with name " << rootNodes[0]->name << std::endl;
 }

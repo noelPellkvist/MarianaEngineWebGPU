@@ -100,7 +100,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
 
     // // Final color is a combination of all lighting contributions
     let finalColor = ambientColor + diffuseColor + specularColor;
-
+    return Model.material.baseColorFactor;
     // // Apply the AO factor and combine with albedo color
     return vec4f(finalColor, albedoColor.a); // Use the alpha from albedo texture (if available)
     //return Model.material.baseColorFactor;

@@ -26,24 +26,25 @@ uint32_t ceilToNextMultiple(uint32_t value, uint32_t step);
 struct Vertex 
 {
     glm::vec3 position;
-    glm::vec3 normal;
+    glm::vec3 normal = {1,1,1};
     glm::vec3 color = {1,1,1};
-    glm::vec2 uv;
+    glm::vec2 uv = {1,1};
 };
 
 struct MaterialProperties
 {
-    glm::vec4 baseColorFactor;
-    alignas(16) glm::vec3 emissiveFactor;
-    float alphaCutoff;
-    float metallicFactor;
-    float roughnessFactor;
+    glm::vec4 baseColorFactor = {1,1,1,1};
+    alignas(16) glm::vec3 emissiveFactor = {1,1,1};
+    float alphaCutoff = 0.5f;
+    float metallicFactor = 1.0f;
+    float roughnessFactor = 1.0f;
+    uint32_t textureFlags = 0;
 };
 
 struct ModelData
 {
-    glm::mat4x4 modelMatrix;
-    MaterialProperties materialProps;
+    glm::mat4x4 modelMatrix = {};    
+    MaterialProperties material = {};
 };
 
 struct Node
@@ -57,11 +58,77 @@ struct Node
     glm::mat4x4 modelMatrix = {};    
 };
 
-struct NodesMesh
+struct Submesh
 {
+    int materialIndex;
+    int nodeIndex;
+    int meshIndex;
+    uint32_t startVertex;
+    uint32_t vertexCount;
+    uint32_t startIndex;
+    uint32_t indexxCount;
+};
+
+struct MeshData
+{
+    int nodeIndex;
     wgpu::Buffer vertexBuffer;
     wgpu::Buffer indexBuffer;
     uint32_t indexCount;
-    int matIndex = -1;
-    int nodeIndex = -1;
+};
+
+enum AnimationChannelType
+{
+    TRANSLATION,
+    ROTATION,
+    SCALE,
+    WEIGHTS
+};
+
+struct AnimationKeyFrames
+{
+    float time;
+    std::vector<float> data;
+};
+
+struct AnimationChannel
+{
+    AnimationChannelType type;
+    int targetNodeIndex;
+    std::vector<AnimationKeyFrames> keyFrames;
+
+    glm::vec3 InterpolatePosition(float time)
+    {
+        AnimationKeyFrames left = keyFrames[0];
+        AnimationKeyFrames right = keyFrames.back();
+
+        glm::vec3 leftVec = { left.data[0], left.data[1], left.data[2]};
+        glm::vec3 rightVec = { right.data[0], right.data[1], right.data[2]};
+
+        if(left.time >= time) return leftVec;
+        if(right.time <= time) return rightVec;
+
+        for(int i = 0; i < keyFrames.size(); i++)
+        {
+            if (keyFrames[i].time > left.time && keyFrames[i].time <= time)
+            {
+                left = keyFrames[i];
+            }
+            if (keyFrames[i].time < right.time && keyFrames[i].time >= time)
+            {
+                right = keyFrames[i];
+            }
+        }
+
+        leftVec = { left.data[0], left.data[1], left.data[2]};
+        rightVec = { right.data[0], right.data[1], right.data[2]};
+
+        return glm::mix(leftVec, rightVec, (time - left.time) / (right.time - left.time));
+    }
+};
+
+struct AnimationData
+{
+    std::vector<AnimationChannel> channels;
+    std::string name;
 };
