@@ -125,6 +125,38 @@ struct AnimationChannel
 
         return glm::mix(leftVec, rightVec, (time - left.time) / (right.time - left.time));
     }
+
+    glm::quat InterpolateRotation(float time)
+    {
+        AnimationKeyFrames left = keyFrames[0];
+        AnimationKeyFrames right = keyFrames.back();
+
+        glm::quat leftQuat = glm::quat(left.data[3], left.data[0], left.data[1], left.data[2]);
+        glm::quat rightQuat = glm::quat(right.data[3], right.data[0], right.data[1], right.data[2]);
+
+        if (left.time >= time) return leftQuat;
+        if (right.time <= time) return rightQuat;
+
+        for (int i = 0; i < keyFrames.size(); i++)
+        {
+            if (keyFrames[i].time > left.time && keyFrames[i].time <= time)
+            {
+                left = keyFrames[i];
+            }
+            if (keyFrames[i].time < right.time && keyFrames[i].time >= time)
+            {
+                right = keyFrames[i];
+            }
+        }
+
+        leftQuat = glm::quat(left.data[3], left.data[0], left.data[1], left.data[2]);
+        rightQuat = glm::quat(right.data[3], right.data[0], right.data[1], right.data[2]);
+
+        float t = (time - left.time) / (right.time - left.time);
+
+        // Use glm::slerp for quaternion interpolation
+        return glm::slerp(leftQuat, rightQuat, t);
+    }
 };
 
 struct AnimationData

@@ -58,8 +58,6 @@ class Application
     void InitUniforms();
     void InitSampler();
     void CreateRenderPipeline();
-    void InitGUI();
-    void UpdateGUI(wgpu::RenderPassEncoder renderPass);
     void Render();
 
     void WindowResized();

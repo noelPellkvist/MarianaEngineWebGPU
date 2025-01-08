@@ -42,7 +42,8 @@ Model::Model(std::string name, bool bin)
     LoadMeshes(model);
     InitUniforms();
     InitModelBindgroups();
-    LoadAnimations(model);
+    if(model.animations.size() > 0)
+        LoadAnimations(model);
 
     startTime = std::chrono::high_resolution_clock::now();
     UpdateAnimatedNodes();
@@ -224,15 +225,34 @@ void Model::TraverseNodes(Node* node, glm::mat4x4 parentMatrix)
          * glm::scale(glm::mat4(1.0f), node->localScale);
     for (Node* n : node->children)
         TraverseNodes(n, node->modelMatrix);
+    std::cout << std::endl;
 }
 
 void Model::UpdateAnimatedNodes()
 {
+    if(animations.size() == 0)
+        return;
     std::chrono::duration<float> elapsed = std::chrono::high_resolution_clock::now() - startTime;
-    // if(elapsed >= 1)
-    //     startTime = std::chrono::high_resolution_clock::now();
-    float time = elapsed.count() ;
-    glm::vec3 newPosition = animations[0].channels[0].InterpolatePosition(time);
+    float time = std::fmod(elapsed.count(), 2.5f);
+    for (AnimationChannel channel : animations[0].channels)
+    {
+        if (channel.type == AnimationChannelType::TRANSLATION)
+        {
+            glm::vec3 newPosition = channel.InterpolatePosition(time);
+            nodes[channel.targetNodeIndex]->localPosition = newPosition;
+        }
+        else if (channel.type == AnimationChannelType::SCALE)
+        {
+            glm::vec3 newScale = channel.InterpolatePosition(time);
+            nodes[channel.targetNodeIndex]->localScale = newScale;
+        }
+        else if (channel.type == AnimationChannelType::ROTATION)
+        {
+            glm::quat newRot = channel.InterpolateRotation(time);
+            nodes[channel.targetNodeIndex]->localRotation = newRot;
+        }
+    }
+    
     //std::cout << "Position: " << newPosition.x << ", " << newPosition.y << ", " << newPosition.z << std::endl;
 }
 
@@ -426,80 +446,110 @@ void Model::LoadAnimations(tinygltf::Model& m)
         std::cerr << "No animations found in the model." << std::endl;
         return;
     }
-
-    // Load the first animation
-    const tinygltf::Animation& animation = m.animations[0];
-    std::cout << "Loading animation: " << animation.name << std::endl;
     AnimationData animationData;
-    animationData.name = animation.name;
-
-    if (animation.channels.size() == 0) {
-        std::cerr << "No channels in the first animation." << std::endl;
-        return;
-    }
-
-    // Assume the first channel targets translation
-    const tinygltf::AnimationChannel& channel = animation.channels[0];
-    AnimationChannel animationChannel;
-    
-
-    if (channel.target_path != "translation") {
-        std::cerr << "The channel does not target translation." << std::endl;
-        return;
-    }
-    animationChannel.type = AnimationChannelType::TRANSLATION;
-    animationChannel.targetNodeIndex = channel.target_node;
-
-    int samplerIndex = channel.sampler;
-    if (samplerIndex < 0 || samplerIndex >= animation.samplers.size()) {
-        std::cerr << "Invalid sampler index." << std::endl;
-        return;
-    }
-
-    const tinygltf::AnimationSampler& sampler = animation.samplers[samplerIndex];
-
-    // Access input accessor (keyframe times)
-    const tinygltf::Accessor& inputAccessor = m.accessors[sampler.input];
-    const tinygltf::BufferView& inputBufferView = m.bufferViews[inputAccessor.bufferView];
-    const tinygltf::Buffer& inputBuffer = m.buffers[inputBufferView.buffer];
-
-    std::vector<float> keyframeTimes(inputAccessor.count);
-    animationChannel.keyFrames.resize(inputAccessor.count);
-    memcpy(
-        keyframeTimes.data(),
-        inputBuffer.data.data() + inputBufferView.byteOffset + inputAccessor.byteOffset,
-        inputAccessor.count * sizeof(float)
-    );
-
-    // Access output accessor (keyframe values, vec3 for translation)
-    const tinygltf::Accessor& outputAccessor = m.accessors[sampler.output];
-    const tinygltf::BufferView& outputBufferView = m.bufferViews[outputAccessor.bufferView];
-    const tinygltf::Buffer& outputBuffer = m.buffers[outputBufferView.buffer];
-
-    if (outputAccessor.type != TINYGLTF_TYPE_VEC3) {
-        std::cerr << "Output accessor does not contain vec3 data." << std::endl;
-        return;
-    }
-
-    size_t numKeyframes = outputAccessor.count;
-    std::vector<glm::vec3> keyframeValues(numKeyframes);
-
-    memcpy(
-        keyframeValues.data(),
-        outputBuffer.data.data() + outputBufferView.byteOffset + outputAccessor.byteOffset,
-        numKeyframes * sizeof(glm::vec3)
-    );
-    
-    for(int i = 0; i < keyframeTimes.size(); i++)
+    animationData.name = m.animations[0].name;
+    std::cout << "Loading animation: " << animationData.name << std::endl;
+    // Load the first animation
+    for (const tinygltf::Animation& animation : m.animations)
     {
-        animationChannel.keyFrames[i].time = keyframeTimes[i];
-    }
-    for(int i = 0; i < keyframeValues.size(); i++)
-    {
-        animationChannel.keyFrames[i].data = { keyframeValues[i].x, keyframeValues[i].y, keyframeValues[i].z };
-    }
-    animationData.channels.push_back(animationChannel);
+        
+        
 
+        if (animation.channels.size() == 0) {
+            std::cerr << "No channels in the first animation." << std::endl;
+            return;
+        }
+
+        // Assume the first channel targets translation
+        for (const tinygltf::AnimationChannel& channel : animation.channels)
+        {
+            AnimationChannel animationChannel;
+
+            if (channel.target_path == "translation")
+            {
+                animationChannel.type = AnimationChannelType::TRANSLATION;
+            }
+            else if (channel.target_path == "rotation")
+            {
+                animationChannel.type = AnimationChannelType::ROTATION;
+            }
+            else if (channel.target_path == "scale")
+            {
+                animationChannel.type = AnimationChannelType::SCALE;
+            }
+            else if (channel.target_path == "weights")
+            {
+                std::cerr << "The channel was for weights?????" << std::endl;
+                continue; // Skip this iteration
+            }
+
+            animationChannel.targetNodeIndex = channel.target_node;
+
+            int samplerIndex = channel.sampler;
+            if (samplerIndex < 0 || samplerIndex >= animation.samplers.size()) {
+                std::cerr << "Invalid sampler index." << std::endl;
+                return;
+            }
+
+            const tinygltf::AnimationSampler& sampler = animation.samplers[samplerIndex];
+
+            // Access input accessor (keyframe times)
+            const tinygltf::Accessor& inputAccessor = m.accessors[sampler.input];
+            const tinygltf::BufferView& inputBufferView = m.bufferViews[inputAccessor.bufferView];
+            const tinygltf::Buffer& inputBuffer = m.buffers[inputBufferView.buffer];
+
+            std::vector<float> keyframeTimes(inputAccessor.count);
+            animationChannel.keyFrames.resize(inputAccessor.count);
+            memcpy(
+                keyframeTimes.data(),
+                inputBuffer.data.data() + inputBufferView.byteOffset + inputAccessor.byteOffset,
+                inputAccessor.count * sizeof(float)
+            );
+
+            // Access output accessor (keyframe values, vec3 for translation)
+            const tinygltf::Accessor& outputAccessor = m.accessors[sampler.output];
+            const tinygltf::BufferView& outputBufferView = m.bufferViews[outputAccessor.bufferView];
+            const tinygltf::Buffer& outputBuffer = m.buffers[outputBufferView.buffer];
+
+            if (outputAccessor.type != TINYGLTF_TYPE_VEC3 && outputAccessor.type != TINYGLTF_TYPE_VEC4) {
+                std::cerr << "Output accessor does not contain vec3 data." << std::endl;
+                return;
+            }
+
+            size_t numKeyframes = outputAccessor.count;
+
+
+            if(animationChannel.type == AnimationChannelType::ROTATION)
+            {
+                std::vector<std::array<float, 4>> keyframeValues(numKeyframes);
+                memcpy(
+                    keyframeValues.data(),
+                    outputBuffer.data.data() + outputBufferView.byteOffset + outputAccessor.byteOffset,
+                    numKeyframes * sizeof(std::array<float, 4>)
+                );
+                for(int i = 0; i < keyframeTimes.size(); i++)
+                {
+                    animationChannel.keyFrames[i].time = keyframeTimes[i];
+                    animationChannel.keyFrames[i].data.assign(keyframeValues[i].begin(), keyframeValues[i].end());
+                }
+            }
+            else if (animationChannel.type == AnimationChannelType::TRANSLATION || animationChannel.type == AnimationChannelType::SCALE)
+            {
+                std::vector<std::array<float, 3>> keyframeValues(numKeyframes);
+                memcpy(
+                    keyframeValues.data(),
+                    outputBuffer.data.data() + outputBufferView.byteOffset + outputAccessor.byteOffset,
+                    numKeyframes * sizeof(std::array<float, 3>)
+                );
+                for(int i = 0; i < keyframeTimes.size(); i++)
+                {
+                    animationChannel.keyFrames[i].time = keyframeTimes[i];
+                    animationChannel.keyFrames[i].data.assign(keyframeValues[i].begin(), keyframeValues[i].end());
+                }
+            }
+            animationData.channels.push_back(animationChannel);
+            }
+        }
     animations.push_back(animationData);
 }
 

@@ -59,50 +59,20 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
     return output;
 }
 
-// Fragment Shader
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
-    // // Fetch textures
-    let albedoColor = Model.material.baseColorFactor;
-    // let metallicRoughness = textureSample(metallicRoughness, textureSampler, input.uv);
-    // let ao = textureSample(aoTexture, textureSampler, input.uv);
+    let baseColor = Model.material.baseColorFactor;
 
-    // // Extract metallic and roughness values from the metallic-roughness map
-    let metallic = Model.material.metallicFactor;  // Assume metallic is stored in the Red channel
-    let roughness = Model.material.roughnessFactor; // Roughness stored in the Green channel 
-
-    // // Normalize normal (for more realistic lighting calculations)
     let normal = normalize(input.normal);
 
-    // // Lighting calculations
-    // // Light Direction (as a simple color from the UBO)
-    let lightDir = normalize(UBO.color.xyz); // Assuming color is the light direction in the UBO
-    let viewDir = normalize(UBO.viewMatrix[3].xyz - input.worldpos); // Camera to fragment direction
+    let lightDir = normalize(UBO.color.xyz); 
 
-    // // Simple ambient light (constant)
-    let ambient = 0.1; // Ambient intensity
+    let ambientIntensity = 0.1;
 
-    // // Lambertian diffuse lighting (cosine of the angle between light and normal)
-    let diffuse = max(dot(normal, lightDir), 0.0);
+    let diffuseIntensity = max(dot(normal, lightDir), 0.0);
 
-    // // Simple specular reflection using the Phong model (No Fresnel)
-    // // Blinn-Phong specular
-    let halfVector = normalize(lightDir + viewDir);
-    let specular = pow(max(dot(normal, halfVector), 0.0), (1.0 - roughness) * 256.0); // Roughness controls shininess
+    let color = baseColor.rgb * (ambientIntensity + diffuseIntensity);
 
-    // // Ambient Occlusion (AO) to darken crevices
-    // let aoFactor = ao.r; // AO map in red channel
-
-    // // Combine all components
-    let diffuseColor = albedoColor.rgb * diffuse; // Diffuse color modulated by lighting
-    let specularColor = vec3f(1.0) * specular * (1.0 - metallic); // Specular reflection modulated by metallic
-    let ambientColor = albedoColor.rgb * ambient; // Ambient lighting, affected by AO
-
-    // // Final color is a combination of all lighting contributions
-    let finalColor = ambientColor + diffuseColor + specularColor;
-    return Model.material.baseColorFactor;
-    // // Apply the AO factor and combine with albedo color
-    return vec4f(finalColor, albedoColor.a); // Use the alpha from albedo texture (if available)
-    //return Model.material.baseColorFactor;
-    //return vec4f(0.0965700075, 0.0965700075, 0.0965700075, 0.0965700075);
+    //return vec4f(color, baseColor.a);
+    return baseColor;
 }
