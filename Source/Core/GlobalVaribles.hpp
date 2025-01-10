@@ -31,6 +31,12 @@ struct Vertex
     glm::vec2 uv = {1,1};
 };
 
+struct SkinnedVertex 
+{
+    glm::ivec4 indices = {0,0,0,0};
+    glm::vec4 weights = {0,0,0,0};
+};
+
 struct MaterialProperties
 {
     glm::vec4 baseColorFactor = {1,1,1,1};
@@ -73,6 +79,7 @@ struct MeshData
 {
     int nodeIndex;
     wgpu::Buffer vertexBuffer;
+    wgpu::Buffer skinnedVertexBuffer;
     wgpu::Buffer indexBuffer;
     uint32_t indexCount;
 };

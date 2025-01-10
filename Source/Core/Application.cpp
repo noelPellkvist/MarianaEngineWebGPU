@@ -23,7 +23,7 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 
     InitGraphics();
     
-    model = new Model("anim.glb");
+    model = new Model("AnimatedColorsCube.glb");
 
   #if defined(__EMSCRIPTEN__)
   auto callback = [](void *arg) {
@@ -254,7 +254,10 @@ void Application::CreateRenderPipeline()
                                     .targetCount = 1,
                                     .targets = &colorTargetState};
 
-  VertexBufferLayout vertexBufferLayout;
+  std::vector<VertexBufferLayout> vertexBufferLayouts;
+  vertexBufferLayouts.resize(2);
+
+  VertexBufferLayout& vertexBufferLayout = vertexBufferLayouts[0];
   std::vector<VertexAttribute> attributes(4);
 
   attributes[0].format = VertexFormat::Float32x3;
@@ -277,6 +280,25 @@ void Application::CreateRenderPipeline()
   vertexBufferLayout.attributes = attributes.data();
   vertexBufferLayout.arrayStride = sizeof(Mesh::Vertex);
   vertexBufferLayout.stepMode = VertexStepMode::Vertex;
+
+
+  VertexBufferLayout& skinnedVertexBufferLayout = vertexBufferLayouts[1];
+  std::vector<VertexAttribute> skinnedAttributes(2);
+
+  skinnedAttributes[0].format = VertexFormat::Sint32x4;
+  skinnedAttributes[0].offset = 0;
+  skinnedAttributes[0].shaderLocation = 4;
+
+  skinnedAttributes[1].format = VertexFormat::Float32x4;
+  skinnedAttributes[1].offset = sizeof(int) * 4;
+  skinnedAttributes[1].shaderLocation = 5;
+
+  skinnedVertexBufferLayout.attributeCount = skinnedAttributes.size();
+  skinnedVertexBufferLayout.attributes = skinnedAttributes.data();
+  skinnedVertexBufferLayout.arrayStride = sizeof(SkinnedVertex);
+  skinnedVertexBufferLayout.stepMode = VertexStepMode::Vertex;
+
+
 
   std::vector<BindGroupLayoutEntry> globalBindingLayouts(2);
   globalBindingLayouts[0] = {};
@@ -302,7 +324,6 @@ void Application::CreateRenderPipeline()
   modelBindingLayouts[0].visibility = ShaderStage::Vertex | ShaderStage::Fragment;
   modelBindingLayouts[0].buffer.type = BufferBindingType::Uniform;
   modelBindingLayouts[0].buffer.hasDynamicOffset = true;
-  //modelBindingLayouts[0].buffer.minBindingSize = sizeof(ModelData);
   modelBindingLayouts[0].buffer.minBindingSize = sizeof(ModelData);
 
   BindGroupLayoutDescriptor modelBindGroupLayoutDesc{};
@@ -342,7 +363,23 @@ void Application::CreateRenderPipeline()
   bindGroupDesc.entries = bindings.data();
   bindGroup = device.CreateBindGroup(&bindGroupDesc);
 
-  std::vector<wgpu::BindGroupLayout> bindgroupLayouts = { bindGroupLayout1, modelBindGroupLayout/*, textureBindGroupLayout*/ };
+
+    std::vector<wgpu::BindGroupLayoutEntry> boneBindingLayouts(1);
+    boneBindingLayouts[0] = {};
+    boneBindingLayouts[0].binding = 0;
+    boneBindingLayouts[0].visibility = wgpu::ShaderStage::Vertex;
+    boneBindingLayouts[0].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+    boneBindingLayouts[0].buffer.hasDynamicOffset = false; 
+    boneBindingLayouts[0].buffer.minBindingSize = 0; 
+
+    wgpu::BindGroupLayoutDescriptor boneBindGroupLayoutDesc{};
+    boneBindGroupLayoutDesc.entryCount = (uint32_t)boneBindingLayouts.size();
+    boneBindGroupLayoutDesc.entries = boneBindingLayouts.data();
+    wgpu::BindGroupLayout boneBindGroupLayout = device.CreateBindGroupLayout(&boneBindGroupLayoutDesc);
+
+
+
+  std::vector<wgpu::BindGroupLayout> bindgroupLayouts = { bindGroupLayout1, modelBindGroupLayout, boneBindGroupLayout/*, textureBindGroupLayout*/ };
 
   PipelineLayoutDescriptor layoutDesc{};
   layoutDesc.bindGroupLayoutCount = bindgroupLayouts.size();
@@ -361,8 +398,8 @@ void Application::CreateRenderPipeline()
   RenderPipelineDescriptor descriptor{
       .layout = layout,
       .vertex = {.module = shaderModule,
-                 .bufferCount = 1,
-                 .buffers = &vertexBufferLayout},
+                 .bufferCount = vertexBufferLayouts.size(),
+                 .buffers = vertexBufferLayouts.data()},
       .depthStencil = &depthStencilState,
       .fragment = &fragmentState};
   pipeline = device.CreateRenderPipeline(&descriptor);

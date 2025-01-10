@@ -3,6 +3,9 @@
 #include "EditorGui.hpp"
 #include "GlobalVaribles.hpp"
 #include <iostream>
+
+
+
 namespace MarianaEditor
 {
 void RenderGameObjectInInspector(Node* selectedNode)

@@ -1,4 +1,5 @@
 #include "Model.hpp"
+#include <gtc/type_ptr.hpp>
 #include <iostream>
 
 Model::Model(std::string name, bool bin)
@@ -40,13 +41,16 @@ Model::Model(std::string name, bool bin)
     LoadNodes(model);
     LoadMaterials(model);
     LoadMeshes(model);
-    InitUniforms();
+    InitModelUniforms();
     InitModelBindgroups();
+    InitBonesBuffer(model);
+    InitBonesBindgroups();
     if(model.animations.size() > 0)
+    {
         LoadAnimations(model);
-
-    startTime = std::chrono::high_resolution_clock::now();
-    UpdateAnimatedNodes();
+        startTime = std::chrono::high_resolution_clock::now();
+        UpdateAnimatedNodes();
+    }
     
     std::cout << "Succesfully loaded model" << std::endl;
 }
@@ -120,7 +124,69 @@ void Model::LoadNodes(tinygltf::Model& m)
     }
 }
 
-void Model::InitUniforms()
+void Model::InitBonesBuffer(tinygltf::Model& m)
+{
+    const tinygltf::Skin& skin = m.skins[0];
+
+    size_t jointCount = skin.joints.size();
+
+    if (jointCount == 0)
+    {
+        jointCount = 1;
+        boneMatrices.resize(jointCount);
+        inverseBindMatrices.resize(jointCount);
+        joints.resize(jointCount);
+
+
+        boneMatrices[0] = glm::mat4x4(1.0f);
+        inverseBindMatrices[0] = glm::mat4x4(1.0f);
+        joints[0] = 0;
+        device.GetQueue().WriteBuffer(
+        boneBuffer,  // Buffer to write to
+        0,           // Offset in the buffer
+        boneMatrices.data(), // Pointer to the data
+        sizeof(glm::mat4)  // Size of the data
+    );
+    return;
+    }
+
+    
+
+    const tinygltf::Accessor& accessor = m.accessors[skin.inverseBindMatrices];
+    const tinygltf::BufferView& bufferView = m.bufferViews[accessor.bufferView];
+    const tinygltf::Buffer& buffer = m.buffers[bufferView.buffer];
+
+    const float* matrixData = reinterpret_cast<const float*>(
+        &buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+    
+    for (size_t i = 0; i < jointCount; ++i) {
+        glm::mat4 inverseBindMatrix;
+        std::memcpy(glm::value_ptr(inverseBindMatrix), matrixData + i * 16, sizeof(glm::mat4));
+        inverseBindMatrices[i] = inverseBindMatrix;
+    }
+
+    for (int i = 0; i < jointCount; i++)
+    {
+        int jointNodeIndex = skin.joints[i];
+        joints[i] = jointNodeIndex;
+        boneMatrices[i] = nodes[jointNodeIndex]->modelMatrix * inverseBindMatrices[i];
+    }
+
+    wgpu::BufferDescriptor boneBufferDesc{};
+    boneBufferDesc.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
+    boneBufferDesc.size = jointCount * sizeof(glm::mat4);
+    boneBufferDesc.mappedAtCreation = false;
+    boneBuffer = device.CreateBuffer(&boneBufferDesc);
+
+    device.GetQueue().WriteBuffer(
+        boneBuffer,  // Buffer to write to
+        0,           // Offset in the buffer
+        boneMatrices.data(), // Pointer to the data
+        jointCount * sizeof(glm::mat4)  // Size of the data
+    );
+}
+
+void Model::InitModelUniforms()
 {
     using namespace wgpu;
     for (int i = 0; i < subMeshes.size(); i++)
@@ -186,6 +252,39 @@ void Model::InitModelBindgroups()
     modelDataBindGroup = device.CreateBindGroup(&bindGroupDesc);
 }
 
+void Model::InitBonesBindgroups()
+{
+    std::cout << "Init bones bind group" << std::endl;
+    std::vector<wgpu::BindGroupLayoutEntry> boneBindingLayouts(1);
+    boneBindingLayouts[0] = {};
+    boneBindingLayouts[0].binding = 0;
+    boneBindingLayouts[0].visibility = wgpu::ShaderStage::Vertex;
+    boneBindingLayouts[0].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+    boneBindingLayouts[0].buffer.hasDynamicOffset = false; 
+    boneBindingLayouts[0].buffer.minBindingSize = 0; 
+
+    wgpu::BindGroupLayoutDescriptor boneBindGroupLayoutDesc{};
+    boneBindGroupLayoutDesc.entryCount = (uint32_t)boneBindingLayouts.size();
+    boneBindGroupLayoutDesc.entries = boneBindingLayouts.data();
+    wgpu::BindGroupLayout boneBindGroupLayout = device.CreateBindGroupLayout(&boneBindGroupLayoutDesc);
+
+
+
+    wgpu::BindGroupEntry boneEntry{};
+    boneEntry.binding = 0;
+    boneEntry.buffer = boneBuffer;
+    boneEntry.offset = 0;
+    boneEntry.size = boneMatrices.size() * sizeof(glm::mat4);
+
+    wgpu::BindGroupDescriptor boneBindGroupDesc{};
+    boneBindGroupDesc.layout = boneBindGroupLayout;
+    boneBindGroupDesc.entryCount = 1;
+    boneBindGroupDesc.entries = &boneEntry;
+
+    boneBindGroup = device.CreateBindGroup(&boneBindGroupDesc);
+    return;
+}
+
 void Model::InitTextureBindgroups()
 {
     using namespace wgpu;
@@ -225,7 +324,6 @@ void Model::TraverseNodes(Node* node, glm::mat4x4 parentMatrix)
          * glm::scale(glm::mat4(1.0f), node->localScale);
     for (Node* n : node->children)
         TraverseNodes(n, node->modelMatrix);
-    std::cout << std::endl;
 }
 
 void Model::UpdateAnimatedNodes()
@@ -258,7 +356,10 @@ void Model::UpdateAnimatedNodes()
 
 void Model::UpdateNodes()
 {
-    UpdateAnimatedNodes();
+    if(animations.size() > 0)
+    {
+        UpdateAnimatedNodes();
+    }
     for (Node* n : rootNodes)
         TraverseNodes(n, glm::mat4x4(1.0f));
     for (int i = 0; i < subMeshes.size(); i++)
@@ -268,6 +369,17 @@ void Model::UpdateNodes()
     }
     for (int i = 0; i < subMeshes.size(); i++)
         device.GetQueue().WriteBuffer(modelsBuffer, uniformStride * i, &modelData[i], sizeof(ModelData));
+
+    for (int i = 0; i < joints.size(); i++)
+            boneMatrices[i] = nodes[joints[i]]->modelMatrix * inverseBindMatrices[i];
+
+    
+    device.GetQueue().WriteBuffer(
+        boneBuffer, 
+        0,           
+        boneMatrices.data(), 
+        boneMatrices.size() * sizeof(glm::mat4)
+    );
 }
 
 void Model::LoadMaterials(tinygltf::Model& m)
@@ -306,6 +418,7 @@ void Model::LoadMeshes(tinygltf::Model& model)
     for (int i = 0; i < model.meshes.size(); i++)
     {
         std::vector<Vertex> vertexData;
+        std::vector<SkinnedVertex> skinnedData;
         std::vector<uint16_t> indices;
         for (const auto& primitive : model.meshes[i].primitives) {
             Submesh subMesh;
@@ -381,13 +494,54 @@ void Model::LoadMeshes(tinygltf::Model& model)
 
             std::cout << "Loading colors" << std::endl;
 
+            std::vector<glm::ivec4> boneIndices;
+            if (primitive.attributes.find("JOINTS_0") != primitive.attributes.end()) {
+                int jointsAccessorIndex = primitive.attributes.at("JOINTS_0");
+                const tinygltf::Accessor& jointsAccessor = model.accessors[jointsAccessorIndex];
+                const tinygltf::BufferView& jointsBufferView = model.bufferViews[jointsAccessor.bufferView];
+                const tinygltf::Buffer& jointsBuffer = model.buffers[jointsBufferView.buffer];
+
+                const uint16_t* jointsData = reinterpret_cast<const uint16_t*>(&jointsBuffer.data[jointsBufferView.byteOffset]);
+                size_t numJoints = jointsAccessor.count;
+
+                for (size_t i = 0; i < numJoints; ++i) {
+                    boneIndices.push_back(glm::ivec4(jointsData[i * 4 + 0], jointsData[i * 4 + 1], jointsData[i * 4 + 2], jointsData[i * 4 + 3]));
+                }
+            }
+            else
+            {
+                for (size_t i = 0; i < positions.size(); ++i) {
+                    boneIndices.push_back(glm::ivec4(0,0,0,0));
+                }
+            }
+
+            std::cout << "Loading bone indices" << std::endl;
+
+            // Bone Weights (WEIGHTS_0)
+            std::vector<glm::vec4> boneWeights;
+            if (primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end()) {
+                int weightsAccessorIndex = primitive.attributes.at("WEIGHTS_0");
+                const tinygltf::Accessor& weightsAccessor = model.accessors[weightsAccessorIndex];
+                const tinygltf::BufferView& weightsBufferView = model.bufferViews[weightsAccessor.bufferView];
+                const tinygltf::Buffer& weightsBuffer = model.buffers[weightsBufferView.buffer];
+
+                const float* weightsData = reinterpret_cast<const float*>(&weightsBuffer.data[weightsBufferView.byteOffset]);
+                size_t numWeights = weightsAccessor.count;
+
+                for (size_t i = 0; i < numWeights; ++i) {
+                    boneWeights.push_back(glm::vec4(weightsData[i * 4 + 0], weightsData[i * 4 + 1], weightsData[i * 4 + 2], weightsData[i * 4 + 3]));
+                }
+            }
+            else
+            {
+                for (size_t i = 0; i < positions.size(); ++i) {
+                    boneWeights.push_back(glm::vec4(0,0,0,0));
+                }
+            }
+
+            std::cout << "Loading bone weights" << std::endl;
+
             size_t numVertices = positions.size();
-            // if (normals.size() != numVertices/* || uvs.size() != numVertices*/) {
-            //     std::cerr << "Error: Mismatch in number of positions, normals, or UVs\n";
-            //     continue;
-            // }
-            // else
-            //     std::cout << "Mesh created succesfully" << std::endl;
 
             for (size_t i = 0; i < numVertices; ++i) {
                 Vertex v = {};
@@ -399,6 +553,11 @@ void Model::LoadMeshes(tinygltf::Model& model)
                 if(uvs.size() > 0)
                     v.uv = uvs[i];
                 vertexData.push_back(v);
+
+                SkinnedVertex sv = {};
+                if (boneIndices.size() > 0) sv.indices = boneIndices[i];
+                if (boneWeights.size() > 0) sv.weights = boneWeights[i];
+                skinnedData.push_back(sv);
             }
 
             if (primitive.indices > -1) {
@@ -430,19 +589,25 @@ void Model::LoadMeshes(tinygltf::Model& model)
         meshes[i].vertexBuffer = device.CreateBuffer(&bufferDesc);
         device.GetQueue().WriteBuffer(meshes[i].vertexBuffer, 0, vertexData.data(), bufferDesc.size);
 
+        bufferDesc.size = vertexData.size() * sizeof(SkinnedVertex);
+        bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
+        bufferDesc.mappedAtCreation = false;
+        meshes[i].skinnedVertexBuffer = device.CreateBuffer(&bufferDesc);
+        device.GetQueue().WriteBuffer(meshes[i].skinnedVertexBuffer, 0, skinnedData.data(), bufferDesc.size);
+
         bufferDesc.size = indices.size() * sizeof(uint16_t);
         bufferDesc.size = (bufferDesc.size + 3) & ~3;
         bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
-
         meshes[i].indexBuffer = device.CreateBuffer(&bufferDesc);
         device.GetQueue().WriteBuffer(meshes[i].indexBuffer, 0, indices.data(), bufferDesc.size); 
+        
         meshes[i].indexCount = indices.size();
     }
 }
 
 void Model::LoadAnimations(tinygltf::Model& m)
 {
-    if (m.animations.size() == 0()) {
+    if (m.animations.size() == 0) {
         std::cerr << "No animations found in the model." << std::endl;
         return;
     }
@@ -560,8 +725,10 @@ void Model::Draw(wgpu::RenderPassEncoder& renderPass)
     {
         uint32_t dynamicOffset = i * uniformStride;
         renderPass.SetVertexBuffer(0, meshes[subMeshes[i].meshIndex].vertexBuffer, 0, meshes[subMeshes[i].meshIndex].vertexBuffer.GetSize());
+        renderPass.SetVertexBuffer(1, meshes[subMeshes[i].meshIndex].skinnedVertexBuffer, 0, meshes[subMeshes[i].meshIndex].skinnedVertexBuffer.GetSize());
         renderPass.SetIndexBuffer(meshes[subMeshes[i].meshIndex].indexBuffer, wgpu::IndexFormat::Uint16,  subMeshes[i].startIndex * sizeof(uint16_t), subMeshes[i].indexxCount * sizeof(uint16_t));
         renderPass.SetBindGroup(1, modelDataBindGroup, 1, &dynamicOffset);
+        renderPass.SetBindGroup(2, boneBindGroup, 0, nullptr);
         renderPass.DrawIndexed(subMeshes[i].indexxCount, 1, 0, 0);
     }
 }

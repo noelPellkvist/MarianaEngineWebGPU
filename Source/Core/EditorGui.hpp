@@ -5,6 +5,11 @@
 #include <backends/imgui_impl_glfw.h>
 #include <webgpu/webgpu_cpp.h>
 #include <GLFW/glfw3.h>
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#else
+#include <webgpu/webgpu_glfw.h>
+#endif
 
 namespace MarianaEditor
 {

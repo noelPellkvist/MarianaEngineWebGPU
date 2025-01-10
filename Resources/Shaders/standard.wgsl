@@ -6,6 +6,11 @@ struct VertexInput {
     @location(3) uv: vec2f,
 };
 
+struct SkinnedVertex {
+    @location(4) indices: vec4<i32>,  // 4 signed 32-bit integers (bone indices)
+    @location(5) weights: vec4<f32>,  // 4 floating-point values (bone weights)
+};
+
 struct VertexOutput {
     @builtin(position) position: vec4f,
     @location(0) normal: vec3f,
@@ -42,13 +47,27 @@ struct ModelData {
 
 @group(1) @binding(0) var<uniform> Model: ModelData;
 
+@group(2) @binding(0) var<storage, read> bones: array<mat4x4f>;
+
 // Vertex Shader
 @vertex
-fn vertex_main(input: VertexInput) -> VertexOutput {
+fn vertex_main(input: VertexInput, skin: SkinnedVertex) -> VertexOutput {
     var output: VertexOutput;
+    var skinnedPosition: vec4<f32> = vec4<f32>(0.0);
 
-    // Transform the vertex position to clip space
-    output.position = UBO.projectionMatrix * UBO.viewMatrix * Model.modelMatrix * vec4(input.position, 1.0);
+    // Perform skinning: iterate over the 4 weights and apply the bone transformations
+    for (var i = 0u; i < 4u; i = i + 1u) {
+        let boneIndex: u32 = u32(skin.indices[i]); // Get the bone index
+        let boneWeight: f32 = skin.weights[i];    // Get the corresponding bone weight
+        let boneMatrix: mat4x4f = bones[boneIndex]; // Fetch the bone matrix
+
+        // Apply the bone transformation weighted by the bone weight
+        skinnedPosition += boneWeight * (boneMatrix * vec4<f32>(input.position, 1.0));
+    }
+
+    // Transform the skinned position with model, view, and projection matrices
+    let worldPosition = Model.modelMatrix * skinnedPosition;
+    output.position = UBO.projectionMatrix * UBO.viewMatrix * worldPosition;
 
     // Pass through the normal and other vertex data
     output.normal = normalize((Model.modelMatrix * vec4(input.normal, 0.0)).xyz);
