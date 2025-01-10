@@ -1,5 +1,6 @@
 #include "Model.hpp"
 #include <iostream>
+#include <gtc/type_ptr.hpp>
 
 Model::Model(std::string name, bool bin)
 {
@@ -37,16 +38,19 @@ Model::Model(std::string name, bool bin)
       return;
     }
     meshes.resize(model.meshes.size());
+    LoadMeshes(model);
     LoadNodes(model);
     LoadMaterials(model);
-    LoadMeshes(model);
+    
     InitUniforms();
     InitModelBindgroups();
     if(model.animations.size() > 0)
         LoadAnimations(model);
 
+    LoadSkin(model);
+
     startTime = std::chrono::high_resolution_clock::now();
-    UpdateAnimatedNodes();
+    UpdateNodes();
     
     std::cout << "Succesfully loaded model" << std::endl;
 }
@@ -58,12 +62,10 @@ void Model::LoadNodes(tinygltf::Model& m)
     {
         Node* newNode = new Node();
         newNode->name = node.name;
-        if(node.mesh != -1)
-        {
-            MeshData newMeshData;
-            newMeshData.nodeIndex = i;
-            meshes[node.mesh] = newMeshData;
-        }
+        if (node.mesh == -1)
+            newNode->mesh = nullptr;
+        else
+            newNode->mesh = &meshes[node.mesh];
         if (node.translation.size() == 3)
         {
             newNode->localPosition = glm::vec3(static_cast<float>(node.translation[0]), 
@@ -103,6 +105,7 @@ void Model::LoadNodes(tinygltf::Model& m)
          * glm::scale(glm::mat4(1.0f), newNode->localScale);
         newNode->modelMatrix = modelMatrix;
         nodes.push_back(newNode);
+        if (newNode->mesh != nullptr) DrawableNodes.push_back(newNode);
         i++;
     }
     for (int i = 0; i < m.nodes.size(); i++)
@@ -123,18 +126,21 @@ void Model::LoadNodes(tinygltf::Model& m)
 void Model::InitUniforms()
 {
     using namespace wgpu;
-    for (int i = 0; i < subMeshes.size(); i++)
+    for (int i = 0; i < DrawableNodes.size(); i++)
     {
-        ModelData data;
-        if (subMeshes[i].materialIndex == -1)
+        for (int j = 0; j < DrawableNodes[i]->mesh->submeshes.size(); j++)
         {
-            MaterialProperties newProps;
-            materials.push_back(newProps);
-            subMeshes[i].materialIndex = static_cast<int>(materials.size()) - 1;
+            ModelData data;
+            if (DrawableNodes[i]->mesh->submeshes[j].materialIndex == -1)
+            {
+                MaterialProperties newProps;
+                materials.push_back(newProps);
+                DrawableNodes[i]->mesh->submeshes[j].materialIndex = static_cast<int>(materials.size()) - 1;
+            }
+            data.material = materials[DrawableNodes[i]->mesh->submeshes[j].materialIndex];
+            data.modelMatrix = DrawableNodes[i]->modelMatrix;
+            modelData.push_back(data);
         }
-        data.material = materials[subMeshes[i].materialIndex];
-        data.modelMatrix = nodes[subMeshes[i].nodeIndex]->modelMatrix;
-        modelData.push_back(data);
     }
 
     SupportedLimits supportedLimits;
@@ -147,12 +153,12 @@ void Model::InitUniforms()
     );
 
     BufferDescriptor bufferDesc;
-    bufferDesc.size = uniformStride * (subMeshes.size() - 1) + sizeof(ModelData);
+    bufferDesc.size = uniformStride * (modelData.size() - 1) + sizeof(ModelData);
     bufferDesc.usage = BufferUsage::CopyDst | BufferUsage::Uniform;
     bufferDesc.mappedAtCreation = false;
     modelsBuffer = device.CreateBuffer(&bufferDesc);
 
-    for (int i = 0; i < subMeshes.size(); i++)
+    for (int i = 0; i < modelData.size(); i++)
         device.GetQueue().WriteBuffer(modelsBuffer, i * uniformStride, &modelData[i], sizeof(ModelData));
 }
 
@@ -186,38 +192,6 @@ void Model::InitModelBindgroups()
     modelDataBindGroup = device.CreateBindGroup(&bindGroupDesc);
 }
 
-void Model::InitTextureBindgroups()
-{
-    using namespace wgpu;
-    std::vector<BindGroupLayoutEntry> textureBindingLayouts(1);
-    textureBindingLayouts[0] = {};
-    textureBindingLayouts[0].binding = 0;
-    textureBindingLayouts[0].visibility = ShaderStage::Fragment;
-    textureBindingLayouts[0].texture.sampleType = TextureSampleType::Float;
-    textureBindingLayouts[0].texture.viewDimension = TextureViewDimension::e2D;
-
-    BindGroupLayoutDescriptor textureBindGroupLayoutDesc{};
-    textureBindGroupLayoutDesc.entryCount = (uint32_t)textureBindingLayouts.size();
-    textureBindGroupLayoutDesc.entries = textureBindingLayouts.data();
-    wgpu::BindGroupLayout textureBindGroupLayout = device.CreateBindGroupLayout(&textureBindGroupLayoutDesc);
-
-
-    for(int i = 0; i < subMeshes.size(); i++)
-    {
-        std::vector<BindGroupEntry> bindings(1);
-        bindings[0] = {};
-        bindings[0].binding = 0;
-
-
-        BindGroupDescriptor bindGroupDesc{};
-        bindGroupDesc.layout = textureBindGroupLayout;
-        bindGroupDesc.entryCount = bindings.size();
-        bindGroupDesc.entries = bindings.data();
-        wgpu::BindGroup textureBindGroup = device.CreateBindGroup(&bindGroupDesc);
-        TextureBindings.push_back(textureBindGroup);
-    }
-}
-
 void Model::TraverseNodes(Node* node, glm::mat4x4 parentMatrix)
 {
     node->modelMatrix = parentMatrix * glm::translate(glm::mat4(1.0f), node->localPosition)
@@ -225,7 +199,6 @@ void Model::TraverseNodes(Node* node, glm::mat4x4 parentMatrix)
          * glm::scale(glm::mat4(1.0f), node->localScale);
     for (Node* n : node->children)
         TraverseNodes(n, node->modelMatrix);
-    std::cout << std::endl;
 }
 
 void Model::UpdateAnimatedNodes()
@@ -233,9 +206,10 @@ void Model::UpdateAnimatedNodes()
     if(animations.size() == 0)
         return;
     std::chrono::duration<float> elapsed = std::chrono::high_resolution_clock::now() - startTime;
-    float time = std::fmod(elapsed.count(), 2.5f);
+    float time = std::fmod(elapsed.count(), animationLength);
     for (AnimationChannel channel : animations[0].channels)
     {
+        if(channel.targetNodeIndex == -1) continue;
         if (channel.type == AnimationChannelType::TRANSLATION)
         {
             glm::vec3 newPosition = channel.InterpolatePosition(time);
@@ -252,8 +226,6 @@ void Model::UpdateAnimatedNodes()
             nodes[channel.targetNodeIndex]->localRotation = newRot;
         }
     }
-    
-    //std::cout << "Position: " << newPosition.x << ", " << newPosition.y << ", " << newPosition.z << std::endl;
 }
 
 void Model::UpdateNodes()
@@ -261,13 +233,19 @@ void Model::UpdateNodes()
     UpdateAnimatedNodes();
     for (Node* n : rootNodes)
         TraverseNodes(n, glm::mat4x4(1.0f));
-    for (int i = 0; i < subMeshes.size(); i++)
+    int index = 0;
+    for (int i = 0; i < DrawableNodes.size(); i++)
     {
-        modelData[i].material = materials[subMeshes[i].materialIndex];
-        modelData[i].modelMatrix = nodes[subMeshes[i].nodeIndex]->modelMatrix;
+        for (int j = 0; j < DrawableNodes[i]->mesh->submeshes.size(); j++)
+        {
+            modelData[index].modelMatrix = DrawableNodes[i]->modelMatrix;
+            index++;
+        }
     }
-    for (int i = 0; i < subMeshes.size(); i++)
+    for (int i = 0; i < modelData.size(); i++)
         device.GetQueue().WriteBuffer(modelsBuffer, uniformStride * i, &modelData[i], sizeof(ModelData));
+
+    FixJointMatrices();
 }
 
 void Model::LoadMaterials(tinygltf::Model& m)
@@ -307,11 +285,10 @@ void Model::LoadMeshes(tinygltf::Model& model)
     {
         std::vector<Vertex> vertexData;
         std::vector<uint16_t> indices;
+        std::vector<Submesh> subs;
         for (const auto& primitive : model.meshes[i].primitives) {
             Submesh subMesh;
             subMesh.materialIndex = primitive.material;
-            subMesh.nodeIndex = meshes[i].nodeIndex;
-            subMesh.meshIndex = i;
             subMesh.startIndex = indices.size();
             subMesh.startVertex = vertexData.size();
             std::vector<glm::vec3> positions;
@@ -421,7 +398,7 @@ void Model::LoadMeshes(tinygltf::Model& model)
             else std::cout << "WHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl; 
             subMesh.indexxCount = indices.size() - subMesh.startIndex;
             subMesh.vertexCount = vertexData.size() - subMesh.startVertex;
-            subMeshes.push_back(subMesh);
+            subs.push_back(subMesh);
         }
         wgpu::BufferDescriptor bufferDesc;
         bufferDesc.size = vertexData.size() * sizeof(Vertex);
@@ -437,6 +414,7 @@ void Model::LoadMeshes(tinygltf::Model& model)
         meshes[i].indexBuffer = device.CreateBuffer(&bufferDesc);
         device.GetQueue().WriteBuffer(meshes[i].indexBuffer, 0, indices.data(), bufferDesc.size); 
         meshes[i].indexCount = indices.size();
+        meshes[i].submeshes = subs;
     }
 }
 
@@ -490,8 +468,17 @@ void Model::LoadAnimations(tinygltf::Model& m)
                 std::cerr << "Invalid sampler index." << std::endl;
                 return;
             }
-
+            
             const tinygltf::AnimationSampler& sampler = animation.samplers[samplerIndex];
+
+            const std::string& interpolation = sampler.interpolation;
+            if (interpolation == "LINEAR") {
+                animationChannel.interpolationMode = AnimationInterpolationType::LINEAR;
+            } else if (interpolation == "STEP") {
+                animationChannel.interpolationMode = AnimationInterpolationType::STEP;
+            } else if (interpolation == "CUBICSPLINE") {
+                animationChannel.interpolationMode = AnimationInterpolationType::SPLINE;
+            }
 
             // Access input accessor (keyframe times)
             const tinygltf::Accessor& inputAccessor = m.accessors[sampler.input];
@@ -512,57 +499,229 @@ void Model::LoadAnimations(tinygltf::Model& m)
             const tinygltf::Buffer& outputBuffer = m.buffers[outputBufferView.buffer];
 
             if (outputAccessor.type != TINYGLTF_TYPE_VEC3 && outputAccessor.type != TINYGLTF_TYPE_VEC4) {
-                std::cerr << "Output accessor does not contain vec3 data." << std::endl;
+                std::cerr << "Output accessor does not contain vec3 or vec4 data." << std::endl;
                 return;
             }
 
             size_t numKeyframes = outputAccessor.count;
 
 
-            if(animationChannel.type == AnimationChannelType::ROTATION)
-            {
-                std::vector<std::array<float, 4>> keyframeValues(numKeyframes);
-                memcpy(
-                    keyframeValues.data(),
-                    outputBuffer.data.data() + outputBufferView.byteOffset + outputAccessor.byteOffset,
-                    numKeyframes * sizeof(std::array<float, 4>)
-                );
-                for(int i = 0; i < keyframeTimes.size(); i++)
-                {
-                    animationChannel.keyFrames[i].time = keyframeTimes[i];
-                    animationChannel.keyFrames[i].data.assign(keyframeValues[i].begin(), keyframeValues[i].end());
+            if (animationChannel.type == AnimationChannelType::ROTATION) {
+                if (animationChannel.interpolationMode == AnimationInterpolationType::LINEAR || 
+                    animationChannel.interpolationMode == AnimationInterpolationType::STEP) {
+                    // Handle LINEAR and STEP as before
+                    std::vector<std::array<float, 4>> keyframeValues(numKeyframes);
+                    memcpy(
+                        keyframeValues.data(),
+                        outputBuffer.data.data() + outputBufferView.byteOffset + outputAccessor.byteOffset,
+                        numKeyframes * sizeof(std::array<float, 4>)
+                    );
+                    for (int i = 0; i < keyframeTimes.size(); i++) {
+                        animationChannel.keyFrames[i].time = keyframeTimes[i];
+                        if (animationChannel.keyFrames[i].time > animationLength)
+                            animationLength = animationChannel.keyFrames[i].time;
+                        animationChannel.keyFrames[i].data.assign(keyframeValues[i].begin(), keyframeValues[i].end());
+                    }
+                } else if (animationChannel.interpolationMode == AnimationInterpolationType::SPLINE) {
+                    // Handle CUBICSPLINE
+                    std::vector<std::array<float, 4>> inTangents(numKeyframes);
+                    std::vector<std::array<float, 4>> keyframeValues(numKeyframes);
+                    std::vector<std::array<float, 4>> outTangents(numKeyframes);
+
+                    size_t stride = sizeof(std::array<float, 4>); // Assume each component is VEC4
+
+                    const uint8_t* basePtr = outputBuffer.data.data() + outputBufferView.byteOffset + outputAccessor.byteOffset;
+
+                    for (size_t i = 0; i < numKeyframes; ++i) {
+                        // Read in-tangent
+                        memcpy(inTangents[i].data(), basePtr + i * stride * 3, stride);
+
+                        // Read keyframe value
+                        memcpy(keyframeValues[i].data(), basePtr + i * stride * 3 + stride, stride);
+
+                        // Read out-tangent
+                        memcpy(outTangents[i].data(), basePtr + i * stride * 3 + stride * 2, stride);
+                    }
+
+                    for (int i = 0; i < keyframeTimes.size(); i++) {
+                        animationChannel.keyFrames[i].time = keyframeTimes[i];
+                        if (animationChannel.keyFrames[i].time > animationLength)
+                            animationLength = animationChannel.keyFrames[i].time;
+
+                        // Assign keyframe data
+                        animationChannel.keyFrames[i].data.assign(keyframeValues[i].begin(), keyframeValues[i].end());
+
+                        // Assign tangents (optional, depending on your structure)
+                        animationChannel.keyFrames[i].inTangent.assign(inTangents[i].begin(), inTangents[i].end());
+                        animationChannel.keyFrames[i].outTangent.assign(outTangents[i].begin(), outTangents[i].end());
+                    }
+                } else {
+                    throw std::runtime_error("Unsupported interpolation mode.");
+                }
+            } else if (animationChannel.type == AnimationChannelType::TRANSLATION || animationChannel.type == AnimationChannelType::SCALE) {
+                if (animationChannel.interpolationMode == AnimationInterpolationType::LINEAR || 
+                    animationChannel.interpolationMode == AnimationInterpolationType::STEP) {
+                    // Handle LINEAR and STEP
+                    std::vector<std::array<float, 3>> keyframeValues(numKeyframes);
+                    memcpy(
+                        keyframeValues.data(),
+                        outputBuffer.data.data() + outputBufferView.byteOffset + outputAccessor.byteOffset,
+                        numKeyframes * sizeof(std::array<float, 3>)
+                    );
+
+                    for (int i = 0; i < keyframeTimes.size(); i++) {
+                        animationChannel.keyFrames[i].time = keyframeTimes[i];
+                        if (animationChannel.keyFrames[i].time > animationLength)
+                            animationLength = animationChannel.keyFrames[i].time;
+
+                        animationChannel.keyFrames[i].data.assign(keyframeValues[i].begin(), keyframeValues[i].end());
+                    }
+                } else if (animationChannel.interpolationMode == AnimationInterpolationType::SPLINE) {
+                    // Handle CUBICSPLINE
+                    std::vector<std::array<float, 3>> inTangents(numKeyframes);
+                    std::vector<std::array<float, 3>> keyframeValues(numKeyframes);
+                    std::vector<std::array<float, 3>> outTangents(numKeyframes);
+
+                    size_t stride = sizeof(std::array<float, 3>); // Assume each component is VEC3
+
+                    const uint8_t* basePtr = outputBuffer.data.data() + outputBufferView.byteOffset + outputAccessor.byteOffset;
+
+                    for (size_t i = 0; i < numKeyframes; ++i) {
+                        // Read in-tangent
+                        memcpy(inTangents[i].data(), basePtr + i * stride * 3, stride);
+
+                        // Read keyframe value
+                        memcpy(keyframeValues[i].data(), basePtr + i * stride * 3 + stride, stride);
+
+                        // Read out-tangent
+                        memcpy(outTangents[i].data(), basePtr + i * stride * 3 + stride * 2, stride);
+                    }
+
+                    for (int i = 0; i < keyframeTimes.size(); i++) {
+                        animationChannel.keyFrames[i].time = keyframeTimes[i];
+                        if (animationChannel.keyFrames[i].time > animationLength)
+                            animationLength = animationChannel.keyFrames[i].time;
+
+                        // Assign keyframe data
+                        animationChannel.keyFrames[i].data.assign(keyframeValues[i].begin(), keyframeValues[i].end());
+
+                        // Assign tangents (optional, depending on your structure)
+                        animationChannel.keyFrames[i].inTangent.assign(inTangents[i].begin(), inTangents[i].end());
+                        animationChannel.keyFrames[i].outTangent.assign(outTangents[i].begin(), outTangents[i].end());
+                    }
+                } else {
+                    throw std::runtime_error("Unsupported interpolation mode.");
                 }
             }
-            else if (animationChannel.type == AnimationChannelType::TRANSLATION || animationChannel.type == AnimationChannelType::SCALE)
-            {
-                std::vector<std::array<float, 3>> keyframeValues(numKeyframes);
-                memcpy(
-                    keyframeValues.data(),
-                    outputBuffer.data.data() + outputBufferView.byteOffset + outputAccessor.byteOffset,
-                    numKeyframes * sizeof(std::array<float, 3>)
-                );
-                for(int i = 0; i < keyframeTimes.size(); i++)
-                {
-                    animationChannel.keyFrames[i].time = keyframeTimes[i];
-                    animationChannel.keyFrames[i].data.assign(keyframeValues[i].begin(), keyframeValues[i].end());
-                }
-            }
+
+            
             animationData.channels.push_back(animationChannel);
             }
         }
     animations.push_back(animationData);
 }
 
+void Model::LoadSkin(tinygltf::Model& model)
+{
+    if (model.skins.size() != 0)
+    {
+        const tinygltf::Skin& skin = model.skins[0];
+        joints = skin.joints;
+
+        const tinygltf::Accessor& inverseBindAccessor = model.accessors[skin.inverseBindMatrices];
+        const tinygltf::BufferView& inverseBindBufferView = model.bufferViews[inverseBindAccessor.bufferView];
+        const tinygltf::Buffer& inverseBindBuffer = model.buffers[inverseBindBufferView.buffer];
+
+        inverseBindMatrices.resize(inverseBindAccessor.count);
+        const float* inverseBindData = reinterpret_cast<const float*>(
+            &inverseBindBuffer.data[inverseBindBufferView.byteOffset + inverseBindAccessor.byteOffset]);
+
+        for (size_t i = 0; i < inverseBindAccessor.count; ++i) {
+            glm::mat4 mat;
+            std::memcpy(glm::value_ptr(mat), &inverseBindData[i * 16], sizeof(glm::mat4));
+            inverseBindMatrices[i] = mat;
+        }
+    }
+    else
+        joints.push_back(-1);
+
+    jointMatrices.resize(joints.size(), glm::mat4(1.0f));
+
+    size_t jointCount = joints.size();
+    wgpu::BufferDescriptor boneBufferDesc{};
+    boneBufferDesc.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
+    boneBufferDesc.size = jointCount * sizeof(glm::mat4);
+    boneBufferDesc.mappedAtCreation = false;
+    boneBuffer = device.CreateBuffer(&boneBufferDesc);
+
+    std::vector<wgpu::BindGroupLayoutEntry> boneBindingLayouts(1);
+    boneBindingLayouts[0] = {};
+    boneBindingLayouts[0].binding = 0;
+    boneBindingLayouts[0].visibility = wgpu::ShaderStage::Vertex;
+    boneBindingLayouts[0].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+    boneBindingLayouts[0].buffer.hasDynamicOffset = false; 
+    boneBindingLayouts[0].buffer.minBindingSize = 0; 
+
+    wgpu::BindGroupLayoutDescriptor boneBindGroupLayoutDesc{};
+    boneBindGroupLayoutDesc.entryCount = (uint32_t)boneBindingLayouts.size();
+    boneBindGroupLayoutDesc.entries = boneBindingLayouts.data();
+    wgpu::BindGroupLayout boneBindGroupLayout = device.CreateBindGroupLayout(&boneBindGroupLayoutDesc);
+
+
+
+    wgpu::BindGroupEntry boneEntry{};
+    boneEntry.binding = 0;
+    boneEntry.buffer = boneBuffer;
+    boneEntry.offset = 0;
+    boneEntry.size = jointMatrices.size() * sizeof(glm::mat4);
+
+    wgpu::BindGroupDescriptor boneBindGroupDesc{};
+    boneBindGroupDesc.layout = boneBindGroupLayout;
+    boneBindGroupDesc.entryCount = 1;
+    boneBindGroupDesc.entries = &boneEntry;
+
+    boneBindGroup = device.CreateBindGroup(&boneBindGroupDesc);
+}
+
+void Model::FixJointMatrices()
+{        
+    for (size_t i = 0; i < joints.size(); ++i) {
+        if (joints[0] == -1) continue;
+        int jointNodeIndex = joints[i];
+        jointMatrices[i] = nodes[jointNodeIndex]->modelMatrix * inverseBindMatrices[i];
+    }
+    size_t jointCount = joints.size();
+    wgpu::BufferDescriptor boneBufferDesc{};
+    boneBufferDesc.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
+    boneBufferDesc.size = jointCount * sizeof(glm::mat4);
+    boneBufferDesc.mappedAtCreation = false;
+    boneBuffer = device.CreateBuffer(&boneBufferDesc);
+
+    device.GetQueue().WriteBuffer(
+        boneBuffer,  
+        0,           
+        jointMatrices.data(), 
+        jointCount * sizeof(glm::mat4)  
+    );
+}
+
 void Model::Draw(wgpu::RenderPassEncoder& renderPass)
 {
     UpdateNodes();
-    for(int i = 0; i < subMeshes.size(); i++)
+
+    int index = 0;
+    for (Node* n : DrawableNodes)
     {
-        uint32_t dynamicOffset = i * uniformStride;
-        renderPass.SetVertexBuffer(0, meshes[subMeshes[i].meshIndex].vertexBuffer, 0, meshes[subMeshes[i].meshIndex].vertexBuffer.GetSize());
-        renderPass.SetIndexBuffer(meshes[subMeshes[i].meshIndex].indexBuffer, wgpu::IndexFormat::Uint16,  subMeshes[i].startIndex * sizeof(uint16_t), subMeshes[i].indexxCount * sizeof(uint16_t));
-        renderPass.SetBindGroup(1, modelDataBindGroup, 1, &dynamicOffset);
-        renderPass.DrawIndexed(subMeshes[i].indexxCount, 1, 0, 0);
+        for (Submesh& s : n->mesh->submeshes)
+        {
+            uint32_t dynamicOffset = index * uniformStride;
+            renderPass.SetVertexBuffer(0, n->mesh->vertexBuffer, 0, n->mesh->vertexBuffer.GetSize());
+            renderPass.SetIndexBuffer(n->mesh->indexBuffer, wgpu::IndexFormat::Uint16,  s.startIndex * sizeof(uint16_t), s.indexxCount * sizeof(uint16_t));
+            renderPass.SetBindGroup(1, modelDataBindGroup, 1, &dynamicOffset);
+            renderPass.SetBindGroup(2, boneBindGroup, 0, nullptr);
+            renderPass.DrawIndexed(s.indexxCount, 1, 0, 0);
+            index++;
+        }
     }
 }
 

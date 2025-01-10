@@ -23,7 +23,7 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 
     InitGraphics();
     
-    model = new Model("anim.glb");
+    model = new Model("InterpolationTest.glb");
 
   #if defined(__EMSCRIPTEN__)
   auto callback = [](void *arg) {
@@ -311,6 +311,19 @@ void Application::CreateRenderPipeline()
   wgpu::BindGroupLayout modelBindGroupLayout = device.CreateBindGroupLayout(&modelBindGroupLayoutDesc);
 
 
+  std::vector<wgpu::BindGroupLayoutEntry> boneBindingLayouts(1);
+  boneBindingLayouts[0] = {};
+  boneBindingLayouts[0].binding = 0;
+  boneBindingLayouts[0].visibility = wgpu::ShaderStage::Vertex;
+  boneBindingLayouts[0].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+  boneBindingLayouts[0].buffer.hasDynamicOffset = false; 
+  boneBindingLayouts[0].buffer.minBindingSize = 0; 
+  wgpu::BindGroupLayoutDescriptor boneBindGroupLayoutDesc{};
+  boneBindGroupLayoutDesc.entryCount = (uint32_t)boneBindingLayouts.size();
+  boneBindGroupLayoutDesc.entries = boneBindingLayouts.data();
+  wgpu::BindGroupLayout boneBindGroupLayout = device.CreateBindGroupLayout(&boneBindGroupLayoutDesc);
+
+
   std::vector<BindGroupLayoutEntry> textureBindingLayouts(1);
   textureBindingLayouts[0] = {};
   textureBindingLayouts[0].binding = 0;
@@ -342,7 +355,7 @@ void Application::CreateRenderPipeline()
   bindGroupDesc.entries = bindings.data();
   bindGroup = device.CreateBindGroup(&bindGroupDesc);
 
-  std::vector<wgpu::BindGroupLayout> bindgroupLayouts = { bindGroupLayout1, modelBindGroupLayout/*, textureBindGroupLayout*/ };
+  std::vector<wgpu::BindGroupLayout> bindgroupLayouts = { bindGroupLayout1, modelBindGroupLayout, boneBindGroupLayout };
 
   PipelineLayoutDescriptor layoutDesc{};
   layoutDesc.bindGroupLayoutCount = bindgroupLayouts.size();

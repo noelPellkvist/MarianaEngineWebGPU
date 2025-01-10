@@ -22,16 +22,23 @@ class Model {
 
     private:
         std::vector<Node*> nodes;
+        std::vector<Node*> DrawableNodes;
         std::vector<MaterialProperties> materials;
         std::vector<MeshData> meshes;
-        std::vector<Submesh> subMeshes;
         std::vector<ModelData> modelData;
-        std::vector<wgpu::BindGroup> TextureBindings;
-        std::vector<wgpu::TextureView> TextureViews;
         std::vector<AnimationData> animations;
+        
         uint32_t uniformStride;
         wgpu::Buffer modelsBuffer;
         wgpu::BindGroup modelDataBindGroup;
+        float animationLength = 0;
+
+
+        std::vector<int> joints;
+        std::vector<glm::mat4> inverseBindMatrices;
+        std::vector<glm::mat4> jointMatrices;
+        wgpu::Buffer boneBuffer;
+        wgpu::BindGroup boneBindGroup;
 
         void LoadNodes(tinygltf::Model& m);
         void TraverseNodes(Node* node, glm::mat4x4 parentMatrix = glm::mat4x4(1.0f));
@@ -41,9 +48,10 @@ class Model {
         void LoadMeshes(tinygltf::Model& m);
         void InitModelBindgroups();
 
+        void LoadSkin(tinygltf::Model& m);
+        void FixJointMatrices();
+
         void LoadAnimations(tinygltf::Model& model);
         void UpdateAnimatedNodes();
         std::chrono::steady_clock::time_point startTime;
-
-        void InitTextureBindgroups(); //TODO
 };
