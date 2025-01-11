@@ -2,6 +2,7 @@
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
+#include <emscripten/html5.h>
 #else
 #include <webgpu/webgpu_glfw.h>
 #endif
@@ -23,8 +24,11 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 
     InitGraphics();
     
-    model = new Model("InterpolationTest.glb");
+    model = new Model("dance.glb");
+}
 
+void Application::Start()
+{
   #if defined(__EMSCRIPTEN__)
   auto callback = [](void *arg) {
     Application* pApp = reinterpret_cast<Application*>(arg);
@@ -41,13 +45,26 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 #endif
 }
 
-void Application::WindowResized()
-{
-  surface.Unconfigure();
-  ConfigureSurface();
-  float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
-  ubo.projectionMatrix = glm::perspective(60.0f * 0.01745329251f, aspect, 0.01f, 100.0f);
-  InitDepthTexture();
+void Application::WindowResized() {
+    #if defined(__EMSCRIPTEN__)
+    int width, height;
+    if (emscripten_get_canvas_element_size("#canvas", &width, &height) == EMSCRIPTEN_RESULT_SUCCESS) {
+        float aspect = static_cast<float>(width) / static_cast<float>(height);
+        std::cout << "Size: Width: " << width << ", " << "  Height: " << height << std::endl;
+        ubo.projectionMatrix = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
+        surface.Unconfigure();
+        ConfigureSurface();
+        // InitDepthTexture();
+    } else {
+        std::cerr << "Failed to get canvas element size" << std::endl;
+    }
+    #else
+    float aspect = static_cast<float>(kWidth) / static_cast<float>(kHeight);
+    ubo.projectionMatrix = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
+    surface.Unconfigure();
+    ConfigureSurface();
+    InitDepthTexture();
+    #endif
 }
 
 void Application::SetupWindow()
@@ -278,6 +295,24 @@ void Application::CreateRenderPipeline()
   vertexBufferLayout.arrayStride = sizeof(Mesh::Vertex);
   vertexBufferLayout.stepMode = VertexStepMode::Vertex;
 
+  VertexBufferLayout skinnedVertexBufferLayout;
+  std::vector<VertexAttribute> skinnedVertexAttributes(2);
+
+  skinnedVertexAttributes[0].format = VertexFormat::Sint32x4;
+  skinnedVertexAttributes[0].offset = 0;
+  skinnedVertexAttributes[0].shaderLocation = 4;
+
+  skinnedVertexAttributes[1].format = VertexFormat::Float32x4;
+  skinnedVertexAttributes[1].offset = sizeof(glm::ivec4);
+  skinnedVertexAttributes[1].shaderLocation = 5;
+
+  skinnedVertexBufferLayout.attributeCount = skinnedVertexAttributes.size();
+  skinnedVertexBufferLayout.attributes = skinnedVertexAttributes.data();
+  skinnedVertexBufferLayout.arrayStride = sizeof(SkinnedVertex);
+  skinnedVertexBufferLayout.stepMode = VertexStepMode::Vertex;
+
+  std::vector<VertexBufferLayout> vertexBufferLayouts = { vertexBufferLayout, skinnedVertexBufferLayout };
+
   std::vector<BindGroupLayoutEntry> globalBindingLayouts(2);
   globalBindingLayouts[0] = {};
   globalBindingLayouts[0].binding = 0;
@@ -374,8 +409,8 @@ void Application::CreateRenderPipeline()
   RenderPipelineDescriptor descriptor{
       .layout = layout,
       .vertex = {.module = shaderModule,
-                 .bufferCount = 1,
-                 .buffers = &vertexBufferLayout},
+                 .bufferCount = 2,
+                 .buffers = vertexBufferLayouts.data()},
       .depthStencil = &depthStencilState,
       .fragment = &fragmentState};
   pipeline = device.CreateRenderPipeline(&descriptor);

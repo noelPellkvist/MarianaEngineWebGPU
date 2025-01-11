@@ -32,6 +32,12 @@ struct Vertex
     glm::vec2 uv = {1,1};
 };
 
+struct SkinnedVertex 
+{
+    glm::ivec4 indices = {-1,0,0,0};
+    glm::vec4 weights = {0,0,0,0};
+};
+
 struct MaterialProperties
 {
     glm::vec4 baseColorFactor = {1,1,1,1};
@@ -63,6 +69,7 @@ struct MeshData
 {
     std::vector<Submesh> submeshes;
     wgpu::Buffer vertexBuffer;
+    wgpu::Buffer skinnedVertexBuffer;
     wgpu::Buffer indexBuffer;
     uint32_t indexCount;
 };
@@ -147,6 +154,9 @@ struct AnimationChannel
         glm::vec3 leftVec = { left.data[0], left.data[1], left.data[2]};
         glm::vec3 rightVec = { right.data[0], right.data[1], right.data[2]};
 
+        if(left.time == right.time)
+            return leftVec;
+
         if (interpolationMode == AnimationInterpolationType::LINEAR)
             return glm::mix(leftVec, rightVec, (time - left.time) / (right.time - left.time));
 
@@ -172,7 +182,7 @@ struct AnimationChannel
         return leftVec;
     }
 
-    glm::quat InterpolateRotation(float time)
+glm::quat InterpolateRotation(float time)
 {
     std::pair<AnimationKeyFrames, AnimationKeyFrames> leftRight = FindLeftRight(time);
     AnimationKeyFrames& left = leftRight.first;
@@ -180,6 +190,9 @@ struct AnimationChannel
 
     glm::quat leftQuat = glm::quat(left.data[3], left.data[0], left.data[1], left.data[2]);
     glm::quat rightQuat = glm::quat(right.data[3], right.data[0], right.data[1], right.data[2]);
+
+    if (left.time == right.time)
+        return leftQuat;
 
     float t = (time - left.time) / (right.time - left.time);
 

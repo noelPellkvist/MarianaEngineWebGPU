@@ -2,6 +2,17 @@
 #include "GlobalVaribles.hpp"
 #include "Application.hpp"
 #include <iostream>
+#include <GLFW/glfw3.h>
+#include <string>
+
+Application* pApp;
+
+extern "C" void WindowResized() {
+    if (pApp != nullptr) {
+        std::cout << "Calling pee pee poo poo" << std::endl;
+        pApp->WindowResized();
+    }
+}
 
 void GetAdapter(void (*callback)(wgpu::Adapter)) {
   #if defined(__EMSCRIPTEN__)
@@ -61,7 +72,11 @@ void GetDevice(void (*callback)(wgpu::Device)) {
 
 void Start()
 {
-  Application app;
+  pApp = new Application();
+  pApp->Start();
+  
+  std::cout << "Deleting app" << std::endl;
+  delete pApp;
 }
 
 int main() {

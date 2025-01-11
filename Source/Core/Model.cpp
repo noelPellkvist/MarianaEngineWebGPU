@@ -1,6 +1,8 @@
 #include "Model.hpp"
 #include <iostream>
 #include <gtc/type_ptr.hpp>
+#include <gtc/matrix_transform.hpp> // Optional: for transformations
+#include <gtc/matrix_inverse.hpp>  // Optional: for matrix inversion
 
 Model::Model(std::string name, bool bin)
 {
@@ -51,17 +53,23 @@ Model::Model(std::string name, bool bin)
 
     startTime = std::chrono::high_resolution_clock::now();
     UpdateNodes();
-    
     std::cout << "Succesfully loaded model" << std::endl;
 }
 
 void Model::LoadNodes(tinygltf::Model& m)
 {
     int i = 0;
+    int emptyNames = 0;
     for (tinygltf::Node& node : m.nodes)
     {
         Node* newNode = new Node();
-        newNode->name = node.name;
+        if (node.name.empty())
+        {
+            newNode->name = "Node." + std::to_string(emptyNames);
+            emptyNames++;
+        }
+        else
+            newNode->name = node.name;
         if (node.mesh == -1)
             newNode->mesh = nullptr;
         else
@@ -205,11 +213,13 @@ void Model::UpdateAnimatedNodes()
 {
     if(animations.size() == 0)
         return;
+    auto start = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> elapsed = std::chrono::high_resolution_clock::now() - startTime;
     float time = std::fmod(elapsed.count(), animationLength);
     for (AnimationChannel channel : animations[0].channels)
     {
-        if(channel.targetNodeIndex == -1) continue;
+        if(channel.targetNodeIndex == -1) 
+            continue;
         if (channel.type == AnimationChannelType::TRANSLATION)
         {
             glm::vec3 newPosition = channel.InterpolatePosition(time);
@@ -226,6 +236,10 @@ void Model::UpdateAnimatedNodes()
             nodes[channel.targetNodeIndex]->localRotation = newRot;
         }
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    std::cout << "exampleFunction took " << duration.count() << " microseconds." << std::endl;
 }
 
 void Model::UpdateNodes()
@@ -284,6 +298,7 @@ void Model::LoadMeshes(tinygltf::Model& model)
     for (int i = 0; i < model.meshes.size(); i++)
     {
         std::vector<Vertex> vertexData;
+        std::vector<SkinnedVertex> skinnedVertexData;
         std::vector<uint16_t> indices;
         std::vector<Submesh> subs;
         for (const auto& primitive : model.meshes[i].primitives) {
@@ -298,11 +313,20 @@ void Model::LoadMeshes(tinygltf::Model& model)
                 const tinygltf::BufferView& posBufferView = model.bufferViews[posAccessor.bufferView];
                 const tinygltf::Buffer& posBuffer = model.buffers[posBufferView.buffer];
 
-                const float* posData = reinterpret_cast<const float*>(&posBuffer.data[posBufferView.byteOffset]);
+                const unsigned char* bufferStart = posBuffer.data.data() + posBufferView.byteOffset;
+                const unsigned char* accessorStart = bufferStart + posAccessor.byteOffset;
+
+                size_t stride = posAccessor.ByteStride(posBufferView);
+                if (stride == 0) {
+                    stride = 3 * sizeof(float); // Default stride for vec3 (tightly packed)
+                }
+
                 size_t numVertices = posAccessor.count;
-                vertexData.reserve(numVertices);
+                positions.reserve(numVertices);
+
                 for (size_t i = 0; i < numVertices; ++i) {
-                    positions.push_back(glm::vec3(posData[i * 3 + 0], posData[i * 3 + 1], posData[i * 3 + 2]));
+                    const float* posData = reinterpret_cast<const float*>(accessorStart + i * stride);
+                    positions.push_back(glm::vec3(posData[0], posData[1], posData[2]));
                 }
             }
 
@@ -315,11 +339,20 @@ void Model::LoadMeshes(tinygltf::Model& model)
                 const tinygltf::BufferView& normalBufferView = model.bufferViews[normalAccessor.bufferView];
                 const tinygltf::Buffer& normalBuffer = model.buffers[normalBufferView.buffer];
 
-                const float* normalData = reinterpret_cast<const float*>(&normalBuffer.data[normalBufferView.byteOffset]);
+                const unsigned char* bufferStart = normalBuffer.data.data() + normalBufferView.byteOffset;
+                const unsigned char* accessorStart = bufferStart + normalAccessor.byteOffset;
+
+                size_t stride = normalAccessor.ByteStride(normalBufferView);
+                if (stride == 0) {
+                    stride = 3 * sizeof(float); // Default stride for vec3 (tightly packed)
+                }
+
                 size_t numNormals = normalAccessor.count;
+                normals.reserve(numNormals);
 
                 for (size_t i = 0; i < numNormals; ++i) {
-                    normals.push_back(glm::vec3(normalData[i * 3 + 0], normalData[i * 3 + 1], normalData[i * 3 + 2]));
+                    const float* normalData = reinterpret_cast<const float*>(accessorStart + i * stride);
+                    normals.push_back(glm::vec3(normalData[0], normalData[1], normalData[2]));
                 }
             }
 
@@ -332,13 +365,23 @@ void Model::LoadMeshes(tinygltf::Model& model)
                 const tinygltf::BufferView& uvBufferView = model.bufferViews[uvAccessor.bufferView];
                 const tinygltf::Buffer& uvBuffer = model.buffers[uvBufferView.buffer];
 
-                const float* uvData = reinterpret_cast<const float*>(&uvBuffer.data[uvBufferView.byteOffset]);
+                const unsigned char* bufferStart = uvBuffer.data.data() + uvBufferView.byteOffset;
+                const unsigned char* accessorStart = bufferStart + uvAccessor.byteOffset;
+
+                size_t stride = uvAccessor.ByteStride(uvBufferView);
+                if (stride == 0) {
+                    stride = 2 * sizeof(float); // Default stride for vec2 (tightly packed)
+                }
+
                 size_t numUVs = uvAccessor.count;
+                uvs.reserve(numUVs);
 
                 for (size_t i = 0; i < numUVs; ++i) {
-                    uvs.push_back(glm::vec2(uvData[i * 2 + 0], uvData[i * 2 + 1] - 1));
+                    const float* uvData = reinterpret_cast<const float*>(accessorStart + i * stride);
+                    uvs.push_back(glm::vec2(uvData[0], 1.0f - uvData[1])); // Flip V-coordinate for OpenGL
                 }
             }
+
             std::cout << "Loading uvs" << std::endl;
 
             std::vector<glm::vec4> colors;
@@ -348,17 +391,97 @@ void Model::LoadMeshes(tinygltf::Model& model)
                 const tinygltf::BufferView& colorBufferView = model.bufferViews[colorAccessor.bufferView];
                 const tinygltf::Buffer& colorBuffer = model.buffers[colorBufferView.buffer];
 
-                const float* colorData = reinterpret_cast<const float*>(&colorBuffer.data[colorBufferView.byteOffset]);
+                const unsigned char* bufferStart = colorBuffer.data.data() + colorBufferView.byteOffset;
+                const unsigned char* accessorStart = bufferStart + colorAccessor.byteOffset;
+
+                size_t stride = colorAccessor.ByteStride(colorBufferView);
+                if (stride == 0) {
+                    stride = 4 * sizeof(float); // Default stride for vec4 (tightly packed)
+                }
+
                 size_t numColors = colorAccessor.count;
+                colors.reserve(numColors);
 
                 for (size_t i = 0; i < numColors; ++i) {
-                    colors.push_back(glm::vec4(colorData[i * 4 + 0], colorData[i * 4 + 1], colorData[i * 4 + 2], colorData[i * 4 + 3]));
+                    const float* colorData = reinterpret_cast<const float*>(accessorStart + i * stride);
+                    colors.push_back(glm::vec4(colorData[0], colorData[1], colorData[2], colorData[3]));
                 }
             }
 
             std::cout << "Loading colors" << std::endl;
-
             size_t numVertices = positions.size();
+            std::vector<glm::ivec4> boneIndices;
+            if (primitive.attributes.find("JOINTS_0") != primitive.attributes.end()) {
+                int jointsAccessorIndex = primitive.attributes.at("JOINTS_0");
+                const tinygltf::Accessor& jointsAccessor = model.accessors[jointsAccessorIndex];
+                const tinygltf::BufferView& jointsBufferView = model.bufferViews[jointsAccessor.bufferView];
+                const tinygltf::Buffer& jointsBuffer = model.buffers[jointsBufferView.buffer];
+
+                const unsigned char* bufferStart = jointsBuffer.data.data() + jointsBufferView.byteOffset;
+                const unsigned char* accessorStart = bufferStart + jointsAccessor.byteOffset;
+
+                size_t stride = jointsAccessor.ByteStride(jointsBufferView);
+                if (stride == 0) {
+                    stride = 4 * sizeof(uint16_t); // Default stride for vec4 (tightly packed)
+                }
+
+                size_t numJoints = jointsAccessor.count;
+
+                for (size_t i = 0; i < numJoints; ++i) {
+                    glm::ivec4 jointIndices(0); // Initialize to zero
+
+                    if (jointsAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
+                        const uint8_t* jointsData = reinterpret_cast<const uint8_t*>(accessorStart + i * stride);
+                        jointIndices = glm::ivec4(jointsData[0], jointsData[1], jointsData[2], jointsData[3]);
+                    } else if (jointsAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+                        const uint16_t* jointsData = reinterpret_cast<const uint16_t*>(accessorStart + i * stride);
+                        jointIndices = glm::ivec4(jointsData[0], jointsData[1], jointsData[2], jointsData[3]);
+                    } else {
+                        std::cerr << "Unsupported JOINTS_0 component type: " << jointsAccessor.componentType << std::endl;
+                    }
+
+                    boneIndices.push_back(jointIndices);
+                }
+            }
+            else
+            {
+                for (size_t i = 0; i < positions.size(); ++i) {
+                    boneIndices.push_back(glm::ivec4(-1,0,0,0));
+                }
+            }
+
+            std::vector<glm::vec4> boneWeights;
+            if (primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end()) {
+                int weightsAccessorIndex = primitive.attributes.at("WEIGHTS_0");
+                const tinygltf::Accessor& weightsAccessor = model.accessors[weightsAccessorIndex];
+                const tinygltf::BufferView& weightsBufferView = model.bufferViews[weightsAccessor.bufferView];
+                const tinygltf::Buffer& weightsBuffer = model.buffers[weightsBufferView.buffer];
+
+                const unsigned char* bufferStart = weightsBuffer.data.data() + weightsBufferView.byteOffset;
+                const unsigned char* accessorStart = bufferStart + weightsAccessor.byteOffset;
+
+                size_t stride = weightsAccessor.ByteStride(weightsBufferView);
+                if (stride == 0) {
+                    stride = 4 * sizeof(float); // Default stride for vec4 (tightly packed)
+                }
+
+                size_t numWeights = weightsAccessor.count;
+
+                for (size_t i = 0; i < numWeights; ++i) {
+                    const float* weights = reinterpret_cast<const float*>(accessorStart + i * stride);
+                    boneWeights.push_back(glm::vec4(weights[0], weights[1], weights[2], weights[3]));
+                }
+            }
+            else
+            {
+                for (size_t i = 0; i < positions.size(); ++i) {
+                    boneWeights.push_back(glm::vec4(0,0,0,0));
+                }
+            }
+
+            std::cout << "Loading bone weights" << std::endl;
+
+            
             // if (normals.size() != numVertices/* || uvs.size() != numVertices*/) {
             //     std::cerr << "Error: Mismatch in number of positions, normals, or UVs\n";
             //     continue;
@@ -376,6 +499,12 @@ void Model::LoadMeshes(tinygltf::Model& model)
                 if(uvs.size() > 0)
                     v.uv = uvs[i];
                 vertexData.push_back(v);
+
+                SkinnedVertex sk = {};
+                sk.indices = boneIndices[i];
+                sk.weights = boneWeights[i];
+
+                skinnedVertexData.push_back(sk);
             }
 
             if (primitive.indices > -1) {
@@ -407,6 +536,17 @@ void Model::LoadMeshes(tinygltf::Model& model)
         meshes[i].vertexBuffer = device.CreateBuffer(&bufferDesc);
         device.GetQueue().WriteBuffer(meshes[i].vertexBuffer, 0, vertexData.data(), bufferDesc.size);
 
+        bufferDesc.size = skinnedVertexData.size() * sizeof(SkinnedVertex);
+        bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
+        bufferDesc.mappedAtCreation = false;
+        meshes[i].skinnedVertexBuffer = device.CreateBuffer(&bufferDesc);
+        device.GetQueue().WriteBuffer(meshes[i].skinnedVertexBuffer, 0, skinnedVertexData.data(), bufferDesc.size);
+
+        if (skinnedVertexData.size() == vertexData.size())
+        {
+            std::cout << "WEYYY skinned data nice" << std::endl;
+        } else std::cout << "BOOOOOO skinned data bad" << std::endl;
+
         bufferDesc.size = indices.size() * sizeof(uint16_t);
         bufferDesc.size = (bufferDesc.size + 3) & ~3;
         bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
@@ -420,7 +560,7 @@ void Model::LoadMeshes(tinygltf::Model& model)
 
 void Model::LoadAnimations(tinygltf::Model& m)
 {
-    if (m.animations.size() == 0()) {
+    if (m.animations.size() == 0) {
         std::cerr << "No animations found in the model." << std::endl;
         return;
     }
@@ -430,9 +570,6 @@ void Model::LoadAnimations(tinygltf::Model& m)
     // Load the first animation
     for (const tinygltf::Animation& animation : m.animations)
     {
-        
-        
-
         if (animation.channels.size() == 0) {
             std::cerr << "No channels in the first animation." << std::endl;
             return;
@@ -650,7 +787,7 @@ void Model::LoadSkin(tinygltf::Model& model)
     size_t jointCount = joints.size();
     wgpu::BufferDescriptor boneBufferDesc{};
     boneBufferDesc.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
-    boneBufferDesc.size = jointCount * sizeof(glm::mat4);
+    boneBufferDesc.size = jointCount * sizeof(glm::mat4x4);
     boneBufferDesc.mappedAtCreation = false;
     boneBuffer = device.CreateBuffer(&boneBufferDesc);
 
@@ -684,18 +821,16 @@ void Model::LoadSkin(tinygltf::Model& model)
 }
 
 void Model::FixJointMatrices()
-{        
-    for (size_t i = 0; i < joints.size(); ++i) {
-        if (joints[0] == -1) continue;
+{       
+    size_t jointCount = joints.size();
+    for (size_t i = 0; i < jointCount; ++i) {
+        if(joints[i] == -1)
+            continue;
         int jointNodeIndex = joints[i];
         jointMatrices[i] = nodes[jointNodeIndex]->modelMatrix * inverseBindMatrices[i];
     }
-    size_t jointCount = joints.size();
-    wgpu::BufferDescriptor boneBufferDesc{};
-    boneBufferDesc.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
-    boneBufferDesc.size = jointCount * sizeof(glm::mat4);
-    boneBufferDesc.mappedAtCreation = false;
-    boneBuffer = device.CreateBuffer(&boneBufferDesc);
+    
+    
 
     device.GetQueue().WriteBuffer(
         boneBuffer,  
@@ -716,6 +851,7 @@ void Model::Draw(wgpu::RenderPassEncoder& renderPass)
         {
             uint32_t dynamicOffset = index * uniformStride;
             renderPass.SetVertexBuffer(0, n->mesh->vertexBuffer, 0, n->mesh->vertexBuffer.GetSize());
+            renderPass.SetVertexBuffer(1, n->mesh->skinnedVertexBuffer, 0, n->mesh->skinnedVertexBuffer.GetSize());
             renderPass.SetIndexBuffer(n->mesh->indexBuffer, wgpu::IndexFormat::Uint16,  s.startIndex * sizeof(uint16_t), s.indexxCount * sizeof(uint16_t));
             renderPass.SetBindGroup(1, modelDataBindGroup, 1, &dynamicOffset);
             renderPass.SetBindGroup(2, boneBindGroup, 0, nullptr);

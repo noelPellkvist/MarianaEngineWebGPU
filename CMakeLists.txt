@@ -16,6 +16,8 @@ if(EMSCRIPTEN)
 	 --shell-file=${CMAKE_CURRENT_SOURCE_DIR}/custom_template.html 
 	 "-sUSE_WEBGPU=1"
 	 "-sUSE_GLFW=3"
+   "-sEXPORTED_FUNCTIONS=['_main', '_WindowResized']"
+   "-sEXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']"
 	 -sALLOW_MEMORY_GROWTH
 	 --preload-file "${CMAKE_CURRENT_SOURCE_DIR}/Resources"
 	 )

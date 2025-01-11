@@ -43,11 +43,6 @@
           if (element) element.value = ''; // clear browser cache
           return (...args) => {
             var text = args.join(' ');
-            // These replacements are necessary if you render to raw HTML
-            //text = text.replace(/&/g, "&amp;");
-            //text = text.replace(/</g, "&lt;");
-            //text = text.replace(/>/g, "&gt;");
-            //text = text.replace('\n', '<br>', 'g');
             console.log(text);
             if (element) {
               element.value += text + "\n";
@@ -102,6 +97,28 @@
           if (text) console.error('[post-exception status] ' + text);
         };
       };
+
+      document.addEventListener("fullscreenchange", () => {
+    const canvas = document.querySelector("#canvas");
+    if (document.fullscreenElement === canvas) {
+        // Fullscreen mode: set canvas size to screen dimensions
+        canvas.style.width = `${screen.width}px`;
+        canvas.style.height = `${screen.height}px`;
+        canvas.width = screen.width;
+        canvas.height = screen.height;
+    } else {
+        // Exit fullscreen: reset to default or desired size
+        canvas.style.width = "800px";
+        canvas.style.height = "600px";
+        canvas.width = 800;
+        canvas.height = 600;
+    }
+
+    // Notify the application about the size change
+    if (Module.ccall) {
+        Module.ccall('WindowResized', null, [], []);
+    }
+});
     </script>
     {{{ SCRIPT }}}
   </body>

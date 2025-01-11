@@ -15,6 +15,10 @@ class Application
     Application();
     ~Application();
 
+    void Start();
+
+    void WindowResized();
+
     wgpu::Buffer globalUBO;
 
     wgpu::Sampler sampler;
@@ -60,5 +64,5 @@ class Application
     void CreateRenderPipeline();
     void Render();
 
-    void WindowResized();
+    
 };
