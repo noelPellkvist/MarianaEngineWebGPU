@@ -1,8 +1,10 @@
 #include "Model.hpp"
+#include "Resources.h"
 #include <iostream>
 #include <gtc/type_ptr.hpp>
-#include <gtc/matrix_transform.hpp> // Optional: for transformations
-#include <gtc/matrix_inverse.hpp>  // Optional: for matrix inversion
+#include <gtc/matrix_transform.hpp> 
+#include <gtc/matrix_inverse.hpp> 
+
 
 Model::Model(std::string name, bool bin)
 {
@@ -46,10 +48,12 @@ Model::Model(std::string name, bool bin)
     
     InitUniforms();
     InitModelBindgroups();
+    InitTextureBindGroups(model);
     if(model.animations.size() > 0)
         LoadAnimations(model);
 
     LoadSkin(model);
+    //model.materials[0].pbrMetallicRoughness.baseColorTexture.index
 
     startTime = std::chrono::high_resolution_clock::now();
     UpdateNodes();
@@ -124,10 +128,16 @@ void Model::LoadNodes(tinygltf::Model& m)
             nodes[index]->parent = nodes[i];
         }
     }
-
+    glm::mat4 zUpToYUpRotation = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    glm::quat zUpToYUpQuat = glm::quat_cast(zUpToYUpRotation);  
     for (int i = 0; i < m.scenes[0].nodes.size(); i++)
     {
-        rootNodes.push_back(nodes[m.scenes[0].nodes[i]]);
+        Node* rootNode = nodes[m.scenes[0].nodes[i]];
+
+        rootNode->modelMatrix *= zUpToYUpRotation;
+
+        rootNode->localRotation = zUpToYUpQuat * rootNode->localRotation;
+        rootNodes.push_back(rootNode);
     }
 }
 
@@ -147,6 +157,7 @@ void Model::InitUniforms()
             }
             data.material = materials[DrawableNodes[i]->mesh->submeshes[j].materialIndex];
             data.modelMatrix = DrawableNodes[i]->modelMatrix;
+            //TODO: Init texture bindgroups for each modeldata
             modelData.push_back(data);
         }
     }
@@ -200,6 +211,107 @@ void Model::InitModelBindgroups()
     modelDataBindGroup = device.CreateBindGroup(&bindGroupDesc);
 }
 
+wgpu::TextureView Model::GetTexture(tinygltf::Model& model, int index, wgpu::TextureFormat format)
+{
+    using namespace wgpu;
+    if (textures.size() != model.images.size())
+    {
+        textures.resize(model.images.size(), std::nullopt);
+    }
+    //TODO: add saftey check that index != -1
+    if (index == -1)
+    {
+        return {};
+    }
+    if (textures[index])
+    {
+        std::cout << "Using loaded texture" << std::endl;
+        return textures[index].value();
+    }
+    tinygltf::Image img = model.images[index];
+    int width = img.width;
+    int height = img.height;
+    int channels = img.component;
+    unsigned char* imageData = img.image.data();
+
+    if (imageData == nullptr) {
+        std::cerr << "Failed to load texture from gltf model!" << std::endl;
+        return {};
+    }
+
+    std::vector<uint8_t> pixels(channels * width * height);
+    std::memcpy(pixels.data(), imageData, pixels.size());
+    //Create Texture
+    TextureFormat textureFormat = format;
+    TextureDescriptor textureDesc;
+    textureDesc.dimension = TextureDimension::e2D;
+    textureDesc.format = textureFormat;
+    textureDesc.mipLevelCount = 1;
+    textureDesc.sampleCount = 1;
+    textureDesc.size = {static_cast<unsigned int>(width), static_cast<unsigned int>(height), 1};
+    textureDesc.usage = TextureUsage::TextureBinding | TextureUsage::CopyDst;
+    textureDesc.viewFormatCount = 1;
+    textureDesc.viewFormats = &textureFormat;
+    Texture texture = device.CreateTexture(&textureDesc);
+
+    TextureViewDescriptor textureViewDesc;
+    textureViewDesc.aspect = TextureAspect::All;
+    textureViewDesc.baseArrayLayer = 0;
+    textureViewDesc.arrayLayerCount = 1;
+    textureViewDesc.baseMipLevel = 0;
+    textureViewDesc.mipLevelCount = 1;
+    textureViewDesc.dimension = TextureViewDimension::e2D;
+    textureViewDesc.format = textureFormat;
+    TextureView textureView = texture.CreateView(&textureViewDesc);
+
+	ImageCopyTexture destination;
+	destination.texture = texture;
+	destination.mipLevel = 0;
+	destination.origin = { 0, 0, 0 };
+	destination.aspect = TextureAspect::All;
+
+	TextureDataLayout source;
+	source.offset = 0;
+	source.bytesPerRow = 4 * textureDesc.size.width;
+	source.rowsPerImage = textureDesc.size.height;
+    device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &source, &textureDesc.size);
+    
+    textures[index] = textureView;
+    return textureView;
+}
+
+void Model::InitTextureBindGroups(tinygltf::Model& m)
+{
+    using namespace wgpu;
+    int i = 0;
+    for (MaterialTexturesData& materialTexture : materialTextures)
+    {
+        std::vector<BindGroupLayoutEntry> textureBindingLayouts(1);
+        textureBindingLayouts[0] = {};
+        textureBindingLayouts[0].binding = 0;
+        textureBindingLayouts[0].visibility = ShaderStage::Fragment;
+        textureBindingLayouts[0].texture.sampleType = TextureSampleType::Float;
+        textureBindingLayouts[0].texture.viewDimension = TextureViewDimension::e2D;
+
+        BindGroupLayoutDescriptor textureBindGroupLayoutDesc{};
+        textureBindGroupLayoutDesc.entryCount = (uint32_t)textureBindingLayouts.size();
+        textureBindGroupLayoutDesc.entries = textureBindingLayouts.data();
+        wgpu::BindGroupLayout textureBindGroupLayout = device.CreateBindGroupLayout(&textureBindGroupLayoutDesc);
+
+        std::vector<BindGroupEntry> textureBindings(1);
+        textureBindings[0] = {};
+        textureBindings[0].binding = 0;
+        textureBindings[0].textureView = GetTexture(m, materialTexture.albedoTexture, TextureFormat::RGBA8UnormSrgb);
+
+        BindGroupDescriptor bindGroupDesc{};
+        bindGroupDesc.layout = textureBindGroupLayout;
+        bindGroupDesc.entryCount = (uint32_t)textureBindings.size();
+        bindGroupDesc.entries = textureBindings.data();
+        textreDataBindGroups.push_back(device.CreateBindGroup(&bindGroupDesc));
+        i++;
+    }
+}
+
 void Model::TraverseNodes(Node* node, glm::mat4x4 parentMatrix)
 {
     node->modelMatrix = parentMatrix * glm::translate(glm::mat4(1.0f), node->localPosition)
@@ -239,7 +351,7 @@ void Model::UpdateAnimatedNodes()
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
-    std::cout << "exampleFunction took " << duration.count() << " microseconds." << std::endl;
+    //std::cout << "exampleFunction took " << duration.count() << " microseconds." << std::endl;
 }
 
 void Model::UpdateNodes()
@@ -267,6 +379,7 @@ void Model::LoadMaterials(tinygltf::Model& m)
     for(tinygltf::Material& mat : m.materials) 
     {
         MaterialProperties newMaterial;
+        MaterialTexturesData textureData;
         newMaterial.textureFlags = 0;
         newMaterial.alphaCutoff = mat.alphaCutoff;
         newMaterial.metallicFactor = mat.pbrMetallicRoughness.metallicFactor;
@@ -288,7 +401,8 @@ void Model::LoadMaterials(tinygltf::Model& m)
         {
             newMaterial.textureFlags |= (1 << 0);
         }
-
+        textureData.albedoTexture = mat.pbrMetallicRoughness.baseColorTexture.index;
+        materialTextures.push_back(textureData);
         materials.push_back(newMaterial);
     }
 }
@@ -370,7 +484,7 @@ void Model::LoadMeshes(tinygltf::Model& model)
 
                 size_t stride = uvAccessor.ByteStride(uvBufferView);
                 if (stride == 0) {
-                    stride = 2 * sizeof(float); // Default stride for vec2 (tightly packed)
+                    stride = 2 * sizeof(float);
                 }
 
                 size_t numUVs = uvAccessor.count;
@@ -378,7 +492,7 @@ void Model::LoadMeshes(tinygltf::Model& model)
 
                 for (size_t i = 0; i < numUVs; ++i) {
                     const float* uvData = reinterpret_cast<const float*>(accessorStart + i * stride);
-                    uvs.push_back(glm::vec2(uvData[0], 1.0f - uvData[1])); // Flip V-coordinate for OpenGL
+                    uvs.push_back(glm::vec2(uvData[0], uvData[1]));
                 }
             }
 
@@ -854,7 +968,8 @@ void Model::Draw(wgpu::RenderPassEncoder& renderPass)
             renderPass.SetVertexBuffer(1, n->mesh->skinnedVertexBuffer, 0, n->mesh->skinnedVertexBuffer.GetSize());
             renderPass.SetIndexBuffer(n->mesh->indexBuffer, wgpu::IndexFormat::Uint16,  s.startIndex * sizeof(uint16_t), s.indexxCount * sizeof(uint16_t));
             renderPass.SetBindGroup(1, modelDataBindGroup, 1, &dynamicOffset);
-            renderPass.SetBindGroup(2, boneBindGroup, 0, nullptr);
+            renderPass.SetBindGroup(2, boneBindGroup, 0, nullptr); 
+            renderPass.SetBindGroup(3, textreDataBindGroups[s.materialIndex], 0, nullptr);
             renderPass.DrawIndexed(s.indexxCount, 1, 0, 0);
             index++;
         }

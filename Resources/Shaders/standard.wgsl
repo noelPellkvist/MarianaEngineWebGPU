@@ -34,7 +34,7 @@ struct MaterialProperties {
     alphaCutoff: f32,        
     metallicFactor: f32,     
     roughnessFactor: f32,    
-    
+    textureFlags: u32,
 };
 
 struct ModelData {
@@ -49,26 +49,28 @@ struct ModelData {
 
 @group(2) @binding(0) var<storage, read> bones: array<mat4x4f>;
 
+@group(3) @binding(0) var albedoTexture: texture_2d<f32>;
+
 // Vertex Shader
 @vertex
 fn vertex_main(input: VertexInput, skin: SkinnedVertex) -> VertexOutput {
     var output: VertexOutput;
-    var skinnedPosition: vec4<f32> = vec4<f32>(0.0);
+    var modelMatrix : mat4x4f;
     if(skin.indices[0] != -1)
     {
-        skinnedPosition = skin.weights.x * (bones[skin.indices.x] * vec4(input.position, 1.0)) + 
-                          skin.weights.y * (bones[skin.indices.y] * vec4(input.position, 1.0)) + 
-                          skin.weights.z * (bones[skin.indices.z] * vec4(input.position, 1.0)) + 
-                          skin.weights.w * (bones[skin.indices.w] * vec4(input.position, 1.0));
+        modelMatrix = skin.weights.x * bones[skin.indices.x] + 
+                          skin.weights.y * bones[skin.indices.y] + 
+                          skin.weights.z * bones[skin.indices.z] + 
+                          skin.weights.w * bones[skin.indices.w];
     }
     else
     {
-        skinnedPosition = Model.modelMatrix * vec4(input.position, 1.0);
+        modelMatrix = Model.modelMatrix;
     }
 
-    output.position = UBO.projectionMatrix * UBO.viewMatrix * skinnedPosition;
+    output.position = UBO.projectionMatrix * UBO.viewMatrix * modelMatrix * vec4(input.position, 1.0);
 
-    // Pass through the normal and other vertex data
+    
     output.normal = normalize((Model.modelMatrix * vec4(input.normal, 0.0)).xyz);
     output.worldpos = (Model.modelMatrix * vec4(input.position, 1.0)).xyz;
     output.uv = input.uv;
@@ -79,8 +81,11 @@ fn vertex_main(input: VertexInput, skin: SkinnedVertex) -> VertexOutput {
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
-    let baseColor = Model.material.baseColorFactor;
-
+    var baseColor = Model.material.baseColorFactor * vec4f(input.color, 1.0);
+    if ((Model.material.textureFlags & (1 << 0)) != 0) {
+        // Sample the texture only if the flag is set
+        baseColor *= textureSample(albedoTexture, textureSampler, input.uv);
+    }
     let normal = normalize(input.normal);
 
     let lightDir = normalize(UBO.color.xyz); 

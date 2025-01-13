@@ -48,6 +48,11 @@ struct MaterialProperties
     uint32_t textureFlags = 0;
 };
 
+struct MaterialTexturesData
+{
+    int albedoTexture = -1;
+};
+
 struct ModelData
 {
     glm::mat4x4 modelMatrix = {};    

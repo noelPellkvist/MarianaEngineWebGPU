@@ -7,6 +7,7 @@
 #include "GlobalVaribles.hpp"
 #include "GameObject.hpp"
 #include <chrono>
+#include <optional>
 
 
 #include "../External/tiny_gltf.h"
@@ -24,9 +25,11 @@ class Model {
         std::vector<Node*> nodes;
         std::vector<Node*> DrawableNodes;
         std::vector<MaterialProperties> materials;
+        std::vector<MaterialTexturesData> materialTextures;
         std::vector<MeshData> meshes;
         std::vector<ModelData> modelData;
         std::vector<AnimationData> animations;
+        std::vector<std::optional<wgpu::TextureView>> textures;
         
         uint32_t uniformStride;
         wgpu::Buffer modelsBuffer;
@@ -39,6 +42,7 @@ class Model {
         std::vector<glm::mat4> jointMatrices;
         wgpu::Buffer boneBuffer;
         wgpu::BindGroup boneBindGroup;
+        std::vector<wgpu::BindGroup> textreDataBindGroups;
 
         void LoadNodes(tinygltf::Model& m);
         void TraverseNodes(Node* node, glm::mat4x4 parentMatrix = glm::mat4x4(1.0f));
@@ -47,6 +51,9 @@ class Model {
         void LoadMaterials(tinygltf::Model& m);
         void LoadMeshes(tinygltf::Model& m);
         void InitModelBindgroups();
+
+        wgpu::TextureView GetTexture(tinygltf::Model& m, int index, wgpu::TextureFormat format);
+        void InitTextureBindGroups(tinygltf::Model& m);
 
         void LoadSkin(tinygltf::Model& m);
         void FixJointMatrices();

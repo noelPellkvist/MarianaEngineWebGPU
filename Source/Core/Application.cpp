@@ -24,12 +24,18 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 
     InitGraphics();
     
-    model = new Model("dance.glb");
+    model = new Model("CesiumMan.glb");
 }
 
 void Application::Start()
 {
   #if defined(__EMSCRIPTEN__)
+  int width, height;
+  if (emscripten_get_canvas_element_size("#canvas", &width, &height) == EMSCRIPTEN_RESULT_SUCCESS) {
+        std::cout << "Size: Width was: " << kWidth << ", " << "  and is now: " << width << std::endl;
+        kWidth = static_cast<uint32_t>(width);
+        kHeight = static_cast<uint32_t>(height);
+  }
   auto callback = [](void *arg) {
     Application* pApp = reinterpret_cast<Application*>(arg);
     pApp->Render();
@@ -49,12 +55,15 @@ void Application::WindowResized() {
     #if defined(__EMSCRIPTEN__)
     int width, height;
     if (emscripten_get_canvas_element_size("#canvas", &width, &height) == EMSCRIPTEN_RESULT_SUCCESS) {
+        std::cout << "Size: Width was: " << kWidth << ", " << "  and is now: " << width << std::endl;
+        kWidth = static_cast<uint32_t>(width);
+        kHeight = static_cast<uint32_t>(height);
         float aspect = static_cast<float>(width) / static_cast<float>(height);
-        std::cout << "Size: Width: " << width << ", " << "  Height: " << height << std::endl;
+        
         ubo.projectionMatrix = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
         surface.Unconfigure();
         ConfigureSurface();
-        // InitDepthTexture();
+        InitDepthTexture();
     } else {
         std::cerr << "Failed to get canvas element size" << std::endl;
     }
@@ -187,7 +196,6 @@ void Application::Render()
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
   static float currentTime = 0;
   currentTime += 1.0f / 144.0f;
-  currentTime = 0;
   float distance = 15;
   ubo.viewMatrix = glm::lookAt(glm::vec3(distance * glm::sin(currentTime), 0, distance * glm::cos(currentTime)), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
   // ubo.modelMatrix = glm::rotate(kub.modelMatrix, 0.01f, glm::vec3(0,0,1));
@@ -210,9 +218,9 @@ void Application::Render()
 void Application::InitDepthTexture()
 { 
   using namespace wgpu;
-  if(depthTextureView) 
+  if (depthTextureView)
   {
-    wgpuTextureViewRelease(depthTextureView.Get());
+    depthTextureView = nullptr;
   }
 
   TextureFormat depthTextureFormat = TextureFormat::Depth24Plus;
@@ -390,7 +398,7 @@ void Application::CreateRenderPipeline()
   bindGroupDesc.entries = bindings.data();
   bindGroup = device.CreateBindGroup(&bindGroupDesc);
 
-  std::vector<wgpu::BindGroupLayout> bindgroupLayouts = { bindGroupLayout1, modelBindGroupLayout, boneBindGroupLayout };
+  std::vector<wgpu::BindGroupLayout> bindgroupLayouts = { bindGroupLayout1, modelBindGroupLayout, boneBindGroupLayout, textureBindGroupLayout };
 
   PipelineLayoutDescriptor layoutDesc{};
   layoutDesc.bindGroupLayoutCount = bindgroupLayouts.size();

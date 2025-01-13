@@ -1,5 +1,3 @@
-#pragma once
-
 #include "EditorGui.hpp"
 #include "GlobalVaribles.hpp"
 #include <iostream>
