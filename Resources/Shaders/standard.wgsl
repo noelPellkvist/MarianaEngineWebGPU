@@ -100,7 +100,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
 
     let diffuseIntensity = max(dot(normal, lightDir), 0.0);
 
-    let color = baseColor * (diffuseIntensity);
+    let color = baseColor * (diffuseIntensity + 0.5);
 
     return color;
 }

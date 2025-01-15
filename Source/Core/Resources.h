@@ -1,7 +1,5 @@
 #pragma once
 #include "GlobalVaribles.hpp"
-#include "Mesh.hpp"
-#include "GameObject.hpp"
 #include <webgpu/webgpu_cpp.h>
 #include <filesystem>
 #include "Application.hpp"
@@ -17,6 +15,5 @@ class Resources
     static std::vector<wgpu::TextureView> LoadTextures(/*tinygltf::Image& img*/);
     static wgpu::TextureView CreateEmptyTexture(int width, int height, wgpu::TextureFormat format=wgpu::TextureFormat::BGRA8Unorm);
     static wgpu::ShaderModule LoadShader(const std::string& path);
-    static Mesh LoadOBJMesh(const std::string& path);
-    static GameObject LoadGLTFMesh(const std::string& path, Application* app);
+    //static Mesh LoadOBJMesh(const std::string& path);
 };

@@ -48,59 +48,6 @@ std::string Resources::LoadRawString(const std::string& path)
     return Source;
 }
 
-Mesh Resources::LoadOBJMesh(const std::string& path)
-{
-    std::string str = LoadRawString(path);
-    std::istringstream stream(str);
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-
-    std::string warn;
-    std::string err;
-
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, &stream)) {
-				throw std::runtime_error(warn + err);
-			}
-
-    std::vector<Mesh::Vertex> vertices;
-    std::vector<uint16_t> indices;
-    int i = 0;
-
-    for (const auto& shape : shapes) 
-    {
-		for (const auto& index : shape.mesh.indices) 
-        {
-            Mesh::Vertex vertex;
-
-            vertex.position = {
-				attrib.vertices[3 * index.vertex_index + 0],
-				attrib.vertices[3 * index.vertex_index + 1],
-				attrib.vertices[3 * index.vertex_index + 2]
-			};
-					
-		    vertex.normal = {
-				attrib.normals[3 * index.normal_index + 0],
-				attrib.normals[3 * index.normal_index + 1],
-				attrib.normals[3 * index.normal_index + 2]
-			};
-
-            vertex.color = { 1.0f, 1.0f, 1.0f };
-
-			vertex.uv = {
-				attrib.texcoords[2 * index.texcoord_index + 0],
-				1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-			};
-
-            vertices.push_back(vertex);
-            indices.push_back(i);
-            i++;
-        }
-    }
-
-    return Mesh(vertices, indices);
-}
-
 wgpu::TextureView Resources::LoadTexture(const std::string& name)
 {
     using namespace wgpu;

@@ -1,8 +1,6 @@
 #pragma once
 
 #include "GlobalVaribles.hpp"
-#include "Renderpass.hpp"
-#include "GameObject.hpp"
 #include <glm.hpp>
 #include <vector>
 #include <GLFW/glfw3.h>
@@ -43,12 +41,6 @@ class Application
     wgpu::BindGroup bindGroup;
 
     GLFWwindow* window;
-
-    
-    // GameObject gameObject;
-    // GameObject kub;
-    Renderpass* finalRenderPass;
-    Renderpass* firstRenderpass;
     UBO ubo;
    
 

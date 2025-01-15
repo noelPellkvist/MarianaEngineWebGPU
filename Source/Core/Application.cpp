@@ -203,7 +203,6 @@ void Application::Render()
 
   pass.SetPipeline(pipeline);
   pass.SetBindGroup(0, bindGroup, 0, nullptr);
-  //model->gameObject.Draw(pass);
   model->Draw(pass);
   
   //kub.Draw(pass);
@@ -300,7 +299,7 @@ void Application::CreateRenderPipeline()
 
   vertexBufferLayout.attributeCount = attributes.size();
   vertexBufferLayout.attributes = attributes.data();
-  vertexBufferLayout.arrayStride = sizeof(Mesh::Vertex);
+  vertexBufferLayout.arrayStride = sizeof(Vertex);
   vertexBufferLayout.stepMode = VertexStepMode::Vertex;
 
   VertexBufferLayout skinnedVertexBufferLayout;

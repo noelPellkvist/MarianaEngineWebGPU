@@ -5,7 +5,6 @@
 #include <webgpu/webgpu_cpp.h>
 #include <glm.hpp>
 #include "GlobalVaribles.hpp"
-#include "GameObject.hpp"
 #include <chrono>
 #include <optional>
 
