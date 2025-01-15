@@ -128,15 +128,9 @@ void Model::LoadNodes(tinygltf::Model& m)
             nodes[index]->parent = nodes[i];
         }
     }
-    glm::mat4 zUpToYUpRotation = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    glm::quat zUpToYUpQuat = glm::quat_cast(zUpToYUpRotation);  
     for (int i = 0; i < m.scenes[0].nodes.size(); i++)
     {
         Node* rootNode = nodes[m.scenes[0].nodes[i]];
-
-        rootNode->modelMatrix *= zUpToYUpRotation;
-
-        rootNode->localRotation = zUpToYUpQuat * rootNode->localRotation;
         rootNodes.push_back(rootNode);
     }
 }
@@ -218,10 +212,9 @@ wgpu::TextureView Model::GetTexture(tinygltf::Model& model, int index, wgpu::Tex
     {
         textures.resize(model.images.size(), std::nullopt);
     }
-    //TODO: add saftey check that index != -1
     if (index == -1)
     {
-        return {};
+        return Resources::GetEmptyTexture();
     }
     if (textures[index])
     {
@@ -365,6 +358,12 @@ void Model::UpdateNodes()
         for (int j = 0; j < DrawableNodes[i]->mesh->submeshes.size(); j++)
         {
             modelData[index].modelMatrix = DrawableNodes[i]->modelMatrix;
+            glm::mat3 normalMat3 = glm::transpose(glm::inverse(glm::mat3(modelData[index].modelMatrix)));
+            glm::mat4 normalMatrix = glm::mat4(1.0f); // Start with an identity matrix
+            normalMatrix[0] = glm::vec4(normalMat3[0], 0.0f); // First row of normal matrix
+            normalMatrix[1] = glm::vec4(normalMat3[1], 0.0f); // Second row of normal matrix
+            normalMatrix[2] = glm::vec4(normalMat3[2], 0.0f); // Third row of normal matrix
+            modelData[index].normalMatrix = normalMatrix;
             index++;
         }
     }
@@ -444,8 +443,6 @@ void Model::LoadMeshes(tinygltf::Model& model)
                 }
             }
 
-            std::cout << "Loading positions" << std::endl;
-
             std::vector<glm::vec3> normals;
             if (primitive.attributes.find("NORMAL") != primitive.attributes.end()) {
                 int normalAccessorIndex = primitive.attributes.at("NORMAL");
@@ -469,8 +466,6 @@ void Model::LoadMeshes(tinygltf::Model& model)
                     normals.push_back(glm::vec3(normalData[0], normalData[1], normalData[2]));
                 }
             }
-
-            std::cout << "Loading normals" << std::endl;
 
             std::vector<glm::vec2> uvs;
             if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
@@ -496,8 +491,6 @@ void Model::LoadMeshes(tinygltf::Model& model)
                 }
             }
 
-            std::cout << "Loading uvs" << std::endl;
-
             std::vector<glm::vec4> colors;
             if (primitive.attributes.find("COLOR_0") != primitive.attributes.end()) {
                 int colorAccessorIndex = primitive.attributes.at("COLOR_0");
@@ -522,7 +515,6 @@ void Model::LoadMeshes(tinygltf::Model& model)
                 }
             }
 
-            std::cout << "Loading colors" << std::endl;
             size_t numVertices = positions.size();
             std::vector<glm::ivec4> boneIndices;
             if (primitive.attributes.find("JOINTS_0") != primitive.attributes.end()) {
@@ -593,16 +585,6 @@ void Model::LoadMeshes(tinygltf::Model& model)
                 }
             }
 
-            std::cout << "Loading bone weights" << std::endl;
-
-            
-            // if (normals.size() != numVertices/* || uvs.size() != numVertices*/) {
-            //     std::cerr << "Error: Mismatch in number of positions, normals, or UVs\n";
-            //     continue;
-            // }
-            // else
-            //     std::cout << "Mesh created succesfully" << std::endl;
-
             for (size_t i = 0; i < numVertices; ++i) {
                 Vertex v = {};
                 v.position = positions[i];
@@ -634,6 +616,21 @@ void Model::LoadMeshes(tinygltf::Model& model)
                     for (size_t i = 0; i < numIndices; ++i) {
                         indices.push_back(indicesData[i] + subMesh.startVertex);
                     }
+                } else if (indicesAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
+                    const uint8_t* indicesData = reinterpret_cast<const uint8_t*>(&indicesBuffer.data[indicesBufferView.byteOffset]);
+                    size_t numIndices = indicesAccessor.count;
+
+                    for (size_t i = 0; i < numIndices; ++i) {
+                        uint16_t convertedIndex = static_cast<uint16_t>(indicesData[i]);
+                        indices.push_back(convertedIndex + subMesh.startVertex);
+                    }
+                } else if (indicesAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
+                    const uint32_t* indicesData = reinterpret_cast<const uint32_t*>(&indicesBuffer.data[indicesBufferView.byteOffset]);
+                    size_t numIndices = indicesAccessor.count;
+
+                    for (size_t i = 0; i < numIndices; ++i) {
+                        indices.push_back(static_cast<uint16_t>(indicesData[i] + subMesh.startVertex));
+                    }
                 } else {
                     std::cerr << "Unsupported index component type: " << indicesAccessor.componentType << std::endl;
                 }
@@ -655,11 +652,6 @@ void Model::LoadMeshes(tinygltf::Model& model)
         bufferDesc.mappedAtCreation = false;
         meshes[i].skinnedVertexBuffer = device.CreateBuffer(&bufferDesc);
         device.GetQueue().WriteBuffer(meshes[i].skinnedVertexBuffer, 0, skinnedVertexData.data(), bufferDesc.size);
-
-        if (skinnedVertexData.size() == vertexData.size())
-        {
-            std::cout << "WEYYY skinned data nice" << std::endl;
-        } else std::cout << "BOOOOOO skinned data bad" << std::endl;
 
         bufferDesc.size = indices.size() * sizeof(uint16_t);
         bufferDesc.size = (bufferDesc.size + 3) & ~3;

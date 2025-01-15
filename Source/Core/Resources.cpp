@@ -162,6 +162,57 @@ wgpu::TextureView Resources::LoadTexture(const std::string& name)
     return textureView;
 }
 
+wgpu::TextureView Resources::GetEmptyTexture()
+{
+    static wgpu::TextureView cachedTextureView;
+    static bool isInitialized = false;
+
+    if (!isInitialized) {
+        using namespace wgpu;
+        std::vector<uint8_t> pixels = {1,0,0,1};
+
+        // Create Texture
+        TextureFormat textureFormat = TextureFormat::RGBA8UnormSrgb;
+        TextureDescriptor textureDesc;
+        textureDesc.dimension = TextureDimension::e2D;
+        textureDesc.format = textureFormat;
+        textureDesc.mipLevelCount = 1;
+        textureDesc.sampleCount = 1;
+        textureDesc.size = {static_cast<unsigned int>(1), static_cast<unsigned int>(1), 1};
+        textureDesc.usage = TextureUsage::TextureBinding | TextureUsage::CopyDst;
+        textureDesc.viewFormatCount = 1;
+        textureDesc.viewFormats = &textureFormat;
+        Texture texture = device.CreateTexture(&textureDesc);
+
+        TextureViewDescriptor textureViewDesc;
+        textureViewDesc.aspect = TextureAspect::All;
+        textureViewDesc.baseArrayLayer = 0;
+        textureViewDesc.arrayLayerCount = 1;
+        textureViewDesc.baseMipLevel = 0;
+        textureViewDesc.mipLevelCount = 1;
+        textureViewDesc.dimension = TextureViewDimension::e2D;
+        textureViewDesc.format = textureFormat;
+        cachedTextureView = texture.CreateView(&textureViewDesc);
+
+        ImageCopyTexture destination;
+        destination.texture = texture;
+        destination.mipLevel = 0;
+        destination.origin = {0, 0, 0};
+        destination.aspect = TextureAspect::All;
+
+        TextureDataLayout source;
+        source.offset = 0;
+        source.bytesPerRow = 4 * textureDesc.size.width;
+        source.rowsPerImage = textureDesc.size.height;
+
+        device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &source, &textureDesc.size);
+
+        isInitialized = true;
+    }
+
+    return cachedTextureView;
+}
+
 std::vector<wgpu::TextureView> Resources::LoadTextures(/*tinygltf::Image& img*/)
 {
     std::string fullpath = std::string(RESOURCE_DIR) + "/" + "DamagedHelmet.glb";

@@ -56,6 +56,7 @@ struct MaterialTexturesData
 struct ModelData
 {
     glm::mat4x4 modelMatrix = {};    
+    glm::mat4x4 normalMatrix = {};    
     MaterialProperties material = {};
 };
 

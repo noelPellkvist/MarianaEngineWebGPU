@@ -24,7 +24,7 @@ Application::Application() : name("Mariana Engine"), kWidth(1366), kHeight(768)
 
     InitGraphics();
     
-    model = new Model("CesiumMan.glb");
+    model = new Model("Avocado.glb");
 }
 
 void Application::Start()

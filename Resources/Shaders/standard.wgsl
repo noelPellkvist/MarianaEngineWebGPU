@@ -39,6 +39,7 @@ struct MaterialProperties {
 
 struct ModelData {
     modelMatrix: mat4x4f,    // 64 bytes
+    normalMatrix: mat4x4f,
     material: MaterialProperties, // 48 bytes
 };
 
@@ -50,6 +51,14 @@ struct ModelData {
 @group(2) @binding(0) var<storage, read> bones: array<mat4x4f>;
 
 @group(3) @binding(0) var albedoTexture: texture_2d<f32>;
+
+fn extract_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
+    return mat3x3<f32>(
+        m[0].xyz, // First row
+        m[1].xyz, // Second row
+        m[2].xyz  // Third row
+    );
+}
 
 // Vertex Shader
 @vertex
@@ -71,7 +80,7 @@ fn vertex_main(input: VertexInput, skin: SkinnedVertex) -> VertexOutput {
     output.position = UBO.projectionMatrix * UBO.viewMatrix * modelMatrix * vec4(input.position, 1.0);
 
     
-    output.normal = normalize((Model.modelMatrix * vec4(input.normal, 0.0)).xyz);
+    output.normal = normalize(extract_mat3x3(Model.normalMatrix) * input.normal);
     output.worldpos = (Model.modelMatrix * vec4(input.position, 1.0)).xyz;
     output.uv = input.uv;
     output.color = input.color;
@@ -83,19 +92,15 @@ fn vertex_main(input: VertexInput, skin: SkinnedVertex) -> VertexOutput {
 fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
     var baseColor = Model.material.baseColorFactor * vec4f(input.color, 1.0);
     if ((Model.material.textureFlags & (1 << 0)) != 0) {
-        // Sample the texture only if the flag is set
         baseColor *= textureSample(albedoTexture, textureSampler, input.uv);
     }
     let normal = normalize(input.normal);
 
-    let lightDir = normalize(UBO.color.xyz); 
-
-    let ambientIntensity = 0.1;
+    let lightDir = normalize(UBO.color.rgb);
 
     let diffuseIntensity = max(dot(normal, lightDir), 0.0);
 
-    let color = baseColor.rgb * (ambientIntensity + diffuseIntensity);
+    let color = baseColor * (diffuseIntensity);
 
-    //return vec4f(color, baseColor.a);
-    return baseColor;
+    return color;
 }
