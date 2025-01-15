@@ -43,12 +43,17 @@ struct ModelData {
     material: MaterialProperties, // 48 bytes
 };
 
+struct BonesData {
+    modelMatrix: mat4x4f,
+    normalMatrix: mat4x4f,
+};
+
 @group(0) @binding(0) var<uniform> UBO: GB;
 @group(0) @binding(1) var textureSampler: sampler;
 
 @group(1) @binding(0) var<uniform> Model: ModelData;
 
-@group(2) @binding(0) var<storage, read> bones: array<mat4x4f>;
+@group(2) @binding(0) var<storage, read> bones: array<BonesData>;
 
 @group(3) @binding(0) var albedoTexture: texture_2d<f32>;
 
@@ -65,22 +70,29 @@ fn extract_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
 fn vertex_main(input: VertexInput, skin: SkinnedVertex) -> VertexOutput {
     var output: VertexOutput;
     var modelMatrix : mat4x4f;
+    var normalMatrix : mat4x4f;
     if(skin.indices[0] != -1)
     {
-        modelMatrix = skin.weights.x * bones[skin.indices.x] + 
-                          skin.weights.y * bones[skin.indices.y] + 
-                          skin.weights.z * bones[skin.indices.z] + 
-                          skin.weights.w * bones[skin.indices.w];
+        modelMatrix = skin.weights.x * bones[skin.indices.x].modelMatrix + 
+                          skin.weights.y * bones[skin.indices.y].modelMatrix + 
+                          skin.weights.z * bones[skin.indices.z].modelMatrix + 
+                          skin.weights.w * bones[skin.indices.w].modelMatrix;
+
+        normalMatrix = skin.weights.x * bones[skin.indices.x].normalMatrix + 
+                          skin.weights.y * bones[skin.indices.y].normalMatrix + 
+                          skin.weights.z * bones[skin.indices.z].normalMatrix + 
+                          skin.weights.w * bones[skin.indices.w].normalMatrix;
     }
     else
     {
         modelMatrix = Model.modelMatrix;
+        normalMatrix = Model.normalMatrix;
     }
 
     output.position = UBO.projectionMatrix * UBO.viewMatrix * modelMatrix * vec4(input.position, 1.0);
 
     
-    output.normal = normalize(extract_mat3x3(Model.normalMatrix) * input.normal);
+    output.normal = normalize(extract_mat3x3(normalMatrix) * input.normal);
     output.worldpos = (Model.modelMatrix * vec4(input.position, 1.0)).xyz;
     output.uv = input.uv;
     output.color = input.color;

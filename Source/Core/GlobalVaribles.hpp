@@ -12,6 +12,9 @@ extern wgpu::Instance instance;
 extern wgpu::Adapter adapter;
 extern wgpu::Device device;
 
+extern int kWidth;
+extern int kHeight;
+
 uint32_t ceilToNextMultiple(uint32_t value, uint32_t step);
 
  struct UBO 
@@ -58,6 +61,12 @@ struct ModelData
     glm::mat4x4 modelMatrix = {};    
     glm::mat4x4 normalMatrix = {};    
     MaterialProperties material = {};
+};
+
+struct BonesData
+{
+    glm::mat4x4 modelMatrix = {};
+    glm::mat4x4 normalMatrix = {};    
 };
 
 

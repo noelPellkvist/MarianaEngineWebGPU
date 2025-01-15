@@ -38,7 +38,7 @@ class Model {
 
         std::vector<int> joints;
         std::vector<glm::mat4> inverseBindMatrices;
-        std::vector<glm::mat4> jointMatrices;
+        std::vector<BonesData> jointMatrices;
         wgpu::Buffer boneBuffer;
         wgpu::BindGroup boneBindGroup;
         std::vector<wgpu::BindGroup> textreDataBindGroups;

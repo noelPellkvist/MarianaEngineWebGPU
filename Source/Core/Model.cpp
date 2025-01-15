@@ -888,12 +888,12 @@ void Model::LoadSkin(tinygltf::Model& model)
     else
         joints.push_back(-1);
 
-    jointMatrices.resize(joints.size(), glm::mat4(1.0f));
+    jointMatrices.resize(joints.size());
 
     size_t jointCount = joints.size();
     wgpu::BufferDescriptor boneBufferDesc{};
     boneBufferDesc.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
-    boneBufferDesc.size = jointCount * sizeof(glm::mat4x4);
+    boneBufferDesc.size = jointCount * sizeof(BonesData);
     boneBufferDesc.mappedAtCreation = false;
     boneBuffer = device.CreateBuffer(&boneBufferDesc);
 
@@ -916,7 +916,7 @@ void Model::LoadSkin(tinygltf::Model& model)
     boneEntry.binding = 0;
     boneEntry.buffer = boneBuffer;
     boneEntry.offset = 0;
-    boneEntry.size = jointMatrices.size() * sizeof(glm::mat4);
+    boneEntry.size = jointMatrices.size() * sizeof(BonesData);
 
     wgpu::BindGroupDescriptor boneBindGroupDesc{};
     boneBindGroupDesc.layout = boneBindGroupLayout;
@@ -933,7 +933,15 @@ void Model::FixJointMatrices()
         if(joints[i] == -1)
             continue;
         int jointNodeIndex = joints[i];
-        jointMatrices[i] = nodes[jointNodeIndex]->modelMatrix * inverseBindMatrices[i];
+        jointMatrices[i].modelMatrix = nodes[jointNodeIndex]->modelMatrix * inverseBindMatrices[i];
+
+        glm::mat3 normalMat3 = glm::transpose(glm::inverse(glm::mat3(jointMatrices[i].modelMatrix)));
+        glm::mat4 normalMatrix = glm::mat4(1.0f); // Start with an identity matrix
+        normalMatrix[0] = glm::vec4(normalMat3[0], 0.0f); // First row of normal matrix
+        normalMatrix[1] = glm::vec4(normalMat3[1], 0.0f); // Second row of normal matrix
+        normalMatrix[2] = glm::vec4(normalMat3[2], 0.0f); // Third row of normal matrix
+
+        jointMatrices[i].normalMatrix = normalMatrix;
     }
     
     
@@ -942,7 +950,7 @@ void Model::FixJointMatrices()
         boneBuffer,  
         0,           
         jointMatrices.data(), 
-        jointCount * sizeof(glm::mat4)  
+        jointCount * sizeof(BonesData)  
     );
 }
 
