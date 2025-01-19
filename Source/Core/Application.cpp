@@ -27,8 +27,22 @@ Application::Application() : name("Mariana Engine")
     SetupWindow();
     InitGraphics();
     
-    model = new Model("CesiumMan.glb"); //Cube
+    model = new Model("Bot.glb");
     skybox = new Model("Cube.glb");
+    skybox->textreDataBindGroups.clear();
+
+
+    std::vector<wgpu::BindGroupEntry> textureBindings(1);
+    textureBindings[0] = {};
+    textureBindings[0].binding = 0;
+    textureBindings[0].textureView = Resources::LoadCubemap("sky");
+
+    wgpu::BindGroupDescriptor bindGroupDesc{};
+    bindGroupDesc.layout = skyBoxPipeline->GetTextureBindingLayout();
+    bindGroupDesc.entryCount = (uint32_t)textureBindings.size();
+    bindGroupDesc.entries = textureBindings.data();
+
+    skybox->textreDataBindGroups.push_back(device.CreateBindGroup(&bindGroupDesc));
 }
 
 void Application::Start()
@@ -140,7 +154,13 @@ void Application::InitGraphics()
       BindingType::BUILT_IN_BONES, 
       BindingType::e2D};
     pipeLine = new Pipeline("standard.wgsl", format, &globalUBO, &sampler, standardPipelineBindings);
-    skyBoxPipeline = new Pipeline("skybox.wgsl", format, &globalUBO, &sampler, standardPipelineBindings);
+
+    std::vector<BindingType> skyBoxPipelineBindings = {
+      BindingType::BUILT_IN_UBO,
+      BindingType::BUILT_IN_MODELDATA,
+      BindingType::BUILT_IN_BONES, 
+      BindingType::eCube};
+    skyBoxPipeline = new Pipeline("skybox.wgsl", format, &globalUBO, &sampler, skyBoxPipelineBindings);
     MarianaEditor::InitGUI(window, format);
 }
 
@@ -216,6 +236,7 @@ void Application::Render()
 
   pass.SetPipeline(skyBoxPipeline->pipeline);
   skybox->Draw(pass);
+
   
   MarianaEditor::DrawEditor(pass, model);
   pass.End();

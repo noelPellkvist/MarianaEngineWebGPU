@@ -114,8 +114,22 @@ wgpu::TextureView Resources::LoadCubemap(const std::string& name)
     using namespace wgpu;
 
     // Define the cubemap face filenames (e.g., posx.png, negx.png, etc.)
+    // const std::array<std::string, 6> faceSuffixes = {
+    //     "right",  
+    //     "left",   
+    //     "top",    
+    //     "bottom", 
+    //     "front",  
+    //     "back"    
+    // };
+
     const std::array<std::string, 6> faceSuffixes = {
-        "posx", "negx", "posy", "negy", "posz", "negz"
+        "left",  
+        "right",   
+        "top",    
+        "bottom", 
+        "front",  
+        "back"    
     };
 
     int width = 0, height = 0, channels = 0;
@@ -123,7 +137,7 @@ wgpu::TextureView Resources::LoadCubemap(const std::string& name)
 
     // Load each cubemap face
     for (size_t i = 0; i < faceSuffixes.size(); ++i) {
-        std::string fullpath = std::string(RESOURCE_DIR) + "/Textures/" + name + "_" + faceSuffixes[i] + ".png";
+        std::string fullpath = std::string(RESOURCE_DIR) + "/Textures/" + faceSuffixes[i] + ".jpg";
         std::cout << "Loading cubemap face: " << fullpath << std::endl;
 
         unsigned char* imageData = stbi_load(fullpath.c_str(), &width, &height, &channels, STBI_rgb_alpha);

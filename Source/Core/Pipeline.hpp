@@ -30,6 +30,8 @@ class Pipeline
 
         void InitDepthTexture();
 
+        wgpu::BindGroupLayout& GetTextureBindingLayout() { return bindgroupLayouts[3]; };
+
     private:
         std::vector<wgpu::VertexAttribute> attributes;
         std::vector<wgpu::VertexAttribute> skinnedVertexAttributes;

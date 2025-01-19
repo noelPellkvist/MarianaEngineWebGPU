@@ -20,6 +20,8 @@ class Model {
 
         std::vector<Node*> rootNodes;
 
+        std::vector<wgpu::BindGroup> textreDataBindGroups;
+
     private:
         std::vector<Node*> nodes;
         std::vector<Node*> DrawableNodes;
@@ -41,7 +43,7 @@ class Model {
         std::vector<BonesData> jointMatrices;
         wgpu::Buffer boneBuffer;
         wgpu::BindGroup boneBindGroup;
-        std::vector<wgpu::BindGroup> textreDataBindGroups;
+        
 
         void LoadNodes(tinygltf::Model& m);
         void TraverseNodes(Node* node, glm::mat4x4 parentMatrix = glm::mat4x4(1.0f));

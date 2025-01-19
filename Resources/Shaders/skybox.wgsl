@@ -55,20 +55,12 @@ struct BonesData {
 
 @group(2) @binding(0) var<storage, read> bones: array<BonesData>;
 
-@group(3) @binding(0) var albedoTexture: texture_2d<f32>;
-
-fn extract_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
-    return mat3x3<f32>(
-        m[0].xyz, // First row
-        m[1].xyz, // Second row
-        m[2].xyz  // Third row
-    );
-}
+@group(3) @binding(0) var cubemap: texture_cube<f32>;
 
 @vertex
 fn vertex_main(input: VertexInput, skin: SkinnedVertex) -> VertexOutput {
     var output: VertexOutput;
-
+    output.normal = input.position;
     output.position = (UBO.projectionMatrix * mat4x4<f32>(
             vec4<f32>(UBO.viewMatrix[0].xyz, 0.0),
             vec4<f32>(UBO.viewMatrix[1].xyz, 0.0),
@@ -82,7 +74,5 @@ fn vertex_main(input: VertexInput, skin: SkinnedVertex) -> VertexOutput {
 // Fragment Shader
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
-    return vec4f(1, 0, 0, 1);
-    // let sampleDir = vec3f(-1.0, 0.0, 0.0);
-    // return textureSample(cubemap, textureSampler, sampleDir);
+    return textureSample(cubemap, textureSampler, input.normal);
 }
