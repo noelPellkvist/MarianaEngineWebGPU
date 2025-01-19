@@ -53,7 +53,6 @@ Model::Model(std::string name, bool bin)
         LoadAnimations(model);
 
     LoadSkin(model);
-    //model.materials[0].pbrMetallicRoughness.baseColorTexture.index
 
     startTime = std::chrono::high_resolution_clock::now();
     UpdateNodes();
@@ -969,7 +968,7 @@ void Model::Draw(wgpu::RenderPassEncoder& renderPass)
             renderPass.SetIndexBuffer(n->mesh->indexBuffer, wgpu::IndexFormat::Uint16,  s.startIndex * sizeof(uint16_t), s.indexxCount * sizeof(uint16_t));
             renderPass.SetBindGroup(1, modelDataBindGroup, 1, &dynamicOffset);
             renderPass.SetBindGroup(2, boneBindGroup, 0, nullptr); 
-            renderPass.SetBindGroup(3, textreDataBindGroups[s.materialIndex], 0, nullptr);
+            renderPass.SetBindGroup(3, textreDataBindGroups[s.materialIndex], 0, nullptr); //HERE
             renderPass.DrawIndexed(s.indexxCount, 1, 0, 0);
             index++;
         }

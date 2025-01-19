@@ -26,7 +26,9 @@ class Application
 
     private:
     Model* model;
+    Model* skybox;
     Pipeline* pipeLine;
+    Pipeline* skyBoxPipeline;
     const char* name;
     wgpu::Surface surface;
     wgpu::TextureFormat format;

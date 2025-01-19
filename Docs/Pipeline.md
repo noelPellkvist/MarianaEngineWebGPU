@@ -1,14 +1,14 @@
 # Pipelines
-The first three bindings are constants in the following order.
+There are three different built-in bindings that you can setup for automatically retrieving data inside your shader.
 
 ## UBO struct
-The UBO binding contains projection and view matrices, the current time and lights info about the current scene.
+The UBO binding is a binding of some global data (eg. projectionMatrix, viewMatrix and time)
 
 ## Modeldata struct
-The Modeldata is always on binding 1, containing the models modelMatrix, normalMatrix and material properties.
+The Modeldata struct would be an array of entries containing the modelMatrix, normalMatrix and material data.
 
 ## Bone data
-The Bone data is always bound on binding 2, containing each bones modelMatrix and normalMatrix in an array
+The Bone data is an array containing each bones modelMatrix and normalMatrix in an array
 
 ## The PBR built-in pipeline
-The built in PBR pipeline defines the rest of the bindings according to textures
+The built-in render pipeline uses all the three above bindings, with one more for textures.

@@ -5,8 +5,8 @@
 #include <string>
 #include <iostream>
 
-Pipeline::Pipeline(const char* shaderName, wgpu::TextureFormat format, wgpu::Buffer* ubo, wgpu::Sampler* sampler) : 
-    UboBuffer(ubo), sampler(sampler), format(format)
+Pipeline::Pipeline(const char* shaderName, wgpu::TextureFormat format, wgpu::Buffer* ubo, wgpu::Sampler* sampler, const std::vector<BindingType>& bindings) : 
+    UboBuffer(ubo), sampler(sampler), format(format), bindings(bindings)
 {
     using namespace wgpu;
     wgpu::ShaderModule shaderModule = Resources::LoadShader("/Shaders/" +  std::string(shaderName));
@@ -22,32 +22,11 @@ Pipeline::Pipeline(const char* shaderName, wgpu::TextureFormat format, wgpu::Buf
                                     .targetCount = 1,
                                     .targets = &colorTargetState};
 
-    PopulateVertexBufferLayouts();
-    PopulateGlobalBindings();
-
-    std::vector<BindGroupLayoutEntry> textureBindingLayouts(1);
-    textureBindingLayouts[0] = {};
-    textureBindingLayouts[0].binding = 0;
-    textureBindingLayouts[0].visibility = ShaderStage::Fragment;
-    textureBindingLayouts[0].texture.sampleType = TextureSampleType::Float;
-    textureBindingLayouts[0].texture.viewDimension = TextureViewDimension::e2D;
-
-    BindGroupLayoutDescriptor textureBindGroupLayoutDesc{};
-    textureBindGroupLayoutDesc.entryCount = (uint32_t)textureBindingLayouts.size();
-    textureBindGroupLayoutDesc.entries = textureBindingLayouts.data();
-    wgpu::BindGroupLayout textureBindGroupLayout = device.CreateBindGroupLayout(&textureBindGroupLayoutDesc);
-
-    bindgroupLayouts.push_back(textureBindGroupLayout);
-
-    PipelineLayoutDescriptor layoutDesc{};
-    layoutDesc.bindGroupLayoutCount = bindgroupLayouts.size();
-    layoutDesc.bindGroupLayouts = bindgroupLayouts.data();
-    layout = device.CreatePipelineLayout(&layoutDesc);
-
+    CreatePipelineLayout();
     InitDepthTexture();
 
     DepthStencilState depthStencilState = {};
-    depthStencilState.depthCompare = CompareFunction::Less;
+    depthStencilState.depthCompare = CompareFunction::LessEqual;
     depthStencilState.depthWriteEnabled = true;
     depthStencilState.format = TextureFormat::Depth24Plus;
     depthStencilState.stencilReadMask = 0;
@@ -61,6 +40,71 @@ Pipeline::Pipeline(const char* shaderName, wgpu::TextureFormat format, wgpu::Buf
       .depthStencil = &depthStencilState,
       .fragment = &fragmentState};
     pipeline = device.CreateRenderPipeline(&descriptor);
+}
+
+void Pipeline::CreatePipelineLayout()
+{
+    using namespace wgpu;
+    PopulateVertexBufferLayouts();
+    bindgroupLayouts.reserve(bindings.size());
+    for (int i = 0; i < bindings.size(); i++)
+    {
+        switch (bindings[i])
+        {
+          case BindingType::BUILT_IN_UBO:
+            PopulateGlobalBindings();
+            break;
+          case BindingType::BUILT_IN_MODELDATA:
+            PopulateModelBindings();
+            break;
+          case BindingType::BUILT_IN_BONES:
+            PopulateBoneBindings();
+            break;
+          case BindingType::e2D:
+            BindExtraTexture(BindingType::e2D);
+            break;
+          case BindingType::eCube:
+            BindExtraTexture(BindingType::eCube);
+            break;
+          default: 
+            std::cout << "BindingType not yet supported (WIP)" << std::endl;
+            break;
+        }
+    }
+    PipelineLayoutDescriptor layoutDesc{};
+    layoutDesc.bindGroupLayoutCount = bindgroupLayouts.size();
+    layoutDesc.bindGroupLayouts = bindgroupLayouts.data();
+    layout = device.CreatePipelineLayout(&layoutDesc);
+
+}
+
+void Pipeline::BindExtraTexture(BindingType type)
+{
+    using namespace wgpu;
+    textureBindingLayouts.resize(1);
+    textureBindingLayouts[0] = {};
+    textureBindingLayouts[0].binding = 0;
+    textureBindingLayouts[0].visibility = ShaderStage::Fragment;
+    textureBindingLayouts[0].texture.sampleType = TextureSampleType::Float;
+    switch (type)
+    {
+      case (BindingType::eCube):
+        textureBindingLayouts[0].texture.viewDimension = TextureViewDimension::Cube;
+      break;
+      case (BindingType::e2D):
+        textureBindingLayouts[0].texture.viewDimension = TextureViewDimension::e2D;
+      break;
+      default:
+        textureBindingLayouts[0].texture.viewDimension = TextureViewDimension::e2D;
+      break;
+    }
+
+    BindGroupLayoutDescriptor textureBindGroupLayoutDesc{};
+    textureBindGroupLayoutDesc.entryCount = (uint32_t)textureBindingLayouts.size();
+    textureBindGroupLayoutDesc.entries = textureBindingLayouts.data();
+    BindGroupLayout textureBindGroupLayout = device.CreateBindGroupLayout(&textureBindGroupLayoutDesc);
+
+    bindgroupLayouts.push_back(textureBindGroupLayout);
 }
 
 void Pipeline::PopulateGlobalBindings()
@@ -101,7 +145,12 @@ void Pipeline::PopulateGlobalBindings()
     bindGroupDesc.entries = bindings.data();
     uboBindGroup = device.CreateBindGroup(&bindGroupDesc);
 
+    bindgroupLayouts.push_back(bindGroupLayout1);
+}
 
+void Pipeline::PopulateModelBindings()
+{
+    using namespace wgpu;
     std::vector<BindGroupLayoutEntry> modelBindingLayouts(1);
     modelBindingLayouts[0] = {};
     modelBindingLayouts[0].binding = 0;
@@ -115,7 +164,12 @@ void Pipeline::PopulateGlobalBindings()
     modelBindGroupLayoutDesc.entries = modelBindingLayouts.data();
     wgpu::BindGroupLayout modelBindGroupLayout = device.CreateBindGroupLayout(&modelBindGroupLayoutDesc);
 
+    bindgroupLayouts.push_back(modelBindGroupLayout);
+}
 
+void Pipeline::PopulateBoneBindings()
+{
+    using namespace wgpu;
     std::vector<wgpu::BindGroupLayoutEntry> boneBindingLayouts(1);
     boneBindingLayouts[0] = {};
     boneBindingLayouts[0].binding = 0;
@@ -128,8 +182,7 @@ void Pipeline::PopulateGlobalBindings()
     boneBindGroupLayoutDesc.entryCount = (uint32_t)boneBindingLayouts.size();
     boneBindGroupLayoutDesc.entries = boneBindingLayouts.data();
     wgpu::BindGroupLayout boneBindGroupLayout = device.CreateBindGroupLayout(&boneBindGroupLayoutDesc);
-
-    bindgroupLayouts = { bindGroupLayout1, modelBindGroupLayout, boneBindGroupLayout };
+    bindgroupLayouts.push_back(boneBindGroupLayout);
 }
 
 void Pipeline::PopulateVertexBufferLayouts()

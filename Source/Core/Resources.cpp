@@ -109,6 +109,85 @@ wgpu::TextureView Resources::LoadTexture(const std::string& name)
     return textureView;
 }
 
+wgpu::TextureView Resources::LoadCubemap(const std::string& name)
+{
+    using namespace wgpu;
+
+    // Define the cubemap face filenames (e.g., posx.png, negx.png, etc.)
+    const std::array<std::string, 6> faceSuffixes = {
+        "posx", "negx", "posy", "negy", "posz", "negz"
+    };
+
+    int width = 0, height = 0, channels = 0;
+    std::vector<std::vector<uint8_t>> facePixels(6);
+
+    // Load each cubemap face
+    for (size_t i = 0; i < faceSuffixes.size(); ++i) {
+        std::string fullpath = std::string(RESOURCE_DIR) + "/Textures/" + name + "_" + faceSuffixes[i] + ".png";
+        std::cout << "Loading cubemap face: " << fullpath << std::endl;
+
+        unsigned char* imageData = stbi_load(fullpath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+
+        if (imageData == nullptr) {
+            std::cerr << "Failed to load cubemap face: " << fullpath << std::endl;
+            return {};
+        }
+
+        if (i > 0 && (width != facePixels[0].size() / (4 * height))) {
+            std::cerr << "Cubemap face dimensions do not match!" << std::endl;
+            stbi_image_free(imageData);
+            return {};
+        }
+
+        // Copy the face pixel data into a vector
+        facePixels[i].resize(4 * width * height);
+        std::memcpy(facePixels[i].data(), imageData, facePixels[i].size());
+        stbi_image_free(imageData);
+    }
+
+    // Create a cubemap texture
+    TextureFormat textureFormat = TextureFormat::RGBA8UnormSrgb;
+    TextureDescriptor textureDesc;
+    textureDesc.dimension = TextureDimension::e2D;
+    textureDesc.format = textureFormat;
+    textureDesc.mipLevelCount = 1;
+    textureDesc.sampleCount = 1;
+    textureDesc.size = {static_cast<unsigned int>(width), static_cast<unsigned int>(height), 6};
+    textureDesc.usage = TextureUsage::TextureBinding | TextureUsage::CopyDst;
+    textureDesc.viewFormatCount = 1;
+    textureDesc.viewFormats = &textureFormat;
+    Texture texture = device.CreateTexture(&textureDesc);
+
+    // Write each cubemap face to the corresponding layer
+    for (size_t i = 0; i < faceSuffixes.size(); ++i) {
+        ImageCopyTexture destination;
+        destination.texture = texture;
+        destination.mipLevel = 0;
+        destination.origin = {0, 0, static_cast<uint32_t>(i)};
+        destination.aspect = TextureAspect::All;
+
+        TextureDataLayout source;
+        source.offset = 0;
+        source.bytesPerRow = 4 * width;
+        source.rowsPerImage = height;
+
+        Extent3D size = {static_cast<unsigned int>(width), static_cast<unsigned int>(height), 1};
+        device.GetQueue().WriteTexture(&destination, facePixels[i].data(), facePixels[i].size(), &source, &size);
+    }
+
+    TextureViewDescriptor textureViewDesc;
+    textureViewDesc.aspect = TextureAspect::All;
+    textureViewDesc.baseArrayLayer = 0;
+    textureViewDesc.arrayLayerCount = 6;
+    textureViewDesc.baseMipLevel = 0;
+    textureViewDesc.mipLevelCount = 1;
+    textureViewDesc.dimension = TextureViewDimension::Cube;
+    textureViewDesc.format = textureFormat;
+    TextureView textureView = texture.CreateView(&textureViewDesc);
+
+    return textureView;
+}
+
 wgpu::TextureView Resources::GetEmptyTexture()
 {
     static wgpu::TextureView cachedTextureView;

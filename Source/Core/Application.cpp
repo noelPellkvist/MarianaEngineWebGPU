@@ -25,10 +25,10 @@ Application::Application() : name("Mariana Engine")
     kHeight = 768;
     std::cout << "Starting app" << std::endl;
     SetupWindow();
-
     InitGraphics();
     
-    model = new Model("InterpolationTest.glb");
+    model = new Model("CesiumMan.glb"); //Cube
+    skybox = new Model("Cube.glb");
 }
 
 void Application::Start()
@@ -63,7 +63,6 @@ void Application::WindowResized() {
         kWidth = static_cast<uint32_t>(width);
         kHeight = static_cast<uint32_t>(height);
         float aspect = static_cast<float>(width) / static_cast<float>(height);
-        
         ubo.projectionMatrix = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
         surface.Unconfigure();
         ConfigureSurface();
@@ -135,7 +134,13 @@ void Application::InitGraphics()
     ConfigureSurface();
     InitUniforms();
     InitSampler();
-    pipeLine = new Pipeline("standard.wgsl", format, &globalUBO, &sampler);
+    std::vector<BindingType> standardPipelineBindings = {
+      BindingType::BUILT_IN_UBO,
+      BindingType::BUILT_IN_MODELDATA,
+      BindingType::BUILT_IN_BONES, 
+      BindingType::e2D};
+    pipeLine = new Pipeline("standard.wgsl", format, &globalUBO, &sampler, standardPipelineBindings);
+    skyBoxPipeline = new Pipeline("skybox.wgsl", format, &globalUBO, &sampler, standardPipelineBindings);
     MarianaEditor::InitGUI(window, format);
 }
 
@@ -208,6 +213,9 @@ void Application::Render()
   pass.SetPipeline(pipeLine->pipeline);
   pass.SetBindGroup(0, pipeLine->uboBindGroup, 0, nullptr);
   model->Draw(pass);
+
+  pass.SetPipeline(skyBoxPipeline->pipeline);
+  skybox->Draw(pass);
   
   MarianaEditor::DrawEditor(pass, model);
   pass.End();
