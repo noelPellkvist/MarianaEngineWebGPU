@@ -8,7 +8,7 @@ add_executable(app ${SOURCES})
 target_compile_definitions(app PRIVATE
     RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Resources"
 )
-target_include_directories(app PRIVATE "${CMAKE_SOURCE_DIR}/glm")
+target_include_directories(app PRIVATE "${CMAKE_SOURCE_DIR}/glm" "entt/single_include")
 
 if(EMSCRIPTEN)
   set_target_properties(app PROPERTIES SUFFIX ".html")

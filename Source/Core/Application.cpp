@@ -2,6 +2,8 @@
 #include "EditorGui.hpp"
 #include "Resources.h"
 
+#include <entt/entt.hpp>
+
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
