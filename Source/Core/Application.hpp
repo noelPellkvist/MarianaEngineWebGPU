@@ -1,8 +1,8 @@
 #pragma once
 
 #include "GlobalVaribles.hpp"
-#include "Pipeline.hpp"
-#include "Model.hpp"
+#include "Window.hpp"
+#include "Renderer/Layer.hpp"
 
 #include <glm.hpp>
 #include <vector>
@@ -13,39 +13,15 @@
 class Application
 {
     public:
-    Application();
-    ~Application();
+        Application();
+        ~Application();     
 
-    void Start();
-
-    void WindowResized();
-
-    wgpu::Buffer globalUBO;
-
-    wgpu::Sampler sampler;
+        void Start();
+        void Update();
 
     private:
-    Model* model;
-    Model* skybox;
-    Pipeline* pipeLine;
-    Pipeline* skyBoxPipeline;
-    const char* name;
-    wgpu::Surface surface;
-    wgpu::TextureFormat format;
+        Window m_Window;
+        RenderLayer m_RenderLayer;
 
-    GLFWwindow* window;
-    UBO ubo;
-   
-
-    
-    
-
-    void ConfigureSurface();
-    void SetupWindow();
-    void InitGraphics();
-    void InitUniforms();
-    void InitSampler();
-    void Render();
-
-    
+        void Render();
 };
