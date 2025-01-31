@@ -25,6 +25,7 @@ void RenderLayer::Render(wgpu::SurfaceTexture& surfaceTexture)
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
     wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
     pass.SetPipeline(shaders[0].GetRenderPipeline());
+    pass.SetVertexBuffer(0, shaders[0].vertexBuffer);
     pass.Draw(3);
     pass.End();
     wgpu::CommandBuffer commands = encoder.Finish();

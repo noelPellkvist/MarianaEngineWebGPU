@@ -11,10 +11,12 @@ class Shader
 
         wgpu::RenderPipeline& GetRenderPipeline() { return m_Pipeline; };
 
+        wgpu::Buffer vertexBuffer;
+
     private:
         wgpu::RenderPipeline m_Pipeline;
 
-        void CreateRenderPipeline();
+        void CreateRenderPipeline(wgpu::TextureFormat targetFormat);
 
 
 

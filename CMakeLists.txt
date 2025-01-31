@@ -14,6 +14,7 @@ target_include_directories(app PRIVATE
                         "entt/single_include" 
                         "${CMAKE_SOURCE_DIR}/dawn/include" 
                         "${CMAKE_SOURCE_DIR}/dawn/src"
+			                  "${CMAKE_BINARY_DIR}/dawn/src"
                         "${CMAKE_BINARY_DIR}/dawn/gen/include")
 
 if(EMSCRIPTEN)
@@ -32,13 +33,8 @@ if(EMSCRIPTEN)
   target_link_libraries(app PRIVATE imgui)
 else()
   set(DAWN_FETCH_DEPENDENCIES ON)
-  
-  set(DAWN_ENABLE_TINT ON)
-  set(DAWN_BUILD_GEN ON)
-  set(TINT_BUILD_TOOLS OFF)
-  set(TINT_BUILD_TESTS OFF)
-  set(TINT_BUILD_BENCHMARKS OFF)
-  add_subdirectory("dawn" EXCLUDE_FROM_ALL)
+
+  add_subdirectory("dawn")
   add_subdirectory(imgui)
   target_link_libraries(app PRIVATE dawn::webgpu_dawn glfw webgpu_glfw imgui)
 endif()
