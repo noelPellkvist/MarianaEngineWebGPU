@@ -1,6 +1,7 @@
 #pragma once
 #include "Shader.hpp"
 #include <vector>
+#include "Mesh.hpp"
 
 class RenderLayer
 {
@@ -13,4 +14,5 @@ class RenderLayer
     private:
         std::vector<Shader> shaders;
         wgpu::TextureFormat targetFormat;
+        Mesh mesh;
 };

@@ -80,9 +80,8 @@ VertexBufferLayoutData BuildVertexLayout(VertexBufferLayout bufferData)
     return result;
 }
 
-wgpu::Buffer CreateVertexBuffer(VertexBufferLayoutData layout, const std::vector<VertexAttribute>& data)
+wgpu::Buffer CreateRawVertexBuffer(VertexBufferLayoutData layout, const std::vector<VertexAttribute>& data)
 {
-    Logging::PrintSuccess("HELLO");
     const uint64_t vertexSize = layout.vertexBufferLayout.arrayStride;
     uint64_t lastNumEntries = 0;
     std::vector<uint8_t> vertexBufferData;
@@ -122,3 +121,15 @@ wgpu::Buffer CreateVertexBuffer(VertexBufferLayoutData layout, const std::vector
     device.GetQueue().WriteBuffer(vertexBuffer, 0, vertexBufferData.data(), bufferDesc.size);
     return vertexBuffer;
 }
+
+std::vector<std::string> VertexBufferLayoutData::GetRequiredEntries()
+{
+    std::vector<std::string> res;
+    res.reserve(offsetMap.size());
+    for (auto v : offsetMap)
+    {
+        res.emplace_back(v.first);
+    }
+    return res;
+}
+

@@ -1,7 +1,7 @@
 #include "Shader.hpp"
-#include "../Buffers/VertexBuffer.hpp"
 #include "../GlobalVaribles.hpp"
 #include "../Logging.hpp"
+#include "../Resources.hpp"
 
 #include <glm.hpp>
 
@@ -17,26 +17,11 @@ Shader::~Shader()
 
 void Shader::CreateRenderPipeline(wgpu::TextureFormat targetFormat)
 {
-    const char shaderCode[] = R"(
-            struct VertexInput {
-                @location(0) position: vec3f,
-                @location(1) normal: vec3f,
-                @location(2) color: vec4f,  // Not used in the fragment shader as per your request
-                @location(3) uv: vec2f,
-            };
-
-            @vertex fn vertexMain(input: VertexInput) ->
-              @builtin(position) vec4f {
-                return vec4f(input.position.xyz, 1);
-            }
-            @fragment fn fragmentMain() -> @location(0) vec4f {
-                return vec4f(1, 0, 0, 1);
-            }
-        )";
+    std::string shaderCode = Resources::LoadString("Shaders/standard.wgsl");
 
 
     wgpu::ShaderModuleWGSLDescriptor wgslDesc{};
-    wgslDesc.code = shaderCode;
+    wgslDesc.code = shaderCode.c_str();
 
     wgpu::ShaderModuleDescriptor shaderModuleDescriptor{
         .nextInChain = &wgslDesc};
@@ -49,28 +34,34 @@ void Shader::CreateRenderPipeline(wgpu::TextureFormat targetFormat)
                                       .targetCount = 1,
                                       .targets = &colorTargetState};
 
-    VertexBufferLayoutData d = BuildVertexLayout({{{"POSITION", LayoutEntryType::Float32x3},
-                                                   {"NORMAL", LayoutEntryType::Float32x3},
-                                                   {"COLOR", LayoutEntryType::Float32x4},
-                                                   {"TEXTCOORD_0", LayoutEntryType::Float32x2}}});
+    vertexLayoutData = BuildVertexLayout({{{"POSITION", LayoutEntryType::Float32x3}}});
 
-    std::vector<glm::vec3> pos = { {0, 1, 0}, {-1, -1, 0}, {1, -1, 0} };
-    std::vector<glm::vec3> nor = { {0, 1, 0}, {-1, -1, 0}, {1, -1, 0} };
-    std::vector<glm::vec4> col = { {1, 0, 0, 1}, {0, 1, 0, 1}, {0, 0, 1, 1}};
-    std::vector<glm::vec2> uv = { {1, 0}, {0, 1}, {0, 0}};
+    // std::vector<glm::vec3> pos = { {0, 1, -1}, {-1, -1, -1}, {1, -1, -1} };
 
-    std::vector<VertexAttribute> data = {
-        {"POSITION", pos.data(), 3},
-        {"NORMAL", nor.data(), 3},
-        {"COLOR", col.data(), 3},
-        {"TEXTCOORD_0", uv.data(), 3},
-    };
-    vertexBuffer = CreateVertexBuffer(d, data);
+    // std::vector<VertexAttribute> data = {
+    //     {"POSITION", pos.data(), pos.size()}
+    // };
+    // vertexBuffer = CreateVertexBuffer(data);
+
+    UBOData = InitUBO();
+
+    wgpu::PipelineLayoutDescriptor pipelineLayoutDesc = {};
+    pipelineLayoutDesc.label = wgpu::StringView("Built_in_PBR_Pipeline");
+    pipelineLayoutDesc.bindGroupLayoutCount = 1;
+    pipelineLayoutDesc.bindGroupLayouts = &UBOData.bindGroupLayout;
+
+    wgpu::PipelineLayout pipelineLayout = device.CreatePipelineLayout(&pipelineLayoutDesc);
 
     wgpu::RenderPipelineDescriptor descriptor{
+        .layout = pipelineLayout,
         .vertex = {.module = shaderModule,
                    .bufferCount = 1,
-                   .buffers = &d.vertexBufferLayout},
+                   .buffers = &vertexLayoutData.vertexBufferLayout},
         .fragment = &fragmentState};
     m_Pipeline = device.CreateRenderPipeline(&descriptor);
+}
+
+wgpu::Buffer Shader::CreateVertexBuffer(const std::vector<VertexAttribute>& data) const
+{
+    return CreateRawVertexBuffer(vertexLayoutData, data);
 }

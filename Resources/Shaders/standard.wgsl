@@ -1,118 +1,19 @@
-// Vertex Input and Output
 struct VertexInput {
-    @location(0) position: vec3f,
-    @location(1) normal: vec3f,
-    @location(2) color: vec3f,  // Not used in the fragment shader as per your request
-    @location(3) uv: vec2f,
-};
+                @location(0) position: vec3f,
+            };
 
-struct SkinnedVertex {
-    @location(4) indices: vec4<i32>,  // 4 signed 32-bit integers (bone indices)
-    @location(5) weights: vec4f,  // 4 floating-point values (bone weights)
-};
+            struct GB {
+                projectionMatrix: mat4x4f,
+                viewMatrix: mat4x4f,
+            };
 
-struct VertexOutput {
-    @builtin(position) position: vec4f,
-    @location(0) normal: vec3f,
-    @location(1) color: vec3f,  // Same as input color, not used in the fragment
-    @location(2) worldpos: vec3f,
-    @location(3) uv: vec2f,
-};
+            @group(0) @binding(0) var<uniform> UBO: GB;
 
-// Uniform Buffer Object (UBO) to hold matrix and light information
-struct GB {
-    projectionMatrix: mat4x4f,
-    viewMatrix: mat4x4f,
-    modelMatrix: mat4x4f,
-    color: vec4f,   // Light direction stored as a color (vec3f part)
-    time: f32,
-};
-
-struct MaterialProperties {
-    baseColorFactor: vec4f,  
-    emissiveFactor: vec3f,
-    alphaCutoff: f32,        
-    metallicFactor: f32,     
-    roughnessFactor: f32,    
-    textureFlags: u32,
-};
-
-struct ModelData {
-    modelMatrix: mat4x4f,    // 64 bytes
-    normalMatrix: mat4x4f,
-    material: MaterialProperties, // 48 bytes
-};
-
-struct BonesData {
-    modelMatrix: mat4x4f,
-    normalMatrix: mat4x4f,
-};
-
-@group(0) @binding(0) var<uniform> UBO: GB;
-@group(0) @binding(1) var textureSampler: sampler;
-
-@group(1) @binding(0) var<uniform> Model: ModelData;
-
-@group(2) @binding(0) var<storage, read> bones: array<BonesData>;
-
-@group(3) @binding(0) var albedoTexture: texture_2d<f32>;
-
-fn extract_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
-    return mat3x3<f32>(
-        m[0].xyz, // First row
-        m[1].xyz, // Second row
-        m[2].xyz  // Third row
-    );
-}
-
-// Vertex Shader
-@vertex
-fn vertex_main(input: VertexInput, skin: SkinnedVertex) -> VertexOutput {
-    var output: VertexOutput;
-    var modelMatrix : mat4x4f;
-    var normalMatrix : mat4x4f;
-    if(skin.indices[0] != -1)
-    {
-        modelMatrix = skin.weights.x * bones[skin.indices.x].modelMatrix + 
-                          skin.weights.y * bones[skin.indices.y].modelMatrix + 
-                          skin.weights.z * bones[skin.indices.z].modelMatrix + 
-                          skin.weights.w * bones[skin.indices.w].modelMatrix;
-
-        normalMatrix = skin.weights.x * bones[skin.indices.x].normalMatrix + 
-                          skin.weights.y * bones[skin.indices.y].normalMatrix + 
-                          skin.weights.z * bones[skin.indices.z].normalMatrix + 
-                          skin.weights.w * bones[skin.indices.w].normalMatrix;
-    }
-    else
-    {
-        modelMatrix = Model.modelMatrix;
-        normalMatrix = Model.normalMatrix;
-    }
-
-    output.position = UBO.projectionMatrix * UBO.viewMatrix * modelMatrix * vec4(input.position, 1.0);
-
-    
-    output.normal = normalize(extract_mat3x3(normalMatrix) * input.normal);
-    output.worldpos = (Model.modelMatrix * vec4(input.position, 1.0)).xyz;
-    output.uv = input.uv;
-    output.color = input.color;
-
-    return output;
-}
-
-@fragment
-fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
-    var baseColor = Model.material.baseColorFactor * vec4f(input.color, 1.0);
-    if ((Model.material.textureFlags & (1 << 0)) != 0) {
-        baseColor *= textureSample(albedoTexture, textureSampler, input.uv);
-    }
-    let normal = normalize(input.normal);
-
-    let lightDir = normalize(UBO.color.rgb);
-
-    let diffuseIntensity = max(dot(normal, lightDir), 0.0);
-
-    let color = baseColor * (diffuseIntensity + 0.5);
-
-    return color;
-}
+            @vertex fn vertexMain(input: VertexInput) ->
+              @builtin(position) vec4f {
+                return UBO.projectionMatrix * UBO.viewMatrix * vec4(input.position, 1.0);
+                return vec4f(input.position.xyz, 1);
+            }
+            @fragment fn fragmentMain() -> @location(0) vec4f {
+                return vec4f(1, 0, 0, 1);
+            }

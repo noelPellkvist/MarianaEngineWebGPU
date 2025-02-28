@@ -2,7 +2,7 @@
 #include "Logging.hpp"
 
 #include <webgpu/webgpu_cpp.h>
-#include <entt/entt.hpp>
+
 #include <iostream>
 
 Application::Application() : m_Window(1336, 768, "MARIANA"), m_RenderLayer(m_Window.GetTargetFormat())

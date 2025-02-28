@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include <webgpu/webgpu_cpp.h>
+#include "../Buffers/UniformBuffer.hpp"
+#include "../Buffers/VertexBuffer.hpp"
 
 class Shader
 {
@@ -9,12 +11,19 @@ class Shader
         Shader(std::string shaderName, wgpu::TextureFormat targetFormat);
         ~Shader();
 
-        wgpu::RenderPipeline& GetRenderPipeline() { return m_Pipeline; };
+        const wgpu::RenderPipeline& GetRenderPipeline() { return m_Pipeline; };
+        const VertexBufferLayoutData& GetVertexLayout() { return vertexLayoutData; };
+
+        std::map<std::string, VertexBufferEntry> GetRequiredVertexAttributes() {return vertexLayoutData.offsetMap;};
+
+        wgpu::Buffer CreateVertexBuffer(const std::vector<VertexAttribute>& data) const;
 
         wgpu::Buffer vertexBuffer;
+        UniformBufferData UBOData;
 
     private:
         wgpu::RenderPipeline m_Pipeline;
+        VertexBufferLayoutData vertexLayoutData;
 
         void CreateRenderPipeline(wgpu::TextureFormat targetFormat);
 

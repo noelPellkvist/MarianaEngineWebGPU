@@ -36,8 +36,10 @@ struct VertexBufferLayoutData
     std::vector<wgpu::VertexAttribute> attributes;
     wgpu::VertexBufferLayout vertexBufferLayout;
     std::map<std::string, VertexBufferEntry> offsetMap = {};
+
+    std::vector<std::string> GetRequiredEntries();
 };
 
 VertexBufferLayoutData BuildVertexLayout(VertexBufferLayout bufferData);
 
-wgpu::Buffer CreateVertexBuffer(VertexBufferLayoutData layout, const std::vector<VertexAttribute>& data);
+wgpu::Buffer CreateRawVertexBuffer(VertexBufferLayoutData layout, const std::vector<VertexAttribute>& data);
