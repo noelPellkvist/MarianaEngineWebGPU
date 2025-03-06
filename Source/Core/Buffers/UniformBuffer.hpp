@@ -17,5 +17,23 @@ struct UniformBufferData
     UBO data;
 };
 
+struct UniformBufferEntry
+{
+    std::vector<uint8_t> data;
+    size_t actualSize;
+    uint32_t offset;
+};
+
+struct UniformBuffer
+{
+    bool dynamic = false;
+    std::vector<UniformBufferEntry> entries;
+    std::vector<uint8_t> data;
+    void BuildData();
+    
+};
+
+uint32_t ceilToNextMultiple(uint32_t value, uint32_t step);
+
 UniformBufferData InitUBO();
 

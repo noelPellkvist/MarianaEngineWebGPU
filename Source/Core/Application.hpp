@@ -8,6 +8,7 @@
 #include <vector>
 #include <GLFW/glfw3.h>
 
+#include "Scene.hpp"
 
 
 class Application
@@ -21,7 +22,7 @@ class Application
 
     private:
         Window m_Window;
-        RenderLayer m_RenderLayer;
+        Scene scene;
 
         void Render();
 };

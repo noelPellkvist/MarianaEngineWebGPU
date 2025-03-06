@@ -6,13 +6,13 @@
 class RenderLayer
 {
     public:
-        RenderLayer(wgpu::TextureFormat targetFormat);
+        RenderLayer(wgpu::TextureFormat targetFormat, std::string standardShader = "standard.wgsl");
         ~RenderLayer();
 
-        void Render(wgpu::SurfaceTexture& surfaceTexture);
+        void Render(wgpu::SurfaceTexture& surfaceTexture, const Mesh& mesh);
+        std::vector<Shader>& GetShaders() { return shaders; };
 
     private:
         std::vector<Shader> shaders;
         wgpu::TextureFormat targetFormat;
-        Mesh mesh;
 };

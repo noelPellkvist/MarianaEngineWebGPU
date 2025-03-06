@@ -49,3 +49,18 @@ UniformBufferData InitUBO()
     res.bindGroup = device.CreateBindGroup(&bindGroupDesc);
     return res;
 }
+
+
+uint32_t ceilToNextMultiple(uint32_t value, uint32_t step) {
+    uint32_t divide_and_ceil = value / step + (value % step == 0 ? 0 : 1);
+    return step * divide_and_ceil;
+}
+
+void UniformBuffer::BuildData()
+{
+    uint32_t currentOffset = 0;
+    for(size_t i = 0; i < entries.size(); i++)
+    {
+        
+    }
+}

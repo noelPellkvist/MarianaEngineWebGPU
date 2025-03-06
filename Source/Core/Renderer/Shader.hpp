@@ -8,7 +8,7 @@
 class Shader
 {
     public:
-        Shader(std::string shaderName, wgpu::TextureFormat targetFormat);
+        Shader(const std::string& shaderName, wgpu::TextureFormat targetFormat);
         ~Shader();
 
         const wgpu::RenderPipeline& GetRenderPipeline() { return m_Pipeline; };
@@ -25,7 +25,7 @@ class Shader
         wgpu::RenderPipeline m_Pipeline;
         VertexBufferLayoutData vertexLayoutData;
 
-        void CreateRenderPipeline(wgpu::TextureFormat targetFormat);
+        void CreateRenderPipeline(wgpu::TextureFormat targetFormat, const std::string& shaderName);
 
 
 

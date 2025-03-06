@@ -16,4 +16,5 @@ struct Mesh
     wgpu::Buffer vertexBuffer;
     wgpu::Buffer indexBuffer;
     size_t indexCount;
+    size_t shaderIndex;
 };

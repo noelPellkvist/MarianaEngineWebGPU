@@ -108,6 +108,17 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "memory_resource": "cpp",
-        "*.hpp11": "cpp"
+        "*.hpp11": "cpp",
+        "__assertion_handler": "cpp",
+        "__bit_reference": "cpp",
+        "__hash_table": "cpp",
+        "__locale": "cpp",
+        "__node_handle": "cpp",
+        "__split_buffer": "cpp",
+        "__tree": "cpp",
+        "__verbose_abort": "cpp",
+        "execution": "cpp",
+        "print": "cpp",
+        "string_view": "cpp"
     }
 }

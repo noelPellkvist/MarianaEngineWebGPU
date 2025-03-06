@@ -34,7 +34,8 @@ if(EMSCRIPTEN)
 else()
   set(DAWN_FETCH_DEPENDENCIES ON)
 
-  add_subdirectory("dawn")
+  
   add_subdirectory(imgui)
+  add_subdirectory("dawn")
   target_link_libraries(app PRIVATE dawn::webgpu_dawn glfw webgpu_glfw imgui)
 endif()

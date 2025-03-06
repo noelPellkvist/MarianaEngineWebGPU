@@ -5,9 +5,9 @@
 
 #include <glm.hpp>
 
-Shader::Shader(std::string shaderName, wgpu::TextureFormat targetFormat)
+Shader::Shader(const std::string& shaderName, wgpu::TextureFormat targetFormat)
 {
-    CreateRenderPipeline(targetFormat);
+    CreateRenderPipeline(targetFormat, shaderName);
 }
 
 Shader::~Shader()
@@ -15,9 +15,9 @@ Shader::~Shader()
     
 }
 
-void Shader::CreateRenderPipeline(wgpu::TextureFormat targetFormat)
+void Shader::CreateRenderPipeline(wgpu::TextureFormat targetFormat, const std::string& shaderName)
 {
-    std::string shaderCode = Resources::LoadString("Shaders/standard.wgsl");
+    std::string shaderCode = Resources::LoadString("/Shaders/" + shaderName);
 
 
     wgpu::ShaderModuleWGSLDescriptor wgslDesc{};

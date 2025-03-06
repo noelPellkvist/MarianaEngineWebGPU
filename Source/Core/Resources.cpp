@@ -83,5 +83,6 @@ Mesh Resources::LoadObjMesh(const std::string& path, const Shader& shader)
     m.indexBuffer = device.CreateBuffer(&bufferDesc);
     device.GetQueue().WriteBuffer(m.indexBuffer, 0, indices.data(), bufferDesc.size);
     m.indexCount = indices.size();
+    m.shaderIndex = 0;
     return m;
 }
