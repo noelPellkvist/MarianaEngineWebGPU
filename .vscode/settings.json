@@ -119,6 +119,22 @@
         "__verbose_abort": "cpp",
         "execution": "cpp",
         "print": "cpp",
-        "string_view": "cpp"
+        "string_view": "cpp",
+        "barrier": "cpp",
+        "csetjmp": "cpp",
+        "cuchar": "cpp",
+        "generator": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp",
+        "latch": "cpp",
+        "mdspan": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "source_location": "cpp",
+        "spanstream": "cpp",
+        "stacktrace": "cpp",
+        "stdfloat": "cpp",
+        "strstream": "cpp",
+        "syncstream": "cpp"
     }
 }

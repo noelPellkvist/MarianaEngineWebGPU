@@ -41,6 +41,7 @@ Mesh Resources::LoadObjMesh(const std::string& path, const Shader& shader)
 	}
     std::vector<uint16_t> indices;
     std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
 
     size_t i = 0;
 
@@ -52,6 +53,11 @@ Mesh Resources::LoadObjMesh(const std::string& path, const Shader& shader)
 				attrib.vertices[3 * index.vertex_index + 0],
 				attrib.vertices[3 * index.vertex_index + 1],
 				attrib.vertices[3 * index.vertex_index + 2]
+			});
+            normals.push_back({
+				attrib.normals[3 * index.normal_index + 0],
+				attrib.normals[3 * index.normal_index + 1],
+				attrib.normals[3 * index.normal_index + 2]
 			});
             indices.push_back(i);
             i++;
@@ -70,7 +76,8 @@ Mesh Resources::LoadObjMesh(const std::string& path, const Shader& shader)
 
     std::vector<VertexAttribute> attributes = 
     {
-        {"POSITION", positions.data(), positions.size() }
+        {"POSITION", positions.data(), positions.size() },
+        {"NORMAL", normals.data(), normals.size() }
     };
     m.vertexBuffer = shader.CreateVertexBuffer(attributes);
 

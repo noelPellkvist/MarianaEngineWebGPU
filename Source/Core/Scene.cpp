@@ -1,24 +1,17 @@
 #include "Scene.hpp"
-#include "Renderer/Mesh.hpp"
-#include "Renderer/Transform.hpp"
+#include "Components/Mesh.hpp"
+#include "Components/Transform.hpp"
+#include "Logging.hpp"
 
-Scene::Scene(const std::string& name, wgpu::TextureFormat targetFormat) : m_Name(name), m_RenderTargetFormat(targetFormat),
-m_RenderLayer(targetFormat, "standard.wgsl")
+
+Scene::Scene(const std::string& name) : m_Name(name)
 {
-
+    //m_Entities.on_construct<Transform>().connect<&RenderSystem::RegisterComponent>(rs);
 }
 
 Scene::~Scene()
 {
 
-}
-
-void Scene::DrawAllObjects(wgpu::SurfaceTexture& surfaceTexture)
-{
-    auto view = m_Entities.view<const Transform, const Mesh>();
-    for(auto [entity, transform, mesh]: view.each()) {
-        m_RenderLayer.Render(surfaceTexture, mesh);
-    }   
 }
 
 entt::entity Scene::CreateGameobject(const std::string& name)

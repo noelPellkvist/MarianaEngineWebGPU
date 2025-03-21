@@ -1,5 +1,11 @@
 struct VertexInput {
     @location(0) position: vec3f,
+    @location(1) normal: vec3f,
+};
+
+struct VertexOutput {
+    @builtin(position) position: vec4f,
+    @location(0) normal: vec3f,
 };
 
 struct GB {
@@ -10,10 +16,14 @@ struct GB {
 @group(0) @binding(0) var<uniform> UBO: GB;
 
 @vertex fn vertexMain(input: VertexInput) ->
-  @builtin(position) vec4f {
-    return UBO.projectionMatrix * UBO.viewMatrix * vec4(input.position, 1.0);
-    return vec4f(input.position.xyz, 1);
+  VertexOutput  {
+    var output: VertexOutput;
+    output.position = UBO.projectionMatrix * UBO.viewMatrix * vec4(input.position, 1.0);
+    output.normal = input.normal;
+    return output;
 }
-@fragment fn fragmentMain() -> @location(0) vec4f {
-    return vec4f(1, 0, 0, 1);
+@fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
+    let lightDir = normalize(vec3f(-1,0.1,-1));
+    let diffuseIntensity = max(dot(normalize(input.normal), lightDir), 0.0) + 0.2;
+    return vec4f(1, 0, 0, 1) * diffuseIntensity;
 }

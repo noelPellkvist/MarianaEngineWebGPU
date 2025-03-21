@@ -5,11 +5,13 @@
 
 #include <iostream>
 #include "Resources.hpp"
+#include "Components/Transform.hpp"
 
-Application::Application() : m_Window(1336, 768, "MARIANA"), scene("built_in_scene", m_Window.GetTargetFormat())
+Application::Application() : m_Window(1336, 768, "MARIANA"), scene("built_in_scene"), renderSystem(scene, m_Window.GetTargetFormat())
 {
   auto c = scene.CreateGameobject("Cube");
-  scene.GetEntities().emplace<Mesh>(c, Resources::LoadObjMesh("cube.obj", scene.GetShaders()[0]));
+  renderSystem.RegisterComponent(c);
+  scene.GetEntities().emplace<Mesh>(c, Resources::LoadObjMesh("monkey.obj", renderSystem.GetShaders()[0]));
 }
 
 Application::~Application()
@@ -21,7 +23,8 @@ void Application::Render()
   wgpu::SurfaceTexture surfaceTexture;
   m_Window.GetCurrentTexture(&surfaceTexture);
 
-  scene.DrawAllObjects(surfaceTexture);
+  //scene.DrawAllObjects(surfaceTexture);
+  renderSystem.Draw(surfaceTexture);
 }
 
 void Application::Start()

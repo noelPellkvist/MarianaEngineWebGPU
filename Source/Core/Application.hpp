@@ -9,6 +9,7 @@
 #include <GLFW/glfw3.h>
 
 #include "Scene.hpp"
+#include "Components/RenderSystem.hpp"
 
 
 class Application
@@ -23,6 +24,7 @@ class Application
     private:
         Window m_Window;
         Scene scene;
+        RenderSystem renderSystem;
 
         void Render();
 };

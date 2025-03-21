@@ -34,7 +34,7 @@ void Shader::CreateRenderPipeline(wgpu::TextureFormat targetFormat, const std::s
                                       .targetCount = 1,
                                       .targets = &colorTargetState};
 
-    vertexLayoutData = BuildVertexLayout({{{"POSITION", LayoutEntryType::Float32x3}}});
+    vertexLayoutData = BuildVertexLayout({{{"POSITION", LayoutEntryType::Float32x3}, {"NORMAL", LayoutEntryType::Float32x3}}});
 
     // std::vector<glm::vec3> pos = { {0, 1, -1}, {-1, -1, -1}, {1, -1, -1} };
 
