@@ -21,11 +21,19 @@ struct TransformData {
 @group(0) @binding(0) var<uniform> UBO: GB;
 @group(1) @binding(0) var<uniform> transform: TransformData;
 
+fn extract_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
+    return mat3x3<f32>(
+        m[0].xyz, // First row
+        m[1].xyz, // Second row
+        m[2].xyz  // Third row
+    );
+}
+
 @vertex fn vertexMain(input: VertexInput) ->
   VertexOutput  {
     var output: VertexOutput;
     output.position = UBO.projectionMatrix * UBO.viewMatrix * transform.modelMatrix * vec4(input.position, 1.0);
-    output.normal = input.normal;
+    output.normal = normalize(extract_mat3x3(transform.normalMatrix) * input.normal);
     return output;
 }
 

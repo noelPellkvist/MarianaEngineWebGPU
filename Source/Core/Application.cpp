@@ -11,7 +11,7 @@ Application::Application() : m_Window(1336, 768, "MARIANA"), scene("built_in_sce
 {
   auto c = scene.CreateGameobject("Cube");
   renderSystem.RegisterComponent(scene.GetEntities(), c);
-  scene.GetEntities().emplace<Mesh>(c, Resources::LoadObjMesh("monkey.obj", renderSystem.GetShaders()[0]));
+  scene.GetEntities().emplace<Mesh>(c, Resources::LoadObjMesh("cube.obj", renderSystem.GetShaders()[0]));
 
   auto c2 = scene.CreateGameobject("Cube2");
   renderSystem.RegisterComponent(scene.GetEntities(), c2);
@@ -19,7 +19,7 @@ Application::Application() : m_Window(1336, 768, "MARIANA"), scene("built_in_sce
 
   auto c3 = scene.CreateGameobject("Cube3");
   renderSystem.RegisterComponent(scene.GetEntities(), c3);
-  scene.GetEntities().emplace<Mesh>(c3, Resources::LoadObjMesh("monkey.obj", renderSystem.GetShaders()[0]));
+  scene.GetEntities().emplace<Mesh>(c3, Resources::LoadObjMesh("torus.obj", renderSystem.GetShaders()[0]));
 }
 
 Application::~Application()
