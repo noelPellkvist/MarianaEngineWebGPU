@@ -19,7 +19,8 @@ class Shader
         wgpu::Buffer CreateVertexBuffer(const std::vector<VertexAttribute>& data) const;
 
         wgpu::Buffer vertexBuffer;
-        UniformBufferData UBOData;
+        UniformBuffer UBOData;
+        UniformBuffer TransformData;
 
     private:
         wgpu::RenderPipeline m_Pipeline;

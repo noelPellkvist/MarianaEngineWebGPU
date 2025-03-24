@@ -10,8 +10,16 @@
 Application::Application() : m_Window(1336, 768, "MARIANA"), scene("built_in_scene"), renderSystem(scene, m_Window.GetTargetFormat())
 {
   auto c = scene.CreateGameobject("Cube");
-  renderSystem.RegisterComponent(c);
+  renderSystem.RegisterComponent(scene.GetEntities(), c);
   scene.GetEntities().emplace<Mesh>(c, Resources::LoadObjMesh("monkey.obj", renderSystem.GetShaders()[0]));
+
+  auto c2 = scene.CreateGameobject("Cube2");
+  renderSystem.RegisterComponent(scene.GetEntities(), c2);
+  scene.GetEntities().emplace<Mesh>(c2, Resources::LoadObjMesh("monkey.obj", renderSystem.GetShaders()[0]));
+
+  auto c3 = scene.CreateGameobject("Cube3");
+  renderSystem.RegisterComponent(scene.GetEntities(), c3);
+  scene.GetEntities().emplace<Mesh>(c3, Resources::LoadObjMesh("monkey.obj", renderSystem.GetShaders()[0]));
 }
 
 Application::~Application()

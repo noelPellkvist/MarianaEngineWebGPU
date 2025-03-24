@@ -4,6 +4,7 @@
 #include "../Resources.hpp"
 
 #include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
 
 Shader::Shader(const std::string& shaderName, wgpu::TextureFormat targetFormat)
 {
@@ -34,21 +35,30 @@ void Shader::CreateRenderPipeline(wgpu::TextureFormat targetFormat, const std::s
                                       .targetCount = 1,
                                       .targets = &colorTargetState};
 
-    vertexLayoutData = BuildVertexLayout({{{"POSITION", LayoutEntryType::Float32x3}, {"NORMAL", LayoutEntryType::Float32x3}}});
+    vertexLayoutData = BuildVertexLayout({{{"POSITION", LayoutEntryType::Float32x3},
+                                         {"NORMAL", LayoutEntryType::Float32x3}}});
+    UBO ubo;
 
-    // std::vector<glm::vec3> pos = { {0, 1, -1}, {-1, -1, -1}, {1, -1, -1} };
+    float aspect = static_cast<float>(1336) / static_cast<float>(768);
+    ubo.projectionMatrix = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
+    float currentTime = 0;
+    ubo.viewMatrix = glm::lookAt(glm::vec3(15 * glm::sin(currentTime), 0, 15 * glm::cos(currentTime)), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    UBOData = CreateUniformBuffer(&ubo, sizeof(UBO), false);
 
-    // std::vector<VertexAttribute> data = {
-    //     {"POSITION", pos.data(), pos.size()}
-    // };
-    // vertexBuffer = CreateVertexBuffer(data);
+   
+    struct ModelData
+    {
+        glm::mat4 modelMatrix = glm::mat4(1.0f);
+        glm::mat4 normalMatrix = glm::mat4(1.0f);
+    } model;
+    TransformData = CreateUniformBuffer(&model, sizeof(ModelData), true);
 
-    UBOData = InitUBO();
+    std::vector<wgpu::BindGroupLayout> bindgroupLayouts = {UBOData.bindGroupLayout, TransformData.bindGroupLayout};
 
     wgpu::PipelineLayoutDescriptor pipelineLayoutDesc = {};
     pipelineLayoutDesc.label = wgpu::StringView("Built_in_PBR_Pipeline");
-    pipelineLayoutDesc.bindGroupLayoutCount = 1;
-    pipelineLayoutDesc.bindGroupLayouts = &UBOData.bindGroupLayout;
+    pipelineLayoutDesc.bindGroupLayoutCount = 2;
+    pipelineLayoutDesc.bindGroupLayouts = bindgroupLayouts.data();
 
     wgpu::PipelineLayout pipelineLayout = device.CreatePipelineLayout(&pipelineLayoutDesc);
 

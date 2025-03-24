@@ -13,15 +13,22 @@ struct GB {
     viewMatrix: mat4x4f,
 };
 
+struct TransformData {
+    modelMatrix: mat4x4f,
+    normalMatrix: mat4x4f,
+};
+
 @group(0) @binding(0) var<uniform> UBO: GB;
+@group(1) @binding(0) var<uniform> transform: TransformData;
 
 @vertex fn vertexMain(input: VertexInput) ->
   VertexOutput  {
     var output: VertexOutput;
-    output.position = UBO.projectionMatrix * UBO.viewMatrix * vec4(input.position, 1.0);
+    output.position = UBO.projectionMatrix * UBO.viewMatrix * transform.modelMatrix * vec4(input.position, 1.0);
     output.normal = input.normal;
     return output;
 }
+
 @fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
     let lightDir = normalize(vec3f(-1,0.1,-1));
     let diffuseIntensity = max(dot(normalize(input.normal), lightDir), 0.0) + 0.2;

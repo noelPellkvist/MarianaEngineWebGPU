@@ -7,21 +7,20 @@
 
 struct Transform
 {
-    private:
-        glm::mat4 modelMatrix;
-        int dataIndex;
-        
     public:
         Transform() { }
         glm::vec3 position;
         glm::quat rotation;
         glm::vec3 scale;
         glm::vec3 eulerAngles;
-        bool dirty = false;
-
-        void RecalculateMatrix();
-        const glm::mat4& getLocalMatrix() { return modelMatrix; }
+        int dataIndex;
 
 
     void SetPosition(glm::vec3 newPosition);
+};
+
+struct TransformData
+{
+    glm::mat4 modelMatrix;
+    glm::mat4 normalMatrix;
 };

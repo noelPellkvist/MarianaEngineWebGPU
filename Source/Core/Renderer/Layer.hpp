@@ -2,6 +2,7 @@
 #include "Shader.hpp"
 #include <vector>
 #include "../Components/Mesh.hpp"
+#include <entt/entt.hpp>
 
 class RenderLayer
 {
@@ -9,7 +10,7 @@ class RenderLayer
         RenderLayer(wgpu::TextureFormat targetFormat, std::string standardShader = "standard.wgsl");
         ~RenderLayer();
 
-        void Render(wgpu::SurfaceTexture& surfaceTexture, const Mesh& mesh);
+        void Render(wgpu::SurfaceTexture& surfaceTexture, entt::registry& reg);
         std::vector<Shader>& GetShaders() { return shaders; };
 
     private:

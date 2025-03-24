@@ -135,6 +135,7 @@
         "stacktrace": "cpp",
         "stdfloat": "cpp",
         "strstream": "cpp",
-        "syncstream": "cpp"
+        "syncstream": "cpp",
+        "propagate_const": "cpp"
     }
 }
