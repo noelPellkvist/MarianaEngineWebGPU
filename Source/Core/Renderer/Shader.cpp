@@ -62,11 +62,19 @@ void Shader::CreateRenderPipeline(wgpu::TextureFormat targetFormat, const std::s
 
     wgpu::PipelineLayout pipelineLayout = device.CreatePipelineLayout(&pipelineLayoutDesc);
 
+    wgpu::DepthStencilState depthStencilState = {};
+    depthStencilState.depthCompare = wgpu::CompareFunction::LessEqual;
+    depthStencilState.depthWriteEnabled = true;
+    depthStencilState.format = wgpu::TextureFormat::Depth24Plus;
+    depthStencilState.stencilReadMask = 0;
+    depthStencilState.stencilWriteMask = 0;
+
     wgpu::RenderPipelineDescriptor descriptor{
         .layout = pipelineLayout,
         .vertex = {.module = shaderModule,
                    .bufferCount = 1,
                    .buffers = &vertexLayoutData.vertexBufferLayout},
+        .depthStencil = &depthStencilState,
         .fragment = &fragmentState};
     m_Pipeline = device.CreateRenderPipeline(&descriptor);
 }

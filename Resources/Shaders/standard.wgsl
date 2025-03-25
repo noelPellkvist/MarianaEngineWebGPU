@@ -38,7 +38,7 @@ fn extract_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
 }
 
 @fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
-    let lightDir = normalize(vec3f(-1,0.1,-1));
+    let lightDir = normalize(vec3f(1,1,1));
     let diffuseIntensity = max(dot(normalize(input.normal), lightDir), 0.0) + 0.2;
     return vec4f(1, 0, 0, 1) * diffuseIntensity;
 }

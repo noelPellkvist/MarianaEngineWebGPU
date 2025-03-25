@@ -6,14 +6,54 @@
 #include "../Components/Mesh.hpp"
 #include "../Components/Transform.hpp"
 
-RenderLayer::RenderLayer(wgpu::TextureFormat targetFormat, std::string standardShader) : targetFormat(targetFormat)
+RenderLayer::RenderLayer(wgpu::TextureFormat targetFormat, std::string standardShader, bool useDepthStencil) : targetFormat(targetFormat)
 {
     shaders.emplace_back(standardShader, targetFormat);
-    
+    if (useDepthStencil) CreateDepthStencil();
 }
 
 RenderLayer::~RenderLayer()
 {
+}
+
+void RenderLayer::CreateDepthStencil()
+{
+  if (m_DepthTextureView)
+  {
+    m_DepthTextureView = nullptr;
+  }
+
+  wgpu::TextureFormat depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
+  wgpu::TextureDescriptor depthTextureDesc;
+  depthTextureDesc.dimension = wgpu::TextureDimension::e2D;
+  depthTextureDesc.format = depthTextureFormat;
+  depthTextureDesc.mipLevelCount = 1;
+  depthTextureDesc.sampleCount = 1;
+  depthTextureDesc.size = {(uint32_t)1336, (uint32_t)768, 1};
+  depthTextureDesc.usage = wgpu::TextureUsage::RenderAttachment;
+  depthTextureDesc.viewFormatCount = 1;
+  depthTextureDesc.viewFormats = &depthTextureFormat;
+  wgpu::Texture depthTexture = device.CreateTexture(&depthTextureDesc);
+
+  wgpu::TextureViewDescriptor depthTextureViewDesc;
+  depthTextureViewDesc.aspect = wgpu::TextureAspect::DepthOnly;
+  depthTextureViewDesc.baseArrayLayer = 0;
+  depthTextureViewDesc.arrayLayerCount = 1;
+  depthTextureViewDesc.baseMipLevel = 0;
+  depthTextureViewDesc.mipLevelCount = 1;
+  depthTextureViewDesc.dimension = wgpu::TextureViewDimension::e2D;
+  depthTextureViewDesc.format = depthTextureFormat;
+  m_DepthTextureView = depthTexture.CreateView(&depthTextureViewDesc);
+
+  m_DepthStencilAttachment.view = m_DepthTextureView;
+  m_DepthStencilAttachment.depthClearValue = 1;
+  m_DepthStencilAttachment.depthLoadOp = wgpu::LoadOp::Clear;
+  m_DepthStencilAttachment.depthStoreOp = wgpu::StoreOp::Store;
+  m_DepthStencilAttachment.depthReadOnly = false;
+  m_DepthStencilAttachment.stencilClearValue = 0;
+  m_DepthStencilAttachment.stencilLoadOp = wgpu::LoadOp::Undefined;
+  m_DepthStencilAttachment.stencilStoreOp = wgpu::StoreOp::Undefined;
+  m_DepthStencilAttachment.stencilReadOnly = true;
 }
 
 void RenderLayer::Render(wgpu::SurfaceTexture& surfaceTexture, entt::registry& reg)
@@ -24,7 +64,8 @@ void RenderLayer::Render(wgpu::SurfaceTexture& surfaceTexture, entt::registry& r
       .storeOp = wgpu::StoreOp::Store};
 
     wgpu::RenderPassDescriptor renderpass{.colorAttachmentCount = 1,
-                                          .colorAttachments = &attachment};
+                                          .colorAttachments = &attachment,
+                                          .depthStencilAttachment = &m_DepthStencilAttachment};
 
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
     wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
