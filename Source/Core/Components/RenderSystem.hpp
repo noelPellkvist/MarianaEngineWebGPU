@@ -1,6 +1,7 @@
 #pragma once
 #include "../Scene.hpp"
 #include <vector>
+#include "../Renderer/GUI.hpp"
 
 class RenderSystem
 {

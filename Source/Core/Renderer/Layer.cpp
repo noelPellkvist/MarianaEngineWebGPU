@@ -58,13 +58,16 @@ void RenderLayer::CreateDepthStencil()
 
 void RenderLayer::Render(wgpu::SurfaceTexture& surfaceTexture, entt::registry& reg)
 {
-    wgpu::RenderPassColorAttachment attachment{
+  std::vector<wgpu::RenderPassColorAttachment> attachments = {
+    {
       .view = surfaceTexture.texture.CreateView(),
       .loadOp = wgpu::LoadOp::Clear,
-      .storeOp = wgpu::StoreOp::Store};
+      .storeOp = wgpu::StoreOp::Store
+    }
+  };
 
-    wgpu::RenderPassDescriptor renderpass{.colorAttachmentCount = 1,
-                                          .colorAttachments = &attachment,
+    wgpu::RenderPassDescriptor renderpass{.colorAttachmentCount = (uint32_t)attachments.size(),
+                                          .colorAttachments = attachments.data(),
                                           .depthStencilAttachment = &m_DepthStencilAttachment};
 
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
@@ -81,9 +84,8 @@ void RenderLayer::Render(wgpu::SurfaceTexture& surfaceTexture, entt::registry& r
       pass.SetBindGroup(1, shaders[mesh.shaderIndex].TransformData.bindGroup, 1, &transformOffset);
       pass.DrawIndexed(mesh.indexCount, 1, 0, 0);
     }
+    gui->DrawGUI(pass);
     pass.End();
     wgpu::CommandBuffer commands = encoder.Finish();
     device.GetQueue().Submit(1, &commands);
-
-    
 }

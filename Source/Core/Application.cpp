@@ -7,8 +7,10 @@
 #include "Resources.hpp"
 #include "Components/Transform.hpp"
 
+
 Application::Application() : m_Window(1336, 768, "MARIANA"), scene("built_in_scene"), renderSystem(scene, m_Window.GetTargetFormat())
 {
+  gui = new GUI(m_Window.GetRawWindowPointer(), m_Window.GetTargetFormat());
   auto c = scene.CreateGameobject("Cube");
   renderSystem.RegisterComponent(scene.GetEntities(), c);
   scene.GetEntities().emplace<Mesh>(c, Resources::LoadObjMesh("cube.obj", renderSystem.GetShaders()[0]));

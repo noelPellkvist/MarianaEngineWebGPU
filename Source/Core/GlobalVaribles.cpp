@@ -3,3 +3,4 @@
 wgpu::Instance instance;
 wgpu::Adapter adapter;
 wgpu::Device device;
+GUI* gui;

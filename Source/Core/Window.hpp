@@ -17,6 +17,7 @@ class Window
 
         bool ShouldClose();
         wgpu::TextureFormat& GetTargetFormat() { return m_SurfaceFormat; }
+        GLFWwindow*& GetRawWindowPointer() { return m_Window; }
 
     private:
         int kWidth, kHeight;
