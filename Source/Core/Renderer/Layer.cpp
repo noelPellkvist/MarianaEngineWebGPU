@@ -56,15 +56,19 @@ void RenderLayer::CreateDepthStencil()
   m_DepthStencilAttachment.stencilReadOnly = true;
 }
 
-void RenderLayer::Render(wgpu::SurfaceTexture& surfaceTexture, entt::registry& reg)
+void RenderLayer::Render(std::vector<wgpu::TextureView>& targets, entt::registry& reg)
 {
-  std::vector<wgpu::RenderPassColorAttachment> attachments = {
-    {
-      .view = surfaceTexture.texture.CreateView(),
+  std::vector<wgpu::RenderPassColorAttachment> attachments(targets.size());
+  for (size_t i = 0; i < targets.size(); i++)
+  {
+    //surfaceTexture.texture.CreateView()
+    attachments[i] = {
+      .view = targets[i],
       .loadOp = wgpu::LoadOp::Clear,
       .storeOp = wgpu::StoreOp::Store
-    }
-  };
+    };
+  }
+  
 
     wgpu::RenderPassDescriptor renderpass{.colorAttachmentCount = (uint32_t)attachments.size(),
                                           .colorAttachments = attachments.data(),

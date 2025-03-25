@@ -15,7 +15,8 @@ RenderSystem::~RenderSystem()
 
 void RenderSystem::Draw(wgpu::SurfaceTexture& surfaceTexture)
 {
-    m_RenderLayer.Render(surfaceTexture, scene.GetEntities());
+    std::vector<wgpu::TextureView> views = {surfaceTexture.texture.CreateView()};
+    m_RenderLayer.Render(views, scene.GetEntities());
 }
 
 uint32_t RenderSystem::ceilToNextMultiple(uint32_t value, uint32_t step) {

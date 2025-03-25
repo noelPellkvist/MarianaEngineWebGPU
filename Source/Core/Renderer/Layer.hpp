@@ -10,7 +10,7 @@ class RenderLayer
         RenderLayer(wgpu::TextureFormat targetFormat, std::string standardShader = "standard.wgsl", bool useDepthStencil = true);
         ~RenderLayer();
 
-        void Render(wgpu::SurfaceTexture& surfaceTexture, entt::registry& reg);
+        void Render(std::vector<wgpu::TextureView>& targets, entt::registry& reg);
         std::vector<Shader>& GetShaders() { return shaders; };
 
     private:

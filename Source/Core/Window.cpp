@@ -86,7 +86,7 @@ void Window::ConfigureSurface()
         .device = device,
         .format = m_SurfaceFormat,
         .width = (uint32_t)kWidth,
-        .height = (uint32_t)kHeight
+        .height = (uint32_t)kHeight,
       };
     m_Surface.Configure(&config);
 }
