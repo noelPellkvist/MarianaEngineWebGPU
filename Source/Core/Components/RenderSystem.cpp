@@ -33,12 +33,6 @@ void RenderSystem::RegisterComponent(entt::registry& reg, entt::entity e)
         glm::mat4 modelMatrix = glm::mat4(1.0f);
         glm::mat4 normalMatrix = glm::mat4(1.0f);
     } model;
-    if (entityCount == 0)
-    {
-        model.modelMatrix = glm::translate(model.modelMatrix, glm::vec3(-4,0,0));
-    }
-    else if (entityCount == 1)
-        model.modelMatrix = glm::translate(model.modelMatrix, glm::vec3(4,0,0));
 
     glm::mat3 normalMat3 = glm::transpose(glm::inverse(glm::mat3(model.modelMatrix)));
     glm::mat4 normalMatrix = glm::mat4(1.0f); // Start with an identity matrix

@@ -4,6 +4,10 @@
 #include <backends/imgui_impl_glfw.h>
 #include "../GlobalVaribles.hpp"
 #include <iostream>
+#include "../ImGuizmo.h"
+#include <glm.hpp>
+#include <gtc/type_ptr.hpp>
+#include <gtc/matrix_transform.hpp>
 
 GUI::GUI(GLFWwindow* window, wgpu::TextureFormat format)
 {
@@ -81,22 +85,68 @@ GUI::GUI(GLFWwindow* window, wgpu::TextureFormat format)
   ImGui::LoadIniSettingsFromDisk((std::string(RESOURCE_DIR) + "/imgui.ini").c_str());
 }
 
+
 void GUI::DrawGUI(wgpu::RenderPassEncoder renderPass)
 {
+    // 1. Begin ImGui frame
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::DockSpaceOverViewport(0, NULL, ImGuiDockNodeFlags_PassthruCentralNode);
-    ImGui::Begin("Stats");
-    ImGuiIO& io = ImGui::GetIO();
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-    ImGui::End();
+    // 2. Create the selector window for choosing transform operations and modes.
+    static ImGuizmo::OPERATION currentOperation = ImGuizmo::TRANSLATE;
+    static ImGuizmo::MODE currentMode = ImGuizmo::WORLD;
+    {
+        ImGui::Begin("Gizmo Controls");
+        if (ImGui::RadioButton("Translate", currentOperation == ImGuizmo::TRANSLATE))
+            currentOperation = ImGuizmo::TRANSLATE;
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Rotate", currentOperation == ImGuizmo::ROTATE))
+            currentOperation = ImGuizmo::ROTATE;
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Scale", currentOperation == ImGuizmo::SCALE))
+            currentOperation = ImGuizmo::SCALE;
+        
+        if (ImGui::RadioButton("World", currentMode == ImGuizmo::WORLD))
+            currentMode = ImGuizmo::WORLD;
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Local", currentMode == ImGuizmo::LOCAL))
+            currentMode = ImGuizmo::LOCAL;
+        ImGui::End();
+    }
 
+    // 3. Render the gizmo over the entire GLFW window
+    ImGuizmo::BeginFrame();
+    ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+    if (displaySize.x > 0.f && displaySize.y > 0.f)
+    {
+        // Set the area where the gizmo is drawn (the entire viewport)
+        ImGuizmo::SetRect(0, 0, displaySize.x, displaySize.y);
+
+        // Set up example matrices.
+        // Replace these with your actual camera and model transforms as needed.
+        float currentTime = 0.0f;
+        float aspect = static_cast<float>(1336) / static_cast<float>(768);
+        static glm::mat4 view = glm::lookAt(glm::vec3(15 * glm::sin(currentTime), 0.0f, 15 * glm::cos(currentTime)),
+                                             glm::vec3(0.0f, 0.0f, 0.0f),
+                                             glm::vec3(0.0f, 1.0f, 0.0f));
+        static glm::mat4 proj = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
+        static glm::mat4 model(1.0f);
+
+        // Render and interact with the gizmo using the selector settings
+        ImGuizmo::Manipulate(glm::value_ptr(view), 
+                             glm::value_ptr(proj),
+                             currentOperation,
+                             currentMode,
+                             glm::value_ptr(model));
+    }
+
+    // 4. Render the ImGui frame
     ImGui::EndFrame();
     ImGui::Render();
     ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass.Get());
 }
+
 
 GUI::~GUI()
 {
