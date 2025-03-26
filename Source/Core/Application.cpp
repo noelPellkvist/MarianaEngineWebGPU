@@ -6,14 +6,16 @@
 #include <iostream>
 #include "Resources.hpp"
 #include "Components/Transform.hpp"
+#include "Loaders/GLTFLoader.hpp"
 
 
 Application::Application() : m_Window(1336, 768, "MARIANA"), scene("built_in_scene"), renderSystem(scene, m_Window.GetTargetFormat())
 {
-  gui = new GUI(m_Window.GetRawWindowPointer(), m_Window.GetTargetFormat());
+  gui = new GUI(m_Window.GetRawWindowPointer(), m_Window.GetTargetFormat(), renderSystem.GetShaders()[0].TransformData);
   auto c = scene.CreateGameobject("Cube");
   renderSystem.RegisterComponent(scene.GetEntities(), c);
   scene.GetEntities().emplace<Mesh>(c, Resources::LoadObjMesh("monkey.obj", renderSystem.GetShaders()[0]));
+  //LoadGLTFObject(scene);
 }
 
 Application::~Application()

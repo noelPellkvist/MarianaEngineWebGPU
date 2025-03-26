@@ -5,6 +5,7 @@
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
+#include "../Components/Transform.hpp"
 
 Shader::Shader(const std::string& shaderName, wgpu::TextureFormat targetFormat)
 {
@@ -45,13 +46,8 @@ void Shader::CreateRenderPipeline(wgpu::TextureFormat targetFormat, const std::s
     ubo.viewMatrix = glm::lookAt(glm::vec3(15 * glm::sin(currentTime), 0, 15 * glm::cos(currentTime)), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     UBOData = CreateUniformBuffer(&ubo, sizeof(UBO), false);
 
-   
-    struct ModelData
-    {
-        glm::mat4 modelMatrix = glm::mat4(1.0f);
-        glm::mat4 normalMatrix = glm::mat4(1.0f);
-    } model;
-    TransformData = CreateUniformBuffer(&model, sizeof(ModelData), true);
+    TransformBufferData transformBufferData;
+    TransformData = CreateUniformBuffer(&transformBufferData, sizeof(TransformBufferData), true);
 
     std::vector<wgpu::BindGroupLayout> bindgroupLayouts = {UBOData.bindGroupLayout, TransformData.bindGroupLayout};
 

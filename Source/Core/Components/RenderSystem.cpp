@@ -28,11 +28,7 @@ void RenderSystem::RegisterComponent(entt::registry& reg, entt::entity e)
 {
     reg.get<Transform>(e).dataIndex = entityCount;
     Logging::PrintSuccess("Registred components with index" + std::to_string(entityCount));
-    struct ModelData
-    {
-        glm::mat4 modelMatrix = glm::mat4(1.0f);
-        glm::mat4 normalMatrix = glm::mat4(1.0f);
-    } model;
+    TransformBufferData model;
 
     glm::mat3 normalMat3 = glm::transpose(glm::inverse(glm::mat3(model.modelMatrix)));
     glm::mat4 normalMatrix = glm::mat4(1.0f); // Start with an identity matrix
@@ -40,7 +36,7 @@ void RenderSystem::RegisterComponent(entt::registry& reg, entt::entity e)
     normalMatrix[1] = glm::vec4(normalMat3[1], 0.0f); // Second row of normal matrix
     normalMatrix[2] = glm::vec4(normalMat3[2], 0.0f); // Third row of normal matrix
     model.normalMatrix = normalMatrix;
-    m_RenderLayer.GetShaders()[0].TransformData.UpdateValue(&model, sizeof(ModelData), entityCount);
+    m_RenderLayer.GetShaders()[0].TransformData.UpdateValue(&model, sizeof(TransformBufferData), entityCount);
     entityCount++;
 }
 

@@ -1,6 +1,7 @@
 #include "Scene.hpp"
 #include "Components/Mesh.hpp"
 #include "Components/Transform.hpp"
+#include "Components/Relationship.hpp"
 #include "Logging.hpp"
 
 
@@ -14,9 +15,11 @@ Scene::~Scene()
 
 }
 
-entt::entity Scene::CreateGameobject(const std::string& name)
+entt::entity Scene::CreateGameobject(const std::string& name, entt::entity parent)
 {
     entt::entity n = m_Entities.create();
-    m_Entities.emplace<Transform>(n);
+    m_Entities.emplace<Transform>(n, name.c_str());
+    auto& relation = m_Entities.emplace<Relationship>(n);
+    relation.SetParent(parent, n, m_Entities);
     return n;
 }

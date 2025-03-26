@@ -12,7 +12,7 @@ class Scene
 
         entt::registry& GetEntities() { return m_Entities; }
 
-        entt::entity CreateGameobject(const std::string& name);
+        entt::entity CreateGameobject(const std::string& name, entt::entity parent=entt::null);
 
         void SetCreationCallback(void (*b) ());
 

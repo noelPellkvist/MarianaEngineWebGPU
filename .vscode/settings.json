@@ -136,6 +136,10 @@
         "stdfloat": "cpp",
         "strstream": "cpp",
         "syncstream": "cpp",
-        "propagate_const": "cpp"
+        "propagate_const": "cpp",
+        "*.idl": "cpp",
+        "*.msl": "cpp",
+        "*.wgsl": "cpp",
+        "*.glsl": "cpp"
     }
 }

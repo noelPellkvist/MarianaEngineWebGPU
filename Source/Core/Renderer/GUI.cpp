@@ -9,7 +9,8 @@
 #include <gtc/type_ptr.hpp>
 #include <gtc/matrix_transform.hpp>
 
-GUI::GUI(GLFWwindow* window, wgpu::TextureFormat format)
+
+GUI::GUI(GLFWwindow* window, wgpu::TextureFormat format, UniformBuffer& TransfomBuffer) : m_TransfomBuffer(TransfomBuffer)
 {
     IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -33,67 +34,97 @@ GUI::GUI(GLFWwindow* window, wgpu::TextureFormat format)
 
   ImGui::GetIO().FontGlobalScale = 1.2f;
 
-  ImGuiStyle* style = &ImGui::GetStyle();
-    style->WindowPadding = ImVec2(15, 15);
-    style->WindowRounding = 2.5f;
-    style->FramePadding = ImVec2(5, 5);
-    style->FrameRounding = 4.0f;
-    style->ItemSpacing = ImVec2(12, 8);
-    style->ItemInnerSpacing = ImVec2(8, 6);
-    style->IndentSpacing = 25.0f;
-    style->ScrollbarSize = 15.0f;
-    style->ScrollbarRounding = 9.0f;
-    style->GrabMinSize = 5.0f;
-    style->GrabRounding = 3.0f;
+//   ImGuiStyle* style = &ImGui::GetStyle();
+//     style->WindowPadding = ImVec2(15, 15);
+//     style->WindowRounding = 2.5f;
+//     style->FramePadding = ImVec2(5, 5);
+//     style->FrameRounding = 4.0f;
+//     style->ItemSpacing = ImVec2(12, 8);
+//     style->ItemInnerSpacing = ImVec2(8, 6);
+//     style->IndentSpacing = 25.0f;
+//     style->ScrollbarSize = 15.0f;
+//     style->ScrollbarRounding = 9.0f;
+//     style->GrabMinSize = 5.0f;
+//     style->GrabRounding = 3.0f;
 
-    style->Colors[ImGuiCol_Text] = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
-    style->Colors[ImGuiCol_TextDisabled] = ImVec4(0.24f, 0.23f, 0.29f, 1.00f);
-    style->Colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
-    style->Colors[ImGuiCol_PopupBg] = ImVec4(0.07f, 0.07f, 0.09f, 1.00f);
-    style->Colors[ImGuiCol_Border] = ImVec4(0.80f, 0.80f, 0.83f, 0.88f);
-    style->Colors[ImGuiCol_BorderShadow] = ImVec4(0.92f, 0.91f, 0.88f, 0.00f);
-    style->Colors[ImGuiCol_FrameBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
-    style->Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.24f, 0.23f, 0.29f, 1.00f);
-    style->Colors[ImGuiCol_FrameBgActive] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
-    style->Colors[ImGuiCol_TitleBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
-    style->Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(1.00f, 0.98f, 0.95f, 0.75f);
-    style->Colors[ImGuiCol_TitleBgActive] = ImVec4(0.07f, 0.07f, 0.09f, 1.00f);
-    style->Colors[ImGuiCol_MenuBarBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
-    style->Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
-    style->Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.80f, 0.80f, 0.83f, 0.31f);
-    style->Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
-    style->Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
-    style->Colors[ImGuiCol_CheckMark] = ImVec4(0.80f, 0.80f, 0.83f, 0.31f);
-    style->Colors[ImGuiCol_SliderGrab] = ImVec4(0.80f, 0.80f, 0.83f, 0.31f);
-    style->Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
-    style->Colors[ImGuiCol_Button] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
-    style->Colors[ImGuiCol_ButtonHovered] = ImVec4(0.24f, 0.23f, 0.29f, 1.00f);
-    style->Colors[ImGuiCol_ButtonActive] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
-    style->Colors[ImGuiCol_Header] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
-    style->Colors[ImGuiCol_HeaderHovered] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
-    style->Colors[ImGuiCol_HeaderActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
-    style->Colors[ImGuiCol_ResizeGrip] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    style->Colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
-    style->Colors[ImGuiCol_ResizeGripActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
-    style->Colors[ImGuiCol_PlotLines] = ImVec4(0.40f, 0.39f, 0.38f, 0.63f);
-    style->Colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.25f, 1.00f, 0.00f, 1.00f);
-    style->Colors[ImGuiCol_PlotHistogram] = ImVec4(0.40f, 0.39f, 0.38f, 0.63f);
-    style->Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.25f, 1.00f, 0.00f, 1.00f);
-    style->Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.25f, 1.00f, 0.00f, 0.43f);
-    //style->Colors[ImGuiCol_ModalWindowDarkening] = ImVec4(1.00f, 0.98f, 0.95f, 0.73f);
+//     style->Colors[ImGuiCol_Text] = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
+//     style->Colors[ImGuiCol_TextDisabled] = ImVec4(0.24f, 0.23f, 0.29f, 1.00f);
+//     style->Colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
+//     style->Colors[ImGuiCol_PopupBg] = ImVec4(0.07f, 0.07f, 0.09f, 1.00f);
+//     style->Colors[ImGuiCol_Border] = ImVec4(0.80f, 0.80f, 0.83f, 0.88f);
+//     style->Colors[ImGuiCol_BorderShadow] = ImVec4(0.92f, 0.91f, 0.88f, 0.00f);
+//     style->Colors[ImGuiCol_FrameBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+//     style->Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.24f, 0.23f, 0.29f, 1.00f);
+//     style->Colors[ImGuiCol_FrameBgActive] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
+//     style->Colors[ImGuiCol_TitleBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+//     style->Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(1.00f, 0.98f, 0.95f, 0.75f);
+//     style->Colors[ImGuiCol_TitleBgActive] = ImVec4(0.07f, 0.07f, 0.09f, 1.00f);
+//     style->Colors[ImGuiCol_MenuBarBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+//     style->Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+//     style->Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.80f, 0.80f, 0.83f, 0.31f);
+//     style->Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
+//     style->Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
+//     style->Colors[ImGuiCol_CheckMark] = ImVec4(0.80f, 0.80f, 0.83f, 0.31f);
+//     style->Colors[ImGuiCol_SliderGrab] = ImVec4(0.80f, 0.80f, 0.83f, 0.31f);
+//     style->Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
+//     style->Colors[ImGuiCol_Button] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+//     style->Colors[ImGuiCol_ButtonHovered] = ImVec4(0.24f, 0.23f, 0.29f, 1.00f);
+//     style->Colors[ImGuiCol_ButtonActive] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
+//     style->Colors[ImGuiCol_Header] = ImVec4(0.10f, 0.09f, 0.12f, 1.00f);
+//     style->Colors[ImGuiCol_HeaderHovered] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
+//     style->Colors[ImGuiCol_HeaderActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
+//     style->Colors[ImGuiCol_ResizeGrip] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+//     style->Colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.56f, 0.56f, 0.58f, 1.00f);
+//     style->Colors[ImGuiCol_ResizeGripActive] = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
+//     style->Colors[ImGuiCol_PlotLines] = ImVec4(0.40f, 0.39f, 0.38f, 0.63f);
+//     style->Colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.25f, 1.00f, 0.00f, 1.00f);
+//     style->Colors[ImGuiCol_PlotHistogram] = ImVec4(0.40f, 0.39f, 0.38f, 0.63f);
+//     style->Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.25f, 1.00f, 0.00f, 1.00f);
+//     style->Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.25f, 1.00f, 0.00f, 0.43f);
+//     //style->Colors[ImGuiCol_ModalWindowDarkening] = ImVec4(1.00f, 0.98f, 0.95f, 0.73f);
 
   ImGui::LoadIniSettingsFromDisk((std::string(RESOURCE_DIR) + "/imgui.ini").c_str());
 }
 
-
-void GUI::DrawGUI(wgpu::RenderPassEncoder renderPass)
+void DrawFps()
 {
-    // 1. Begin ImGui frame
-    ImGui_ImplWGPU_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
+    ImDrawList* drawList = ImGui::GetForegroundDrawList();
+    ImVec2 screenPos = ImVec2(ImGui::GetIO().DisplaySize.x - 400.0f, 10.0f);
 
-    // 2. Create the selector window for choosing transform operations and modes.
+    ImFont* font = ImGui::GetFont();
+
+    char textBuffer[100];
+    snprintf(textBuffer, sizeof(textBuffer), "Application average %.3f ms/frame (%.1f FPS)", 
+             1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+    // Display the formatted text in the top-right corner
+    drawList->AddText(font, 16.0f, screenPos, IM_COL32(255, 255, 255, 255), textBuffer);
+}
+
+void GUI::DrawHierachry(Transform& transform, const Relationship& relationship, entt::registry& reg)
+{
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (relationship.children == 0) flags |= ImGuiTreeNodeFlags_Leaf;
+    if(selectedTransform == &transform) flags |= ImGuiTreeNodeFlags_Selected;
+
+    if (ImGui::TreeNodeEx(transform.name.c_str(), flags)) {
+        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
+            selectedTransform = &transform; // Mark this node as selected
+        }
+        entt::entity currentChild = relationship.first;
+        while (currentChild != entt::null)
+        {
+            Transform& childTransform = reg.get<Transform>(currentChild);
+            const Relationship& childRelation = reg.get<Relationship>(currentChild);
+            DrawHierachry(childTransform, childRelation, reg);
+            currentChild = reg.get<Relationship>(currentChild).next;
+        }
+        ImGui::TreePop();
+    }
+}
+
+void GUI::DrawGizmo()
+{
     static ImGuizmo::OPERATION currentOperation = ImGuizmo::TRANSLATE;
     static ImGuizmo::MODE currentMode = ImGuizmo::WORLD;
     {
@@ -131,17 +162,47 @@ void GUI::DrawGUI(wgpu::RenderPassEncoder renderPass)
                                              glm::vec3(0.0f, 0.0f, 0.0f),
                                              glm::vec3(0.0f, 1.0f, 0.0f));
         static glm::mat4 proj = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
-        static glm::mat4 model(1.0f);
 
         // Render and interact with the gizmo using the selector settings
         ImGuizmo::Manipulate(glm::value_ptr(view), 
                              glm::value_ptr(proj),
                              currentOperation,
                              currentMode,
-                             glm::value_ptr(model));
+                             glm::value_ptr(selectedTransform->data.modelMatrix));
     }
 
-    // 4. Render the ImGui frame
+    glm::mat3 normalMat3 = glm::transpose(glm::inverse(glm::mat3(selectedTransform->data.modelMatrix)));
+    glm::mat4 normalMatrix = glm::mat4(1.0f); // Start with an identity matrix
+    normalMatrix[0] = glm::vec4(normalMat3[0], 0.0f); // First row of normal matrix
+    normalMatrix[1] = glm::vec4(normalMat3[1], 0.0f); // Second row of normal matrix
+    normalMatrix[2] = glm::vec4(normalMat3[2], 0.0f); // Third row of normal matrix
+    selectedTransform->data.normalMatrix = normalMatrix;
+    m_TransfomBuffer.UpdateValue(&selectedTransform->data, sizeof(TransformBufferData), selectedTransform->dataIndex);
+}
+
+
+void GUI::DrawGUI(wgpu::RenderPassEncoder renderPass, entt::registry& reg)
+{
+    ImGui_ImplWGPU_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+    ImGui::DockSpaceOverViewport(0, NULL, ImGuiDockNodeFlags_PassthruCentralNode);
+
+    DrawFps();
+
+
+    ImGui::Begin("Scene");
+    auto view = reg.view<Transform, const Relationship>();
+    for(auto [entity, transform, relation]: view.each()) {
+        if(relation.parent == entt::null)
+        {
+            DrawHierachry(transform, relation, reg);
+        }
+    }
+    ImGui::End();
+
+    if (selectedTransform != nullptr) DrawGizmo();
+
     ImGui::EndFrame();
     ImGui::Render();
     ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass.Get());

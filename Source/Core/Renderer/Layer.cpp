@@ -88,7 +88,7 @@ void RenderLayer::Render(std::vector<wgpu::TextureView>& targets, entt::registry
       pass.SetBindGroup(1, shaders[mesh.shaderIndex].TransformData.bindGroup, 1, &transformOffset);
       pass.DrawIndexed(mesh.indexCount, 1, 0, 0);
     }
-    gui->DrawGUI(pass);
+    gui->DrawGUI(pass, reg);
     pass.End();
     wgpu::CommandBuffer commands = encoder.Finish();
     device.GetQueue().Submit(1, &commands);
