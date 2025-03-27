@@ -45,7 +45,7 @@ Window::Window(int width, int height, std::string name) :
       canvasDesc.selector = "#canvas";
 
       wgpu::SurfaceDescriptor surfaceDesc{.nextInChain = &canvasDesc};
-      surface = instance.CreateSurface(&surfaceDesc);
+      m_Surface = instance.CreateSurface(&surfaceDesc);
     #else
       m_Surface = wgpu::glfw::CreateSurfaceForWindow(instance, m_Window);
     #endif

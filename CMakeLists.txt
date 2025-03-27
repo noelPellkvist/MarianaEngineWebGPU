@@ -3,19 +3,12 @@ project(app)                         # Create project "app"
 set(CMAKE_CXX_STANDARD 20)           # Enable C++20 standard
 
 file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp")
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(app ${SOURCES})
 target_compile_definitions(app PRIVATE
     RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Resources"
 )
-target_include_directories(app PRIVATE 
-                        "${CMAKE_SOURCE_DIR}/glm"
-                        "entt/single_include" 
-                        "${CMAKE_SOURCE_DIR}/dawn/include" 
-                        "${CMAKE_SOURCE_DIR}/dawn/src"
-			                  "${CMAKE_BINARY_DIR}/dawn/src"
-                        "${CMAKE_BINARY_DIR}/dawn/gen/include")
+target_include_directories(app PRIVATE "${CMAKE_SOURCE_DIR}/glm" "entt/single_include")
 
 if(EMSCRIPTEN)
   set_target_properties(app PROPERTIES SUFFIX ".html")
@@ -33,9 +26,7 @@ if(EMSCRIPTEN)
   target_link_libraries(app PRIVATE imgui)
 else()
   set(DAWN_FETCH_DEPENDENCIES ON)
-
-  
+  add_subdirectory("dawn" EXCLUDE_FROM_ALL)
   add_subdirectory(imgui)
-  add_subdirectory("dawn")
   target_link_libraries(app PRIVATE dawn::webgpu_dawn glfw webgpu_glfw imgui)
 endif()

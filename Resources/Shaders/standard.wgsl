@@ -18,8 +18,16 @@ struct TransformData {
     normalMatrix: mat4x4f,
 };
 
+struct MaterialData {
+    baseColorFactor: vec4f,
+    metallicFactor: f32,
+    roughnessFactor: f32,
+    emissiveFactor: vec3f
+}
+
 @group(0) @binding(0) var<uniform> UBO: GB;
 @group(1) @binding(0) var<uniform> transform: TransformData;
+@group(2) @binding(0) var<uniform> material: MaterialData;
 
 fn extract_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
     return mat3x3<f32>(
@@ -40,5 +48,5 @@ fn extract_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
 @fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
     let lightDir = normalize(vec3f(1,1,1));
     let diffuseIntensity = max(dot(normalize(input.normal), lightDir), 0.0) + 0.2;
-    return vec4f(1, 0, 0, 1) * diffuseIntensity;
+    return material.baseColorFactor * diffuseIntensity;
 }

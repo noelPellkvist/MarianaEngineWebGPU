@@ -86,6 +86,9 @@ void RenderLayer::Render(std::vector<wgpu::TextureView>& targets, entt::registry
       
       uint32_t transformOffset = shaders[mesh.shaderIndex].TransformData.uniformStride * transform.dataIndex;
       pass.SetBindGroup(1, shaders[mesh.shaderIndex].TransformData.bindGroup, 1, &transformOffset);
+
+      uint32_t materialOffset = shaders[mesh.shaderIndex].MaterialBuffer.uniformStride * mesh.submeshes[0].materialIndex;
+      pass.SetBindGroup(2, shaders[mesh.shaderIndex].MaterialBuffer.bindGroup, 1, &materialOffset);
       pass.DrawIndexed(mesh.indexCount, 1, 0, 0);
     }
     gui->DrawGUI(pass, reg);

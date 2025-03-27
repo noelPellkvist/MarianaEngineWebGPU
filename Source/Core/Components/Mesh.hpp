@@ -8,6 +8,7 @@ struct Submesh
     uint32_t vertexCount;
     uint32_t startIndex;
     uint32_t indexxCount;
+    uint32_t materialIndex;
 };
 
 struct Mesh

@@ -1,3 +1,4 @@
+#define GLM_ENABLE_EXPERIMENTAL
 #include "GUI.hpp"
 #include <imgui.h>
 #include <backends/imgui_impl_wgpu.h>
@@ -8,6 +9,7 @@
 #include <glm.hpp>
 #include <gtc/type_ptr.hpp>
 #include <gtc/matrix_transform.hpp>
+#include <gtx/matrix_decompose.hpp>
 
 
 GUI::GUI(GLFWwindow* window, wgpu::TextureFormat format, UniformBuffer& TransfomBuffer) : m_TransfomBuffer(TransfomBuffer)
@@ -101,29 +103,28 @@ void DrawFps()
     drawList->AddText(font, 16.0f, screenPos, IM_COL32(255, 255, 255, 255), textBuffer);
 }
 
-void GUI::DrawHierachry(Transform& transform, const Relationship& relationship, entt::registry& reg)
+void GUI::DrawHierachry(entt::entity entity, const Relationship& relationship, entt::registry& reg)
 {
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (relationship.children == 0) flags |= ImGuiTreeNodeFlags_Leaf;
-    if(selectedTransform == &transform) flags |= ImGuiTreeNodeFlags_Selected;
+    if(selectedEntity == entity) flags |= ImGuiTreeNodeFlags_Selected;
 
-    if (ImGui::TreeNodeEx(transform.name.c_str(), flags)) {
-        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-            selectedTransform = &transform; // Mark this node as selected
+    if (ImGui::TreeNodeEx(reg.get<Transform>(entity).name.c_str(), flags)) {
+        if (ImGui::IsItemClicked()) {
+            selectedEntity = entity; 
         }
         entt::entity currentChild = relationship.first;
         while (currentChild != entt::null)
         {
-            Transform& childTransform = reg.get<Transform>(currentChild);
             const Relationship& childRelation = reg.get<Relationship>(currentChild);
-            DrawHierachry(childTransform, childRelation, reg);
-            currentChild = reg.get<Relationship>(currentChild).next;
+            DrawHierachry(currentChild, childRelation, reg);
+            currentChild = childRelation.next;
         }
         ImGui::TreePop();
     }
 }
 
-void GUI::DrawGizmo()
+void GUI::DrawGizmo(entt::registry& reg)
 {
     static ImGuizmo::OPERATION currentOperation = ImGuizmo::TRANSLATE;
     static ImGuizmo::MODE currentMode = ImGuizmo::WORLD;
@@ -162,24 +163,73 @@ void GUI::DrawGizmo()
                                              glm::vec3(0.0f, 0.0f, 0.0f),
                                              glm::vec3(0.0f, 1.0f, 0.0f));
         static glm::mat4 proj = glm::perspective(glm::radians(60.0f), aspect, 0.01f, 100.0f);
+        Transform& selectedTransform = reg.get<Transform>(selectedEntity);
+        glm::mat4 original = selectedTransform.data.modelMatrix;
+        glm::mat4 model = original;
 
         // Render and interact with the gizmo using the selector settings
-        ImGuizmo::Manipulate(glm::value_ptr(view), 
+        
+        if (ImGuizmo::Manipulate(glm::value_ptr(view), 
                              glm::value_ptr(proj),
                              currentOperation,
                              currentMode,
-                             glm::value_ptr(selectedTransform->data.modelMatrix));
+                             glm::value_ptr(model)))
+        {
+            glm::mat4 delta = glm::inverse(original) * model;
+
+            glm::vec3 scale;
+            glm::quat rotation;
+            glm::vec3 translation;
+            glm::vec3 skew;
+            glm::vec4 perspective;
+            if(glm::decompose(delta, scale, rotation, translation, skew, perspective))
+            {
+                selectedTransform.position += translation;
+                selectedTransform.scale *= scale;
+                selectedTransform.rotation = rotation * selectedTransform.rotation;
+            }
+
+
+            selectedTransform.data.modelMatrix = model;
+            glm::mat3 normalMat3 = glm::transpose(glm::inverse(glm::mat3(selectedTransform.data.modelMatrix)));
+            glm::mat4 normalMatrix = glm::mat4(1.0f); 
+            normalMatrix[0] = glm::vec4(normalMat3[0], 0.0f); 
+            normalMatrix[1] = glm::vec4(normalMat3[1], 0.0f); 
+            normalMatrix[2] = glm::vec4(normalMat3[2], 0.0f); 
+            if(!reg.all_of<Dirty>(selectedEntity)) {
+                reg.emplace<Dirty>(selectedEntity);
+            }
+            selectedTransform.data.normalMatrix = normalMatrix;
+            
+            //m_TransfomBuffer.UpdateValue(&selectedTransform.data, sizeof(TransformBufferData), selectedTransform.dataIndex);
+        }
     }
 
-    glm::mat3 normalMat3 = glm::transpose(glm::inverse(glm::mat3(selectedTransform->data.modelMatrix)));
-    glm::mat4 normalMatrix = glm::mat4(1.0f); // Start with an identity matrix
-    normalMatrix[0] = glm::vec4(normalMat3[0], 0.0f); // First row of normal matrix
-    normalMatrix[1] = glm::vec4(normalMat3[1], 0.0f); // Second row of normal matrix
-    normalMatrix[2] = glm::vec4(normalMat3[2], 0.0f); // Third row of normal matrix
-    selectedTransform->data.normalMatrix = normalMatrix;
-    m_TransfomBuffer.UpdateValue(&selectedTransform->data, sizeof(TransformBufferData), selectedTransform->dataIndex);
+    
 }
 
+void GUI::DrawInspector(entt::registry& reg)
+{
+    ImGui::Begin("Inspector");
+    Transform& selectedTransform = reg.get<Transform>(selectedEntity);
+
+
+    float position[3] = {selectedTransform.position.x, selectedTransform.position.y, selectedTransform.position.z};
+    glm::vec3 newRot = glm::degrees(glm::eulerAngles(selectedTransform.rotation));
+    float rotation[3] = {newRot.x, newRot.y, newRot.z};
+    float scale[3] = {selectedTransform.scale.x, selectedTransform.scale.y, selectedTransform.scale.z};
+    ImGui::Text("Position");
+    ImGui::SameLine();
+    ImGui::DragFloat3("##Position", position);
+    ImGui::Text("Rotation");
+    ImGui::SameLine();
+    ImGui::DragFloat3("##Rotation", rotation);
+
+    ImGui::Text("Scale");
+    ImGui::SameLine();
+    ImGui::DragFloat3("##Scale", scale);
+    ImGui::End();
+}
 
 void GUI::DrawGUI(wgpu::RenderPassEncoder renderPass, entt::registry& reg)
 {
@@ -196,12 +246,16 @@ void GUI::DrawGUI(wgpu::RenderPassEncoder renderPass, entt::registry& reg)
     for(auto [entity, transform, relation]: view.each()) {
         if(relation.parent == entt::null)
         {
-            DrawHierachry(transform, relation, reg);
+            DrawHierachry(entity, relation, reg);
         }
     }
     ImGui::End();
 
-    if (selectedTransform != nullptr) DrawGizmo();
+    if (selectedEntity != entt::null)
+    { 
+        DrawGizmo(reg);
+        DrawInspector(reg);
+    }
 
     ImGui::EndFrame();
     ImGui::Render();

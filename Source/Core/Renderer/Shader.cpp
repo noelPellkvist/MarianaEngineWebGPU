@@ -6,6 +6,7 @@
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 #include "../Components/Transform.hpp"
+#include "../Components/Material.hpp"
 
 Shader::Shader(const std::string& shaderName, wgpu::TextureFormat targetFormat)
 {
@@ -49,11 +50,21 @@ void Shader::CreateRenderPipeline(wgpu::TextureFormat targetFormat, const std::s
     TransformBufferData transformBufferData;
     TransformData = CreateUniformBuffer(&transformBufferData, sizeof(TransformBufferData), true);
 
-    std::vector<wgpu::BindGroupLayout> bindgroupLayouts = {UBOData.bindGroupLayout, TransformData.bindGroupLayout};
+    MaterialBufferData materialComponent;
+    MaterialBuffer = CreateUniformBuffer(&materialComponent, sizeof(MaterialBufferData), true);
+
+    std::vector<wgpu::BindGroupLayout> bindgroupLayouts = {UBOData.bindGroupLayout, TransformData.bindGroupLayout, MaterialBuffer.bindGroupLayout};
 
     wgpu::PipelineLayoutDescriptor pipelineLayoutDesc = {};
+
+    #if defined(__EMSCRIPTEN__)
+        pipelineLayoutDesc.label = "Built_in_PBR_Pipeline";
+    #else
     pipelineLayoutDesc.label = wgpu::StringView("Built_in_PBR_Pipeline");
-    pipelineLayoutDesc.bindGroupLayoutCount = 2;
+    #endif
+
+    
+    pipelineLayoutDesc.bindGroupLayoutCount = bindgroupLayouts.size();
     pipelineLayoutDesc.bindGroupLayouts = bindgroupLayouts.data();
 
     wgpu::PipelineLayout pipelineLayout = device.CreatePipelineLayout(&pipelineLayoutDesc);

@@ -8,14 +8,18 @@
 #include "Components/Transform.hpp"
 #include "Loaders/GLTFLoader.hpp"
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#include <emscripten/html5.h>
+#endif
+
+#include <string>
+
 
 Application::Application() : m_Window(1336, 768, "MARIANA"), scene("built_in_scene"), renderSystem(scene, m_Window.GetTargetFormat())
 {
   gui = new GUI(m_Window.GetRawWindowPointer(), m_Window.GetTargetFormat(), renderSystem.GetShaders()[0].TransformData);
-  auto c = scene.CreateGameobject("Cube");
-  renderSystem.RegisterComponent(scene.GetEntities(), c);
-  scene.GetEntities().emplace<Mesh>(c, Resources::LoadObjMesh("monkey.obj", renderSystem.GetShaders()[0]));
-  //LoadGLTFObject(scene);
+  LoadGLTFObject("rumba.glb", scene, renderSystem);
 }
 
 Application::~Application()
@@ -27,13 +31,19 @@ void Application::Render()
   wgpu::SurfaceTexture surfaceTexture;
   m_Window.GetCurrentTexture(&surfaceTexture);
 
-  //scene.DrawAllObjects(surfaceTexture);
   renderSystem.Draw(surfaceTexture);
 }
 
 void Application::Start()
 {
   Logging::PrintSuccess("Start method called in application");
+  #if defined(__EMSCRIPTEN__)
+  auto callback = [](void *arg) {
+    Application* pApp = reinterpret_cast<Application*>(arg);
+    pApp->Render();
+  };
+  emscripten_set_main_loop_arg(callback, this, 0, true);
+    #else
   while (!m_Window.ShouldClose())
   {
     m_Window.PollEvents();
@@ -41,6 +51,7 @@ void Application::Start()
     m_Window.Present();
     instance.ProcessEvents();
   }
+  #endif
 }
 
 void Application::Update()

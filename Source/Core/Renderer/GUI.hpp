@@ -14,10 +14,11 @@ class GUI
         ~GUI();
 
         void DrawGUI(wgpu::RenderPassEncoder renderPass, entt::registry& reg);
-        void DrawHierachry(Transform& transform, const Relationship& relationship, entt::registry& reg);
-        void DrawGizmo();
+        void DrawHierachry(entt::entity entity, const Relationship& relationship, entt::registry& reg);
+        void DrawGizmo(entt::registry& reg);
+        void DrawInspector(entt::registry& reg);
 
     private:
-        Transform* selectedTransform = nullptr;
+        entt::entity selectedEntity{entt::null};
         UniformBuffer& m_TransfomBuffer;
 };

@@ -21,6 +21,7 @@ class Shader
         wgpu::Buffer vertexBuffer;
         UniformBuffer UBOData;
         UniformBuffer TransformData;
+        UniformBuffer MaterialBuffer;
 
     private:
         wgpu::RenderPipeline m_Pipeline;

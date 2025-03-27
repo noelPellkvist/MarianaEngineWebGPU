@@ -1,5 +1,6 @@
 #pragma once
 #include <entt/entt.hpp>
+#include <vector>
 
 struct Relationship
 {
@@ -49,5 +50,14 @@ struct Relationship
         auto& lastRelation = reg.get<Relationship>(lastChild);
         lastRelation.next = newChild;
         c.prev = lastChild;
+    }
+
+    std::vector<entt::entity> GetAllChildren(entt::registry& reg) const {
+        std::vector<entt::entity> res;
+        res.reserve(children);
+        for (entt::entity child = first; child != entt::null; child = reg.get<Relationship>(child).next) {
+            res.emplace_back(child);
+        }
+        return res;
     }
 };

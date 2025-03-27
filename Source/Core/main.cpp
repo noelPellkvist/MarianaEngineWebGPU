@@ -7,12 +7,12 @@
 
 Application* pApp;
 
-// extern "C" void WindowResized() {
-//     if (pApp != nullptr) {
-//         std::cout << "Calling pee pee poo poo" << std::endl;
-//         pApp->WindowResized();
-//     }
-// }
+extern "C" void WindowResized() {
+    if (pApp != nullptr) {
+         std::cout << "Calling window resized" << std::endl;
+        // pApp->WindowResized();
+    }
+}
 
 void GetAdapter(void (*callback)(wgpu::Adapter)) {
   #if defined(__EMSCRIPTEN__)

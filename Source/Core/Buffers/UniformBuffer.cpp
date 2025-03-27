@@ -20,7 +20,7 @@ UniformBuffer CreateUniformBuffer(void* data, size_t dataSize, bool isDynamic)
     if (!isDynamic)
         bufferDesc.size = dataSize;
     else 
-        bufferDesc.size = dataSize * 100;
+        bufferDesc.size = res.uniformStride * 100;
     bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
     bufferDesc.mappedAtCreation = false;
     uboBuffer = device.CreateBuffer(&bufferDesc);
