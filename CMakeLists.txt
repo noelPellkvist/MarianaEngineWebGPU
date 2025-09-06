@@ -2,7 +2,13 @@ cmake_minimum_required(VERSION 3.22) # CMake version check
 project(app)                         # Create project "app"
 set(CMAKE_CXX_STANDARD 20)           # Enable C++20 standard
 
-add_executable(app "main.cpp")
+file(GLOB_RECURSE APP_SOURCES
+     CONFIGURE_DEPENDS
+     "${CMAKE_CURRENT_SOURCE_DIR}/source/*.cpp")
+
+add_executable(app ${APP_SOURCES})
+
+target_include_directories(app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 set(DAWN_FETCH_DEPENDENCIES ON)
 set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC)
