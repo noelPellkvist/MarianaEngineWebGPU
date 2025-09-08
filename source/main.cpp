@@ -9,10 +9,12 @@
 
 #include <Init.hpp>
 #include <Window.hpp>
+#include <Shader.hpp>
 
 wgpu::RenderPipeline pipeline;
 
 Window m_Window(512, 512, "Noels window");
+Shader PBR_Shader;
 
 const char shaderCode[] = R"(
     @vertex fn vertexMain(@builtin(vertex_index) i : u32) ->
@@ -21,7 +23,7 @@ const char shaderCode[] = R"(
         return vec4f(pos[i], 0, 1);
     }
     @fragment fn fragmentMain() -> @location(0) vec4f {
-        return vec4f(1, 0, 0, 1);
+        return vec4f(0, 1, 1, 1);
     }
 )";
 
@@ -56,17 +58,16 @@ void Render() {
 
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
-  pass.SetPipeline(pipeline);
+  pass.SetPipeline(PBR_Shader.GetPipeline());
   pass.Draw(3);
   pass.End();
   wgpu::CommandBuffer commands = encoder.Finish();
   device.GetQueue().Submit(1, &commands);
-
-  
 }
 
 void InitGraphics() {
-  CreateRenderPipeline();
+  PBR_Shader.LoadShader(shaderCode);
+  //CreateRenderPipeline();
 }
 
 void Start() {

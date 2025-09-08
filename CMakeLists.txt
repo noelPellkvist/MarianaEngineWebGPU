@@ -10,6 +10,9 @@ add_executable(app ${APP_SOURCES})
 
 target_include_directories(app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
+add_subdirectory(external/glm)
+target_link_libraries(app PRIVATE glm::glm)
+
 set(DAWN_FETCH_DEPENDENCIES ON)
 set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC)
 add_subdirectory("dawn" EXCLUDE_FROM_ALL)
