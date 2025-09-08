@@ -11,6 +11,7 @@
 #include <Window.hpp>
 #include <Shader.hpp>
 #include <Mesh.hpp>
+#include <FileReader.hpp>
 
 wgpu::RenderPipeline pipeline;
 
@@ -18,38 +19,17 @@ Window m_Window(1366, 768, "MARIANA MANNEN");
 Shader PBR_Shader;
 
 std::vector<Vertex> verts = {
-  {{0,1,0}, {1,0,0}},
-  {{-1,-1,0}, {0,1,0}},
-  {{1,-1,0}, {0,0,1}}
+  {{-0.5,-0.5,0}, {1,0,0}},
+  {{0.5,-0.5,0}, {0,1,0}},
+  {{0.5,0.5,0}, {0,0,1}},
+  {{-0.5,0.5,0}, {1,1,0}}
 };
 
 std::vector<uint16_t> indices = {
-  0, 1, 2
+  0, 1, 2,
+  0, 2, 3
 };
 Mesh<Vertex, uint16_t> mesh16(verts, indices);
-
-const char shaderCode[] = R"(
-    struct VertexInput {
-        @location(0) position: vec3f,
-        @location(1) normal: vec3f,
-    };
-
-    struct VertexOutput {
-      @builtin(position) position: vec4f,
-      @location(0) normal: vec3f
-    };
-
-    @vertex fn vertexMain(input: VertexInput) ->
-      VertexOutput {
-        var output: VertexOutput;
-        output.position = vec4f(input.position.x, input.position.y, 0, 1);
-        output.normal = input.normal;
-        return output;
-    }
-    @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-        return vec4f(input.normal, 1);
-    }
-)";
 
 void Render() {
   wgpu::SurfaceTexture surfaceTexture;
@@ -66,15 +46,17 @@ void Render() {
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
   pass.SetPipeline(PBR_Shader.GetPipeline());
-  pass.SetVertexBuffer(0, mesh16.vertexBuffer, 0, mesh16.vertexBuffer.GetSize());
-  pass.Draw(mesh16.VertexCount(), 1, 0, 0);
+  pass.SetVertexBuffer(0, mesh16.vertexBuffer, 0, mesh16.vertexBuffer.GetSize()); //IsUINT16 
+  pass.SetIndexBuffer(mesh16.indexBuffer, mesh16.IsUINT16() ? wgpu::IndexFormat::Uint16 : wgpu::IndexFormat::Uint32, 0, mesh16.indexBuffer.GetSize()); //IsUINT16
+  pass.DrawIndexed(mesh16.IndexCount(), 1, 0, 0, 0);
   pass.End();
   wgpu::CommandBuffer commands = encoder.Finish();
   device.GetQueue().Submit(1, &commands);
 }
 
 void InitGraphics() {
-  PBR_Shader.LoadShader(shaderCode, {windowFormat});
+  
+  PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {windowFormat});
   mesh16.BuildMesh();
 }
 

@@ -20,6 +20,7 @@ class Mesh
         std::vector<IndexT> indices;
 
         wgpu::Buffer vertexBuffer;
+        wgpu::Buffer indexBuffer;
     
         Mesh() = default;
 
@@ -35,6 +36,8 @@ class Mesh
         const IndexT& GetIndex(size_t i) const { return indices[i]; }
         IndexT&       GetIndex(size_t i)       { return indices[i]; }
 
+        bool IsUINT16() { return std::is_same_v<IndexT, uint16_t>; }
+
         void Clear() {
             vertices.clear();
             indices.clear();
@@ -49,5 +52,11 @@ class Mesh
             vertexBuffer = device.CreateBuffer(&bufferDesc);
 
             device.GetQueue().WriteBuffer(vertexBuffer, 0, vertices.data(), bufferDesc.size);
+
+            bufferDesc.size = indices.size() * sizeof(IndexT);
+            bufferDesc.size = (bufferDesc.size + 3) & ~3;
+            bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
+            indexBuffer = device.CreateBuffer(&bufferDesc);
+            device.GetQueue().WriteBuffer(indexBuffer, 0, indices.data(), bufferDesc.size);
         }
 };

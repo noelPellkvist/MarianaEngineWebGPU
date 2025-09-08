@@ -8,6 +8,10 @@ file(GLOB_RECURSE APP_SOURCES
 
 add_executable(app ${APP_SOURCES})
 
+target_compile_definitions(app PRIVATE
+    RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources"
+)
+
 target_include_directories(app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 add_subdirectory(external/glm)

@@ -126,7 +126,6 @@ private:
         attributes.push_back(attr);
     }
 
-    // Override path: user supplies exact wgpu::VertexFormat (UNORM/SNORM/packed/BGRA/etc.)
     template <typename T, typename M>
     void addField(const T& base, const FormatOverride<M>& ov, uint32_t location) {
         const auto* pBase  = reinterpret_cast<const std::uint8_t*>(&base);
