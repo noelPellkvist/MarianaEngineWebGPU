@@ -12,7 +12,7 @@ Shader::~Shader()
 
 }
 
-void Shader::LoadShader(std::string shaderCode)
+void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat> outputFormats)
 {
     wgpu::ShaderSourceWGSL wgsl{{.code = shaderCode.c_str()}};
     wgpu::ShaderModuleDescriptor shaderModuleDescriptor{.nextInChain = &wgsl};
@@ -20,7 +20,7 @@ void Shader::LoadShader(std::string shaderCode)
     wgpu::ShaderModule shaderModule =
     device.CreateShaderModule(&shaderModuleDescriptor);
 
-    wgpu::ColorTargetState colorTargetState{.format = windowFormat};
+    wgpu::ColorTargetState colorTargetState{.format = outputFormats[0]};
 
     wgpu::FragmentState fragmentState{
       .module = shaderModule, .targetCount = 1, .targets = &colorTargetState};

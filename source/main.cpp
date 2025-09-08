@@ -27,23 +27,6 @@ const char shaderCode[] = R"(
     }
 )";
 
-void CreateRenderPipeline() {
-  wgpu::ShaderSourceWGSL wgsl{{.code = shaderCode}};
-
-  wgpu::ShaderModuleDescriptor shaderModuleDescriptor{.nextInChain = &wgsl};
-  wgpu::ShaderModule shaderModule =
-      device.CreateShaderModule(&shaderModuleDescriptor);
-
-  wgpu::ColorTargetState colorTargetState{.format = windowFormat};
-
-  wgpu::FragmentState fragmentState{
-      .module = shaderModule, .targetCount = 1, .targets = &colorTargetState};
-
-  wgpu::RenderPipelineDescriptor descriptor{.vertex = {.module = shaderModule},
-                                            .fragment = &fragmentState};
-  pipeline = device.CreateRenderPipeline(&descriptor);
-}
-
 void Render() {
   wgpu::SurfaceTexture surfaceTexture;
   surface.GetCurrentTexture(&surfaceTexture);
@@ -66,8 +49,7 @@ void Render() {
 }
 
 void InitGraphics() {
-  PBR_Shader.LoadShader(shaderCode);
-  //CreateRenderPipeline();
+  PBR_Shader.LoadShader(shaderCode, {windowFormat});
 }
 
 void Start() {
