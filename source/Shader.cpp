@@ -30,11 +30,20 @@ void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat>
     wgpu::FragmentState fragmentState{
       .module = shaderModule, .targetCount = 1, .targets = &colorTargetState};
 
+    wgpu::DepthStencilState depthStencilState{};
+    depthStencilState.depthCompare = wgpu::CompareFunction::Less;
+    depthStencilState.depthWriteEnabled = true;
+    depthStencilState.format = wgpu::TextureFormat::Depth24Plus;
+    depthStencilState.stencilReadMask = 0;
+    depthStencilState.stencilWriteMask = 0;
+
+
     wgpu::RenderPipelineDescriptor descriptor{.vertex = {
                                                   .module = shaderModule,
                                                   .bufferCount = 1,
                                                   .buffers = &vertexLayout.vertexBufferLayout
                                                 },
+                                             .depthStencil = &depthStencilState,
                                              .fragment = &fragmentState};
 
     m_Pipeline = device.CreateRenderPipeline(&descriptor);

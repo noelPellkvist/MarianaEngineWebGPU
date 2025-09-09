@@ -14,13 +14,39 @@
 #include <FileReader.hpp>
 #include <moved_later/OBJLoader.hpp>
 
-wgpu::RenderPipeline pipeline;
+wgpu::Texture depthTexture;
+wgpu::TextureView depthTextureView;
 
 Window m_Window(1366, 768, "MARIANA MANNEN");
 Shader PBR_Shader;
 
-//Mesh<Vertex, uint16_t> mesh16 = LoadTestMesh();
 Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/monkey.obj");
+
+void SetupDepthStencil()
+{
+  wgpu::TextureFormat depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
+
+  wgpu::TextureDescriptor depthTextureDesc;
+  depthTextureDesc.dimension = wgpu::TextureDimension::e2D;
+  depthTextureDesc.format = wgpu::TextureFormat::Depth24Plus;
+  depthTextureDesc.mipLevelCount = 1;
+  depthTextureDesc.sampleCount = 1;
+  depthTextureDesc.size = {m_Window.GetWidth(), m_Window.GetHeight(), 1};
+  depthTextureDesc.usage = wgpu::TextureUsage::RenderAttachment;
+  depthTextureDesc.viewFormatCount = 1;
+  depthTextureDesc.viewFormats = &depthTextureFormat;
+  depthTexture = device.CreateTexture(&depthTextureDesc);
+
+  wgpu::TextureViewDescriptor depthTextureViewDesc;
+  depthTextureViewDesc.aspect = wgpu::TextureAspect::DepthOnly;
+  depthTextureViewDesc.baseArrayLayer = 0;
+  depthTextureViewDesc.arrayLayerCount = 1;
+  depthTextureViewDesc.baseMipLevel = 0;
+  depthTextureViewDesc.mipLevelCount = 1;
+  depthTextureViewDesc.dimension = wgpu::TextureViewDimension::e2D;
+  depthTextureViewDesc.format = depthTextureFormat;
+  depthTextureView = depthTexture.CreateView(&depthTextureViewDesc);
+}
 
 void Render() {
   wgpu::SurfaceTexture surfaceTexture;
@@ -31,8 +57,22 @@ void Render() {
       .loadOp = wgpu::LoadOp::Clear,
       .storeOp = wgpu::StoreOp::Store};
 
+  wgpu::RenderPassDepthStencilAttachment depthStencilAttachment;
+  depthStencilAttachment.view = depthTextureView;
+  depthStencilAttachment.depthClearValue = 1.0f;
+  depthStencilAttachment.depthLoadOp = wgpu::LoadOp::Clear;
+  depthStencilAttachment.depthStoreOp = wgpu::StoreOp::Store;
+  depthStencilAttachment.depthReadOnly = false;
+
+  depthStencilAttachment.stencilClearValue = 0;
+  depthStencilAttachment.stencilLoadOp = wgpu::LoadOp::Undefined;
+  depthStencilAttachment.stencilStoreOp = wgpu::StoreOp::Undefined;
+  depthStencilAttachment.stencilReadOnly = true;
+
+
   wgpu::RenderPassDescriptor renderpass{.colorAttachmentCount = 1,
-                                        .colorAttachments = &attachment};
+                                        .colorAttachments = &attachment,
+                                        .depthStencilAttachment = &depthStencilAttachment};
 
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
@@ -49,6 +89,7 @@ void InitGraphics() {
   
   PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {windowFormat});
   mesh16.BuildMesh();
+  SetupDepthStencil();
 }
 
 void Start() {
