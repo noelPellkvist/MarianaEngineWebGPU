@@ -20,7 +20,7 @@ wgpu::TextureView depthTextureView;
 Window m_Window(1366, 768, "MARIANA MANNEN");
 Shader PBR_Shader;
 
-Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/monkey.obj");
+Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/mammoth.obj");
 
 void SetupDepthStencil()
 {

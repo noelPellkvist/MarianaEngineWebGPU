@@ -27,6 +27,8 @@ if(EMSCRIPTEN)
 
   target_compile_options(app PRIVATE "SHELL:-fexceptions")
   target_link_options(app PRIVATE 
+    "SHELL:-sALLOW_MEMORY_GROWTH=1"
+    "SHELL:-sINITIAL_MEMORY=67108864"
     "SHELL:-sEXCEPTION_CATCHING_ALLOWED=['*']"
     "SHELL:-sASSERTIONS=1"
     "-sASYNCIFY=1"
