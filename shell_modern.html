@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="icon" href="logo.png" />
+  <title>Mariana Engine Demo</title>
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --card: #15151a;
+      --muted: #8a8fa3;
+      --text: #e9eaf0;
+      --accent: #ff4d6d;
+      --accent-2: #ff7a59;
+      --ring:  #2a2a33;
+      --radius: 16px;
+      --shadow: 0 12px 30px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: radial-gradient(1200px 800px at 20% 0%, #171723 0%, #101016 40%, #0b0b10 100%);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    .wrap {
+      min-height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+    header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 24px clamp(16px, 4vw, 40px);
+    }
+    header img {
+      width: 36px; height: 36px; object-fit: contain; border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(255, 77, 109, 0.25);
+    }
+    header h1 {
+      margin: 0; font-size: 18px; letter-spacing: 0.4px; font-weight: 600; color: #fff;
+    }
+
+    main {
+      display: grid; place-items: center;
+      padding: 12px clamp(16px, 4vw, 40px) 48px;
+    }
+
+    /* Card that holds the loader/canvas */
+    .stage {
+      width: min(96vw, 1200px);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--ring);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    /* Responsive canvas wrapper with aspect-ratio; adjust as you like */
+    .canvas-wrap {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0b0c11;
+      border: 1px solid #23242d;
+      aspect-ratio: 16/9;
+      /* You can force a fixed height instead:
+         height: 720px; */
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: optimizeQuality;
+      /* The JS sets real pixel size for DPR */
+    }
+
+    /* Loader overlay */
+    .loader {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      background:
+        radial-gradient(600px 300px at 30% 0%, rgba(255,77,109,0.08), transparent 60%),
+        radial-gradient(600px 300px at 70% 100%, rgba(255,122,89,0.08), transparent 60%),
+        #0b0c11;
+    }
+    .loader-inner {
+      width: min(60ch, 90%);
+      background: rgba(21,21,26,0.85);
+      border: 1px solid #2b2c36;
+      backdrop-filter: blur(6px);
+      border-radius: 14px;
+      padding: 18px 16px 14px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+    }
+    .status-row {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 13px; letter-spacing: 0.2px;
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--accent), var(--accent-2));
+      animation: pulse 1.2s ease-in-out infinite;
+      box-shadow: 0 0 0 4px rgba(255, 77, 109, 0.12);
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.9); filter: brightness(0.9); }
+      50% { transform: scale(1.1); filter: brightness(1.15); }
+    }
+
+    .bar {
+      height: 10px;
+      width: 100%;
+      border-radius: 999px;
+      background: #1b1c25;
+      border: 1px solid #2b2c36;
+      overflow: hidden;
+    }
+    .bar > .fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      box-shadow: 0 6px 14px rgba(255,77,109,0.35);
+      transition: width 200ms ease;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 0 24px 18px;
+      text-align: center;
+    }
+
+    /* Hide loader when ready */
+    .hidden { display: none !important; }
+
+    .brand-footer{
+      color: var(--muted);
+      font-size: 12px;
+      padding: 18px 24px 28px;
+      text-align: center;
+      position: relative;
+    }
+    .brand-footer::before{
+      content:"";
+      position:absolute; left:50%; transform:translateX(-50%);
+      bottom: 0; width: min(92vw, 720px); height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    }
+    .brand-line{
+      display:inline-flex; align-items:center; gap:10px;
+      padding:10px 14px;
+      border:1px solid #2b2c36; border-radius:999px;
+      background: rgba(21,21,26,0.6);
+      backdrop-filter: blur(6px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+    .brand-line .dot{ opacity:0.6 }
+    .sparkle{
+      font-size: 14px;
+      filter: drop-shadow(0 0 6px rgba(255,77,109,0.6));
+      animation: sparkle-pop 1.8s ease-in-out infinite;
+    }
+    @keyframes sparkle-pop{
+      0%,100%{ transform: translateY(0) scale(1); opacity:0.9 }
+      50%{ transform: translateY(-1px) scale(1.06); opacity:1 }
+    }
+    .name{
+      font-weight: 700; letter-spacing: .2px;
+      background: linear-gradient(90deg, #fff, #ffb4c0 60%, #ffd6c9);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .engine{
+      font-weight: 600; letter-spacing: .2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <img src="logo.png" alt="logo" />
+      <h1>Mariana Engine Demo</h1>
+    </header>
+
+    <main>
+      <div class="stage">
+        <div class="canvas-wrap" id="canvas-wrap">
+          <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+
+          <!-- Loader overlay -->
+          <div class="loader" id="loader">
+            <div class="loader-inner">
+              <div class="status-row">
+                <div class="dot" aria-hidden="true"></div>
+                <div id="status-text">Preparing…</div>
+              </div>
+              <div class="bar" aria-label="Loading progress">
+                <div class="fill" id="bar-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="brand-footer" role="contentinfo">
+      <div class="brand-line">
+        <span class="sparkle" aria-hidden="true">✦</span>
+        <span class="name">Noel Pellkvist</span>
+        <span class="dot">•</span>
+        <span class="engine">Mariana&nbsp;Engine</span>
+        <span class="dot">•</span>
+        <span class="year">© <span id="year"></span></span>
+      </div>
+    </footer>
+  </div>
+
+    <script>
+
+    window.addEventListener('load', function(){
+      var y = document.getElementById('year');
+      if (y) y.textContent = new Date().getFullYear();
+    });
+    (function () {
+      const canvas   = document.getElementById('canvas');
+      const wrap     = document.getElementById('canvas-wrap');
+      const loaderEl = document.getElementById('loader');
+      const barFill  = document.getElementById('bar-fill');
+      const statusEl = document.getElementById('status-text');
+
+      function setProgress(p, msg) {
+        barFill.style.width = Math.max(0, Math.min(1, p)) * 100 + '%';
+        if (msg) statusEl.textContent = msg;
+      }
+
+      // --- Define Module BEFORE Emscripten runs ---
+      window.Module = {
+        preRun: [],
+        postRun: [],
+        print: function (text) { console.log(text); },
+        printErr: function (text) { console.error(text); },
+        canvas: canvas,
+        setStatus: function (text) {
+          if (!text) return;
+          const m = /([\d.]+)\/(\d+)/.exec(text);  // fixed regex
+          if (m) {
+            const p = parseFloat(m[1]) / parseFloat(m[2]);
+            setProgress(p, 'Downloading… ' + Math.round(p * 100) + '%');
+          } else {
+            if (text.indexOf('Running') !== -1) setProgress(1, 'Starting…');
+            else if (text.indexOf('Preparing') !== -1) setProgress(0.05, 'Preparing…');
+            else statusEl.textContent = text;
+          }
+        },
+        onRuntimeInitialized: function () {
+          setProgress(1, 'Ready');
+          setTimeout(function(){ loaderEl.classList.add('hidden'); }, 180);
+          resizeCanvas();
+          canvas.focus();
+        },
+        onCanvasResized: null
+      };
+
+      // --- DPR-correct resize, safe Module guard ---
+      function resizeCanvas() {
+        const dpr  = Math.max(1, window.devicePixelRatio || 1);
+        const cssW = wrap.clientWidth  | 0;
+        const cssH = wrap.clientHeight | 0;
+        const w = (cssW * dpr) | 0;
+        const h = (cssH * dpr) | 0;
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w; canvas.height = h;
+          if (typeof Module !== 'undefined' && Module && Module.onCanvasResized) {
+            Module.onCanvasResized(w, h, dpr);
+          }
+        }
+      }
+
+      new ResizeObserver(function(){ resizeCanvas(); }).observe(wrap);
+      window.addEventListener('orientationchange', function(){ setTimeout(resizeCanvas, 250); });
+      window.addEventListener('load', resizeCanvas);
+    })();
+  </script>
+
+  {{{ SCRIPT }}}
+
+</body>
+</html>

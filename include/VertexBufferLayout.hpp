@@ -90,8 +90,6 @@ struct VertexBufferLayout
         attributes.reserve(sizeof...(Ms));
 
         constexpr std::size_t kFieldCount = sizeof...(Ms);
-        Logger::Info("Vertex stride: " + std::to_string(stride) +
-                     ", field count: " + std::to_string(kFieldCount));
 
         uint32_t location = 0;
         (addField(base, fields, location++), ...);
