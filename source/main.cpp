@@ -12,24 +12,15 @@
 #include <Shader.hpp>
 #include <Mesh.hpp>
 #include <FileReader.hpp>
+#include <moved_later/OBJLoader.hpp>
 
 wgpu::RenderPipeline pipeline;
 
 Window m_Window(1366, 768, "MARIANA MANNEN");
 Shader PBR_Shader;
 
-std::vector<Vertex> verts = {
-  {{-0.5,-0.5,0}, {1,0,0}},
-  {{0.5,-0.5,0}, {0,1,0}},
-  {{0.5,0.5,0}, {0,0,1}},
-  {{-0.5,0.5,0}, {1,1,0}}
-};
-
-std::vector<uint16_t> indices = {
-  0, 1, 2,
-  0, 2, 3
-};
-Mesh<Vertex, uint16_t> mesh16(verts, indices);
+//Mesh<Vertex, uint16_t> mesh16 = LoadTestMesh();
+Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/monkey.obj");
 
 void Render() {
   wgpu::SurfaceTexture surfaceTexture;
