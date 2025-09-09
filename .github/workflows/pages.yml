@@ -1,0 +1,62 @@
+name: Build & Deploy (Pages)
+
+on:
+  push:
+    branches: [ 2025 ]   # change to your deploy branch
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (no submodules)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1           # shallow clone
+          submodules: false        # don't pull submodules here
+
+      - name: Init required submodules (shallow, non-recursive)
+        run: |
+          git submodule update --init --depth=1 --recommend-shallow external/glm dawn
+          git submodule status
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Configure (Emscripten)
+        run: |
+          emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          cmake --build build-web -j
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact (build-web -> Pages)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build-web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
