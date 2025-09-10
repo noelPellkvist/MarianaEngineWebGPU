@@ -9,6 +9,8 @@ extern wgpu::Device device;
 extern wgpu::Surface surface;
 extern wgpu::TextureFormat windowFormat;
 
+extern wgpu::Limits deviceLimits;
+
 struct Vertex
 {
     glm::vec3 position;

@@ -12,7 +12,11 @@ class Shader
         void LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat> outputFormats);
 
         wgpu::RenderPipeline& GetPipeline() { return m_Pipeline; }
+        wgpu::BindGroup& GetBindGroup();
+
+        void WriteToUBO();
 
     private:
         wgpu::RenderPipeline m_Pipeline;
+        wgpu::PipelineLayout m_Layout;
 };

@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <webgpu/webgpu_cpp.h>
+#include <Init.hpp>
 
 // ---------- WGSL uniform layout (std140-ish) ----------
 enum class Kind {
@@ -159,17 +161,54 @@ class UniformLayout {
 public:
     UniformLayout() = default;
 
+    wgpu::BindGroup& GetBindGroup() { return bindGroup; }
+
+    wgpu::BindGroupLayout& GetBindGroupLayout() { return bindGroupLayout; }
+
     template <typename... Ms>
     explicit UniformLayout(const T& base, const Ms&... fields) {
         static_assert(sizeof...(Ms) > 0, "Provide at least one field.");
         build_layout(base, fields...);
+        
+    }
+
+    void Init()
+    {
+        wgpu::BufferDescriptor bufferDesc;
+        bufferDesc.size = total_size_;
+        bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
+        bufferDesc.mappedAtCreation = false;
+        m_GPUBuffer = device.CreateBuffer(&bufferDesc);
+
+        device.GetQueue().WriteBuffer(m_GPUBuffer, 0, m_Buffer.data(), m_Buffer.size());
+
+        bindingLayout.binding = 0;
+        bindingLayout.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
+        bindingLayout.buffer.type = wgpu::BufferBindingType::Uniform;
+        bindingLayout.buffer.minBindingSize = total_size_;
+
+        wgpu::BindGroupLayoutDescriptor bindGroupLayoutDesc{};
+        bindGroupLayoutDesc.entryCount = 1;
+        bindGroupLayoutDesc.entries = &bindingLayout;
+        bindGroupLayout = device.CreateBindGroupLayout(&bindGroupLayoutDesc);
+
+        wgpu::BindGroupEntry binding{};
+        binding.binding = 0;
+        binding.buffer = m_GPUBuffer;
+        binding.offset = 0;
+
+        wgpu::BindGroupDescriptor bindGroupDesc{};
+        bindGroupDesc.layout = bindGroupLayout;
+        bindGroupDesc.entryCount = 1;
+        bindGroupDesc.entries = &binding;
+        bindGroup = device.CreateBindGroup(&bindGroupDesc);
     }
 
     // Pack into a freshly allocated vector (returns padded-to-16B size)
-    std::vector<std::byte> pack(const T& obj) const {
-        std::vector<std::byte> out(total_size_);
-        pack_into(obj, out.data(), out.size());
-        return out;
+    void pack(const T& obj) {
+        m_Buffer.resize(total_size_);
+        pack_into(obj, m_Buffer.data(), m_Buffer.size());
+        device.GetQueue().WriteBuffer(m_GPUBuffer, 0, m_Buffer.data(), m_Buffer.size());
     }
 
     // Pack into caller-provided memory (must be at least total_size())
@@ -261,4 +300,11 @@ private:
     std::vector<Field> layout_;
     std::vector<Entry> table_;
     std::size_t total_size_ = 0;
+    std::vector<std::byte> m_Buffer;
+    wgpu::Buffer m_GPUBuffer;
+
+    wgpu::BindGroupLayout bindGroupLayout;
+
+    wgpu::BindGroupLayoutEntry bindingLayout{};
+    wgpu::BindGroup bindGroup{};
 };

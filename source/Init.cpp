@@ -10,6 +10,8 @@ wgpu::Device device;
 wgpu::Surface surface;
 wgpu::TextureFormat windowFormat;
 
+wgpu::Limits deviceLimits;
+
 void Init()
 {
   static const auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
@@ -47,6 +49,7 @@ void Init()
         device = std::move(d);
       });
   instance.WaitAny(f2, UINT64_MAX);
-
+  
+  device.GetLimits(&deviceLimits);
   Logger::Info("WEBGPU backend initialized");
 }
