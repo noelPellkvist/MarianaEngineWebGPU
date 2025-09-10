@@ -13,6 +13,7 @@
 #include <Mesh.hpp>
 #include <FileReader.hpp>
 #include <moved_later/OBJLoader.hpp>
+#include <UniformLayout.hpp>
 
 wgpu::Texture depthTexture;
 wgpu::TextureView depthTextureView;
@@ -20,10 +21,27 @@ wgpu::TextureView depthTextureView;
 Window m_Window(1366, 768, "MARIANA MANNEN");
 Shader PBR_Shader;
 
-Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/mammoth.obj");
+struct UBO {
+    float     time;
+    glm::vec4 lightdir;
+};
+
+struct Uniforms {
+  float time; // at byte offset 0
+  float _pad0[3];
+  glm::vec4 color; // at byte offset 16
+};
+
+UBO ubo{};
+UniformLayout uboLayout(ubo, ubo.time, ubo.lightdir);
+
+Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/viking_room.obj");
 
 void SetupDepthStencil()
 {
+  ubo.time = 69.1337f;
+  ubo.lightdir = glm::vec4(-1.1f, -1.2f, -1.3f, 1.4f);
+  Uniforms a = *reinterpret_cast<Uniforms*>(uboLayout.pack(ubo).data());
   wgpu::TextureFormat depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
 
   wgpu::TextureDescriptor depthTextureDesc;

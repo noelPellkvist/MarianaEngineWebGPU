@@ -39,5 +39,6 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     // Visualize normals as color
-    return vec4f(normalize(input.normal) * 0.5 + vec3f(0.5), 1.0);
+    //return vec4f(normalize(input.normal) * 0.5 + vec3f(0.5), 1.0);
+    return vec4f(1,1,1,1);
 }

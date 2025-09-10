@@ -4,21 +4,11 @@
 #include <Logger.hpp>
 #include <Init.hpp>
 #include <VertexBufferLayout.hpp>
-#include <UniformBuffer.hpp>
 #include <Mesh.hpp>
-
-struct UBO {
-    glm::mat4 projection;
-    glm::mat4 view;
-    glm::vec3 lightdir;
-    float     time;
-};
-
-UBO ubo{};
 
 Shader::Shader()
 {
-  UniformBuffer<UBO> uboBuf(ubo, ubo.projection, ubo.time, ubo.view, ubo.lightdir);
+  
 }
 
 Shader::~Shader()
@@ -27,8 +17,8 @@ Shader::~Shader()
 
 void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat> outputFormats)
 {
-  Vertex v{};
-  VertexBufferLayout vertexLayout{v, v.position, v.normal};
+    Vertex v{};
+    VertexBufferLayout vertexLayout{v, v.position, v.normal};
     wgpu::ShaderSourceWGSL wgsl{{.code = shaderCode.c_str()}};
     wgpu::ShaderModuleDescriptor shaderModuleDescriptor{.nextInChain = &wgsl};
 
