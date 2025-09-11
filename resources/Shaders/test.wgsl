@@ -17,7 +17,9 @@ struct UBO {
 };
 
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
+
 @group(1) @binding(0) var albedoTexture: texture_2d<f32>;
+@group(1) @binding(1) var textureSampler: sampler;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -34,8 +36,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     // Visualize normals as color
     //return vec4f(normalize(input.normal) * 0.5 + vec3f(0.5), 1.0);
     //return vec4f(1,1,1,1);
-    let texelCoords = vec2i(input.uv * vec2f(textureDimensions(albedoTexture)));
-    let color = textureLoad(albedoTexture, texelCoords, 0).rgb;
+    let color = textureSample(albedoTexture, textureSampler, input.uv).rgb;
     let corrected_color = pow(color, vec3f(2.2));
     return vec4f(corrected_color, 1.0);
 }

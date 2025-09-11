@@ -12,7 +12,7 @@ target_compile_definitions(app PRIVATE
     RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources"
 )
 
-target_include_directories(app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_include_directories(app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/external/Loaders")
 
 add_subdirectory(external/glm)
 target_link_libraries(app PRIVATE glm::glm)

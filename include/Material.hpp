@@ -17,7 +17,9 @@ class Material
     private:
         std::vector<wgpu::Texture> textures;
         std::vector<wgpu::TextureView> textureViews;
+        std::vector<wgpu::Sampler> samplers;
         wgpu::BindGroup bindGroup;
 
         void LoadTexture(std::string texturePath);
+        void LoadSampler();
 };

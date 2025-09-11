@@ -1,5 +1,6 @@
 #include <Material.hpp>
 #include <Init.hpp>
+#include <FileReader.hpp>
 
 Material::Material()
 {
@@ -13,9 +14,12 @@ Material::~Material()
 
 void Material::LoadTexture(std::string texturePath)
 {
+    int width, height;
+    std::vector<uint8_t> pixels = FileReader::LoadPixelsFromImage("/Textures/viking_room.png", width, height);
+
     wgpu::TextureDescriptor textureDesc{};
     textureDesc.dimension = wgpu::TextureDimension::e2D;
-    textureDesc.size = {256, 256, 1};
+    textureDesc.size = {(unsigned int)width, (unsigned int)height, 1};
     textureDesc.mipLevelCount = 1;
     textureDesc.sampleCount = 1;
     textureDesc.format = wgpu::TextureFormat::RGBA8Unorm;
@@ -34,16 +38,18 @@ void Material::LoadTexture(std::string texturePath)
     textureViewDesc.format = textureDesc.format;
     wgpu::TextureView textureView = texture.CreateView(&textureViewDesc);
 
-    std::vector<uint8_t> pixels(4 * textureDesc.size.width * textureDesc.size.height);
-	for (uint32_t i = 0; i < textureDesc.size.width; ++i) {
-		for (uint32_t j = 0; j < textureDesc.size.height; ++j) {
-			uint8_t *p = &pixels[4 * (j * textureDesc.size.width + i)];
-			p[0] = (i / 16) % 2 == (j / 16) % 2 ? 255 : 0; // r
-			p[1] = ((i - j) / 16) % 2 == 0 ? 255 : 0; // g
-			p[2] = ((i + j) / 16) % 2 == 0 ? 255 : 0; // b
-			p[3] = 255; // a
-		}
-	}
+
+
+    // std::vector<uint8_t> pixels(4 * textureDesc.size.width * textureDesc.size.height);
+	// for (uint32_t i = 0; i < textureDesc.size.width; ++i) {
+	// 	for (uint32_t j = 0; j < textureDesc.size.height; ++j) {
+	// 		uint8_t *p = &pixels[4 * (j * textureDesc.size.width + i)];
+	// 		p[0] = (i / 16) % 2 == (j / 16) % 2 ? 255 : 0; // r
+	// 		p[1] = ((i - j) / 16) % 2 == 0 ? 255 : 0; // g
+	// 		p[2] = ((i + j) / 16) % 2 == 0 ? 255 : 0; // b
+	// 		p[3] = 255; // a
+	// 	}
+	// }
 
     wgpu::TexelCopyTextureInfo destination;
     destination.texture = texture;
@@ -62,12 +68,32 @@ void Material::LoadTexture(std::string texturePath)
     textureViews.push_back(textureView);
 }
 
+void Material::LoadSampler()
+{
+    wgpu::SamplerDescriptor samplerDesc{};
+    samplerDesc.addressModeU = wgpu::AddressMode::ClampToEdge;
+    samplerDesc.addressModeV = wgpu::AddressMode::ClampToEdge;
+    samplerDesc.addressModeW = wgpu::AddressMode::ClampToEdge;
+    samplerDesc.magFilter = wgpu::FilterMode::Linear;
+    samplerDesc.minFilter = wgpu::FilterMode::Linear;
+    samplerDesc.mipmapFilter = wgpu::MipmapFilterMode::Linear;
+    samplerDesc.lodMinClamp = 0.0f;
+    samplerDesc.lodMaxClamp = 1.0f;
+    samplerDesc.compare = wgpu::CompareFunction::Undefined;
+    samplerDesc.maxAnisotropy = 1;
+    samplers.push_back(device.CreateSampler(&samplerDesc));
+}
+
 void Material::InitMaterial(Shader& shader, std::vector<std::string> textureNames)
 {
     LoadTexture("");
-    std::vector<wgpu::BindGroupEntry> bindings(1);
+    LoadSampler();
+    std::vector<wgpu::BindGroupEntry> bindings(2);
     bindings[0].binding = 0;
     bindings[0].textureView = textureViews[0];
+
+    bindings[1].binding = 1;
+    bindings[1].sampler = samplers[0];
 
     wgpu::BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = shader.GetTextureBindGroupLayout();

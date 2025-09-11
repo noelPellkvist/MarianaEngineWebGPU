@@ -25,7 +25,7 @@ Material material;
 
 
 
-Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/cube.obj");
+Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/viking_room.obj");
 
 void SetupDepthStencil()
 {

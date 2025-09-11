@@ -74,9 +74,16 @@ void Shader::FixTextureBindings(uint8_t NumberOfTextures)
   textureBinding.texture.sampleType = wgpu::TextureSampleType::Float;
   textureBinding.texture.viewDimension = wgpu::TextureViewDimension::e2D;
 
+  samplerBinding = {};
+  samplerBinding.binding = 1;
+  samplerBinding.visibility = wgpu::ShaderStage::Fragment;
+  samplerBinding.sampler.type = wgpu::SamplerBindingType::Filtering;
+
+  std::vector<wgpu::BindGroupLayoutEntry> entries = {textureBinding, samplerBinding};
+
   wgpu::BindGroupLayoutDescriptor textureBindingLayout{};
-  textureBindingLayout.entryCount = 1;
-  textureBindingLayout.entries = &textureBinding;
+  textureBindingLayout.entryCount = entries.size();
+  textureBindingLayout.entries = entries.data();
   textureBindgroupLayout = device.CreateBindGroupLayout(&textureBindingLayout);
 }
 

@@ -23,6 +23,7 @@ class Shader
         wgpu::PipelineLayout m_Layout;
 
         wgpu::BindGroupLayoutEntry textureBinding{};
+        wgpu::BindGroupLayoutEntry samplerBinding{};
         wgpu::BindGroupLayout textureBindgroupLayout{};
 
         uint8_t NumberOfTextures;
