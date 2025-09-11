@@ -166,10 +166,10 @@ public:
     wgpu::BindGroupLayout& GetBindGroupLayout() { return bindGroupLayout; }
 
     template <typename... Ms>
-    explicit UniformLayout(const T& base, const Ms&... fields) {
+    explicit UniformLayout(bool isDynamic, const T& base, const Ms&... fields) {
+        this->m_isDynamic = isDynamic;
         static_assert(sizeof...(Ms) > 0, "Provide at least one field.");
         build_layout(base, fields...);
-        
     }
 
     void Init()
@@ -302,6 +302,7 @@ private:
     std::size_t total_size_ = 0;
     std::vector<std::byte> m_Buffer;
     wgpu::Buffer m_GPUBuffer;
+    bool m_isDynamic = false;
 
     wgpu::BindGroupLayout bindGroupLayout;
 

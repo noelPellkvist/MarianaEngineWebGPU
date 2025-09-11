@@ -6,7 +6,7 @@
 class Shader
 {
     public:
-        Shader();
+        Shader(uint8_t textureCount);
         ~Shader();
 
         void LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat> outputFormats);
@@ -14,9 +14,18 @@ class Shader
         wgpu::RenderPipeline& GetPipeline() { return m_Pipeline; }
         wgpu::BindGroup& GetBindGroup();
 
+        wgpu::BindGroupLayout& GetTextureBindGroupLayout() { return textureBindgroupLayout; }
+
         void WriteToUBO();
 
     private:
         wgpu::RenderPipeline m_Pipeline;
         wgpu::PipelineLayout m_Layout;
+
+        wgpu::BindGroupLayoutEntry textureBinding{};
+        wgpu::BindGroupLayout textureBindgroupLayout{};
+
+        uint8_t NumberOfTextures;
+
+        void FixTextureBindings(uint8_t NumberOfTextures);
 };

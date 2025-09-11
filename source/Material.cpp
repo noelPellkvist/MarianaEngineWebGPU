@@ -1,0 +1,77 @@
+#include <Material.hpp>
+#include <Init.hpp>
+
+Material::Material()
+{
+
+}
+
+Material::~Material()
+{
+
+}
+
+void Material::LoadTexture(std::string texturePath)
+{
+    wgpu::TextureDescriptor textureDesc{};
+    textureDesc.dimension = wgpu::TextureDimension::e2D;
+    textureDesc.size = {256, 256, 1};
+    textureDesc.mipLevelCount = 1;
+    textureDesc.sampleCount = 1;
+    textureDesc.format = wgpu::TextureFormat::RGBA8Unorm;
+    textureDesc.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
+    textureDesc.viewFormatCount = 0;
+    textureDesc.viewFormats = nullptr;
+    wgpu::Texture texture = device.CreateTexture(&textureDesc);
+
+    wgpu::TextureViewDescriptor textureViewDesc{};
+    textureViewDesc.aspect = wgpu::TextureAspect::All;
+    textureViewDesc.baseArrayLayer = 0;
+    textureViewDesc.arrayLayerCount = 1;
+    textureViewDesc.baseMipLevel = 0;
+    textureViewDesc.mipLevelCount = 1;
+    textureViewDesc.dimension = wgpu::TextureViewDimension::e2D;
+    textureViewDesc.format = textureDesc.format;
+    wgpu::TextureView textureView = texture.CreateView(&textureViewDesc);
+
+    std::vector<uint8_t> pixels(4 * textureDesc.size.width * textureDesc.size.height);
+	for (uint32_t i = 0; i < textureDesc.size.width; ++i) {
+		for (uint32_t j = 0; j < textureDesc.size.height; ++j) {
+			uint8_t *p = &pixels[4 * (j * textureDesc.size.width + i)];
+			p[0] = (i / 16) % 2 == (j / 16) % 2 ? 255 : 0; // r
+			p[1] = ((i - j) / 16) % 2 == 0 ? 255 : 0; // g
+			p[2] = ((i + j) / 16) % 2 == 0 ? 255 : 0; // b
+			p[3] = 255; // a
+		}
+	}
+
+    wgpu::TexelCopyTextureInfo destination;
+    destination.texture = texture;
+    destination.mipLevel = 0;
+    destination.origin = {0, 0, 0};
+    destination.aspect = wgpu::TextureAspect::All;
+
+    wgpu::TexelCopyBufferLayout source;
+    source.offset = 0;
+    source.bytesPerRow = 4 * textureDesc.size.width;
+    source.rowsPerImage = textureDesc.size.height;
+
+    device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &source, &textureDesc.size);
+
+    textures.push_back(texture);
+    textureViews.push_back(textureView);
+}
+
+void Material::InitMaterial(Shader& shader, std::vector<std::string> textureNames)
+{
+    LoadTexture("");
+    std::vector<wgpu::BindGroupEntry> bindings(1);
+    bindings[0].binding = 0;
+    bindings[0].textureView = textureViews[0];
+
+    wgpu::BindGroupDescriptor bindGroupDesc;
+    bindGroupDesc.layout = shader.GetTextureBindGroupLayout();
+    bindGroupDesc.entryCount = (uint32_t)bindings.size();
+    bindGroupDesc.entries = bindings.data();
+    bindGroup = device.CreateBindGroup(&bindGroupDesc);
+}

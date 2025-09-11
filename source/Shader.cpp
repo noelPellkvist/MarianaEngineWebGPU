@@ -17,9 +17,9 @@ struct UBO {
 };
 
 UBO ubo{};
-UniformLayout uboLayout(ubo, ubo.projection, ubo.view, ubo.model);
+UniformLayout uboLayout(false, ubo, ubo.projection, ubo.view, ubo.model);
 
-Shader::Shader()
+Shader::Shader(uint8_t textureCount) : NumberOfTextures(textureCount)
 {
 }
 
@@ -66,12 +66,27 @@ wgpu::BindGroup& Shader::GetBindGroup()
   return uboLayout.GetBindGroup();
 }
 
+void Shader::FixTextureBindings(uint8_t NumberOfTextures)
+{
+  textureBinding = {};
+  textureBinding.binding = 0;
+  textureBinding.visibility = wgpu::ShaderStage::Fragment;
+  textureBinding.texture.sampleType = wgpu::TextureSampleType::Float;
+  textureBinding.texture.viewDimension = wgpu::TextureViewDimension::e2D;
+
+  wgpu::BindGroupLayoutDescriptor textureBindingLayout{};
+  textureBindingLayout.entryCount = 1;
+  textureBindingLayout.entries = &textureBinding;
+  textureBindgroupLayout = device.CreateBindGroupLayout(&textureBindingLayout);
+}
+
 void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat> outputFormats)
 {
+    FixTextureBindings(NumberOfTextures);
     uboLayout.Init();
     WriteToUBO();
     Vertex v{};
-    VertexBufferLayout vertexLayout{v, v.position, v.normal};
+    VertexBufferLayout vertexLayout{v, v.position, v.normal, v.uv};
 
     
 
@@ -93,9 +108,11 @@ void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat>
     depthStencilState.stencilReadMask = 0;
     depthStencilState.stencilWriteMask = 0;
 
+    std::vector<wgpu::BindGroupLayout> bindGroupLayouts = {uboLayout.GetBindGroupLayout(), textureBindgroupLayout};
+
     wgpu::PipelineLayoutDescriptor  layoutDesc = {};
-    layoutDesc.bindGroupLayoutCount = 1;
-    layoutDesc.bindGroupLayouts = &uboLayout.GetBindGroupLayout();
+    layoutDesc.bindGroupLayoutCount = bindGroupLayouts.size();
+    layoutDesc.bindGroupLayouts = bindGroupLayouts.data();
     m_Layout = device.CreatePipelineLayout(&layoutDesc);
 
 

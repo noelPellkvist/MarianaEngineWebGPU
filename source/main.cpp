@@ -14,16 +14,18 @@
 #include <FileReader.hpp>
 #include <moved_later/OBJLoader.hpp>
 #include <UniformLayout.hpp>
+#include <Material.hpp>
 
 wgpu::Texture depthTexture;
 wgpu::TextureView depthTextureView;
 
 Window m_Window(1366, 768, "MARIANA MANNEN");
-Shader PBR_Shader;
+Shader PBR_Shader(1);
+Material material;
 
 
 
-Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/mammoth.obj");
+Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/cube.obj");
 
 void SetupDepthStencil()
 {
@@ -85,6 +87,7 @@ void Render() {
   pass.SetVertexBuffer(0, mesh16.vertexBuffer, 0, mesh16.vertexBuffer.GetSize()); //IsUINT16 
   pass.SetIndexBuffer(mesh16.indexBuffer, mesh16.IsUINT16() ? wgpu::IndexFormat::Uint16 : wgpu::IndexFormat::Uint32, 0, mesh16.indexBuffer.GetSize());
   pass.SetBindGroup(0, PBR_Shader.GetBindGroup(), 0, nullptr);
+  pass.SetBindGroup(1, material.GetTextureBindGroup(), 0, nullptr);
   pass.DrawIndexed(mesh16.IndexCount(), 1, 0, 0, 0);
   pass.End();
   wgpu::CommandBuffer commands = encoder.Finish();
@@ -96,6 +99,7 @@ void InitGraphics() {
   
   SetupDepthStencil();
   PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {windowFormat});
+  material.InitMaterial(PBR_Shader, {std::string(RESOURCE_DIR) + "/Textures/uvgrid.png"});
   mesh16.BuildMesh();
 }
 
