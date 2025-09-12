@@ -101,7 +101,7 @@ void InitGraphics() {
   
   SetupDepthStencil();
   PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {windowFormat});
-  material.InitMaterial(PBR_Shader, {std::string(RESOURCE_DIR) + "/Textures/uvgrid.png"});
+  material.InitMaterial(PBR_Shader, {"/Textures/Default_albedo.jpg"});
   mesh16.BuildMesh();
 }
 

@@ -15,7 +15,8 @@ Material::~Material()
 void Material::LoadTexture(std::string texturePath)
 {
     int width, height;
-    std::vector<uint8_t> pixels = FileReader::LoadPixelsFromImage("/Textures/viking_room.png", width, height);
+    //""
+    std::vector<uint8_t> pixels = FileReader::LoadPixelsFromImage(texturePath, width, height);
 
     wgpu::TextureDescriptor textureDesc{};
     textureDesc.dimension = wgpu::TextureDimension::e2D;
@@ -71,14 +72,14 @@ void Material::LoadTexture(std::string texturePath)
 void Material::LoadSampler()
 {
     wgpu::SamplerDescriptor samplerDesc{};
-    samplerDesc.addressModeU = wgpu::AddressMode::ClampToEdge;
-    samplerDesc.addressModeV = wgpu::AddressMode::ClampToEdge;
-    samplerDesc.addressModeW = wgpu::AddressMode::ClampToEdge;
+    samplerDesc.addressModeU = wgpu::AddressMode::Repeat;
+    samplerDesc.addressModeV = wgpu::AddressMode::Repeat;
+    samplerDesc.addressModeW = wgpu::AddressMode::Repeat;
     samplerDesc.magFilter = wgpu::FilterMode::Linear;
-    samplerDesc.minFilter = wgpu::FilterMode::Linear;
+    samplerDesc.minFilter = wgpu::FilterMode::Nearest;
     samplerDesc.mipmapFilter = wgpu::MipmapFilterMode::Linear;
     samplerDesc.lodMinClamp = 0.0f;
-    samplerDesc.lodMaxClamp = 1.0f;
+    samplerDesc.lodMaxClamp = 1000.0f;
     samplerDesc.compare = wgpu::CompareFunction::Undefined;
     samplerDesc.maxAnisotropy = 1;
     samplers.push_back(device.CreateSampler(&samplerDesc));
@@ -86,7 +87,7 @@ void Material::LoadSampler()
 
 void Material::InitMaterial(Shader& shader, std::vector<std::string> textureNames)
 {
-    LoadTexture("");
+    LoadTexture(textureNames[0]);
     LoadSampler();
     std::vector<wgpu::BindGroupEntry> bindings(2);
     bindings[0].binding = 0;
