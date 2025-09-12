@@ -15,6 +15,7 @@
 #include <moved_later/OBJLoader.hpp>
 #include <UniformLayout.hpp>
 #include <Material.hpp>
+#include <moved_later/GLTFLoader.hpp>
 
 wgpu::Texture depthTexture;
 wgpu::TextureView depthTextureView;
@@ -25,7 +26,8 @@ Material material;
 
 
 
-Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/viking_room.obj");
+//Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/viking_room.obj");
+Mesh<GLTF::Vertex, uint32_t> mesh16 = GLTF::GLTFLoader::LoadFromFile(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb");
 
 void SetupDepthStencil()
 {

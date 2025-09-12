@@ -9,6 +9,7 @@
 #include <VertexBufferLayout.hpp>
 #include <Mesh.hpp>
 #include <UniformLayout.hpp>
+#include <moved_later/GLTFLoader.hpp>
 
 struct UBO {
   glm::mat4x4 projection;
@@ -92,8 +93,8 @@ void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat>
     FixTextureBindings(NumberOfTextures);
     uboLayout.Init();
     WriteToUBO();
-    Vertex v{};
-    VertexBufferLayout vertexLayout{v, v.position, v.normal, v.uv};
+    GLTF::Vertex v{};
+    VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
 
     
 

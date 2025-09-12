@@ -1,7 +1,10 @@
 struct VertexInput {
     @location(0) position: vec3f,
     @location(1) normal: vec3f,
-    @location(2) uv: vec2f,
+    @location(2) tangent: vec4f,
+    @location(3) texcoord0: vec2f,
+    @location(4) texcoord1: vec2f,
+    @location(5) color: vec4f,
 };
 
 struct VertexOutput {
@@ -27,7 +30,7 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
     let mvp = UniformBufferObject.projection * UniformBufferObject.view * UniformBufferObject.model;
     output.position = mvp * vec4f(input.position, 1.0);
     output.normal = input.normal;
-    output.uv = input.uv;
+    output.uv = input.texcoord0;
     return output;
 }
 
