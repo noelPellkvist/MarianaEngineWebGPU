@@ -24,9 +24,25 @@ Window::~Window()
 void Window::GetSurface()
 {
     surface = wgpu::glfw::CreateSurfaceForWindow(instance, m_Window);
+    
     wgpu::SurfaceCapabilities capabilities;
     surface.GetCapabilities(adapter, &capabilities);
-    windowFormat = capabilities.formats[0];
+    
+    // Pick an sRGB format if available
+    windowFormat = wgpu::TextureFormat::Undefined;
+    for (uint32_t i = 0; i < capabilities.formatCount; ++i) {
+        auto fmt = capabilities.formats[i];
+        if (fmt == wgpu::TextureFormat::BGRA8UnormSrgb ||
+            fmt == wgpu::TextureFormat::RGBA8UnormSrgb) {
+            windowFormat = fmt;
+            break;
+        }
+    }
+    
+    // Fallback: just take the first if no sRGB found
+    if (windowFormat == wgpu::TextureFormat::Undefined) {
+        windowFormat = capabilities.formats[0];
+    }
 
     wgpu::SurfaceConfiguration config{.device = device,
                                     .format = windowFormat,

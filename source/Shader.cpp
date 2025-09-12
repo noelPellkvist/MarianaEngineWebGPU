@@ -44,30 +44,24 @@ void Shader::WriteToUBO()
     const glm::vec3 up{0.0f, 1.0f, 0.0f};
     ubo.view = glm::lookAtLH(eye, target, up);
 
-    // --- model: no spin, just place it
-    const glm::vec3 pos{0.0f, 0.0f, 3.0f};
+    // --- model: spin around +Y
+    const glm::vec3 pos{0.0f, -0.75f, 3.0f};
+    const float degPerSec = 45.0f;                 // rotation speed
+    const float angle = glm::radians(degPerSec) * t;
+
     ubo.model = glm::translate(glm::mat4(1.0f), pos);
-    ubo.model = glm::rotate(ubo.model, glm::radians(135.0f), {0.0f, 1.0f, 0.0f}); // spin around +Y
+    ubo.model = glm::rotate(ubo.model, angle, glm::vec3(0.0f, 1.0f, 0.0f));
 
     // Normal matrix from model (top-left 3x3 inverse-transpose)
     ubo.normalMatrix = glm::transpose(glm::inverse(glm::mat3(ubo.model)));
 
-    // --- rotate directional light around +Y
-    const float degPerSec = 45.0f;
-    const float angle = glm::radians(degPerSec) * t;
-
-    // Base light direction (world-space, the *direction the light points*)
-    const glm::vec3 baseDir = glm::normalize(glm::vec3(0.0f, 1.0f, -1.0f));
-
-    // Option A: rotate via matrix (w=0 for direction)
-    const glm::mat4 R = glm::rotate(glm::mat4(1.0f), angle, glm::vec3(0, 1, 0));
-    ubo.lightDir = glm::normalize(glm::vec3(R * glm::vec4(baseDir, 0.0f)));
+    // --- light: fixed direction
+    ubo.lightDir = glm::normalize(glm::vec3(1.0f, 0.5f, -1.0f));
 
     // (In your shader you were doing L = normalize(-lightDir); keep that convention.)
 
     uboLayout.pack(ubo);
 }
-
 
 
 Shader::~Shader()
@@ -100,12 +94,18 @@ void Shader::FixTextureBindings(uint8_t NumberOfTextures)
   textureBinding3.texture.sampleType = wgpu::TextureSampleType::Float;
   textureBinding3.texture.viewDimension = wgpu::TextureViewDimension::e2D;
 
+  textureBinding4 = {};
+  textureBinding4.binding = 3;
+  textureBinding4.visibility = wgpu::ShaderStage::Fragment;
+  textureBinding4.texture.sampleType = wgpu::TextureSampleType::Float;
+  textureBinding4.texture.viewDimension = wgpu::TextureViewDimension::e2D;
+
   samplerBinding = {};
-  samplerBinding.binding = 3;
+  samplerBinding.binding = 4;
   samplerBinding.visibility = wgpu::ShaderStage::Fragment;
   samplerBinding.sampler.type = wgpu::SamplerBindingType::Filtering;
 
-  std::vector<wgpu::BindGroupLayoutEntry> entries = {textureBinding, textureBinding2, textureBinding3, samplerBinding};
+  std::vector<wgpu::BindGroupLayoutEntry> entries = {textureBinding, textureBinding2, textureBinding3, textureBinding4, samplerBinding};
 
   wgpu::BindGroupLayoutDescriptor textureBindingLayout{};
   textureBindingLayout.entryCount = entries.size();

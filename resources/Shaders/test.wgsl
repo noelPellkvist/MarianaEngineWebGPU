@@ -28,7 +28,8 @@ struct UBO {
 @group(1) @binding(0) var albedo: texture_2d<f32>;
 @group(1) @binding(1) var normalMap: texture_2d<f32>;
 @group(1) @binding(2) var ambientO: texture_2d<f32>;
-@group(1) @binding(3) var textureSampler: sampler;
+@group(1) @binding(3) var metallicRoughness: texture_2d<f32>;  // NEW (glTF: R=AO, G=roughness, B=metallic)
+@group(1) @binding(4) var textureSampler: sampler;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -50,29 +51,102 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
     return output;
 }
 
+// ---- PBR helpers (GGX + Smith + Schlick) ----
+fn saturate(x: f32) -> f32 { return clamp(x, 0.0, 1.0); }
+fn saturate3(v: vec3f) -> vec3f { return clamp(v, vec3f(0.0), vec3f(1.0)); }
+
+fn D_GGX(N: vec3f, H: vec3f, a: f32) -> f32 {
+    let a2 = a * a;
+    let NoH = saturate(dot(N, H));
+    let d = (NoH * NoH) * (a2 - 1.0) + 1.0;
+    return a2 / (3.14159265 * d * d + 1e-7);
+}
+
+fn G_Smith_correlated(N: vec3f, V: vec3f, L: vec3f, a: f32) -> f32 {
+    let a2 = a * a;
+    let NoV = saturate(dot(N, V));
+    let NoL = saturate(dot(N, L));
+    let gv = NoV + sqrt(a2 + (1.0 - a2) * NoV * NoV);
+    let gl = NoL + sqrt(a2 + (1.0 - a2) * NoL * NoL);
+    return 1.0 / (gv * gl + 1e-7);
+}
+
+fn F_Schlick(F0: vec3f, VoH: f32) -> vec3f {
+    let f = pow(1.0 - saturate(VoH), 5.0);
+    return F0 + (1.0 - F0) * f;
+}
+
+fn tonemapACES(x: vec3f) -> vec3f {
+    // ACES fitted curve (Krzysztof Narkowicz, 2015)
+    let a = 2.51;
+    let b = 0.03;
+    let c = 2.43;
+    let d = 0.59;
+    let e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-
-    var n = textureSample(normalMap, textureSampler, input.uv).xyz;
-    n = n * 2.0 - 1.0;
-    let strength = 1.0;
-    n = normalize(mix(vec3f(0.0, 0.0, 1.0), n, strength));
-
+    // Normal mapping (tangent → world)
+    var n = textureSample(normalMap, textureSampler, input.uv).xyz * 2.0 - 1.0;
     let TBN = mat3x3<f32>(input.world_tangent, input.world_worldbittangent, input.world_normal);
     let N = normalize(TBN * n);
 
-    var albedoLinear = textureSample(albedo, textureSampler, input.uv).rgb;
-    albedoLinear = pow(albedoLinear, vec3f(2.2));
+    // Base color sRGB → linear
+    var baseColor = textureSample(albedo, textureSampler, input.uv).rgb;
+    //baseColor = pow(baseColor, vec3f(2.2));
 
+    // glTF metallicRoughness (ORM): G=roughness, B=metallic  (R=AO but we already have a separate AO)
+    let mrSample = textureSample(metallicRoughness, textureSampler, input.uv);
+    let perceptualRoughness = clamp(mrSample.g, 0.04, 1.0); // avoid 0 to keep BRDF stable
+    let metallic = clamp(mrSample.b, 0.0, 1.0);
+
+    // Ambient occlusion (keep your separate AO)
     let aoStrength = 1.0;
     let ao = textureSample(ambientO, textureSampler, input.uv).r;
     let aoTerm = mix(1.0, ao, aoStrength);
 
+    // Lighting setup
     let L = normalize(UniformBufferObject.lightDir);
+    let V = normalize(- (UniformBufferObject.view * UniformBufferObject.model * vec4f(0.0,0.0,0.0,1.0)).xyz); // simple view dir fallback
+    let H = normalize(L + V);
+    let NoL = saturate(dot(N, L));
+    let NoV = saturate(dot(N, V));
+    let VoH = saturate(dot(V, H));
 
-    let lambert = max(dot(N, L), 0.0);
-    let ambient = 0.04 * aoTerm;
-    let colorLinear = albedoLinear * (lambert + ambient);
+    // Dielectric F0 ~ 0.04, metals use baseColor as F0
+    let F0_dielectric = vec3f(0.04);
+    let F0 = mix(F0_dielectric, baseColor, metallic);
 
-    return vec4f(pow(colorLinear, vec3f(1.0/2.2)), 1.0);
+    // Microfacet params
+    let a = max(1e-3, perceptualRoughness * perceptualRoughness); // Disney mapping
+
+    // BRDF terms
+    let  D = D_GGX(N, H, a);
+    let  G = G_Smith_correlated(N, V, L, a);
+    let  F = F_Schlick(F0, VoH);
+
+    // Specular
+    let  spec = (D * G) * F / max(4.0 * NoV * NoL + 1e-7, 1e-7);
+
+    // Diffuse (energy-conserving, Lambert * (1 - metallic))
+    let kd = (1.0 - F) * (1.0 - metallic);
+    let diffuse = kd * baseColor / 3.14159265;
+
+    // Direct lighting
+    let direct = (diffuse + spec) * NoL * 1.0;
+
+    // Simple ambient term (IBL placeholder): 0.03 * ao
+    let ambient = 0.03 * aoTerm * baseColor;
+
+    let exposure = 1.5; // try 1.0–1.6 depending on tastes
+    var colorLinear = (direct + ambient) * exposure;
+    
+    // filmic tonemap in linear space
+    colorLinear = tonemapACES(colorLinear);
+    
+    // clamp and output (surface is sRGB, so no manual gamma)
+    colorLinear = saturate3(colorLinear);
+    return vec4f(colorLinear, 1.0);
 }

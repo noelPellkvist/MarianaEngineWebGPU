@@ -77,8 +77,9 @@ void Material::InitMaterial(Shader& shader, std::vector<std::string> textureName
     LoadTexture(textureNames[0]);
     LoadTexture(textureNames[1]);
     LoadTexture(textureNames[2]);
+    LoadTexture(textureNames[3]);
     LoadSampler(-1, -1 , WrapMode::REPEAT, WrapMode::REPEAT);
-    std::vector<wgpu::BindGroupEntry> bindings(4);
+    std::vector<wgpu::BindGroupEntry> bindings(5);
     bindings[0].binding = 0;
     bindings[0].textureView = textureViews[0];
 
@@ -89,7 +90,10 @@ void Material::InitMaterial(Shader& shader, std::vector<std::string> textureName
     bindings[2].textureView = textureViews[2];
 
     bindings[3].binding = 3;
-    bindings[3].sampler = samplers[0];
+    bindings[3].textureView = textureViews[3];
+
+    bindings[4].binding = 4;
+    bindings[4].sampler = samplers[0];
 
     wgpu::BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = shader.GetTextureBindGroupLayout();
