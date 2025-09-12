@@ -2,6 +2,7 @@
 #include <Init.hpp>
 #include <FileReader.hpp>
 
+
 Material::Material()
 {
 
@@ -15,7 +16,6 @@ Material::~Material()
 void Material::LoadTexture(std::string texturePath)
 {
     int width, height;
-    //""
     std::vector<uint8_t> pixels = FileReader::LoadPixelsFromImage(texturePath, width, height);
 
     wgpu::TextureDescriptor textureDesc{};
@@ -39,19 +39,6 @@ void Material::LoadTexture(std::string texturePath)
     textureViewDesc.format = textureDesc.format;
     wgpu::TextureView textureView = texture.CreateView(&textureViewDesc);
 
-
-
-    // std::vector<uint8_t> pixels(4 * textureDesc.size.width * textureDesc.size.height);
-	// for (uint32_t i = 0; i < textureDesc.size.width; ++i) {
-	// 	for (uint32_t j = 0; j < textureDesc.size.height; ++j) {
-	// 		uint8_t *p = &pixels[4 * (j * textureDesc.size.width + i)];
-	// 		p[0] = (i / 16) % 2 == (j / 16) % 2 ? 255 : 0; // r
-	// 		p[1] = ((i - j) / 16) % 2 == 0 ? 255 : 0; // g
-	// 		p[2] = ((i + j) / 16) % 2 == 0 ? 255 : 0; // b
-	// 		p[3] = 255; // a
-	// 	}
-	// }
-
     wgpu::TexelCopyTextureInfo destination;
     destination.texture = texture;
     destination.mipLevel = 0;
@@ -69,7 +56,7 @@ void Material::LoadTexture(std::string texturePath)
     textureViews.push_back(textureView);
 }
 
-void Material::LoadSampler()
+void Material::LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMode wrapT)
 {
     wgpu::SamplerDescriptor samplerDesc{};
     samplerDesc.addressModeU = wgpu::AddressMode::Repeat;
@@ -88,13 +75,21 @@ void Material::LoadSampler()
 void Material::InitMaterial(Shader& shader, std::vector<std::string> textureNames)
 {
     LoadTexture(textureNames[0]);
-    LoadSampler();
-    std::vector<wgpu::BindGroupEntry> bindings(2);
+    LoadTexture(textureNames[1]);
+    LoadTexture(textureNames[2]);
+    LoadSampler(-1, -1 , WrapMode::REPEAT, WrapMode::REPEAT);
+    std::vector<wgpu::BindGroupEntry> bindings(4);
     bindings[0].binding = 0;
     bindings[0].textureView = textureViews[0];
 
     bindings[1].binding = 1;
-    bindings[1].sampler = samplers[0];
+    bindings[1].textureView = textureViews[1];
+
+    bindings[2].binding = 2;
+    bindings[2].textureView = textureViews[2];
+
+    bindings[3].binding = 3;
+    bindings[3].sampler = samplers[0];
 
     wgpu::BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = shader.GetTextureBindGroupLayout();

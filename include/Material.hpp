@@ -4,6 +4,7 @@
 #include <string>
 
 #include <Shader.hpp>
+#include <Sampler.hpp>
 
 class Material
 {
@@ -21,5 +22,5 @@ class Material
         wgpu::BindGroup bindGroup;
 
         void LoadTexture(std::string texturePath);
-        void LoadSampler();
+        void LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMode wrapT);
 };

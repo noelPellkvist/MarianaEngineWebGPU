@@ -21,7 +21,7 @@ wgpu::Texture depthTexture;
 wgpu::TextureView depthTextureView;
 
 Window m_Window(1366, 768, "MARIANA MANNEN");
-Shader PBR_Shader(1);
+Shader PBR_Shader(2);
 Material material;
 
 
@@ -86,7 +86,7 @@ void Render() {
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
   wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
   pass.SetPipeline(PBR_Shader.GetPipeline());
-  pass.SetVertexBuffer(0, mesh16.vertexBuffer, 0, mesh16.vertexBuffer.GetSize()); //IsUINT16 
+  pass.SetVertexBuffer(0, mesh16.vertexBuffer, 0, mesh16.vertexBuffer.GetSize());
   pass.SetIndexBuffer(mesh16.indexBuffer, mesh16.IsUINT16() ? wgpu::IndexFormat::Uint16 : wgpu::IndexFormat::Uint32, 0, mesh16.indexBuffer.GetSize());
   pass.SetBindGroup(0, PBR_Shader.GetBindGroup(), 0, nullptr);
   pass.SetBindGroup(1, material.GetTextureBindGroup(), 0, nullptr);
@@ -101,7 +101,7 @@ void InitGraphics() {
   
   SetupDepthStencil();
   PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {windowFormat});
-  material.InitMaterial(PBR_Shader, {"/Textures/Default_albedo.jpg"});
+  material.InitMaterial(PBR_Shader, {"/Textures/Default_albedo.jpg", "/Textures/Default_normal.jpg", "/Textures/Default_AO.jpg"});
   mesh16.BuildMesh();
 }
 

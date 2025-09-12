@@ -15,10 +15,12 @@ struct UBO {
   glm::mat4x4 projection;
   glm::mat4x4 view;
   glm::mat4x4 model;
+  glm::mat4x4 normalMatrix;
+  glm::vec3 lightDir;
 };
 
 UBO ubo{};
-UniformLayout uboLayout(false, ubo, ubo.projection, ubo.view, ubo.model);
+UniformLayout uboLayout(false, ubo, ubo.projection, ubo.view, ubo.model, ubo.normalMatrix, ubo.lightDir);
 
 Shader::Shader(uint8_t textureCount) : NumberOfTextures(textureCount)
 {
@@ -26,35 +28,46 @@ Shader::Shader(uint8_t textureCount) : NumberOfTextures(textureCount)
 
 void Shader::WriteToUBO()
 {
-    // --- time since first call (in seconds)
     using clock = std::chrono::steady_clock;
     static const auto t0 = clock::now();
     const float t = std::chrono::duration<float>(clock::now() - t0).count();
 
-    // --- camera & projection (unchanged)
+    // --- camera & projection
     const float fovDeg = 60.0f;
     const float aspect = 16.0f / 9.0f;
     const float zNear  = 0.1f;
     const float zFar   = 100.0f;
-
     ubo.projection = glm::perspectiveLH_ZO(glm::radians(fovDeg), aspect, zNear, zFar);
 
-    const glm::vec3 eye    = {0.0f, 0.0f, 0.0f};
-    const glm::vec3 target = {0.0f, 0.0f, 1.0f}; // +Z forward
-    const glm::vec3 up     = {0.0f, 1.0f, 0.0f}; // +Y up
+    const glm::vec3 eye{0.0f, 0.0f, 0.0f};
+    const glm::vec3 target{0.0f, 0.0f, 1.0f};
+    const glm::vec3 up{0.0f, 1.0f, 0.0f};
     ubo.view = glm::lookAtLH(eye, target, up);
 
-    // --- model: translate then rotate -> spin in place at (0,1,10)
-    const glm::vec3 pos = {0.0f, 0.0f, 3.0f};
-    const float degPerSec = 45.0f;                 // tweak me
+    // --- model: no spin, just place it
+    const glm::vec3 pos{0.0f, 0.0f, 3.0f};
+    ubo.model = glm::translate(glm::mat4(1.0f), pos);
+    ubo.model = glm::rotate(ubo.model, glm::radians(135.0f), {0.0f, 1.0f, 0.0f}); // spin around +Y
+
+    // Normal matrix from model (top-left 3x3 inverse-transpose)
+    ubo.normalMatrix = glm::transpose(glm::inverse(glm::mat3(ubo.model)));
+
+    // --- rotate directional light around +Y
+    const float degPerSec = 45.0f;
     const float angle = glm::radians(degPerSec) * t;
 
-    ubo.model = glm::mat4(1.0f);
-    ubo.model = glm::translate(ubo.model, pos);    // move to position
-    ubo.model = glm::rotate(ubo.model, angle, {0.0f, 1.0f, 0.0f}); // spin around +Y
+    // Base light direction (world-space, the *direction the light points*)
+    const glm::vec3 baseDir = glm::normalize(glm::vec3(0.0f, 1.0f, -1.0f));
+
+    // Option A: rotate via matrix (w=0 for direction)
+    const glm::mat4 R = glm::rotate(glm::mat4(1.0f), angle, glm::vec3(0, 1, 0));
+    ubo.lightDir = glm::normalize(glm::vec3(R * glm::vec4(baseDir, 0.0f)));
+
+    // (In your shader you were doing L = normalize(-lightDir); keep that convention.)
 
     uboLayout.pack(ubo);
 }
+
 
 
 Shader::~Shader()
@@ -75,12 +88,24 @@ void Shader::FixTextureBindings(uint8_t NumberOfTextures)
   textureBinding.texture.sampleType = wgpu::TextureSampleType::Float;
   textureBinding.texture.viewDimension = wgpu::TextureViewDimension::e2D;
 
+  textureBinding2 = {};
+  textureBinding2.binding = 1;
+  textureBinding2.visibility = wgpu::ShaderStage::Fragment;
+  textureBinding2.texture.sampleType = wgpu::TextureSampleType::Float;
+  textureBinding2.texture.viewDimension = wgpu::TextureViewDimension::e2D;
+
+  textureBinding3 = {};
+  textureBinding3.binding = 2;
+  textureBinding3.visibility = wgpu::ShaderStage::Fragment;
+  textureBinding3.texture.sampleType = wgpu::TextureSampleType::Float;
+  textureBinding3.texture.viewDimension = wgpu::TextureViewDimension::e2D;
+
   samplerBinding = {};
-  samplerBinding.binding = 1;
+  samplerBinding.binding = 3;
   samplerBinding.visibility = wgpu::ShaderStage::Fragment;
   samplerBinding.sampler.type = wgpu::SamplerBindingType::Filtering;
 
-  std::vector<wgpu::BindGroupLayoutEntry> entries = {textureBinding, samplerBinding};
+  std::vector<wgpu::BindGroupLayoutEntry> entries = {textureBinding, textureBinding2, textureBinding3, samplerBinding};
 
   wgpu::BindGroupLayoutDescriptor textureBindingLayout{};
   textureBindingLayout.entryCount = entries.size();
