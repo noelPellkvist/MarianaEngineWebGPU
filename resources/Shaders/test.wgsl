@@ -11,8 +11,9 @@ struct VertexOutput {
     @builtin(position) position: vec4f,
     @location(0) world_normal: vec3f,
     @location(1) world_tangent: vec3f,
-    @location(2) world_worldbittangent: vec3f,
+    @location(2) world_bitangent: vec3f,
     @location(3) uv: vec2f,
+    @location(4) world_pos: vec3f,
 };
 
 struct UBO {
@@ -21,6 +22,7 @@ struct UBO {
   model: mat4x4<f32>,
   normalMatrix: mat4x4<f32>,
   lightDir: vec3f,
+  cameraPos: vec3f
 };
 
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
@@ -34,19 +36,24 @@ struct UBO {
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
     var output: VertexOutput;
+
+    let world_pos4 = UniformBufferObject.model * vec4f(input.position, 1.0);
+    output.world_pos = world_pos4.xyz;
+
     let mvp = UniformBufferObject.projection * UniformBufferObject.view * UniformBufferObject.model;
     output.position = mvp * vec4f(input.position, 1.0);
 
+    // If your normalMatrix is inverse-transpose(model), you can safely use it for N & T rotation
     let Nw_raw = (UniformBufferObject.normalMatrix * vec4f(input.normal, 0.0)).xyz;
-    let Tw_raw = (UniformBufferObject.model        * vec4f(input.tangent.xyz, 0.0)).xyz;
+    let Tw_raw = (UniformBufferObject.normalMatrix * vec4f(input.tangent.xyz, 0.0)).xyz;
 
     let Nw = normalize(Nw_raw);
     let Tn = normalize(Tw_raw - Nw * dot(Tw_raw, Nw));
-    let Bw = normalize(cross(Nw, Tn)) * input.tangent.w;
+    let Bw = normalize(cross(Nw, Tn)) * input.tangent.w; // handedness in .w
 
-    output.world_normal = Nw;
+    output.world_normal  = Nw;
     output.world_tangent = Tn;
-    output.world_worldbittangent = Bw;
+    output.world_bitangent = Bw;
     output.uv = input.texcoord0;
     return output;
 }
@@ -90,7 +97,7 @@ fn tonemapACES(x: vec3f) -> vec3f {
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     // Normal mapping (tangent → world)
     var n = textureSample(normalMap, textureSampler, input.uv).xyz * 2.0 - 1.0;
-    let TBN = mat3x3<f32>(input.world_tangent, input.world_worldbittangent, input.world_normal);
+    let TBN = mat3x3<f32>(input.world_tangent, input.world_bitangent, input.world_normal);
     let N = normalize(TBN * n);
 
     // Base color sRGB → linear
@@ -109,7 +116,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 
     // Lighting setup
     let L = normalize(UniformBufferObject.lightDir);
-    let V = normalize(- (UniformBufferObject.view * UniformBufferObject.model * vec4f(0.0,0.0,0.0,1.0)).xyz); // simple view dir fallback
+    let V = normalize(UniformBufferObject.cameraPos - input.world_pos);
     let H = normalize(L + V);
     let NoL = saturate(dot(N, L));
     let NoV = saturate(dot(N, V));

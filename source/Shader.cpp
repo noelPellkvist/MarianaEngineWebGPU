@@ -17,16 +17,17 @@ struct UBO {
   glm::mat4x4 model;
   glm::mat4x4 normalMatrix;
   glm::vec3 lightDir;
+  glm::vec3 cameraPos;
 };
 
 UBO ubo{};
-UniformLayout uboLayout(false, ubo, ubo.projection, ubo.view, ubo.model, ubo.normalMatrix, ubo.lightDir);
+UniformLayout uboLayout(false, ubo, ubo.projection, ubo.view, ubo.model, ubo.normalMatrix, ubo.lightDir, ubo.cameraPos);
 
 Shader::Shader(uint8_t textureCount) : NumberOfTextures(textureCount)
 {
 }
 
-void Shader::WriteToUBO()
+void Shader::WriteToUBO(glm::mat4 view, glm::vec3 cameraPos)
 {
     using clock = std::chrono::steady_clock;
     static const auto t0 = clock::now();
@@ -39,10 +40,11 @@ void Shader::WriteToUBO()
     const float zFar   = 100.0f;
     ubo.projection = glm::perspectiveLH_ZO(glm::radians(fovDeg), aspect, zNear, zFar);
 
-    const glm::vec3 eye{0.0f, 0.0f, 0.0f};
-    const glm::vec3 target{0.0f, 0.0f, 1.0f};
-    const glm::vec3 up{0.0f, 1.0f, 0.0f};
-    ubo.view = glm::lookAtLH(eye, target, up);
+    // const glm::vec3 eye{0.0f, 0.0f, 0.0f};
+    // const glm::vec3 target{0.0f, 0.0f, 1.0f};
+    // const glm::vec3 up{0.0f, 1.0f, 0.0f};
+    //ubo.view = glm::lookAtLH(eye, target, up);
+    ubo.view = view;
 
     // --- model: spin around +Y
     const glm::vec3 pos{0.0f, -0.75f, 3.0f};
@@ -57,6 +59,8 @@ void Shader::WriteToUBO()
 
     // --- light: fixed direction
     ubo.lightDir = glm::normalize(glm::vec3(1.0f, 0.5f, -1.0f));
+
+    ubo.cameraPos = cameraPos;
 
     // (In your shader you were doing L = normalize(-lightDir); keep that convention.)
 
@@ -117,7 +121,6 @@ void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat>
 {
     FixTextureBindings(NumberOfTextures);
     uboLayout.Init();
-    WriteToUBO();
     GLTF::Vertex v{};
     VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
 

@@ -7,15 +7,25 @@
 #include <dawn/webgpu_cpp_print.h>
 #include <webgpu/webgpu_cpp.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp> 
+#include <glm/ext/matrix_clip_space.hpp>
+
+#include <chrono>
+
 #include <Init.hpp>
 #include <Window.hpp>
 #include <Shader.hpp>
 #include <Mesh.hpp>
 #include <FileReader.hpp>
-#include <moved_later/OBJLoader.hpp>
 #include <UniformLayout.hpp>
 #include <Material.hpp>
+#include <Logger.hpp>
+
+#include <moved_later/OBJLoader.hpp>
 #include <moved_later/GLTFLoader.hpp>
+#include <moved_later/IInput.hpp>
+#include <moved_later/EditorCameraController.hpp>
 
 wgpu::Texture depthTexture;
 wgpu::TextureView depthTextureView;
@@ -24,8 +34,11 @@ wgpu::Texture mssaTexture;
 wgpu::TextureView mssaTextureView;
 
 Window m_Window(1366, 768, "MARIANA MANNEN");
-Shader PBR_Shader(2);
+Shader PBR_Shader(5);
 Material material;
+
+IInput input(m_Window.GetWindow());
+EditorCameraController cam(input);
 
 
 
@@ -71,7 +84,6 @@ void SetupMSSA()
 }
 
 void Render() {
-  PBR_Shader.WriteToUBO();
 
   wgpu::SurfaceTexture surfaceTexture;
   surface.GetCurrentTexture(&surfaceTexture);
@@ -122,19 +134,55 @@ void InitGraphics() {
   mesh16.BuildMesh();
 }
 
+void Update()
+{
+  using clock = std::chrono::high_resolution_clock;
+
+  static auto lastTime = clock::now();
+  auto now = clock::now();
+  std::chrono::duration<float> elapsed = now - lastTime;
+  float dt = elapsed.count();       // seconds
+  lastTime = now;
+
+  cam.Update(dt);
+  PBR_Shader.WriteToUBO(cam.View(), cam.Position());
+
+  Render();
+
+  input.Update();
+}
+
 void Start() {
+  glm::vec3 eye    = {0.0f, 0.0f, 0.0f};
+  glm::vec3 target = {0.0f, 0.0f, 1.0f};
+
+  cam.SetPosition(eye);
+  cam.SetYawPitch(glm::half_pi<float>(), 0.0f);
+
+  // const glm::vec3 eye{0.0f, 0.0f, 0.0f};
+  // const glm::vec3 target{0.0f, 0.0f, 1.0f};
+  // const glm::vec3 up{0.0f, 1.0f, 0.0f};
+  // glm::mat4 ViewMatrix = glm::lookAtLH(eye, target, up);
+
   m_Window.GetSurface();
 
   InitGraphics();
 
 #if defined(__EMSCRIPTEN__)
-  emscripten_set_main_loop(Render, 0, false);
+  emscripten_set_main_loop(Update, 0, false);
 #else
+
+
+
   while (!m_Window.ShouldClose()) {
+
     
-    Render();
+    Update();
+    
     surface.Present();
     instance.ProcessEvents();
+
+    
   }
 #endif
 }

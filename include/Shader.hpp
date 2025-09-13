@@ -2,6 +2,7 @@
 #include <webgpu/webgpu_cpp.h>
 #include <string>
 #include <unordered_map>
+#include <glm/glm.hpp>
 
 class Shader
 {
@@ -16,7 +17,7 @@ class Shader
 
         wgpu::BindGroupLayout& GetTextureBindGroupLayout() { return textureBindgroupLayout; }
 
-        void WriteToUBO();
+        void WriteToUBO(glm::mat4 view, glm::vec3 cameraPos);
 
     private:
         wgpu::RenderPipeline m_Pipeline;
