@@ -27,6 +27,7 @@ class Shader
         wgpu::BindGroupLayoutEntry textureBinding2{};
         wgpu::BindGroupLayoutEntry textureBinding3{};
         wgpu::BindGroupLayoutEntry textureBinding4{};
+        wgpu::BindGroupLayoutEntry textureBinding5{};
         wgpu::BindGroupLayoutEntry samplerBinding{};
         wgpu::BindGroupLayout textureBindgroupLayout{};
 

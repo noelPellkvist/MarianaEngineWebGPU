@@ -30,8 +30,9 @@ struct UBO {
 @group(1) @binding(0) var albedo: texture_2d<f32>;
 @group(1) @binding(1) var normalMap: texture_2d<f32>;
 @group(1) @binding(2) var ambientO: texture_2d<f32>;
-@group(1) @binding(3) var metallicRoughness: texture_2d<f32>;  // NEW (glTF: R=AO, G=roughness, B=metallic)
-@group(1) @binding(4) var textureSampler: sampler;
+@group(1) @binding(3) var metallicRoughness: texture_2d<f32>;  
+@group(1) @binding(4) var emissiveTex: texture_2d<f32>;  
+@group(1) @binding(5) var textureSampler: sampler;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -148,7 +149,12 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let ambient = 0.03 * aoTerm * baseColor;
 
     let exposure = 2.0;
-    var colorLinear = (direct + ambient) * exposure;
+
+    var emmisiveTexture = textureSample(emissiveTex, textureSampler, input.uv).rgb;
+    emmisiveTexture = pow(emmisiveTexture, vec3f(2.2));
+    //Here I do have to apply factor and intensity
+
+    var colorLinear = (direct + ambient + emmisiveTexture) * exposure;
     
     // filmic tonemap in linear space
     colorLinear = tonemapACES(colorLinear);

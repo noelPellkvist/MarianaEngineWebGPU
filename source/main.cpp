@@ -130,7 +130,7 @@ void InitGraphics() {
   SetupDepthStencil();
   SetupMSSA();
   PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {windowFormat});
-  material.InitMaterial(PBR_Shader, {"/Textures/Default_albedo.jpg", "/Textures/Default_normal.jpg", "/Textures/Default_AO.jpg", "/Textures/Default_metalRoughness.jpg"});
+  material.InitMaterial(PBR_Shader, {"/Textures/Default_albedo.jpg", "/Textures/Default_normal.jpg", "/Textures/Default_AO.jpg", "/Textures/Default_metalRoughness.jpg", "/Textures/Default_emissive.jpg"});
   mesh16.BuildMesh();
 }
 
@@ -158,11 +158,6 @@ void Start() {
 
   cam.SetPosition(eye);
   cam.SetYawPitch(glm::half_pi<float>(), 0.0f);
-
-  // const glm::vec3 eye{0.0f, 0.0f, 0.0f};
-  // const glm::vec3 target{0.0f, 0.0f, 1.0f};
-  // const glm::vec3 up{0.0f, 1.0f, 0.0f};
-  // glm::mat4 ViewMatrix = glm::lookAtLH(eye, target, up);
 
   m_Window.GetSurface();
 
