@@ -20,6 +20,9 @@
 wgpu::Texture depthTexture;
 wgpu::TextureView depthTextureView;
 
+wgpu::Texture mssaTexture;
+wgpu::TextureView mssaTextureView;
+
 Window m_Window(1366, 768, "MARIANA MANNEN");
 Shader PBR_Shader(2);
 Material material;
@@ -37,11 +40,9 @@ void SetupDepthStencil()
   depthTextureDesc.dimension = wgpu::TextureDimension::e2D;
   depthTextureDesc.format = wgpu::TextureFormat::Depth24Plus;
   depthTextureDesc.mipLevelCount = 1;
-  depthTextureDesc.sampleCount = 1;
+  depthTextureDesc.sampleCount = 4;
   depthTextureDesc.size = {m_Window.GetWidth(), m_Window.GetHeight(), 1};
   depthTextureDesc.usage = wgpu::TextureUsage::RenderAttachment;
-  depthTextureDesc.viewFormatCount = 1;
-  depthTextureDesc.viewFormats = &depthTextureFormat;
   depthTexture = device.CreateTexture(&depthTextureDesc);
 
   wgpu::TextureViewDescriptor depthTextureViewDesc;
@@ -55,6 +56,20 @@ void SetupDepthStencil()
   depthTextureView = depthTexture.CreateView(&depthTextureViewDesc);
 }
 
+void SetupMSSA()
+{
+  wgpu::TextureDescriptor mssaDesc;
+  mssaDesc.dimension = wgpu::TextureDimension::e2D;
+  mssaDesc.format = windowFormat;
+  mssaDesc.mipLevelCount = 1;
+  mssaDesc.sampleCount = 4;
+  mssaDesc.size = {m_Window.GetWidth(), m_Window.GetHeight(), 1};
+  mssaDesc.usage = wgpu::TextureUsage::RenderAttachment;
+  mssaTexture = device.CreateTexture(&mssaDesc);
+
+  mssaTextureView = mssaTexture.CreateView();
+}
+
 void Render() {
   PBR_Shader.WriteToUBO();
 
@@ -62,7 +77,8 @@ void Render() {
   surface.GetCurrentTexture(&surfaceTexture);
 
   wgpu::RenderPassColorAttachment attachment{
-      .view = surfaceTexture.texture.CreateView(),
+      .view = mssaTextureView,
+      .resolveTarget = surfaceTexture.texture.CreateView(),
       .loadOp = wgpu::LoadOp::Clear,
       .storeOp = wgpu::StoreOp::Store};
 
@@ -100,6 +116,7 @@ void InitGraphics() {
   
   
   SetupDepthStencil();
+  SetupMSSA();
   PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {windowFormat});
   material.InitMaterial(PBR_Shader, {"/Textures/Default_albedo.jpg", "/Textures/Default_normal.jpg", "/Textures/Default_AO.jpg", "/Textures/Default_metalRoughness.jpg"});
   mesh16.BuildMesh();

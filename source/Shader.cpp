@@ -156,6 +156,11 @@ void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat>
                                                   .buffers = &vertexLayout.vertexBufferLayout
                                                 },
                                              .depthStencil = &depthStencilState,
+                                             .multisample = {
+                                                .count = 4,
+                                                .mask = ~0u,
+                                                .alphaToCoverageEnabled = false
+                                             },
                                              .fragment = &fragmentState};
 
     m_Pipeline = device.CreateRenderPipeline(&descriptor);

@@ -140,7 +140,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     // Simple ambient term (IBL placeholder): 0.03 * ao
     let ambient = 0.03 * aoTerm * baseColor;
 
-    let exposure = 1.5; // try 1.0–1.6 depending on tastes
+    let exposure = 2.0;
     var colorLinear = (direct + ambient) * exposure;
     
     // filmic tonemap in linear space
