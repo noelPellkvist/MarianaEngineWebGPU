@@ -30,7 +30,6 @@ add_library(imgui STATIC
     external/imgui/imgui_draw.cpp
     external/imgui/imgui_tables.cpp
     external/imgui/imgui_widgets.cpp
-    external/imgui/imgui_demo.cpp         # ✅ include demo window
 )
 
 target_include_directories(imgui PUBLIC

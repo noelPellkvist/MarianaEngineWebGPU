@@ -55,9 +55,12 @@ void Window::ToggleFullscreen()
 void Window::GetSurface()
 {
     if(!surface)
+    {
         surface = wgpu::glfw::CreateSurfaceForWindow(instance, m_Window);
+    }    
+    else 
+        surface.Unconfigure();
     
-    surface.Unconfigure();
 
     int fbWidth = 0, fbHeight = 0;
     glfwGetFramebufferSize(m_Window, &fbWidth, &fbHeight);

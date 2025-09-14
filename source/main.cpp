@@ -26,6 +26,7 @@
 #include <moved_later/GLTFLoader.hpp>
 #include <moved_later/IInput.hpp>
 #include <moved_later/EditorCameraController.hpp>
+#include <moved_later/GUI.hpp>
 
 wgpu::Texture depthTexture;
 wgpu::TextureView depthTextureView;
@@ -39,6 +40,7 @@ Material material;
 
 IInput input(m_Window.GetWindow());
 EditorCameraController cam(input);
+GUI gui;
 
 
 
@@ -125,6 +127,8 @@ void Render() {
   pass.SetBindGroup(0, PBR_Shader.GetBindGroup(), 0, nullptr);
   pass.SetBindGroup(1, material.GetTextureBindGroup(), 0, nullptr);
   pass.DrawIndexed(mesh16.IndexCount(), 1, 0, 0, 0);
+
+  gui.UpdateGUI(pass);
   pass.End();
   wgpu::CommandBuffer commands = encoder.Finish();
   device.GetQueue().Submit(1, &commands);
@@ -181,6 +185,8 @@ void Start() {
 
   InitGraphics();
 
+  gui.InitGui(m_Window);
+
 #if defined(__EMSCRIPTEN__)
   emscripten_set_main_loop(Update, 0, false);
 #else
@@ -203,4 +209,5 @@ void Start() {
 int main() {
   Init();
   Start();
+  gui.KillGui();
 }

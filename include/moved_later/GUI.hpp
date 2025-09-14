@@ -1,5 +1,6 @@
 #pragma once
 #include <webgpu/webgpu_cpp.h>
+#include <Window.hpp>
 
 class GUI
 {
@@ -7,7 +8,7 @@ class GUI
         GUI();
         ~GUI();
 
-        void InitGui();
+        void InitGui(Window& window);
         void UpdateGUI(wgpu::RenderPassEncoder renderPass);
         void KillGui();
 };
