@@ -47,6 +47,9 @@ Mesh<GLTF::Vertex, uint32_t> mesh16 = GLTF::GLTFLoader::LoadFromFile(std::string
 
 void SetupDepthStencil()
 {
+  depthTexture = nullptr;
+  depthTextureView = nullptr;
+
   wgpu::TextureFormat depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
 
   wgpu::TextureDescriptor depthTextureDesc;
@@ -71,6 +74,9 @@ void SetupDepthStencil()
 
 void SetupMSSA()
 {
+  mssaTexture = nullptr;
+  mssaTextureView = nullptr;
+
   wgpu::TextureDescriptor mssaDesc;
   mssaDesc.dimension = wgpu::TextureDimension::e2D;
   mssaDesc.format = windowFormat;
@@ -136,6 +142,7 @@ void InitGraphics() {
 
 void Update()
 {
+
   using clock = std::chrono::high_resolution_clock;
 
   static auto lastTime = clock::now();
@@ -143,9 +150,20 @@ void Update()
   std::chrono::duration<float> elapsed = now - lastTime;
   float dt = elapsed.count();       // seconds
   lastTime = now;
+  
+  float aspect = static_cast<float>(m_Window.GetWidth()) /
+               static_cast<float>(m_Window.GetHeight());
 
   cam.Update(dt);
-  PBR_Shader.WriteToUBO(cam.View(), cam.Position());
+  PBR_Shader.WriteToUBO(cam.View(), cam.Position(), aspect);
+
+  if(input.IsKeyPressed(Key::F11))
+  {
+    m_Window.ToggleFullscreen();
+    m_Window.GetSurface();
+    SetupDepthStencil();
+    SetupMSSA();
+  }
 
   Render();
 

@@ -12,6 +12,7 @@ class Window {
         void GetSurface();
 
         bool ShouldClose();
+        void ToggleFullscreen();
 
         const uint32_t GetHeight() { return m_Height; }
         const uint32_t GetWidth() { return m_Width; }
@@ -23,4 +24,11 @@ class Window {
         uint32_t m_Height;
         std::string m_Title;
         GLFWwindow* m_Window;
+
+        bool m_IsFullscreen = false;
+
+        int m_WindowPosX = 0;
+        int m_WindowPosY = 0;
+        int m_WindowWidth = 0;
+        int m_WindowHeight = 0;
 };

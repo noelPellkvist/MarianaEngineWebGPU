@@ -27,7 +27,7 @@ Shader::Shader(uint8_t textureCount) : NumberOfTextures(textureCount)
 {
 }
 
-void Shader::WriteToUBO(glm::mat4 view, glm::vec3 cameraPos)
+void Shader::WriteToUBO(glm::mat4 view, glm::vec3 cameraPos, float aspect)
 {
     using clock = std::chrono::steady_clock;
     static const auto t0 = clock::now();
@@ -35,7 +35,6 @@ void Shader::WriteToUBO(glm::mat4 view, glm::vec3 cameraPos)
 
     // --- camera & projection
     const float fovDeg = 60.0f;
-    const float aspect = 16.0f / 9.0f;
     const float zNear  = 0.1f;
     const float zFar   = 100.0f;
     ubo.projection = glm::perspectiveLH_ZO(glm::radians(fovDeg), aspect, zNear, zFar);

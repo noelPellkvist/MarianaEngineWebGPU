@@ -21,9 +21,49 @@ Window::~Window()
     glfwTerminate();
 }
 
+void Window::ToggleFullscreen()
+{
+    m_IsFullscreen = !m_IsFullscreen;
+
+    if (m_IsFullscreen)
+    {
+        // Save windowed position & size
+        glfwGetWindowPos(m_Window, &m_WindowPosX, &m_WindowPosY);
+        glfwGetWindowSize(m_Window, &m_WindowWidth, &m_WindowHeight);
+
+        // Get primary monitor
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+        // Go fullscreen
+        glfwSetWindowMonitor(m_Window, monitor,
+                             0, 0, 
+                             mode->width, mode->height,
+                             mode->refreshRate);
+    }
+    else
+    {
+        // Restore windowed mode
+        glfwSetWindowMonitor(m_Window, nullptr,
+                             m_WindowPosX, m_WindowPosY,
+                             m_WindowWidth, m_WindowHeight,
+                             0); // 0 = let GLFW pick refresh rate
+    }
+}
+
+
 void Window::GetSurface()
 {
-    surface = wgpu::glfw::CreateSurfaceForWindow(instance, m_Window);
+    if(!surface)
+        surface = wgpu::glfw::CreateSurfaceForWindow(instance, m_Window);
+    
+    surface.Unconfigure();
+
+    int fbWidth = 0, fbHeight = 0;
+    glfwGetFramebufferSize(m_Window, &fbWidth, &fbHeight);
+
+    m_Width  = static_cast<uint32_t>(fbWidth);
+    m_Height = static_cast<uint32_t>(fbHeight);
     
     wgpu::SurfaceCapabilities capabilities;
     surface.GetCapabilities(adapter, &capabilities);

@@ -12,52 +12,64 @@ target_compile_definitions(app PRIVATE
     RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources"
 )
 
-target_include_directories(app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/external/Loaders")
+target_include_directories(app PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/Loaders"
+)
 
+# glm
 add_subdirectory(external/glm)
 target_link_libraries(app PRIVATE glm::glm)
 
-# Dawn
+# --- ImGui ---
+add_library(imgui STATIC
+    external/imgui/backends/imgui_impl_wgpu.cpp
+    external/imgui/backends/imgui_impl_glfw.cpp
+    external/imgui/misc/cpp/imgui_stdlib.cpp
+    external/imgui/imgui.cpp
+    external/imgui/imgui_draw.cpp
+    external/imgui/imgui_tables.cpp
+    external/imgui/imgui_widgets.cpp
+    external/imgui/imgui_demo.cpp         # ✅ include demo window
+)
+
+target_include_directories(imgui PUBLIC
+    external/imgui
+    external/imgui/backends
+    external/imgui/misc/cpp
+)
+
+# --- Dawn ---
 set(DAWN_FETCH_DEPENDENCIES ON)
 set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC)
 add_subdirectory("dawn" EXCLUDE_FROM_ALL)
 
 if(EMSCRIPTEN)
-  # --- Output: index.html using our custom shell ---
+  # Output: index.html using our custom shell
   set_target_properties(app PROPERTIES
     OUTPUT_NAME "index"
     SUFFIX ".html"
-    LINK_DEPENDS "${CMAKE_SOURCE_DIR}/shell_modern.html"  # rebuild when shell changes
+    LINK_DEPENDS "${CMAKE_SOURCE_DIR}/shell_modern.html"
   )
 
-  # Dawn + GLFW (from your existing subdirs)
+  # Link Dawn + ImGui explicitly
+  target_link_libraries(imgui PUBLIC emdawnwebgpu_cpp webgpu_glfw)
   target_link_libraries(app PRIVATE emdawnwebgpu_cpp webgpu_glfw)
 
-  # Compiler flags (keep linker-only -s flags out of here)
-  target_compile_options(app PRIVATE
-    "SHELL:-fexceptions"
-  )
+  # Compiler flags
+  target_compile_options(app PRIVATE "SHELL:-fexceptions")
 
   # Linker flags
   target_link_options(app PRIVATE
     "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/shell_modern.html"
-
-    # Memory & runtime
     "SHELL:-sALLOW_MEMORY_GROWTH=1"
     "SHELL:-sINITIAL_MEMORY=67108864"
     "SHELL:-sEXCEPTION_CATCHING_ALLOWED=['*']"
     "SHELL:-sASSERTIONS=1"
     "-sASYNCIFY=1"
-
-    # GLFW JS glue
     "-sUSE_GLFW=3"
-
-    # Virtual FS + resources
     "SHELL:-sFORCE_FILESYSTEM=1"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/resources"
-
-    # IMPORTANT: Do NOT use -sUSE_WEBGPU when using Dawn's JS libraries.
-    # (They’re already provided via emdawnwebgpu and will conflict with -sUSE_WEBGPU)
   )
 
   # Copy branding next to index.html
@@ -68,6 +80,11 @@ if(EMSCRIPTEN)
     VERBATIM
   )
 else()
+  # Link Dawn + GLFW explicitly
+  target_link_libraries(imgui PUBLIC webgpu_dawn webgpu_glfw glfw)
   target_link_libraries(app PRIVATE webgpu_dawn webgpu_glfw glfw)
 endif()
 
+# Finally, app depends on imgui
+target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
+target_link_libraries(app PRIVATE imgui)
