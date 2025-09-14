@@ -81,10 +81,10 @@ if(EMSCRIPTEN)
   )
 else()
   # Link Dawn + GLFW explicitly
+  target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
   target_link_libraries(imgui PUBLIC webgpu_dawn webgpu_glfw glfw)
   target_link_libraries(app PRIVATE webgpu_dawn webgpu_glfw glfw)
 endif()
 
 # Finally, app depends on imgui
-target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
 target_link_libraries(app PRIVATE imgui)
