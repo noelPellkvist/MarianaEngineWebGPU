@@ -28,6 +28,8 @@
 #include <moved_later/EditorCameraController.hpp>
 #include <moved_later/GUI.hpp>
 
+#include <ECS.hpp>
+
 wgpu::Texture depthTexture;
 wgpu::TextureView depthTextureView;
 
@@ -206,7 +208,22 @@ void Start() {
 #endif
 }
 
+struct Tag {};
+
 int main() {
+
+  Scene scene;
+
+  auto root   = scene.Instantiate("Root");
+  auto objec   = scene.Instantiate("child").SetParent(root);
+
+  scene.ForEachChild(root, [](Entity c)
+  {
+    Logger::Info(c.GetName());
+  });
+
+  scene.Update(0.f);
+
   Init();
   Start();
   gui.KillGui();

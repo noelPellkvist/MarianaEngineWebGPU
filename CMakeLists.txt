@@ -2,6 +2,21 @@ cmake_minimum_required(VERSION 3.22)
 project(app)
 set(CMAKE_CXX_STANDARD 20)
 
+include(FetchContent)
+
+set(FLECS_STATIC ON  CACHE BOOL "" FORCE)
+set(FLECS_SHARED OFF CACHE BOOL "" FORCE)
+set(FLECS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(FLECS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+  flecs
+  GIT_REPOSITORY https://github.com/SanderMertens/flecs.git
+  GIT_TAG v4.1.1
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(flecs)
+
 file(GLOB_RECURSE APP_SOURCES
      CONFIGURE_DEPENDS
      "${CMAKE_CURRENT_SOURCE_DIR}/source/*.cpp")
@@ -16,6 +31,8 @@ target_include_directories(app PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/Loaders"
 )
+
+target_link_libraries(app PRIVATE flecs::flecs_static)
 
 # glm
 add_subdirectory(external/glm)
