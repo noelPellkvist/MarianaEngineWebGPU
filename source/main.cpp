@@ -22,6 +22,8 @@
 #include <Material.hpp>
 #include <Logger.hpp>
 
+#include <Renderpass.hpp>
+
 #include <moved_later/OBJLoader.hpp>
 #include <moved_later/GLTFLoader.hpp>
 #include <moved_later/IInput.hpp>
@@ -30,13 +32,8 @@
 
 #include <ECS.hpp>
 
-wgpu::Texture depthTexture;
-wgpu::TextureView depthTextureView;
-
-wgpu::Texture mssaTexture;
-wgpu::TextureView mssaTextureView;
-
 Window m_Window(1366, 768, "MARIANA MANNEN");
+Renderpass renderpass(true, true, windowFormat, m_Window.GetWidth(), m_Window.GetHeight());
 Shader PBR_Shader(5);
 Material material;
 
@@ -44,54 +41,7 @@ IInput input(m_Window.GetWindow());
 EditorCameraController cam(input);
 GUI gui;
 
-
-
-//Mesh<Vertex, uint32_t> mesh16 = LoadOBJMesh(std::string(RESOURCE_DIR) + "/Models/viking_room.obj");
 Mesh<GLTF::Vertex, uint32_t> mesh16 = GLTF::GLTFLoader::LoadFromFile(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb");
-
-void SetupDepthStencil()
-{
-  depthTexture = nullptr;
-  depthTextureView = nullptr;
-
-  wgpu::TextureFormat depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
-
-  wgpu::TextureDescriptor depthTextureDesc;
-  depthTextureDesc.dimension = wgpu::TextureDimension::e2D;
-  depthTextureDesc.format = wgpu::TextureFormat::Depth24Plus;
-  depthTextureDesc.mipLevelCount = 1;
-  depthTextureDesc.sampleCount = 4;
-  depthTextureDesc.size = {m_Window.GetWidth(), m_Window.GetHeight(), 1};
-  depthTextureDesc.usage = wgpu::TextureUsage::RenderAttachment;
-  depthTexture = device.CreateTexture(&depthTextureDesc);
-
-  wgpu::TextureViewDescriptor depthTextureViewDesc;
-  depthTextureViewDesc.aspect = wgpu::TextureAspect::DepthOnly;
-  depthTextureViewDesc.baseArrayLayer = 0;
-  depthTextureViewDesc.arrayLayerCount = 1;
-  depthTextureViewDesc.baseMipLevel = 0;
-  depthTextureViewDesc.mipLevelCount = 1;
-  depthTextureViewDesc.dimension = wgpu::TextureViewDimension::e2D;
-  depthTextureViewDesc.format = depthTextureFormat;
-  depthTextureView = depthTexture.CreateView(&depthTextureViewDesc);
-}
-
-void SetupMSSA()
-{
-  mssaTexture = nullptr;
-  mssaTextureView = nullptr;
-
-  wgpu::TextureDescriptor mssaDesc;
-  mssaDesc.dimension = wgpu::TextureDimension::e2D;
-  mssaDesc.format = windowFormat;
-  mssaDesc.mipLevelCount = 1;
-  mssaDesc.sampleCount = 4;
-  mssaDesc.size = {m_Window.GetWidth(), m_Window.GetHeight(), 1};
-  mssaDesc.usage = wgpu::TextureUsage::RenderAttachment;
-  mssaTexture = device.CreateTexture(&mssaDesc);
-
-  mssaTextureView = mssaTexture.CreateView();
-}
 
 void Render() {
 
@@ -99,30 +49,18 @@ void Render() {
   surface.GetCurrentTexture(&surfaceTexture);
 
   wgpu::RenderPassColorAttachment attachment{
-      .view = mssaTextureView,
+      .view = renderpass.GetMSSATextureView(),
       .resolveTarget = surfaceTexture.texture.CreateView(),
       .loadOp = wgpu::LoadOp::Clear,
       .storeOp = wgpu::StoreOp::Store};
 
-  wgpu::RenderPassDepthStencilAttachment depthStencilAttachment;
-  depthStencilAttachment.view = depthTextureView;
-  depthStencilAttachment.depthClearValue = 1.0f;
-  depthStencilAttachment.depthLoadOp = wgpu::LoadOp::Clear;
-  depthStencilAttachment.depthStoreOp = wgpu::StoreOp::Store;
-  depthStencilAttachment.depthReadOnly = false;
 
-  depthStencilAttachment.stencilClearValue = 0;
-  depthStencilAttachment.stencilLoadOp = wgpu::LoadOp::Undefined;
-  depthStencilAttachment.stencilStoreOp = wgpu::StoreOp::Undefined;
-  depthStencilAttachment.stencilReadOnly = true;
-
-
-  wgpu::RenderPassDescriptor renderpass{.colorAttachmentCount = 1,
+  wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = 1,
                                         .colorAttachments = &attachment,
-                                        .depthStencilAttachment = &depthStencilAttachment};
+                                        .depthStencilAttachment = renderpass.GetDepthStencilAttachment()};
 
   wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
-  wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
+  wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpassDesc);
   pass.SetPipeline(PBR_Shader.GetPipeline());
   pass.SetVertexBuffer(0, mesh16.vertexBuffer, 0, mesh16.vertexBuffer.GetSize());
   pass.SetIndexBuffer(mesh16.indexBuffer, mesh16.IsUINT16() ? wgpu::IndexFormat::Uint16 : wgpu::IndexFormat::Uint32, 0, mesh16.indexBuffer.GetSize());
@@ -137,10 +75,7 @@ void Render() {
 }
 
 void InitGraphics() {
-  
-  
-  SetupDepthStencil();
-  SetupMSSA();
+  renderpass.Init();
   PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {windowFormat});
   material.InitMaterial(PBR_Shader, {"/Textures/Default_albedo.jpg", "/Textures/Default_normal.jpg", "/Textures/Default_AO.jpg", "/Textures/Default_metalRoughness.jpg", "/Textures/Default_emissive.jpg"});
   mesh16.BuildMesh();
@@ -154,7 +89,7 @@ void Update()
   static auto lastTime = clock::now();
   auto now = clock::now();
   std::chrono::duration<float> elapsed = now - lastTime;
-  float dt = elapsed.count();       // seconds
+  float dt = elapsed.count();
   lastTime = now;
   
   float aspect = static_cast<float>(m_Window.GetWidth()) /
@@ -167,8 +102,7 @@ void Update()
   {
     m_Window.ToggleFullscreen();
     m_Window.GetSurface();
-    SetupDepthStencil();
-    SetupMSSA();
+    renderpass.Recreate(m_Window.GetWidth(), m_Window.GetHeight());
   }
 
   Render();
@@ -192,9 +126,6 @@ void Start() {
 #if defined(__EMSCRIPTEN__)
   emscripten_set_main_loop(Update, 0, false);
 #else
-
-
-
   while (!m_Window.ShouldClose()) {
 
     
@@ -208,18 +139,18 @@ void Start() {
 #endif
 }
 
-struct Tag {};
-
 int main() {
 
   Scene scene;
 
   auto root   = scene.Instantiate("Root");
-  auto objec   = scene.Instantiate("child").SetParent(root);
+  auto parent = scene.Instantiate("Parent").SetParent(root)
+                 .SetPosition(0,2,0).SetRotationEuler(0,0.5f,0).SetScale(2,2,2);
+  auto a      = scene.Instantiate("A").SetParent(parent).SetPosition(1,0,0);
+  auto b      = scene.Instantiate("B").SetParent(parent).SetPosition(-1,0,0);
 
-  scene.ForEachChild(root, [](Entity c)
-  {
-    Logger::Info(c.GetName());
+  scene.ForEachChild(parent, [&](Entity c){
+      printf("%s\n", c.GetName());
   });
 
   scene.Update(0.f);
