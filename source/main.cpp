@@ -23,6 +23,7 @@
 #include <Logger.hpp>
 
 #include <Renderpass.hpp>
+#include <Renderer.hpp>
 
 #include <moved_later/OBJLoader.hpp>
 #include <moved_later/GLTFLoader.hpp>
@@ -36,43 +37,13 @@ Window m_Window(1366, 768, "MARIANA MANNEN");
 Renderpass renderpass(true, true, windowFormat, m_Window.GetWidth(), m_Window.GetHeight());
 Shader PBR_Shader(5);
 Material material;
+Renderer renderer;
 
 IInput input(m_Window.GetWindow());
 EditorCameraController cam(input);
 GUI gui;
 
 Mesh<GLTF::Vertex, uint32_t> mesh16 = GLTF::GLTFLoader::LoadFromFile(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb");
-
-void Render() {
-
-  wgpu::SurfaceTexture surfaceTexture;
-  surface.GetCurrentTexture(&surfaceTexture);
-
-  wgpu::RenderPassColorAttachment attachment{
-      .view = renderpass.GetMSSATextureView(),
-      .resolveTarget = surfaceTexture.texture.CreateView(),
-      .loadOp = wgpu::LoadOp::Clear,
-      .storeOp = wgpu::StoreOp::Store};
-
-
-  wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = 1,
-                                        .colorAttachments = &attachment,
-                                        .depthStencilAttachment = renderpass.GetDepthStencilAttachment()};
-
-  wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
-  wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpassDesc);
-  pass.SetPipeline(PBR_Shader.GetPipeline());
-  pass.SetVertexBuffer(0, mesh16.vertexBuffer, 0, mesh16.vertexBuffer.GetSize());
-  pass.SetIndexBuffer(mesh16.indexBuffer, mesh16.IsUINT16() ? wgpu::IndexFormat::Uint16 : wgpu::IndexFormat::Uint32, 0, mesh16.indexBuffer.GetSize());
-  pass.SetBindGroup(0, PBR_Shader.GetBindGroup(), 0, nullptr);
-  pass.SetBindGroup(1, material.GetTextureBindGroup(), 0, nullptr);
-  pass.DrawIndexed(mesh16.IndexCount(), 1, 0, 0, 0);
-
-  gui.UpdateGUI(pass);
-  pass.End();
-  wgpu::CommandBuffer commands = encoder.Finish();
-  device.GetQueue().Submit(1, &commands);
-}
 
 void InitGraphics() {
   renderpass.Init();
@@ -105,7 +76,7 @@ void Update()
     renderpass.Recreate(m_Window.GetWidth(), m_Window.GetHeight());
   }
 
-  Render();
+  renderer.Render(renderpass, material, PBR_Shader, mesh16.vertexBuffer, mesh16.indexBuffer, mesh16.IndexCount());
 
   input.Update();
 }

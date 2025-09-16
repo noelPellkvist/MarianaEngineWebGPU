@@ -163,6 +163,11 @@ void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat>
                                                   .bufferCount = 1,
                                                   .buffers = &vertexLayout.vertexBufferLayout
                                                 },
+                                                .primitive = {
+                                                  .stripIndexFormat = wgpu::IndexFormat::Undefined,
+                                                  .frontFace = wgpu::FrontFace::CW,
+                                                  .cullMode = wgpu::CullMode::Back
+                                                },
                                              .depthStencil = &depthStencilState,
                                              .multisample = {
                                                 .count = 4,
