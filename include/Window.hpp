@@ -17,6 +17,8 @@ class Window {
         const uint32_t GetHeight() { return m_Height; }
         const uint32_t GetWidth() { return m_Width; }
 
+        wgpu::TextureFormat GetWindowFormat();
+
         GLFWwindow* GetWindow() { return m_Window; };
     
     private:

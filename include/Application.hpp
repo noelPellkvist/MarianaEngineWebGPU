@@ -2,6 +2,9 @@
 #include <string>
 #include <Logger.hpp>
 #include <Window.hpp>
+#include <moved_later/IInput.hpp>
+#include <Renderpass.hpp>
+#include <moved_later/EditorCameraController.hpp>
 
 class Application
 {
@@ -18,13 +21,18 @@ class Application
         virtual void OnShutdown() {}
 
         void Quit();
+        
+        Window m_Window;
+        IInput input;
+        Renderpass renderpass;
+        EditorCameraController cam;
 
     private:
         bool m_Running;
         std::string m_Name;
-        Window m_Window;
+        
 
-        void Init();
+        void Initalize();
         void MainLoop();
         void Shutdown();
 };

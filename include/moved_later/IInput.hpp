@@ -140,22 +140,63 @@ class IInput {
     public:
         IInput(GLFWwindow* win);
 
+        //Update the input system, so it continues working
         void Update();
 
+        /// Checks whether the specified key was pressed during the current frame.
+        /// @param key The key to query.
+        /// @return True if the key was pressed down this frame.
         bool IsKeyPressed(Key key) const;
+
+        /// Checks whether the specified key was released during the current frame.
+        /// @param key The key to query.
+        /// @return True if the key was released this frame.
         bool IsKeyReleased(Key key) const;
+
+        /// Checks whether the specified key is currently being held down.
+        /// @param key The key to query.
+        /// @return True if the key is currently held.
         bool IsKeyDown(Key key) const;
 
+
+        /// Checks whether the specified mouse button was pressed during the current frame.
+        /// @param button The mouse button to query.
+        /// @return True if the mouse button was pressed down this frame.
         bool IsMouseButtonPressed(MouseButton button) const;
+        
+        /// Checks whether the specified mouse button was released during the current frame.
+        /// @param button The mouse button to query.
+        /// @return True if the mouse button was released this frame.
         bool IsMouseButtonReleased(MouseButton button) const;
+        
+        /// Checks whether the specified mouse button is currently being held down.
+        /// @param button The mouse button to query.
+        /// @return True if the mouse button is currently held.
         bool IsMouseButtonDown(MouseButton button) const;
-
+        
+        /// Retrieves the current mouse cursor position in screen coordinates.
+        /// @param[out] x Reference to store the X position.
+        /// @param[out] y Reference to store the Y position.
         void GetMousePosition(double& x, double& y) const;
+        
+        /// Retrieves the change in mouse position since the previous frame.
+        /// @param[out] dx Reference to store the delta X value.
+        /// @param[out] dy Reference to store the delta Y value.
         void GetMouseDelta(double& dx, double& dy) const;
+        
+        /// Retrieves the mouse scroll wheel delta since the previous frame.
+        /// @param[out] dx Reference to store the horizontal scroll delta.
+        /// @param[out] dy Reference to store the vertical scroll delta.
         void GetMouseScrollDelta(double& dx, double& dy) const;
-
+        
+        /// Locks or unlocks the mouse cursor within the application window.
+        /// @param locked True to lock the cursor, false to unlock it.
         void SetCursorLocked(bool locked);
+        
+        /// Indicates whether the mouse cursor is currently locked within the application window.
+        /// @return True if the cursor is locked, false otherwise.
         bool IsCursorLocked() const;
+
 
     private:
         static constexpr size_t KEY_CAP = 512;

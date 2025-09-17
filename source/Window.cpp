@@ -51,6 +51,11 @@ void Window::ToggleFullscreen()
     }
 }
 
+wgpu::TextureFormat Window::GetWindowFormat()
+{
+    return windowFormat;
+}
+
 
 void Window::GetSurface()
 {
