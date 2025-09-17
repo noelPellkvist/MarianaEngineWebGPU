@@ -14,6 +14,7 @@ class Shader
 
         wgpu::RenderPipeline& GetPipeline() { return m_Pipeline; }
         wgpu::BindGroup& GetBindGroup();
+        wgpu::BindGroup& GetModelBindGroup();
 
         wgpu::BindGroupLayout& GetTextureBindGroupLayout() { return textureBindgroupLayout; }
 

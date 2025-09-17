@@ -175,7 +175,14 @@ public:
     void Init()
     {
         wgpu::BufferDescriptor bufferDesc;
-        bufferDesc.size = total_size_;
+        if(m_isDynamic)
+        {
+            uniformStride = ceilToNextMultiple(total_size_);
+            bufferDesc.size = uniformStride * 256;
+        }
+        else
+            bufferDesc.size = total_size_;
+        
         bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
         bufferDesc.mappedAtCreation = false;
         m_GPUBuffer = device.CreateBuffer(&bufferDesc);
@@ -186,6 +193,7 @@ public:
         bindingLayout.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
         bindingLayout.buffer.type = wgpu::BufferBindingType::Uniform;
         bindingLayout.buffer.minBindingSize = total_size_;
+        bindingLayout.buffer.hasDynamicOffset = m_isDynamic;
 
         wgpu::BindGroupLayoutDescriptor bindGroupLayoutDesc{};
         bindGroupLayoutDesc.entryCount = 1;
@@ -196,6 +204,7 @@ public:
         binding.binding = 0;
         binding.buffer = m_GPUBuffer;
         binding.offset = 0;
+        binding.size = m_isDynamic ? uniformStride : total_size_;
 
         wgpu::BindGroupDescriptor bindGroupDesc{};
         bindGroupDesc.layout = bindGroupLayout;
@@ -205,10 +214,18 @@ public:
     }
 
     // Pack into a freshly allocated vector (returns padded-to-16B size)
-    void pack(const T& obj) {
+    inline void pack(const T& obj) {
+        assert(m_isDynamic == false);
         m_Buffer.resize(total_size_);
         pack_into(obj, m_Buffer.data(), m_Buffer.size());
         device.GetQueue().WriteBuffer(m_GPUBuffer, 0, m_Buffer.data(), m_Buffer.size());
+    }
+
+    inline void pack(const T& obj, uint32_t index) {
+        assert(m_isDynamic == true);
+        m_Buffer.resize(total_size_);
+        pack_into(obj, m_Buffer.data(), m_Buffer.size());
+        device.GetQueue().WriteBuffer(m_GPUBuffer, uniformStride * index, m_Buffer.data(), m_Buffer.size());
     }
 
     // Pack into caller-provided memory (must be at least total_size())
@@ -303,6 +320,7 @@ private:
     std::vector<std::byte> m_Buffer;
     wgpu::Buffer m_GPUBuffer;
     bool m_isDynamic = false;
+    uint32_t uniformStride;
 
     wgpu::BindGroupLayout bindGroupLayout;
 

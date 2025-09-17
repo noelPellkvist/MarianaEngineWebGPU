@@ -37,6 +37,12 @@ void EditorApp::OnStart()
 
 void EditorApp::OnUpdate(float deltaTime)
 {
+    if(input.IsKeyPressed(Key::F11))
+    {
+        m_Window.ToggleFullscreen();
+        m_Window.GetSurface();
+        renderpass.Recreate(m_Window.GetWidth(), m_Window.GetHeight());
+    }
 }
 
 void EditorApp::OnRender()

@@ -34,8 +34,15 @@ void Renderer::Render(Renderpass& renderPass, Material& mat, Shader& shader, wgp
     pass.SetVertexBuffer(0, vertexBuffer, 0, vertexBuffer.GetSize());
     pass.SetIndexBuffer(indexBuffer, wgpu::IndexFormat::Uint32, 0, indexBuffer.GetSize());
     pass.SetBindGroup(0, shader.GetBindGroup(), 0, nullptr);
-    pass.SetBindGroup(1, mat.GetTextureBindGroup(), 0, nullptr);
-    pass.DrawIndexed(IndexCount, 1, 0, 0, 0);
+    uint32_t dynamicOffset = 0;
+    pass.SetBindGroup(2, mat.GetTextureBindGroup(), 0, nullptr);
+
+    for(int i = 0; i < 16; i++)
+    {
+      pass.SetBindGroup(1, shader.GetModelBindGroup(), 1, &dynamicOffset);
+      pass.DrawIndexed(IndexCount, 1, 0, 0, 0);
+      dynamicOffset += 256;
+    }
     pass.End();
 
     wgpu::CommandBuffer commands = encoder.Finish();

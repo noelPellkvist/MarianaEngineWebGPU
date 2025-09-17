@@ -14,14 +14,20 @@
 struct UBO {
   glm::mat4x4 projection;
   glm::mat4x4 view;
-  glm::mat4x4 model;
-  glm::mat4x4 normalMatrix;
   glm::vec3 lightDir;
   glm::vec3 cameraPos;
 };
 
+struct TransformData {
+  glm::mat4x4 modelMatrix;
+  glm::mat4x4 normalMatrix;
+};
+
 UBO ubo{};
-UniformLayout uboLayout(false, ubo, ubo.projection, ubo.view, ubo.model, ubo.normalMatrix, ubo.lightDir, ubo.cameraPos);
+UniformLayout uboLayout(false, ubo, ubo.projection, ubo.view, ubo.lightDir, ubo.cameraPos);
+
+TransformData modelsBuffer{};
+UniformLayout modelsLayout(true, modelsBuffer, modelsBuffer.modelMatrix, modelsBuffer.normalMatrix);
 
 Shader::Shader(uint8_t textureCount) : NumberOfTextures(textureCount)
 {
@@ -46,15 +52,10 @@ void Shader::WriteToUBO(glm::mat4 view, glm::vec3 cameraPos, float aspect)
     ubo.view = view;
 
     // --- model: spin around +Y
-    const glm::vec3 pos{0.0f, -0.75f, 3.0f};
     const float degPerSec = 45.0f;                 // rotation speed
     const float angle = glm::radians(degPerSec) * t;
 
-    ubo.model = glm::translate(glm::mat4(1.0f), pos);
-    ubo.model = glm::rotate(ubo.model, angle, glm::vec3(0.0f, 1.0f, 0.0f));
-
-    // Normal matrix from model (top-left 3x3 inverse-transpose)
-    ubo.normalMatrix = glm::transpose(glm::inverse(glm::mat3(ubo.model)));
+    
 
     // --- light: fixed direction
     ubo.lightDir = glm::normalize(glm::vec3(1.0f, 0.5f, -1.0f));
@@ -64,6 +65,29 @@ void Shader::WriteToUBO(glm::mat4 view, glm::vec3 cameraPos, float aspect)
     // (In your shader you were doing L = normalize(-lightDir); keep that convention.)
 
     uboLayout.pack(ubo);
+
+    int ind = 0;
+    for (float x = -4; x < 0; x++)
+    {
+      for (float z = -4; z < 0; z++)
+      {
+        modelsBuffer.modelMatrix = glm::translate(glm::mat4(1.0f), {x,0.0f,z});
+        modelsBuffer.modelMatrix = glm::scale(modelsBuffer.modelMatrix, { 0.4f, 0.4f, 0.4f});
+        modelsBuffer.modelMatrix = glm::rotate(modelsBuffer.modelMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+        modelsBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelsBuffer.modelMatrix)));
+        modelsLayout.pack(modelsBuffer, ind);
+        ind++;
+      }
+    }
+
+    // modelsBuffer.modelMatrix = glm::translate(glm::mat4(1.0f), {0.0,0.0,0.0});
+    // modelsBuffer.modelMatrix = glm::rotate(modelsBuffer.modelMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+    // modelsBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelsBuffer.modelMatrix)));
+    // modelsLayout.pack(modelsBuffer, 0);
+
+    // modelsBuffer.modelMatrix = glm::translate(glm::mat4(1.0f), {0,0,-3});
+    // modelsBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelsBuffer.modelMatrix)));
+    // modelsLayout.pack(modelsBuffer, 1);
 }
 
 
@@ -75,6 +99,11 @@ Shader::~Shader()
 wgpu::BindGroup& Shader::GetBindGroup()
 {
   return uboLayout.GetBindGroup();
+}
+
+wgpu::BindGroup& Shader::GetModelBindGroup()
+{
+  return modelsLayout.GetBindGroup();
 }
 
 void Shader::FixTextureBindings(uint8_t NumberOfTextures)
@@ -126,6 +155,7 @@ void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat>
 {
     FixTextureBindings(NumberOfTextures);
     uboLayout.Init();
+    modelsLayout.Init();
     GLTF::Vertex v{};
     VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
 
@@ -149,7 +179,7 @@ void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat>
     depthStencilState.stencilReadMask = 0;
     depthStencilState.stencilWriteMask = 0;
 
-    std::vector<wgpu::BindGroupLayout> bindGroupLayouts = {uboLayout.GetBindGroupLayout(), textureBindgroupLayout};
+    std::vector<wgpu::BindGroupLayout> bindGroupLayouts = {uboLayout.GetBindGroupLayout(), modelsLayout.GetBindGroupLayout(), textureBindgroupLayout};
 
     wgpu::PipelineLayoutDescriptor  layoutDesc = {};
     layoutDesc.bindGroupLayoutCount = bindGroupLayouts.size();

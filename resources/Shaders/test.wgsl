@@ -19,34 +19,39 @@ struct VertexOutput {
 struct UBO {
   projection: mat4x4<f32>,
   view: mat4x4<f32>,
-  model: mat4x4<f32>,
-  normalMatrix: mat4x4<f32>,
   lightDir: vec3f,
   cameraPos: vec3f
 };
 
+struct ModelData {
+  modelMatrix: mat4x4<f32>,
+  normalMatrix: mat4x4<f32>,
+};
+
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
 
-@group(1) @binding(0) var albedo: texture_2d<f32>;
-@group(1) @binding(1) var normalMap: texture_2d<f32>;
-@group(1) @binding(2) var ambientO: texture_2d<f32>;
-@group(1) @binding(3) var metallicRoughness: texture_2d<f32>;  
-@group(1) @binding(4) var emissiveTex: texture_2d<f32>;  
-@group(1) @binding(5) var textureSampler: sampler;
+@group(1) @binding(0) var<uniform> ModelDataObject: ModelData;
+
+@group(2) @binding(0) var albedo: texture_2d<f32>;
+@group(2) @binding(1) var normalMap: texture_2d<f32>;
+@group(2) @binding(2) var ambientO: texture_2d<f32>;
+@group(2) @binding(3) var metallicRoughness: texture_2d<f32>;  
+@group(2) @binding(4) var emissiveTex: texture_2d<f32>;  
+@group(2) @binding(5) var textureSampler: sampler;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
     var output: VertexOutput;
 
-    let world_pos4 = UniformBufferObject.model * vec4f(input.position, 1.0);
+    let world_pos4 = ModelDataObject.modelMatrix * vec4f(input.position, 1.0);
     output.world_pos = world_pos4.xyz;
 
-    let mvp = UniformBufferObject.projection * UniformBufferObject.view * UniformBufferObject.model;
+    let mvp = UniformBufferObject.projection * UniformBufferObject.view * ModelDataObject.modelMatrix;
     output.position = mvp * vec4f(input.position, 1.0);
 
     // If your normalMatrix is inverse-transpose(model), you can safely use it for N & T rotation
-    let Nw_raw = (UniformBufferObject.normalMatrix * vec4f(input.normal, 0.0)).xyz;
-    let Tw_raw = (UniformBufferObject.normalMatrix * vec4f(input.tangent.xyz, 0.0)).xyz;
+    let Nw_raw = (ModelDataObject.normalMatrix * vec4f(input.normal, 0.0)).xyz;
+    let Tw_raw = (ModelDataObject.normalMatrix * vec4f(input.tangent.xyz, 0.0)).xyz;
 
     let Nw = normalize(Nw_raw);
     let Tn = normalize(Tw_raw - Nw * dot(Tw_raw, Nw));
