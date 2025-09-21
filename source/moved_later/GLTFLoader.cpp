@@ -9,6 +9,7 @@
 
 #include <Logger.hpp>
 
+
 #include <vector>
 #include <cstring>
 #include <glm/glm.hpp>
@@ -219,4 +220,30 @@ Mesh<GLTF::Vertex, uint32_t> GLTF::GLTFLoader::LoadFromFile(std::string filename
     std::vector<uint32_t> Indices;
     LoadVertices(model, model.meshes[0].primitives[0], Vertices, Indices);
     return Mesh<GLTF::Vertex, uint32_t>(Vertices, Indices);
+}
+
+std::vector<Texture> GLTF::GLTFLoader::LoadTexturesFromFile(std::string filename)
+{
+    std::vector<Texture> res;
+    tinygltf::Model model;
+    tinygltf::TinyGLTF loader;
+    std::string err;
+    std::string warn;
+
+    bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, filename);
+
+    if (!warn.empty()) {
+      Logger::Warning(warn);
+    }
+
+    if (!err.empty()) {
+      Logger::Error(err);
+    }
+
+    if (!ret) {
+      Logger::Error("Failed to parse glTF");
+      return res;
+    }
+
+    return res;
 }

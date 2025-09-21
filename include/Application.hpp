@@ -4,13 +4,14 @@
 #include <Window.hpp>
 #include <moved_later/IInput.hpp>
 #include <Renderpass.hpp>
-#include <moved_later/EditorCameraController.hpp>
+#include <ICamera.hpp>
 
 class Application
 {
     public:
         Application(const std::string& name = "Game");
         virtual ~Application();
+
 
         void Start();
 
@@ -25,7 +26,7 @@ class Application
         Window m_Window;
         IInput input;
         Renderpass renderpass;
-        EditorCameraController cam;
+        ICamera* cam;
 
     private:
         bool m_Running;

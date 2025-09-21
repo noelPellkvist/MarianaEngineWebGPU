@@ -1,24 +1,24 @@
 // EditorCameraController.hpp
 #pragma once
-#include <moved_later/IInput.hpp>
+#include "ICamera.hpp"              // <- include your interface
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
 
-class EditorCameraController {
+class EditorCameraController : public ICamera {
 public:
     explicit EditorCameraController(IInput& input)
-        : _in(input) {}
+        : ICamera(input) {}
 
     // Call every frame (dt in seconds)
-    void Update(float dt) {
+    void OnUpdate(float dt) override {
         // --- handle RMB lock/unlock like Unity ---
-        if (_in.IsMouseButtonPressed(MouseButton::Right)) {
-            _in.SetCursorLocked(true);
+        if (_input.IsMouseButtonPressed(MouseButton::Right)) {
+            _input.SetCursorLocked(true);
             _looking = true;
         }
-        if (_in.IsMouseButtonReleased(MouseButton::Right)) {
-            _in.SetCursorLocked(false);
+        if (_input.IsMouseButtonReleased(MouseButton::Right)) {
+            _input.SetCursorLocked(false);
             _looking = false;
         }
 
@@ -33,7 +33,7 @@ public:
 
         // --- mouselook when RMB held ---
         if (_looking) {
-            double dx, dy; _in.GetMouseDelta(dx, dy);
+            double dx, dy; _input.GetMouseDelta(dx, dy);
             _yaw   -= static_cast<float>(dx) * _mouseSens;
             _pitch -= static_cast<float>(dy) * _mouseSens;
             _pitch = std::clamp(_pitch, -_pitchLimit, _pitchLimit);
@@ -42,67 +42,62 @@ public:
         // --- WASD/QE fly when RMB held (Unity scene view) ---
         if (_looking) {
             float speed = _moveSpeed;
-            if (_in.IsKeyDown(Key::LEFT_SHIFT)) speed *= _sprintMult;
-            if (_in.IsKeyDown(Key::LEFT_CONTROL)) speed *= _slowMult;
 
             glm::vec3 move(0);
-            if (_in.IsKeyDown(Key::W)) move += forward;
-            if (_in.IsKeyDown(Key::S)) move -= forward;
-            if (_in.IsKeyDown(Key::D)) move += right;
-            if (_in.IsKeyDown(Key::A)) move -= right;
-            if (_in.IsKeyDown(Key::E)) move += up;
-            if (_in.IsKeyDown(Key::Q)) move -= up;
+            if (_input.IsKeyDown(Key::W)) move += forward;
+            if (_input.IsKeyDown(Key::S)) move -= forward;
+            if (_input.IsKeyDown(Key::D)) move += right;
+            if (_input.IsKeyDown(Key::A)) move -= right;
+            if (_input.IsKeyDown(Key::SPACE)) move += up;
+            if (_input.IsKeyDown(Key::LEFT_SHIFT)) move -= up;
 
             if (glm::length(move) > 0.0f)
                 _pos += glm::normalize(move) * speed * dt;
         }
 
         // --- MMB pan (only when not RMB looking, like Unity) ---
-        if (_in.IsMouseButtonDown(MouseButton::Middle) && !_looking) {
-            double dx, dy; _in.GetMouseDelta(dx, dy);
+        if (_input.IsMouseButtonDown(MouseButton::Middle) && !_looking) {
+            double dx, dy; _input.GetMouseDelta(dx, dy);
             // Pan scale grows with distance to avoid “snail pan” far away
             float dist = std::max(0.001f, glm::length(_pos - _pivot));
-            _pos  -= right * static_cast<float>(dx) * _panPerPixel * dist;
-            _pos  += up    * static_cast<float>(dy) * _panPerPixel * dist;
-            _pivot-= right * static_cast<float>(dx) * _panPerPixel * dist;
-            _pivot+= up    * static_cast<float>(dy) * _panPerPixel * dist;
+            _pos   -= right * static_cast<float>(dx) * _panPerPixel * dist;
+            _pos   += up    * static_cast<float>(dy) * _panPerPixel * dist;
+            _pivot -= right * static_cast<float>(dx) * _panPerPixel * dist;
+            _pivot += up    * static_cast<float>(dy) * _panPerPixel * dist;
         }
 
         // --- Scroll wheel dolly (zoom) along forward ---
         {
-            double sx, sy; _in.GetMouseScrollDelta(sx, sy);
+            double sx, sy; _input.GetMouseScrollDelta(sx, sy);
             if (sy != 0.0) {
                 // Exponential dolly speed proportional to scene scale
                 float dist = std::max(0.001f, glm::length(_pos - _pivot));
-                float step = (float)sy * _scrollDolly * std::max(1.0f, dist);
+                float step = static_cast<float>(sy) * _scrollDolly * std::max(1.0f, dist);
                 _pos += forward * step;
             }
         }
 
-        // Build view matrix
+        // Build view matrix (LH to match your original code)
         _view = glm::lookAtLH(_pos, _pos + forward, up);
     }
 
-    // Configure / query
+    // Configure / query (kept from your original)
     void SetPosition(const glm::vec3& p) { _pos = p; }
-    void SetPivot(const glm::vec3& p) { _pivot = p; }
+    void SetPivot(const glm::vec3& p)    { _pivot = p; }
     void SetYawPitch(float yaw, float pitch) {
         _yaw = yaw; _pitch = std::clamp(pitch, -_pitchLimit, _pitchLimit);
     }
-    void SetMoveSpeed(float mps) { _moveSpeed = mps; }
-    void SetMouseSensitivity(float radPerPixel) { _mouseSens = radPerPixel; }
-    void SetPanPerPixel(float v) { _panPerPixel = v; }
-    void SetScrollDolly(float v) { _scrollDolly = v; }
+    void SetMoveSpeed(float mps)           { _moveSpeed = mps; }
+    void SetMouseSensitivity(float v)      { _mouseSens = v; }
+    void SetPanPerPixel(float v)           { _panPerPixel = v; }
+    void SetScrollDolly(float v)           { _scrollDolly = v; }
 
-    const glm::mat4& View() const { return _view; }
-    glm::vec3 Position()   const { return _pos; }
     float Yaw()   const { return _yaw; }
     float Pitch() const { return _pitch; }
 
 private:
-    IInput& _in;
+    // Using _input, _pos, _view from ICamera
 
-    glm::vec3 _pos{0, 1.5f, 5.0f};
     glm::vec3 _pivot{0, 0, 0};   // used for pan/scroll scaling
     float _yaw   = 0.0f;         // radians
     float _pitch = 0.0f;         // radians
@@ -117,5 +112,4 @@ private:
     float _scrollDolly = 0.08f;   // world-units per scroll notch (scaled by dist)
 
     bool _looking = false;
-    glm::mat4 _view{1.0f};
 };

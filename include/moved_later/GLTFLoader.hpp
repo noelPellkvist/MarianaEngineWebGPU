@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 
 #include <Mesh.hpp>
+#include <Texture.hpp>
 
 namespace GLTF
 {
@@ -30,6 +31,7 @@ class GLTFLoader
 {
     public:
         static Mesh<Vertex, uint32_t> LoadFromFile(std::string filename);
+        static std::vector<Texture> LoadTexturesFromFile(std::string filename);
 };
 
 } // namespace GLTF

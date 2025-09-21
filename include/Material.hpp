@@ -5,6 +5,7 @@
 
 #include <Shader.hpp>
 #include <Sampler.hpp>
+#include <Texture.hpp>
 
 class Material
 {
@@ -12,15 +13,13 @@ class Material
         Material();
         ~Material();
 
-        void InitMaterial(Shader& shader, std::vector<std::string> textureNames);
+        void InitMaterial(Shader& shader, std::vector<Texture> textures);
         wgpu::BindGroup& GetTextureBindGroup() { return bindGroup; }
 
     private:
-        std::vector<wgpu::Texture> textures;
-        std::vector<wgpu::TextureView> textureViews;
+        std::vector<Texture> m_Textures;
         std::vector<wgpu::Sampler> samplers;
         wgpu::BindGroup bindGroup;
 
-        void LoadTexture(std::string texturePath);
         void LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMode wrapT);
 };
