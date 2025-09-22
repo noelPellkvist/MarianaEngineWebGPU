@@ -32,18 +32,17 @@ void GUI::InitGui(Window& window)
     }
 }
 
-void GUI::UpdateGUI(wgpu::RenderPassEncoder renderPass)
+void GUI::PreUpdateGUI()
 {
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
     ImGui::DockSpaceOverViewport(0, NULL, ImGuiDockNodeFlags_PassthruCentralNode);
+}
 
-    ImGui::Begin("Hello, world!"); 
-    ImGui::Text("This is some useful text.");         
-    ImGui::End();
-
+void GUI::PostUpdateGUI(wgpu::RenderPassEncoder renderPass)
+{
     ImGui::EndFrame();
     ImGui::Render();
     ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass.Get());

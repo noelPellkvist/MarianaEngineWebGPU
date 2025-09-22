@@ -16,6 +16,7 @@ class EditorApp : public Application
         void OnStart() override;
         void OnUpdate(float deltaTime) override;
         void OnRender() override;
+        void OnGUI() override;
         void OnShutdown() override;
 
     private:

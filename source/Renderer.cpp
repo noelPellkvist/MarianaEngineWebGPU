@@ -3,6 +3,7 @@
 #include <Init.hpp>
 #include <Material.hpp>
 #include <Shader.hpp>
+#include <moved_later/GUI.hpp>
 
 Renderer::Renderer()
 {
@@ -14,7 +15,7 @@ Renderer::~Renderer()
 
 }
 
-void Renderer::Render(Renderpass& renderPass, Material& mat, Shader& shader, wgpu::Buffer vertexBuffer, wgpu::Buffer indexBuffer, uint32_t IndexCount)
+void Renderer::Render(Renderpass& renderPass, GUI gui, Material& mat, Shader& shader, wgpu::Buffer vertexBuffer, wgpu::Buffer indexBuffer, uint32_t IndexCount)
 {
     wgpu::SurfaceTexture surfaceTexture;
     surface.GetCurrentTexture(&surfaceTexture);
@@ -37,12 +38,13 @@ void Renderer::Render(Renderpass& renderPass, Material& mat, Shader& shader, wgp
     uint32_t dynamicOffset = 0;
     pass.SetBindGroup(2, mat.GetTextureBindGroup(), 0, nullptr);
 
-    for(int i = 0; i < 16; i++)
+    for(int i = 0; i < 1; i++)
     {
       pass.SetBindGroup(1, shader.GetModelBindGroup(), 1, &dynamicOffset);
       pass.DrawIndexed(IndexCount, 1, 0, 0, 0);
       dynamicOffset += 256;
     }
+    gui.PostUpdateGUI(pass);
     pass.End();
 
     wgpu::CommandBuffer commands = encoder.Finish();

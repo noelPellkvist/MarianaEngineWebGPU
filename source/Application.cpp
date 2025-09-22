@@ -17,6 +17,7 @@ void Application::Start()
 {
     Logger::Info("Application Starting...");
     Initalize();
+    gui.InitGui(m_Window);
     Logger::Info("Application Started.");
     OnStart();
     m_Running = true;
@@ -46,6 +47,9 @@ void Application::MainLoop()
     OnUpdate(dt);
     cam->OnUpdate(dt);
 
+    gui.PreUpdateGUI();
+    OnGUI();
+
     //After everything is updated we render
     OnRender();
 
@@ -56,5 +60,5 @@ void Application::MainLoop()
 
 void Application::Shutdown()
 {
-
+    gui.KillGui();
 }

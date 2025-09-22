@@ -96,7 +96,7 @@ void Window::GetSurface()
                                     .format = windowFormat,
                                     .width = m_Width,
                                     .height = m_Height,
-                                    .presentMode = wgpu::PresentMode::Fifo};
+                                    .presentMode = wgpu::PresentMode::Immediate};
     surface.Configure(&config);
 }
 

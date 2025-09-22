@@ -4,6 +4,8 @@
 
 #include <sstream>
 
+#include <imgui.h>
+
 Texture albedo;
 Texture normal;
 Texture ambient;
@@ -75,6 +77,15 @@ void EditorApp::OnUpdate(float deltaTime)
     }
 }
 
+void EditorApp::OnGUI()
+{
+    ImGui::Begin("Hello, world!"); 
+    float fps   = ImGui::GetIO().Framerate;
+    float ms    = 1000.0f / fps;
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", ms, fps);
+    ImGui::End();
+}
+
 void EditorApp::OnRender()
 {
     float aspect = static_cast<float>(m_Window.GetWidth()) /
@@ -82,7 +93,7 @@ void EditorApp::OnRender()
     
     PBR_Shader.WriteToUBO(cam->View(), cam->Position(), aspect);
     
-    renderer.Render(renderpass, material, PBR_Shader, mesh.vertexBuffer, mesh.indexBuffer, mesh.IndexCount());
+    renderer.Render(renderpass, gui, material, PBR_Shader, mesh.vertexBuffer, mesh.indexBuffer, mesh.IndexCount());
 }
 
 void EditorApp::OnShutdown()

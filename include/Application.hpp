@@ -5,6 +5,7 @@
 #include <moved_later/IInput.hpp>
 #include <Renderpass.hpp>
 #include <ICamera.hpp>
+#include <moved_later/GUI.hpp>
 
 class Application
 {
@@ -19,6 +20,7 @@ class Application
         virtual void OnStart() {}
         virtual void OnUpdate(float deltaTime) {}
         virtual void OnRender() {}
+        virtual void OnGUI() {}
         virtual void OnShutdown() {}
 
         void Quit();
@@ -27,6 +29,7 @@ class Application
         IInput input;
         Renderpass renderpass;
         ICamera* cam;
+        GUI gui;
 
     private:
         bool m_Running;
