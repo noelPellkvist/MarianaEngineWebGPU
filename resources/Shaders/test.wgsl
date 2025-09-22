@@ -28,6 +28,17 @@ struct ModelData {
   normalMatrix: mat4x4<f32>,
 };
 
+struct CameraInfoData {
+  projection: mat4x4<f32>,
+  view: mat4x4<f32>,
+  viewProj: mat4x4<f32>,
+  invView: mat4x4<f32>,
+  invProj: mat4x4<f32>,
+  invViewProj: mat4x4<f32>,
+  position: vec3f,
+  exposure: f32,
+};
+
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
 
 @group(1) @binding(0) var<uniform> ModelDataObject: ModelData;
@@ -39,6 +50,8 @@ struct ModelData {
 @group(2) @binding(4) var emissiveTex: texture_2d<f32>;  
 @group(2) @binding(5) var textureSampler: sampler;
 
+@group(3) @binding(0) var<uniform> camInfo: CameraInfoData;
+
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
     var output: VertexOutput;
@@ -46,7 +59,7 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
     let world_pos4 = ModelDataObject.modelMatrix * vec4f(input.position, 1.0);
     output.world_pos = world_pos4.xyz;
 
-    let mvp = UniformBufferObject.projection * UniformBufferObject.view * ModelDataObject.modelMatrix;
+    let mvp = camInfo.viewProj * ModelDataObject.modelMatrix;
     output.position = mvp * vec4f(input.position, 1.0);
 
     // If your normalMatrix is inverse-transpose(model), you can safely use it for N & T rotation
@@ -122,7 +135,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 
     // Lighting setup
     let L = normalize(UniformBufferObject.lightDir);
-    let V = normalize(UniformBufferObject.cameraPos - input.world_pos);
+    let V = normalize(camInfo.position - input.world_pos);
     let H = normalize(L + V);
     let NoL = saturate(dot(N, L));
     let NoV = saturate(dot(N, V));

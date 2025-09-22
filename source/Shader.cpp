@@ -10,6 +10,7 @@
 #include <Mesh.hpp>
 #include <UniformLayout.hpp>
 #include <moved_later/GLTFLoader.hpp>
+#include <ICamera.hpp>
 
 struct UBO {
   glm::mat4x4 projection;
@@ -99,12 +100,12 @@ Shader::~Shader()
 
 }
 
-wgpu::BindGroup& Shader::GetBindGroup()
+const wgpu::BindGroup& Shader::GetBindGroup() const
 {
   return uboLayout.GetBindGroup();
 }
 
-wgpu::BindGroup& Shader::GetModelBindGroup()
+const wgpu::BindGroup& Shader::GetModelBindGroup() const
 {
   return modelsLayout.GetBindGroup();
 }
@@ -159,6 +160,20 @@ void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat>
     FixTextureBindings(NumberOfTextures);
     uboLayout.Init();
     modelsLayout.Init();
+
+    CameraInfo c;
+    UniformLayout<CameraInfo> camBuf(false,
+                      c,
+                      c.proj, 
+                      c.view, 
+                      c.viewProj, 
+                      c.invView, 
+                      c.invProj, 
+                      c.invViewProj, 
+                      c.pos, 
+                      c.exposure);
+    camBuf.Init();
+
     GLTF::Vertex v{};
     VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
 
@@ -182,7 +197,7 @@ void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat>
     depthStencilState.stencilReadMask = 0;
     depthStencilState.stencilWriteMask = 0;
 
-    std::vector<wgpu::BindGroupLayout> bindGroupLayouts = {uboLayout.GetBindGroupLayout(), modelsLayout.GetBindGroupLayout(), textureBindgroupLayout};
+    std::vector<wgpu::BindGroupLayout> bindGroupLayouts = {uboLayout.GetBindGroupLayout(), modelsLayout.GetBindGroupLayout(), textureBindgroupLayout, camBuf.GetBindGroupLayout()};
 
     wgpu::PipelineLayoutDescriptor  layoutDesc = {};
     layoutDesc.bindGroupLayoutCount = bindGroupLayouts.size();

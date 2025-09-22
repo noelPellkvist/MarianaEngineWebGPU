@@ -12,6 +12,15 @@
 #include <webgpu/webgpu_cpp.h>
 #include <Init.hpp>
 
+struct IUniformLayout {
+    virtual ~IUniformLayout() = default;
+
+    virtual void Init() = 0;
+
+    virtual const wgpu::BindGroup&        GetBindGroup() const = 0;
+    virtual const wgpu::BindGroupLayout&  GetBindGroupLayout() const = 0;
+};
+
 // ---------- WGSL uniform layout (std140-ish) ----------
 enum class Kind {
     // scalars
@@ -157,13 +166,13 @@ template<> struct map_kind<glm::mat4x3>  { static constexpr Kind value = Kind::m
 
 // ---------- Layout-only builder ----------
 template <typename T>
-class UniformLayout {
+class UniformLayout : public IUniformLayout {
 public:
     UniformLayout() = default;
 
-    wgpu::BindGroup& GetBindGroup() { return bindGroup; }
+    const wgpu::BindGroup& GetBindGroup() const override { return bindGroup; }
 
-    wgpu::BindGroupLayout& GetBindGroupLayout() { return bindGroupLayout; }
+    const wgpu::BindGroupLayout& GetBindGroupLayout() const override { return bindGroupLayout; }
 
     template <typename... Ms>
     explicit UniformLayout(bool isDynamic, const T& base, const Ms&... fields) {
@@ -172,7 +181,7 @@ public:
         build_layout(base, fields...);
     }
 
-    void Init()
+    void Init() override
     {
         wgpu::BufferDescriptor bufferDesc;
         if(m_isDynamic)
@@ -318,6 +327,7 @@ private:
     std::vector<Entry> table_;
     std::size_t total_size_ = 0;
     std::vector<std::byte> m_Buffer;
+
     wgpu::Buffer m_GPUBuffer;
     bool m_isDynamic = false;
     uint32_t uniformStride;
@@ -327,3 +337,4 @@ private:
     wgpu::BindGroupLayoutEntry bindingLayout{};
     wgpu::BindGroup bindGroup{};
 };
+

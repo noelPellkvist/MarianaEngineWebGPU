@@ -12,7 +12,9 @@ Texture ambient;
 Texture metalroughness;
 Texture emmisive;
 
-std::vector<Texture> gltfLoadedTextures;
+std::vector<Texture> LoadedTextures;
+
+#pragma region Helpers
 
 inline std::string ToString(const glm::vec3& v)
 {
@@ -28,7 +30,9 @@ inline std::string ToString(const float& v)
     return ss.str();
 }
 
-EditorApp::EditorApp(const std::string& name) : Application(name), PBR_Shader(5)
+#pragma endregion
+
+EditorApp::EditorApp(const std::string& name) : Application(name), PBR_Shader(5), renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window.GetHeight())
 {
     cam = new EditorCameraController(input);
 }
@@ -42,7 +46,6 @@ void EditorApp::OnStart()
 {
     Logger::Info("Starting");
 
-    
     if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam)) {
         glm::vec3 eye    = {0.0f, 0.0f, 0.0f};
         glm::vec3 target = {0.0f, 0.0f, 1.0f};
@@ -60,7 +63,7 @@ void EditorApp::OnStart()
     metalroughness.LoadTexture("/Textures/Default_metalRoughness.jpg", TextureFormat::RGBA8Unorm);
     emmisive.LoadTexture("/Textures/Default_emissive.jpg", TextureFormat::RGBA8Unorm);
 
-    gltfLoadedTextures = GLTF::GLTFLoader::LoadTexturesFromFile(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb");
+    LoadedTextures = GLTF::GLTFLoader::LoadTexturesFromFile(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb");
 
     material.InitMaterial(PBR_Shader, {albedo, normal, ambient, metalroughness, emmisive});
     mesh = GLTF::GLTFLoader::LoadFromFile(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb");
@@ -84,6 +87,23 @@ void EditorApp::OnGUI()
     float ms    = 1000.0f / fps;
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", ms, fps);
     ImGui::End();
+
+    ImGui::Begin("Loaded images"); 
+    float availWidth = ImGui::GetContentRegionAvail().x;
+
+    for (size_t i = 0; i < LoadedTextures.size(); i++)
+    {
+        float texW = LoadedTextures[i].GetWidth();
+        float texH = LoadedTextures[i].GetHeight();
+
+        float aspect = texH / texW;
+        float drawW = availWidth;
+        float drawH = drawW * aspect;
+
+        gui.DrawTexture(LoadedTextures[i], drawW, drawH);
+    }
+        
+    ImGui::End();
 }
 
 void EditorApp::OnRender()
@@ -93,7 +113,7 @@ void EditorApp::OnRender()
     
     PBR_Shader.WriteToUBO(cam->View(), cam->Position(), aspect);
     
-    renderer.Render(renderpass, gui, material, PBR_Shader, mesh.vertexBuffer, mesh.indexBuffer, mesh.IndexCount());
+    renderer.Render(*cam, renderpass, gui, material, PBR_Shader, mesh.vertexBuffer, mesh.indexBuffer, mesh.IndexCount());
 }
 
 void EditorApp::OnShutdown()

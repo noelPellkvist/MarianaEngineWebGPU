@@ -6,6 +6,7 @@
 #include <Init.hpp>
 
 
+
 GUI::GUI()
 {}
 
@@ -46,6 +47,14 @@ void GUI::PostUpdateGUI(wgpu::RenderPassEncoder renderPass)
     ImGui::EndFrame();
     ImGui::Render();
     ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass.Get());
+}
+
+void GUI::DrawTexture(Texture texture, float width, float height)
+{
+    ImTextureID _tex = (ImTextureID)texture.GetTextureView().Get();
+    ImVec2 size(width, height);
+
+    ImGui::Image(_tex, size);
 }
 
 void GUI::KillGui()

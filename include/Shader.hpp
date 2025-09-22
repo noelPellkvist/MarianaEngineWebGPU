@@ -13,8 +13,8 @@ class Shader
         void LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat> outputFormats);
 
         wgpu::RenderPipeline& GetPipeline() { return m_Pipeline; }
-        wgpu::BindGroup& GetBindGroup();
-        wgpu::BindGroup& GetModelBindGroup();
+        const wgpu::BindGroup& GetBindGroup() const;
+        const wgpu::BindGroup& GetModelBindGroup() const;
 
         wgpu::BindGroupLayout& GetTextureBindGroupLayout() { return textureBindgroupLayout; }
 

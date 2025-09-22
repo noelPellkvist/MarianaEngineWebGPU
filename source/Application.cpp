@@ -4,8 +4,9 @@
 #include <chrono>
 
 Application::Application(const std::string& name)
-    : m_Name(name), m_Running(false), m_Window(1366, 768, name), input(m_Window.GetWindow()), renderpass(true, true, windowFormat, 1366, 768)
+    : m_Name(name), m_Running(false), m_Window(1366, 768, name), input(m_Window.GetWindow())
 {
+    Init();
     Logger::Info("Application Created: " + m_Name);
 }
 
@@ -32,7 +33,7 @@ void Application::Start()
 
 void Application::Initalize()
 {
-    Init();
+    
     m_Window.GetSurface();
 }
 
@@ -46,6 +47,7 @@ void Application::MainLoop()
     //first thing that happens in the loop is we get the time at the start of the frame
     OnUpdate(dt);
     cam->OnUpdate(dt);
+    cam->UpdateBuffer();
 
     gui.PreUpdateGUI();
     OnGUI();

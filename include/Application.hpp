@@ -27,7 +27,6 @@ class Application
         
         Window m_Window;
         IInput input;
-        Renderpass renderpass;
         ICamera* cam;
         GUI gui;
 

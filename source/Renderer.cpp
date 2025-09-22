@@ -5,6 +5,7 @@
 #include <Shader.hpp>
 #include <moved_later/GUI.hpp>
 
+
 Renderer::Renderer()
 {
 
@@ -15,7 +16,7 @@ Renderer::~Renderer()
 
 }
 
-void Renderer::Render(Renderpass& renderPass, GUI gui, Material& mat, Shader& shader, wgpu::Buffer vertexBuffer, wgpu::Buffer indexBuffer, uint32_t IndexCount)
+void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, Material& mat, Shader& shader, wgpu::Buffer vertexBuffer, wgpu::Buffer indexBuffer, uint32_t IndexCount)
 {
     wgpu::SurfaceTexture surfaceTexture;
     surface.GetCurrentTexture(&surfaceTexture);
@@ -37,6 +38,7 @@ void Renderer::Render(Renderpass& renderPass, GUI gui, Material& mat, Shader& sh
     pass.SetBindGroup(0, shader.GetBindGroup(), 0, nullptr);
     uint32_t dynamicOffset = 0;
     pass.SetBindGroup(2, mat.GetTextureBindGroup(), 0, nullptr);
+    pass.SetBindGroup(3, camera.GetBinding().GetBindGroup(), 0, nullptr);
 
     for(int i = 0; i < 1; i++)
     {

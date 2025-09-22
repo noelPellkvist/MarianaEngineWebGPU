@@ -245,5 +245,11 @@ std::vector<Texture> GLTF::GLTFLoader::LoadTexturesFromFile(std::string filename
       return res;
     }
 
+    for (tinygltf::Image& img : model.images)
+    {
+        Texture newTexture;
+        newTexture.LoadTexture(reinterpret_cast<uint8_t*>(img.image.data()), img.image.size(), img.width, img.height, TextureFormat::RGBA8Unorm);
+        res.push_back(newTexture);
+    }
     return res;
 }

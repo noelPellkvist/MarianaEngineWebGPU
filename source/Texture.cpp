@@ -120,10 +120,10 @@ void Texture::LoadTexture(const std::string& path, TextureFormat format)
 {
     int width, height;
     std::vector<uint8_t> pixels = FileReader::LoadPixelsFromImage(path, width, height);
-    LoadTexture(pixels, width, height, format);
+    LoadTexture(pixels.data(), pixels.size(), width, height, format);
 }
 
-void Texture::LoadTexture(const std::vector<uint8_t> pixels, int width, int height, TextureFormat format)
+void Texture::LoadTexture(uint8_t* pixels, size_t length, int width, int height, TextureFormat format)
 {
     m_Width = width;
     m_Height = height;
@@ -160,5 +160,5 @@ void Texture::LoadTexture(const std::vector<uint8_t> pixels, int width, int heig
     source.bytesPerRow = 4 * textureDesc.size.width;
     source.rowsPerImage = textureDesc.size.height;
 
-    device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &source, &textureDesc.size);
+    device.GetQueue().WriteTexture(&destination, pixels, length, &source, &textureDesc.size);
 }

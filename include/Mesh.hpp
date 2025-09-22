@@ -4,8 +4,21 @@
 
 #include <Init.hpp>
 
+class IMesh
+{
+    public:
+        virtual size_t VertexCount() const = 0;
+        virtual size_t IndexCount() const = 0;
+
+        virtual bool IsUINT16() = 0;
+
+        virtual void Clear() = 0;
+
+        virtual void BuildMesh() = 0;
+};
+
 template<typename VertexT, typename IndexT>
-class Mesh
+class Mesh : public IMesh
 {
     static_assert(std::is_same_v<IndexT, uint16_t> ||
                   std::is_same_v<IndexT, uint32_t>,
@@ -27,8 +40,8 @@ class Mesh
         Mesh(std::vector<VertexT> verts, std::vector<IndexT> inds)
         : vertices(std::move(verts)), indices(std::move(inds)) {}
 
-        size_t VertexCount() const { return vertices.size(); }
-        size_t IndexCount()  const { return indices.size();  }
+        size_t VertexCount() const override { return vertices.size(); }
+        size_t IndexCount()  const override { return indices.size();  }
 
         const VertexT& GetVertex(size_t i) const { return vertices[i]; }
         VertexT&       GetVertex(size_t i)       { return vertices[i]; }
@@ -36,14 +49,14 @@ class Mesh
         const IndexT& GetIndex(size_t i) const { return indices[i]; }
         IndexT&       GetIndex(size_t i)       { return indices[i]; }
 
-        bool IsUINT16() { return std::is_same_v<IndexT, uint16_t>; }
+        bool IsUINT16() override { return std::is_same_v<IndexT, uint16_t>; }
 
-        void Clear() {
+        void Clear() override {
             vertices.clear();
             indices.clear();
         }
 
-        void BuildMesh()
+        void BuildMesh() override
         {
             wgpu::BufferDescriptor bufferDesc;
             bufferDesc.size = vertices.size() * sizeof(VertexT);
