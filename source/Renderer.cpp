@@ -16,7 +16,7 @@ Renderer::~Renderer()
 
 }
 
-void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, Material& mat, Shader& shader, wgpu::Buffer vertexBuffer, wgpu::Buffer indexBuffer, uint32_t IndexCount)
+void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, Material& mat, Shader& shader, IMesh& mesh)
 {
     wgpu::SurfaceTexture surfaceTexture;
     surface.GetCurrentTexture(&surfaceTexture);
@@ -33,8 +33,8 @@ void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, Material
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
     wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpassDesc);
     pass.SetPipeline(shader.GetPipeline());
-    pass.SetVertexBuffer(0, vertexBuffer, 0, vertexBuffer.GetSize());
-    pass.SetIndexBuffer(indexBuffer, wgpu::IndexFormat::Uint32, 0, indexBuffer.GetSize());
+    pass.SetVertexBuffer(0, mesh.vertexBuffer, 0, mesh.vertexBuffer.GetSize());
+    pass.SetIndexBuffer(mesh.indexBuffer, wgpu::IndexFormat::Uint32, 0, mesh.indexBuffer.GetSize());
     pass.SetBindGroup(0, shader.GetBindGroup(), 0, nullptr);
     uint32_t dynamicOffset = 0;
     pass.SetBindGroup(2, mat.GetTextureBindGroup(), 0, nullptr);
@@ -43,7 +43,7 @@ void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, Material
     for(int i = 0; i < 1; i++)
     {
       pass.SetBindGroup(1, shader.GetModelBindGroup(), 1, &dynamicOffset);
-      pass.DrawIndexed(IndexCount, 1, 0, 0, 0);
+      pass.DrawIndexed(mesh.IndexCount(), 1, 0, 0, 0);
       dynamicOffset += 256;
     }
     gui.PostUpdateGUI(pass);

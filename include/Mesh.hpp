@@ -7,6 +7,7 @@
 class IMesh
 {
     public:
+        virtual ~IMesh() = default; 
         virtual size_t VertexCount() const = 0;
         virtual size_t IndexCount() const = 0;
 
@@ -15,6 +16,9 @@ class IMesh
         virtual void Clear() = 0;
 
         virtual void BuildMesh() = 0;
+
+        wgpu::Buffer vertexBuffer;
+        wgpu::Buffer indexBuffer;
 };
 
 template<typename VertexT, typename IndexT>
@@ -31,9 +35,6 @@ class Mesh : public IMesh
 
         std::vector<VertexT> vertices;
         std::vector<IndexT> indices;
-
-        wgpu::Buffer vertexBuffer;
-        wgpu::Buffer indexBuffer;
     
         Mesh() = default;
 

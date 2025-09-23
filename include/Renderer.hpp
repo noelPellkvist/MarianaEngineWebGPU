@@ -1,6 +1,7 @@
 #pragma once
 #include <Renderpass.hpp>
 #include <ICamera.hpp>
+#include <Mesh.hpp>
 
 class Scene;
 class Material;
@@ -13,5 +14,5 @@ class Renderer
         Renderer();
         ~Renderer();
 
-        void Render(ICamera& camera, Renderpass& renderPass, GUI gui, Material& mat, Shader& shader, wgpu::Buffer vertexBuffer, wgpu::Buffer indexBuffer, uint32_t IndexCount);
+        void Render(ICamera& camera, Renderpass& renderPass, GUI gui, Material& mat, Shader& shader, IMesh& mesh);
 };

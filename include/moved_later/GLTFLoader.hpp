@@ -31,7 +31,7 @@ class GLTFLoader
 {
     public:
         static Mesh<Vertex, uint32_t> LoadFromFile(std::string filename);
-        static std::vector<Texture> LoadTexturesFromFile(std::string filename);
+        static std::vector<Texture> LoadTexturesFromFile(std::string filename, Shader& shader);
 };
 
 } // namespace GLTF

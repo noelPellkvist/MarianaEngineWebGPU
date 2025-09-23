@@ -113,7 +113,7 @@ void EditorApp::OnRender()
     
     PBR_Shader.WriteToUBO(cam->View(), cam->Position(), aspect);
     
-    renderer.Render(*cam, renderpass, gui, material, PBR_Shader, mesh.vertexBuffer, mesh.indexBuffer, mesh.IndexCount());
+    renderer.Render(*cam, renderpass, gui, material, PBR_Shader, mesh);
 }
 
 void EditorApp::OnShutdown()

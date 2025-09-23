@@ -7,6 +7,7 @@
 #include <Mesh.hpp>
 #include <vector>
 #include <UniformLayout.hpp>
+#include <memory>
 
 class EditorApp : public Application
 {
@@ -27,6 +28,7 @@ class EditorApp : public Application
         Shader PBR_Shader;
         Material material;
         Renderer renderer;
+        
         Mesh<GLTF::Vertex, uint32_t> mesh;
         Renderpass renderpass;
 };

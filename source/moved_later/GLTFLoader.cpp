@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 #include <Logger.hpp>
+#include <Material.hpp>
 
 
 #include <vector>
@@ -222,7 +223,67 @@ Mesh<GLTF::Vertex, uint32_t> GLTF::GLTFLoader::LoadFromFile(std::string filename
     return Mesh<GLTF::Vertex, uint32_t>(Vertices, Indices);
 }
 
-std::vector<Texture> GLTF::GLTFLoader::LoadTexturesFromFile(std::string filename)
+Texture& GetFlatAlbedoTexture()
+{
+    static Texture tex;
+    static bool inited = false;
+    if (!inited) {
+        static const uint8_t pixel[4] = { 255, 255, 255, 255 }; // white
+        tex.LoadTexture(pixel, sizeof(pixel), 1, 1, TextureFormat::RGBA8UnormSrgb);
+        inited = true;
+    }
+    return tex;
+}
+
+Texture& GetFlatEmissiveTexture()
+{
+    static Texture tex;
+    static bool inited = false;
+    if (!inited) {
+        static const uint8_t pixel[4] = { 0, 0, 0, 255 }; // no emission
+        tex.LoadTexture(pixel, sizeof(pixel), 1, 1, TextureFormat::RGBA8UnormSrgb);
+        inited = true;
+    }
+    return tex;
+}
+
+Texture& GetFlatAOTexture()
+{
+    static Texture tex;
+    static bool inited = false;
+    if (!inited) {
+        static const uint8_t pixel[4] = { 255, 255, 255, 255 };
+        tex.LoadTexture(pixel, sizeof(pixel), 1, 1, TextureFormat::RGBA8Unorm);
+        inited = true;
+    }
+    return tex;
+}
+
+Texture& GetFlatNormalTexture()
+{
+    static Texture flat;
+    static bool inited = false;
+    if (!inited) {
+        static const uint8_t pixel[4] = { 128, 128, 255, 255 };
+        flat.LoadTexture(pixel, sizeof(pixel), 1, 1, TextureFormat::RGBA8Unorm);
+        inited = true;
+    }
+    return flat;
+}
+
+Texture& GetFlatMetallicRoughnessTexture()
+{
+    static Texture flat;
+    static bool inited = false;
+    if (!inited) {
+        static const uint8_t pixel[4] = { 255, 255, 0, 255 };
+        flat.LoadTexture(pixel, sizeof(pixel), 1, 1, TextureFormat::RGBA8Unorm);
+        inited = true;
+    }
+    return flat;
+}
+
+std::vector<Texture> GLTF::GLTFLoader::LoadTexturesFromFile(std::string filename, Shader& shader)
 {
     std::vector<Texture> res;
     tinygltf::Model model;
@@ -251,5 +312,18 @@ std::vector<Texture> GLTF::GLTFLoader::LoadTexturesFromFile(std::string filename
         newTexture.LoadTexture(reinterpret_cast<uint8_t*>(img.image.data()), img.image.size(), img.width, img.height, TextureFormat::RGBA8Unorm);
         res.push_back(newTexture);
     }
+
+    for (tinygltf::Material& mat : model.materials)
+    {
+        Material newMat;
+        Texture& albedo = mat.pbrMetallicRoughness.baseColorTexture.index == -1 ? GetFlatAlbedoTexture() : res[mat.pbrMetallicRoughness.baseColorTexture.index];
+        Texture& normal = mat.normalTexture.index == -1 ? GetFlatNormalTexture() : res[mat.normalTexture.index];
+        Texture& ambient = mat.occlusionTexture.index == -1 ? GetFlatAOTexture() : res[mat.occlusionTexture.index];
+        Texture& metallicRoughness = mat.pbrMetallicRoughness.metallicRoughnessTexture.index == -1 ? GetFlatMetallicRoughnessTexture() : res[mat.pbrMetallicRoughness.metallicRoughnessTexture.index];
+        Texture& emmisive = mat.emissiveTexture.index == -1 ? GetFlatEmissiveTexture() : res[mat.emissiveTexture.index];
+
+        newMat.InitMaterial(shader, {albedo, normal, ambient, metallicRoughness, emmisive});
+    }
+
     return res;
 }
