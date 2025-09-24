@@ -123,7 +123,7 @@ void Texture::LoadTexture(const std::string& path, TextureFormat format)
     LoadTexture(pixels.data(), pixels.size(), width, height, format);
 }
 
-void Texture::LoadTexture(uint8_t* pixels, size_t length, int width, int height, TextureFormat format)
+void Texture::LoadTexture(const uint8_t* pixels, size_t length, int width, int height, TextureFormat format)
 {
     m_Width = width;
     m_Height = height;

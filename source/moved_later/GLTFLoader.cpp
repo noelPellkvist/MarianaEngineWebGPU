@@ -6,14 +6,15 @@
 #include <moved_later/tiny_gltf.h>
 
 #include <stdexcept>
-
-#include <Logger.hpp>
-#include <Material.hpp>
-
-
 #include <vector>
 #include <cstring>
 #include <glm/glm.hpp>
+
+#include <Logger.hpp>
+#include <Material.hpp>
+#include <AssetManager.hpp>
+
+#pragma region BufferHelpers
 
 // Helper: convert component to float with normalization
 inline float ConvertComponent(const void* data, int componentType, bool normalized) {
@@ -128,7 +129,6 @@ void LoadVertices(const tinygltf::Model& model,
     std::vector<glm::vec2> texcoords1;
     std::vector<glm::vec4> colors0;
 
-    // --- Attributes ---
     for (const auto& attr : primitive.attributes) {
         const std::string& attrName = attr.first;
         int accessorIndex = attr.second;
@@ -189,39 +189,14 @@ void LoadVertices(const tinygltf::Model& model,
         v.tangent   = (i < tangents.size())  ? tangents[i]  : glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
         v.texcoord0 = (i < texcoords0.size())? texcoords0[i]: glm::vec2(0.0f);
         v.texcoord1 = (i < texcoords1.size())? texcoords1[i]: glm::vec2(0.0f);
-        v.color0    = (i < colors0.size())   ? colors0[i]   : glm::vec4(1.0f); // default white
+        v.color0    = (i < colors0.size())   ? colors0[i]   : glm::vec4(1.0f);
         outVertices[i] = v;
     }
 }
 
-Mesh<GLTF::Vertex, uint32_t> GLTF::GLTFLoader::LoadFromFile(std::string filename)
-{
-    tinygltf::Model model;
-    tinygltf::TinyGLTF loader;
-    std::string err;
-    std::string warn;
+#pragma endregion
 
-    bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, filename);
-
-    if (!warn.empty()) {
-      Logger::Warning(warn);
-    }
-
-    if (!err.empty()) {
-      Logger::Error(err);
-    }
-
-    if (!ret) {
-      Logger::Error("Failed to parse glTF");
-      return Mesh<GLTF::Vertex, uint32_t>();
-    }
-
-    Logger::Info("Loaded glTF: " + filename);
-    std::vector<GLTF::Vertex> Vertices;
-    std::vector<uint32_t> Indices;
-    LoadVertices(model, model.meshes[0].primitives[0], Vertices, Indices);
-    return Mesh<GLTF::Vertex, uint32_t>(Vertices, Indices);
-}
+#pragma region TextureInitializers
 
 Texture& GetFlatAlbedoTexture()
 {
@@ -229,7 +204,7 @@ Texture& GetFlatAlbedoTexture()
     static bool inited = false;
     if (!inited) {
         static const uint8_t pixel[4] = { 255, 255, 255, 255 }; // white
-        tex.LoadTexture(pixel, sizeof(pixel), 1, 1, TextureFormat::RGBA8UnormSrgb);
+        tex.LoadTexture(pixel, 4, 1, 1, TextureFormat::RGBA8UnormSrgb);
         inited = true;
     }
     return tex;
@@ -241,7 +216,7 @@ Texture& GetFlatEmissiveTexture()
     static bool inited = false;
     if (!inited) {
         static const uint8_t pixel[4] = { 0, 0, 0, 255 }; // no emission
-        tex.LoadTexture(pixel, sizeof(pixel), 1, 1, TextureFormat::RGBA8UnormSrgb);
+        tex.LoadTexture(pixel, 4, 1, 1, TextureFormat::RGBA8UnormSrgb);
         inited = true;
     }
     return tex;
@@ -253,7 +228,7 @@ Texture& GetFlatAOTexture()
     static bool inited = false;
     if (!inited) {
         static const uint8_t pixel[4] = { 255, 255, 255, 255 };
-        tex.LoadTexture(pixel, sizeof(pixel), 1, 1, TextureFormat::RGBA8Unorm);
+        tex.LoadTexture(pixel, 4, 1, 1, TextureFormat::RGBA8Unorm);
         inited = true;
     }
     return tex;
@@ -265,7 +240,7 @@ Texture& GetFlatNormalTexture()
     static bool inited = false;
     if (!inited) {
         static const uint8_t pixel[4] = { 128, 128, 255, 255 };
-        flat.LoadTexture(pixel, sizeof(pixel), 1, 1, TextureFormat::RGBA8Unorm);
+        flat.LoadTexture(pixel, 4, 1, 1, TextureFormat::RGBA8Unorm);
         inited = true;
     }
     return flat;
@@ -277,13 +252,47 @@ Texture& GetFlatMetallicRoughnessTexture()
     static bool inited = false;
     if (!inited) {
         static const uint8_t pixel[4] = { 255, 255, 0, 255 };
-        flat.LoadTexture(pixel, sizeof(pixel), 1, 1, TextureFormat::RGBA8Unorm);
+        flat.LoadTexture(pixel, 4, 1, 1, TextureFormat::RGBA8Unorm);
         inited = true;
     }
     return flat;
 }
 
-std::vector<Texture> GLTF::GLTFLoader::LoadTexturesFromFile(std::string filename, Shader& shader)
+#pragma endregion
+
+Mesh<GLTF::Vertex, uint32_t> LoadEntireMesh(const tinygltf::Model& model, tinygltf::Mesh& rawMesh, size_t prevMaterials)
+{
+    std::vector<GLTF::Vertex> vertices;
+    std::vector<uint32_t> indices;
+    std::vector<Submesh> submeshes;
+
+    for(const auto& prim : rawMesh.primitives)
+    {
+        std::vector<GLTF::Vertex> localVerts;
+        std::vector<uint32_t>     localIdx;
+        LoadVertices(model, prim, localVerts, localIdx);
+        if(localVerts.empty() || localIdx.empty()) continue;
+
+        const uint32_t baseVertex = (uint32_t)vertices.size();
+        const uint32_t startIndex = (uint32_t)indices.size();
+        vertices.insert(vertices.end(), localVerts.begin(), localVerts.end());
+
+        indices.reserve(indices.size() + localIdx.size());
+        for (uint32_t i : localIdx) indices.push_back(i + baseVertex);
+
+        Submesh sm{};
+        sm.startIndex    = startIndex;
+        sm.indexCount    = (uint32_t)localIdx.size();
+        sm.materialIndex = prim.material >= 0 ? (uint32_t)prim.material + prevMaterials : -1;
+        submeshes.push_back(sm);
+    }
+
+    Mesh<GLTF::Vertex, uint32_t> mesh(vertices, indices);    
+    mesh.submeshes = std::move(submeshes);
+    return mesh;
+}
+
+void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader& shader)
 {
     std::vector<Texture> res;
     tinygltf::Model model;
@@ -306,23 +315,35 @@ std::vector<Texture> GLTF::GLTFLoader::LoadTexturesFromFile(std::string filename
       return res;
     }
 
+    size_t preTextures = AssetManager::LoadedTextures.size();
+    size_t preMaterials = AssetManager::LoadedMaterials.size();
+    size_t preMeshes = AssetManager::LoadedMeshes.size();
+
     for (tinygltf::Image& img : model.images)
     {
         Texture newTexture;
         newTexture.LoadTexture(reinterpret_cast<uint8_t*>(img.image.data()), img.image.size(), img.width, img.height, TextureFormat::RGBA8Unorm);
+        AssetManager::LoadedTextures.push_back(newTexture);
         res.push_back(newTexture);
     }
 
     for (tinygltf::Material& mat : model.materials)
     {
         Material newMat;
-        Texture& albedo = mat.pbrMetallicRoughness.baseColorTexture.index == -1 ? GetFlatAlbedoTexture() : res[mat.pbrMetallicRoughness.baseColorTexture.index];
-        Texture& normal = mat.normalTexture.index == -1 ? GetFlatNormalTexture() : res[mat.normalTexture.index];
-        Texture& ambient = mat.occlusionTexture.index == -1 ? GetFlatAOTexture() : res[mat.occlusionTexture.index];
-        Texture& metallicRoughness = mat.pbrMetallicRoughness.metallicRoughnessTexture.index == -1 ? GetFlatMetallicRoughnessTexture() : res[mat.pbrMetallicRoughness.metallicRoughnessTexture.index];
-        Texture& emmisive = mat.emissiveTexture.index == -1 ? GetFlatEmissiveTexture() : res[mat.emissiveTexture.index];
-
+        Texture& albedo = mat.pbrMetallicRoughness.baseColorTexture.index == -1 ? GetFlatAlbedoTexture() : AssetManager::LoadedTextures[mat.pbrMetallicRoughness.baseColorTexture.index + preTextures];
+        Texture& normal = mat.normalTexture.index == -1 ? GetFlatNormalTexture() : AssetManager::LoadedTextures[mat.normalTexture.index + preTextures];
+        Texture& ambient = mat.occlusionTexture.index == -1 ? GetFlatAOTexture() : AssetManager::LoadedTextures[mat.occlusionTexture.index + preTextures];
+        Texture& metallicRoughness = mat.pbrMetallicRoughness.metallicRoughnessTexture.index == -1 ? GetFlatMetallicRoughnessTexture() : AssetManager::LoadedTextures[mat.pbrMetallicRoughness.metallicRoughnessTexture.index + preTextures];
+        Texture& emmisive = mat.emissiveTexture.index == -1 ? GetFlatEmissiveTexture() : AssetManager::LoadedTextures[mat.emissiveTexture.index + preTextures];
         newMat.InitMaterial(shader, {albedo, normal, ambient, metallicRoughness, emmisive});
+        AssetManager::LoadedMaterials.push_back(newMat);
+    }
+
+    for (tinygltf::Mesh& mesh : model.meshes)
+    {
+        auto newMesh = LoadEntireMesh(model, mesh, preTextures);
+        newMesh.BuildMesh();
+        AssetManager::LoadedMeshes.push_back(newMesh);
     }
 
     return res;

@@ -115,7 +115,7 @@ class Texture
         ~Texture();
 
         void LoadTexture(const std::string& path, TextureFormat format);
-        void LoadTexture(uint8_t* pixels, size_t length, int width, int height, TextureFormat format);
+        void LoadTexture(const uint8_t* pixels, size_t length, int width, int height, TextureFormat format);
 
         wgpu::Texture GetTexture() { return m_Texture; }
         wgpu::TextureView GetTextureView() { return m_View; }

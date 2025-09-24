@@ -1,18 +1,10 @@
 #include <EditorApp.hpp>
 #include <FileReader.hpp>
 #include <moved_later/EditorCameraController.hpp>
+#include <AssetManager.hpp>
 
 #include <sstream>
-
 #include <imgui.h>
-
-Texture albedo;
-Texture normal;
-Texture ambient;
-Texture metalroughness;
-Texture emmisive;
-
-std::vector<Texture> LoadedTextures;
 
 #pragma region Helpers
 
@@ -47,27 +39,14 @@ void EditorApp::OnStart()
     Logger::Info("Starting");
 
     if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam)) {
-        glm::vec3 eye    = {0.0f, 0.0f, 0.0f};
-        glm::vec3 target = {0.0f, 0.0f, 1.0f};
-
-        editorCam->SetPosition(eye);
+        editorCam->SetPosition({0.0f, 0.0f, 0.0f});
         editorCam->SetYawPitch(glm::half_pi<float>(), 0.0f);
     }
 
     renderpass.Init();
     PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {m_Window.GetWindowFormat()});
-
-    albedo.LoadTexture("/Textures/Default_albedo.jpg", TextureFormat::RGBA8Unorm);
-    normal.LoadTexture("/Textures/Default_normal.jpg", TextureFormat::RGBA8Unorm);
-    ambient.LoadTexture("/Textures/Default_AO.jpg", TextureFormat::RGBA8Unorm);
-    metalroughness.LoadTexture("/Textures/Default_metalRoughness.jpg", TextureFormat::RGBA8Unorm);
-    emmisive.LoadTexture("/Textures/Default_emissive.jpg", TextureFormat::RGBA8Unorm);
-
-    LoadedTextures = GLTF::GLTFLoader::LoadTexturesFromFile(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb");
-
-    material.InitMaterial(PBR_Shader, {albedo, normal, ambient, metalroughness, emmisive});
-    mesh = GLTF::GLTFLoader::LoadFromFile(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb");
-    mesh.BuildMesh();
+    LoadedTextures = GLTF::GLTFLoader::LoadTexturesFromFile(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", PBR_Shader);
+    mesh = AssetManager::LoadedMeshes[0];
 }
 
 void EditorApp::OnUpdate(float deltaTime)
@@ -113,7 +92,7 @@ void EditorApp::OnRender()
     
     PBR_Shader.WriteToUBO(cam->View(), cam->Position(), aspect);
     
-    renderer.Render(*cam, renderpass, gui, material, PBR_Shader, mesh);
+    renderer.Render(*cam, renderpass, gui, PBR_Shader);
 }
 
 void EditorApp::OnShutdown()

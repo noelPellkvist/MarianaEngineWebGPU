@@ -4,6 +4,14 @@
 
 #include <Init.hpp>
 
+struct Submesh
+{
+    uint32_t startIndex{0};
+    uint32_t indexCount{0};
+    uint32_t materialIndex{0};
+};
+
+
 class IMesh
 {
     public:
@@ -19,6 +27,7 @@ class IMesh
 
         wgpu::Buffer vertexBuffer;
         wgpu::Buffer indexBuffer;
+        std::vector<Submesh> submeshes;
 };
 
 template<typename VertexT, typename IndexT>

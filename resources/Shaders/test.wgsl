@@ -114,26 +114,20 @@ fn tonemapACES(x: vec3f) -> vec3f {
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-    // Normal mapping (tangent → world)
     var n = textureSample(normalMap, textureSampler, input.uv).xyz * 2.0 - 1.0;
     let TBN = mat3x3<f32>(input.world_tangent, input.world_bitangent, input.world_normal);
     let N = normalize(TBN * n);
 
-    // Base color sRGB → linear
     var baseColor = textureSample(albedo, textureSampler, input.uv).rgb;
-    //baseColor = pow(baseColor, vec3f(2.2));
 
-    // glTF metallicRoughness (ORM): G=roughness, B=metallic  (R=AO but we already have a separate AO)
     let mrSample = textureSample(metallicRoughness, textureSampler, input.uv);
-    let perceptualRoughness = clamp(mrSample.g, 0.04, 1.0); // avoid 0 to keep BRDF stable
+    let perceptualRoughness = clamp(mrSample.g, 0.04, 1.0);
     let metallic = clamp(mrSample.b, 0.0, 1.0);
 
-    // Ambient occlusion (keep your separate AO)
     let aoStrength = 1.0;
     let ao = textureSample(ambientO, textureSampler, input.uv).r;
     let aoTerm = mix(1.0, ao, aoStrength);
 
-    // Lighting setup
     let L = normalize(UniformBufferObject.lightDir);
     let V = normalize(camInfo.position - input.world_pos);
     let H = normalize(L + V);
@@ -145,39 +139,30 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let F0_dielectric = vec3f(0.04);
     let F0 = mix(F0_dielectric, baseColor, metallic);
 
-    // Microfacet params
-    let a = max(1e-3, perceptualRoughness * perceptualRoughness); // Disney mapping
+    let a = max(1e-3, perceptualRoughness * perceptualRoughness);
 
-    // BRDF terms
     let  D = D_GGX(N, H, a);
     let  G = G_Smith_correlated(N, V, L, a);
     let  F = F_Schlick(F0, VoH);
 
-    // Specular
     let  spec = (D * G) * F / max(4.0 * NoV * NoL + 1e-7, 1e-7);
 
-    // Diffuse (energy-conserving, Lambert * (1 - metallic))
     let kd = (1.0 - F) * (1.0 - metallic);
     let diffuse = kd * baseColor / 3.14159265;
 
-    // Direct lighting
     let direct = (diffuse + spec) * NoL * 1.0;
 
-    // Simple ambient term (IBL placeholder): 0.03 * ao
     let ambient = 0.03 * aoTerm * baseColor;
 
     let exposure = 2.0;
 
     var emmisiveTexture = textureSample(emissiveTex, textureSampler, input.uv).rgb;
     emmisiveTexture = pow(emmisiveTexture, vec3f(2.2));
-    //Here I do have to apply factor and intensity
 
     var colorLinear = (direct + ambient + emmisiveTexture) * exposure;
     
-    // filmic tonemap in linear space
     colorLinear = tonemapACES(colorLinear);
     
-    // clamp and output (surface is sRGB, so no manual gamma)
     colorLinear = saturate3(colorLinear);
     return vec4f(colorLinear, 1.0);
 }
