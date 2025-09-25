@@ -74,6 +74,7 @@ void EditorApp::OnUpdate(float deltaTime)
 
 void EditorApp::OnGUI()
 {
+    DrawTopMenu();
     ImGui::Begin("Stats"); 
     float fps   = ImGui::GetIO().Framerate;
     float ms    = 1000.0f / fps;
@@ -211,6 +212,47 @@ void EditorApp::DrawInspector(Entity& e)
         }
     }
     e.SetName(entityName);
+}
+
+void EditorApp::DrawTopMenu()
+{
+    if (ImGui::BeginMainMenuBar())
+    {
+        if (ImGui::BeginMenu("File"))
+        {
+            if (ImGui::MenuItem("New", "Ctrl+N")) {/* TODO */}
+            if (ImGui::MenuItem("Open...", "Ctrl+O")) {/* TODO */}
+            if (ImGui::MenuItem("Save", "Ctrl+S")) {/* TODO */}
+            if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {/* TODO */}
+            ImGui::Separator();
+            if (ImGui::MenuItem("Preferences...", "Ctrl+,")) {}
+            ImGui::Separator();
+            if (ImGui::MenuItem("Exit")) {/* set a flag to quit */}
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Edit"))
+        {
+            if (ImGui::MenuItem("Undo", "Ctrl+Z")) {/* TODO */}
+            if (ImGui::MenuItem("Redo", "Ctrl+Y")) {/* TODO */}
+            ImGui::Separator();
+            if (ImGui::MenuItem("Cut", "Ctrl+X")) {/* TODO */}
+            if (ImGui::MenuItem("Copy", "Ctrl+C")) {/* TODO */}
+            if (ImGui::MenuItem("Paste", "Ctrl+V")) {/* TODO */}
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Help"))
+        {
+            if (ImGui::MenuItem("Documentation")) {/* open URL */}
+            if (ImGui::MenuItem("Report Issue"))   {/* open URL */}
+            ImGui::Separator();
+            if (ImGui::MenuItem("About")) {}
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMainMenuBar();
+    }
 }
 
 #pragma endregion

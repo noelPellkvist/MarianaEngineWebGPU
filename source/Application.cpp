@@ -27,7 +27,7 @@ void Application::Start()
                 static_cast<Application*>(arg)->MainLoop();
             }, this, 0, false);
     #else
-    while (!m_Window.ShouldClose())
+    while (!m_Window.ShouldClose() && m_Running)
     {
         MainLoop();
     }

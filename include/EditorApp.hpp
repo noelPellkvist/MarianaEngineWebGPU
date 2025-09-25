@@ -37,4 +37,5 @@ class EditorApp : public Application
 
         void DrawEntityNode(Entity& e);
         void DrawInspector(Entity& e);
+        void DrawTopMenu();
 };
