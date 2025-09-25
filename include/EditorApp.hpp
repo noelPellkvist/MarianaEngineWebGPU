@@ -30,9 +30,11 @@ class EditorApp : public Application
         Renderer renderer;
         Scene scene;
         uint64_t selectedEntityID = -1;
+        Entity selectedEntity;
         
         Mesh<GLTF::Vertex, uint32_t> mesh;
         Renderpass renderpass;
 
         void DrawEntityNode(Entity& e);
+        void DrawInspector(Entity& e);
 };

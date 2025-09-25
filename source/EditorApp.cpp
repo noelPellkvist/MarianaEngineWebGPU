@@ -91,6 +91,10 @@ void EditorApp::OnGUI()
     {
         ImGui::Text("Select an entity to show it here");
     }
+    else
+    {
+        DrawInspector(selectedEntity);
+    }
     ImGui::End();
 }
 
@@ -112,6 +116,7 @@ void EditorApp::DrawEntityNode(Entity& e)
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)  && !ImGui::IsItemToggledOpen()) {
         selectedEntityID = e.RawId();
+        selectedEntity = e;
     }
 
     if (ImGui::BeginPopupContextItem("entity_ctx")) {
@@ -127,6 +132,85 @@ void EditorApp::DrawEntityNode(Entity& e)
         ImGui::TreePop();
     }
     ImGui::PopID();
+}
+
+void EditorApp::DrawInspector(Entity& e)
+{
+    ImGui::TextDisabled("Name");
+    ImGui::SameLine(0, 16);
+    ImGui::SetNextItemWidth(-1);
+
+    char entityName[128] = {};
+    strcpy(entityName, e.GetName());
+    ImGui::InputText("##entity_name", entityName, 128);
+
+    ImGui::Separator();
+    
+    const char* header = "⚙  Transform";
+    if (ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        static float pos[3]   = {0.0f, 0.0f, 0.0f};
+        static float rotDeg[3]= {0.0f, 0.0f, 0.0f}; 
+        static float scl[3]   = {1.0f, 1.0f, 1.0f};
+    
+
+        if (ImGui::BeginTable("##transform_table", 2, ImGuiTableFlags_SizingFixedFit|ImGuiTableFlags_NoBordersInBody))
+        {
+            ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+            ImGui::TableSetupColumn("values", ImGuiTableColumnFlags_WidthStretch);
+
+            auto DrawVec3Row = [](const char* label, float v[3], float resetX, float resetY, float resetZ, float speed = 0.1f)
+            {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(label);
+                ImGui::TableSetColumnIndex(1);
+
+                ImGui::PushID(label);
+                float line_h = ImGui::GetFrameHeight();
+                float btn_w  = line_h; // square reset buttons
+                float full_w = ImGui::GetContentRegionAvail().x;
+
+                // three equal fields
+                float field_w = (full_w - btn_w*3.0f - ImGui::GetStyle().ItemInnerSpacing.x*6.0f) / 3.0f;
+
+                // X
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(220, 80, 80, 255));
+                if (ImGui::Button("X", ImVec2(btn_w, line_h))) v[0] = resetX;
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(field_w);
+                ImGui::DragFloat("##X", &v[0], speed, 0, 0, "%.3f");
+                ImGui::PopStyleColor();
+                ImGui::SameLine();
+
+                // Y
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(110, 190, 110, 255));
+                if (ImGui::Button("Y", ImVec2(btn_w, line_h))) v[1] = resetY;
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(field_w);
+                ImGui::DragFloat("##Y", &v[1], speed, 0, 0, "%.3f");
+                ImGui::PopStyleColor();
+                ImGui::SameLine();
+
+                // Z
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 140, 220, 255));
+                if (ImGui::Button("Z", ImVec2(btn_w, line_h))) v[2] = resetZ;
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(field_w);
+                ImGui::DragFloat("##Z", &v[2], speed, 0, 0, "%.3f");
+                ImGui::PopStyleColor();
+
+                ImGui::PopID();
+            };
+
+            DrawVec3Row("Position", pos,    0.0f, 0.0f, 0.0f, 0.1f);
+            DrawVec3Row("Rotation", rotDeg, 0.0f, 0.0f, 0.0f, 0.5f);
+            DrawVec3Row("Scale",    scl,    1.0f, 1.0f, 1.0f, 0.05f);
+
+            ImGui::EndTable();
+        }
+    }
+    e.SetName(entityName);
 }
 
 #pragma endregion

@@ -67,20 +67,10 @@ void Shader::WriteToUBO(glm::mat4 view, glm::vec3 cameraPos, float aspect)
 
     uboLayout.pack(ubo);
     modelsBuffer.modelMatrix = glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f});
-    modelsBuffer.modelMatrix = glm::scale(modelsBuffer.modelMatrix, { 0.4f, 0.4f, 0.4f});
+    modelsBuffer.modelMatrix = glm::scale(modelsBuffer.modelMatrix, { 5.0f, 5.0f, 5.0f});
     modelsBuffer.modelMatrix = glm::rotate(modelsBuffer.modelMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
     modelsBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelsBuffer.modelMatrix)));
     modelsLayout.pack(modelsBuffer, 0);
-     
-
-    // modelsBuffer.modelMatrix = glm::translate(glm::mat4(1.0f), {0.0,0.0,0.0});
-    // modelsBuffer.modelMatrix = glm::rotate(modelsBuffer.modelMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
-    // modelsBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelsBuffer.modelMatrix)));
-    // modelsLayout.pack(modelsBuffer, 0);
-
-    // modelsBuffer.modelMatrix = glm::translate(glm::mat4(1.0f), {0,0,-3});
-    // modelsBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelsBuffer.modelMatrix)));
-    // modelsLayout.pack(modelsBuffer, 1);
 }
 
 
