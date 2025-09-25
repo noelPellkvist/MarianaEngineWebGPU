@@ -22,6 +22,11 @@ void Application::Start()
     Logger::Info("Application Started.");
     OnStart();
     m_Running = true;
+    #if defined(__EMSCRIPTEN__)
+        emscripten_set_main_loop_arg([](void* arg) {
+                static_cast<Application*>(arg)->MainLoop();
+            }, this, 0, false);
+    #else
     while (!m_Window.ShouldClose())
     {
         MainLoop();
@@ -29,6 +34,7 @@ void Application::Start()
     Logger::Info("Application Shutting down...");
     OnShutdown();
     Shutdown();
+    #endif
 }
 
 void Application::Initalize()

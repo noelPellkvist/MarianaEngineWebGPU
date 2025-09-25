@@ -2,10 +2,11 @@
 #include <string>
 #include <Logger.hpp>
 #include <Window.hpp>
-#include <moved_later/IInput.hpp>
 #include <Renderpass.hpp>
 #include <ICamera.hpp>
+
 #include <moved_later/GUI.hpp>
+#include <moved_later/IInput.hpp>
 
 class Application
 {

@@ -155,9 +155,23 @@ void Scene::_setParent(uint64_t id, uint64_t parentId) {
     ecs_remove_pair(w, e, EcsChildOf, EcsWildcard);
     if (parentId) ecs_add_pair(w, e, EcsChildOf, (ecs_entity_t)parentId);
 }
+int Scene::_childCount(uint64_t parentId) const {
+    ecs_world_t* w = _p->ecs.c_ptr();
+    return (int)ecs_count_id(w, ecs_pair(EcsChildOf, (ecs_entity_t)parentId));
+}
 void Scene::_forEachChildOpaque(uint64_t parentId, void(*cb)(void*, uint64_t, Scene*), void* ctx) const {
     flecs::entity parent(_p->ecs, (ecs_entity_t)parentId);
     parent.children([&](flecs::entity child){ cb(ctx, (uint64_t)child.id(), const_cast<Scene*>(this)); });
+}
+void Scene::_forEachRootOpaque(void(*cb)(void*, uint64_t, Scene*), void* ctx) const {
+    ecs_world_t* w = _p->ecs.c_ptr();
+
+    auto q = _p->ecs.query_builder<LocalTRS>().build();
+    q.each([&](flecs::entity e, LocalTRS&) {
+        if (!ecs_get_target(w, e.id(), EcsChildOf, 0)) {
+            cb(ctx, (uint64_t)e.id(), const_cast<Scene*>(this));
+        }
+    });
 }
 uint64_t Scene::_getParentId(uint64_t id) const {
     return (uint64_t)ecs_get_target(_p->ecs.c_ptr(), (ecs_entity_t)id, EcsChildOf, 0);

@@ -29,6 +29,8 @@ public:
     Entity& SetName(const char* name);
     const char* GetName() const;
     Entity& SetParent(Entity parent);
+    int GetChildCount() const;
+    inline bool HasChildren() { return GetChildCount() > 0; }
 
     Entity& AddTransform(); 
     Entity& SetPosition(float x, float y, float z);
@@ -68,6 +70,10 @@ public:
 
     template<class Fn>
     void ForEachChild(Entity parent, Fn&& fn);
+
+    template<class Fn>
+    void ForEachRoot(Fn&& fn);
+
     Entity Parent(Entity e) const;
 
 private:
@@ -78,6 +84,7 @@ private:
     void     _update(float dt);
     void     _setName(uint64_t eid, const char* name);
     const char* _getName(uint64_t eid) const;
+    int _childCount(uint64_t parentId) const;
 
     bool     _has(uint64_t id, const std::type_info& ti) const;
     void*    _getMut(uint64_t id, const std::type_info& ti, std::size_t size, std::size_t align) const;
@@ -86,6 +93,7 @@ private:
 
     void     _setParent(uint64_t id, uint64_t parentId);
     void     _forEachChildOpaque(uint64_t parentId, void(*cb)(void*, uint64_t, Scene*), void* ctx) const;
+    void _forEachRootOpaque(void(*cb)(void*, uint64_t, Scene*), void* ctx) const;
     uint64_t _getParentId(uint64_t id) const;
 
     Impl* _p;
@@ -97,6 +105,7 @@ inline void   Scene::Update(float dt) { _update(dt); }
 inline Entity& Entity::SetName(const char* name) { _scene->_setName(_id, name); return *this; }
 inline const char* Entity::GetName() const { return _scene->_getName(_id); }
 inline Entity& Entity::SetParent(Entity parent) { _scene->_setParent(_id, parent.RawId()); return *this; }
+inline int Entity::GetChildCount() const { return _scene->_childCount(_id); }
 
 template<class T> inline Entity& Entity::Add(const T& value) {
     _scene->_addSet(_id, typeid(T), &value, sizeof(T), alignof(T));
@@ -142,6 +151,20 @@ inline void Scene::ForEachChild(Entity parent, Fn&& fn) {
             c.fn( Entity(self, childId) );
         }, &ctx);
 }
+
+template<class Fn>
+inline void Scene::ForEachRoot(Fn&& fn) {
+    struct Ctx { Fn fn; Scene* self; };
+    Ctx ctx{ std::forward<Fn>(fn), this };
+    _forEachRootOpaque(
+        [](void* u, uint64_t id, Scene* self){
+            auto& c = *static_cast<Ctx*>(u);
+            c.fn( Entity(self, id) );
+        },
+        &ctx
+    );
+}
+
 inline Entity Scene::Parent(Entity e) const {
     uint64_t pid = _getParentId(e.RawId());
     return pid ? Entity(const_cast<Scene*>(this), pid) : Entity{};

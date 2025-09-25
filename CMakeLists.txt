@@ -55,22 +55,21 @@ target_include_directories(imgui PUBLIC
     external/imgui/misc/cpp
 )
 
-# --- Dawn ---
-set(DAWN_FETCH_DEPENDENCIES ON)
-set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC)
-add_subdirectory("dawn" EXCLUDE_FROM_ALL)
+
 
 if(EMSCRIPTEN)
+  target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_EMSCRIPTEN)
+
+  target_include_directories(app   BEFORE PRIVATE "${CMAKE_SYSROOT}/include")
+  target_include_directories(imgui BEFORE PRIVATE "${CMAKE_SYSROOT}/include")
+
+  target_link_libraries(app PRIVATE flecs::flecs_static glm::glm imgui)
   # Output: index.html using our custom shell
   set_target_properties(app PROPERTIES
     OUTPUT_NAME "index"
     SUFFIX ".html"
     LINK_DEPENDS "${CMAKE_SOURCE_DIR}/shell_modern.html"
   )
-
-  # Link Dawn + ImGui explicitly
-  target_link_libraries(imgui PUBLIC emdawnwebgpu_cpp webgpu_glfw)
-  target_link_libraries(app PRIVATE emdawnwebgpu_cpp webgpu_glfw)
 
   # Compiler flags
   target_compile_options(app PRIVATE "SHELL:-fexceptions")
@@ -84,6 +83,7 @@ if(EMSCRIPTEN)
     "SHELL:-sASSERTIONS=1"
     "-sASYNCIFY=1"
     "-sUSE_GLFW=3"
+    "-sUSE_WEBGPU=1"
     "SHELL:-sFORCE_FILESYSTEM=1"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/resources"
   )
@@ -97,6 +97,12 @@ if(EMSCRIPTEN)
   )
 else()
   # Link Dawn + GLFW explicitly
+
+  # --- Dawn ---
+  set(DAWN_FETCH_DEPENDENCIES ON)
+  set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC)
+  add_subdirectory("dawn" EXCLUDE_FROM_ALL)
+
   target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
   target_link_libraries(imgui PUBLIC webgpu_dawn webgpu_glfw glfw)
   target_link_libraries(app PRIVATE webgpu_dawn webgpu_glfw glfw)

@@ -27,6 +27,19 @@ inline std::string ToString(const float& v)
 EditorApp::EditorApp(const std::string& name) : Application(name), PBR_Shader(5), renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window.GetHeight())
 {
     cam = new EditorCameraController(input);
+    auto avocado1 = scene.Instantiate("Fresh Avocado");
+    
+    auto avocado1C = scene.Instantiate("Fresh Avocado child of first").SetParent(avocado1);
+
+    auto avocado1Cc1 = scene.Instantiate("Fresh Avocado child of first child 1").SetParent(avocado1C);
+    auto avocado1Cc2 = scene.Instantiate("Fresh Avocado child of first child 2").SetParent(avocado1C);
+    auto avocado1Cc3 = scene.Instantiate("Fresh Avocado child of first child 3 ").SetParent(avocado1C);
+    auto avocado1Cc4 = scene.Instantiate("Fresh Avocado child of first child 4").SetParent(avocado1C);
+
+    auto avocado2 = scene.Instantiate("Fresh Avocado (1)");
+    auto avocado2c = scene.Instantiate("Fresh Avocado (1) child").SetParent(avocado2);
+
+    scene.Update(0.f);
 }
 
 EditorApp::~EditorApp()
@@ -45,7 +58,7 @@ void EditorApp::OnStart()
 
     renderpass.Init();
     PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {m_Window.GetWindowFormat()});
-    LoadedTextures = GLTF::GLTFLoader::LoadTexturesFromFile(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", PBR_Shader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", PBR_Shader);
     mesh = AssetManager::LoadedMeshes[0];
 }
 
@@ -61,29 +74,62 @@ void EditorApp::OnUpdate(float deltaTime)
 
 void EditorApp::OnGUI()
 {
-    ImGui::Begin("Hello, world!"); 
+    ImGui::Begin("Stats"); 
     float fps   = ImGui::GetIO().Framerate;
     float ms    = 1000.0f / fps;
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", ms, fps);
     ImGui::End();
 
-    ImGui::Begin("Loaded images"); 
-    float availWidth = ImGui::GetContentRegionAvail().x;
+    ImGui::Begin("Hierachy"); 
+    scene.ForEachRoot([&](Entity e){
+        DrawEntityNode(e);
+    });
+    ImGui::End();
 
-    for (size_t i = 0; i < LoadedTextures.size(); i++)
+    ImGui::Begin("Inspector"); 
+    if (selectedEntityID == -1)
     {
-        float texW = LoadedTextures[i].GetWidth();
-        float texH = LoadedTextures[i].GetHeight();
-
-        float aspect = texH / texW;
-        float drawW = availWidth;
-        float drawH = drawW * aspect;
-
-        gui.DrawTexture(LoadedTextures[i], drawW, drawH);
+        ImGui::Text("Select an entity to show it here");
     }
-        
     ImGui::End();
 }
+
+#pragma region GUI
+
+void EditorApp::DrawEntityNode(Entity& e)
+{
+    const char* name = e.GetName();
+    if (!name || !*name) name = "<error_name>";
+
+    ImGuiTreeNodeFlags flags = 
+        ImGuiTreeNodeFlags_OpenOnArrow | 
+        ImGuiTreeNodeFlags_OpenOnDoubleClick |
+        ImGuiTreeNodeFlags_SpanAvailWidth |
+        (e.HasChildren() ? 0 : ImGuiTreeNodeFlags_Leaf) |
+        (selectedEntityID == e.RawId() ? ImGuiTreeNodeFlags_Selected : 0);
+    ImGui::PushID((ImGuiID)(uintptr_t)e.RawId());
+    bool open = ImGui::TreeNodeEx("label", flags, "%s", name);
+
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Left)  && !ImGui::IsItemToggledOpen()) {
+        selectedEntityID = e.RawId();
+    }
+
+    if (ImGui::BeginPopupContextItem("entity_ctx")) {
+        if (ImGui::MenuItem("Select")) selectedEntityID = e.RawId();
+        ImGui::EndPopup();
+    }
+
+    if (open)
+    {
+        scene.ForEachChild(e, [&](Entity c){
+            DrawEntityNode(c);
+        });
+        ImGui::TreePop();
+    }
+    ImGui::PopID();
+}
+
+#pragma endregion
 
 void EditorApp::OnRender()
 {

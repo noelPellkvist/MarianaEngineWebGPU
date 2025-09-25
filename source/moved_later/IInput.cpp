@@ -8,9 +8,10 @@ IInput::IInput(GLFWwindow* win)
 {
     glfwSetWindowUserPointer(m_window, this);
 
-    // We track edges ourselves
-    glfwSetInputMode(m_window, GLFW_STICKY_KEYS, GLFW_FALSE);
-    glfwSetInputMode(m_window, GLFW_STICKY_MOUSE_BUTTONS, GLFW_FALSE);
+    #ifndef __EMSCRIPTEN__   // or if (!EMSCRIPTEN)
+        glfwSetInputMode(win, GLFW_STICKY_KEYS, GLFW_TRUE);
+        glfwSetInputMode(win, GLFW_STICKY_MOUSE_BUTTONS, GLFW_TRUE);
+    #endif
 
     // Raw mouse motion helps when cursor is disabled
     if (glfwRawMouseMotionSupported()) {

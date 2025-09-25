@@ -287,7 +287,17 @@ static WGPUProgrammableStageDescriptor ImGui_ImplWGPU_CreateShaderModule(const c
 static WGPUBindGroup ImGui_ImplWGPU_CreateImageBindGroup(WGPUBindGroupLayout layout, WGPUTextureView texture)
 {
     ImGui_ImplWGPU_Data* bd = ImGui_ImplWGPU_GetBackendData();
-    WGPUBindGroupEntry image_bg_entries[] = { { nullptr, 0, 0, 0, 0, 0, texture } };
+    WGPUBindGroupEntry image_bg_entries[] = {
+    {
+        .nextInChain = nullptr,
+        .binding     = 0,
+        .buffer      = nullptr,
+        .offset      = 0,
+        .size        = 0,                 // ignored for textures
+        .sampler     = nullptr,
+        .textureView = texture,
+    }
+};
 
     WGPUBindGroupDescriptor image_bg_descriptor = {};
     image_bg_descriptor.layout = layout;
@@ -670,6 +680,7 @@ bool ImGui_ImplWGPU_CreateDeviceObjects()
     common_bg_layout_entries[0].binding = 0;
     common_bg_layout_entries[0].visibility = WGPUShaderStage_Vertex | WGPUShaderStage_Fragment;
     common_bg_layout_entries[0].buffer.type = WGPUBufferBindingType_Uniform;
+    common_bg_layout_entries[0].buffer.minBindingSize = MEMALIGN(sizeof(Uniforms), 16);
     common_bg_layout_entries[1].binding = 1;
     common_bg_layout_entries[1].visibility = WGPUShaderStage_Fragment;
     common_bg_layout_entries[1].sampler.type = WGPUSamplerBindingType_Filtering;
@@ -788,11 +799,26 @@ bool ImGui_ImplWGPU_CreateDeviceObjects()
     bd->renderResources.Sampler = wgpuDeviceCreateSampler(bd->wgpuDevice, &sampler_desc);
 
     // Create resource bind group
-    WGPUBindGroupEntry common_bg_entries[] =
+    WGPUBindGroupEntry common_bg_entries[] = {
     {
-        { nullptr, 0, bd->renderResources.Uniforms, 0, MEMALIGN(sizeof(Uniforms), 16), 0, 0 },
-        { nullptr, 1, 0, 0, 0, bd->renderResources.Sampler, 0 },
-    };
+        .nextInChain = nullptr,
+        .binding     = 0,
+        .buffer      = bd->renderResources.Uniforms,
+        .offset      = 0,
+        .size        = MEMALIGN(sizeof(Uniforms), 16),  // <- this is the ONLY thing the validator wants
+        .sampler     = nullptr,
+        .textureView = nullptr,
+    },
+    {
+        .nextInChain = nullptr,
+        .binding     = 1,
+        .buffer      = nullptr,
+        .offset      = 0,
+        .size        = 0,                               // ignored for sampler
+        .sampler     = bd->renderResources.Sampler,
+        .textureView = nullptr,
+    },
+};
     WGPUBindGroupDescriptor common_bg_descriptor = {};
     common_bg_descriptor.layout = bg_layouts[0];
     common_bg_descriptor.entryCount = sizeof(common_bg_entries) / sizeof(WGPUBindGroupEntry);

@@ -312,7 +312,7 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader& shader)
 
     if (!ret) {
       Logger::Error("Failed to parse glTF");
-      return res;
+      return;
     }
 
     size_t preTextures = AssetManager::LoadedTextures.size();
@@ -345,6 +345,4 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader& shader)
         newMesh.BuildMesh();
         AssetManager::LoadedMeshes.push_back(newMesh);
     }
-
-    return res;
 }

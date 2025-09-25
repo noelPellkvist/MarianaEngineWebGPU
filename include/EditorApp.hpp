@@ -7,6 +7,7 @@
 #include <Mesh.hpp>
 #include <vector>
 #include <UniformLayout.hpp>
+#include <ECS.hpp>
 #include <memory>
 
 class EditorApp : public Application
@@ -23,12 +24,15 @@ class EditorApp : public Application
         void OnShutdown() override;
 
     private:
-        std::vector<Texture> LoadedTextures;
         std::vector<IUniformLayout> uniformBuffers;
         Shader PBR_Shader;
         Material material;
         Renderer renderer;
+        Scene scene;
+        uint64_t selectedEntityID = -1;
         
         Mesh<GLTF::Vertex, uint32_t> mesh;
         Renderpass renderpass;
+
+        void DrawEntityNode(Entity& e);
 };

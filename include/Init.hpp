@@ -1,6 +1,9 @@
 #pragma once
 #include <webgpu/webgpu_cpp.h>
 #include <glm/glm.hpp>
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#endif
 
 extern wgpu::Instance instance;
 extern wgpu::Adapter adapter;
