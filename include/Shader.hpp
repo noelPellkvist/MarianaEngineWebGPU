@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <glm/glm.hpp>
+#include <vector>
 
 class Shader
 {
@@ -24,16 +25,9 @@ class Shader
     private:
         wgpu::RenderPipeline m_Pipeline;
         wgpu::PipelineLayout m_Layout;
-
-        wgpu::BindGroupLayoutEntry textureBinding{};
-        wgpu::BindGroupLayoutEntry textureBinding2{};
-        wgpu::BindGroupLayoutEntry textureBinding3{};
-        wgpu::BindGroupLayoutEntry textureBinding4{};
-        wgpu::BindGroupLayoutEntry textureBinding5{};
-        wgpu::BindGroupLayoutEntry samplerBinding{};
-        wgpu::BindGroupLayout textureBindgroupLayout{};
+        wgpu::BindGroupLayout textureBindgroupLayout{};        
 
         uint8_t NumberOfTextures;
 
-        void FixTextureBindings(uint8_t NumberOfTextures);
+        void FixTextureBindings();
 };

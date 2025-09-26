@@ -5,8 +5,50 @@
 
 #include <sstream>
 #include <imgui.h>
+#include <unordered_map>
 
 #pragma region Helpers
+
+static bool DragOrInputFloat(const char* id, float* v, float speed, const char* fmt, float width)
+{
+    struct State { bool editing = false; };
+    static std::unordered_map<ImGuiID, State> s;
+
+    ImGuiID iid = ImGui::GetID(id);
+    State& st = s[iid];
+    bool changed = false;
+
+    ImGui::SetNextItemWidth(width);
+
+    if (!st.editing)
+    {
+        changed |= ImGui::DragFloat(id, v, speed, 0.0f, 0.0f, fmt);
+
+        // Click without dragging -> switch to text mode
+        if (ImGui::IsItemDeactivated() && !ImGui::IsItemDeactivatedAfterEdit())
+        {
+            st.editing = true;
+            ImGui::SetKeyboardFocusHere(0);
+        }
+    }
+    else
+    {
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), fmt, static_cast<double>(*v));
+
+        bool submit = ImGui::InputText(id, buf, IM_ARRAYSIZE(buf),
+            ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+
+        if (submit || ImGui::IsItemDeactivated())
+        {
+            *v = std::strtof(buf, nullptr);
+            st.editing = false;
+            changed = true;
+        }
+    }
+
+    return changed;
+}
 
 inline std::string ToString(const glm::vec3& v)
 {
@@ -40,11 +82,21 @@ EditorApp::EditorApp(const std::string& name) : Application(name), PBR_Shader(5)
     auto avocado2c = scene.Instantiate("Fresh Avocado (1) child").SetParent(avocado2);
 
     scene.Update(0.f);
+
+    m_Window.RegisterResizeCallback([this](int w, int h) {
+        this->OnWindowResized(w, h);
+    });
 }
 
 EditorApp::~EditorApp()
 {
 
+}
+
+void EditorApp::OnWindowResized(int w, int h)
+{
+    m_Window.GetSurface();
+    renderpass.Recreate(w, h);
 }
 
 void EditorApp::OnStart()
@@ -88,6 +140,10 @@ void EditorApp::OnGUI()
     });
     ImGui::End();
 
+    ImGui::Begin("Assets"); 
+
+    ImGui::End();
+
     ImGui::Begin("Inspector"); 
     if (selectedEntityID == -1)
     {
@@ -96,7 +152,6 @@ void EditorApp::OnGUI()
     else
     {
         DrawInspector(selectedEntity);
-        DrawMat4("##world_transform", selectedEntity.Get<WorldXform>()->model, false);
         PBR_Shader.WriteToModel(glm::make_mat4(selectedEntity.Get<WorldXform>()->model));
     }
     ImGui::End();
@@ -169,43 +224,41 @@ void EditorApp::DrawInspector(Entity& e)
                 ImGui::TableSetColumnIndex(0);
                 ImGui::TextUnformatted(label);
                 ImGui::TableSetColumnIndex(1);
-
+            
                 ImGui::PushID(label);
                 float line_h = ImGui::GetFrameHeight();
                 float btn_w  = line_h; // square reset buttons
                 float full_w = ImGui::GetContentRegionAvail().x;
-
-                // three equal fields
+            
+                // three equal fields (account for 3 buttons + inner spacing)
                 float field_w = (full_w - btn_w*3.0f - ImGui::GetStyle().ItemInnerSpacing.x*6.0f) / 3.0f;
-
+            
                 // X
                 ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(220, 80, 80, 255));
                 if (ImGui::Button("X", ImVec2(btn_w, line_h))) v[0] = resetX;
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth(field_w);
-                ImGui::DragFloat("##X", &v[0], speed, 0, 0, "%.3f");
+                DragOrInputFloat("##X", &v[0], speed, "%.3f", field_w);
                 ImGui::PopStyleColor();
                 ImGui::SameLine();
-
+            
                 // Y
                 ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(110, 190, 110, 255));
                 if (ImGui::Button("Y", ImVec2(btn_w, line_h))) v[1] = resetY;
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth(field_w);
-                ImGui::DragFloat("##Y", &v[1], speed, 0, 0, "%.3f");
+                DragOrInputFloat("##Y", &v[1], speed, "%.3f", field_w);
                 ImGui::PopStyleColor();
                 ImGui::SameLine();
-
+            
                 // Z
                 ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 140, 220, 255));
                 if (ImGui::Button("Z", ImVec2(btn_w, line_h))) v[2] = resetZ;
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth(field_w);
-                ImGui::DragFloat("##Z", &v[2], speed, 0, 0, "%.3f");
+                DragOrInputFloat("##Z", &v[2], speed, "%.3f", field_w);
                 ImGui::PopStyleColor();
-
+            
                 ImGui::PopID();
             };
+
 
             DrawVec3Row("Position", pos,    0.0f, 0.0f, 0.0f, 0.1f);
             DrawVec3Row("Rotation", rotDeg, 0.0f, 0.0f, 0.0f, 0.5f);

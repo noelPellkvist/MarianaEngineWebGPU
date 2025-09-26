@@ -2,7 +2,7 @@
 #include <webgpu/webgpu_cpp.h>
 #include <GLFW/glfw3.h>
 #include <string>
-
+#include <functional>
 
 class Window {
     public:
@@ -20,6 +20,10 @@ class Window {
         wgpu::TextureFormat GetWindowFormat();
 
         GLFWwindow* GetWindow() { return m_Window; };
+
+        void RegisterResizeCallback(std::function<void(int, int)> callback);
+        static void   SetGlobal(Window* w);
+        static Window* GetGlobal();
     
     private:
         uint32_t m_Width;
@@ -33,4 +37,10 @@ class Window {
         int m_WindowPosY = 0;
         int m_WindowWidth = 0;
         int m_WindowHeight = 0;
+
+        std::function<void(int, int)> m_ResizeCallback;
+
+        static void FramebufferSizeCallback(GLFWwindow* window, int width, int height);
+        
+        static Window* s_global;
 };

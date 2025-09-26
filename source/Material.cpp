@@ -3,17 +3,17 @@
 #include <FileReader.hpp>
 
 
-Material::Material()
+IMaterial::IMaterial()
 {
 
 }
 
-Material::~Material()
+IMaterial::~IMaterial()
 {
 
 }
 
-void Material::LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMode wrapT)
+void IMaterial::LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMode wrapT)
 {
     wgpu::SamplerDescriptor samplerDesc{};
     samplerDesc.addressModeU = wgpu::AddressMode::Repeat;
@@ -29,7 +29,7 @@ void Material::LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMod
     samplers.push_back(device.CreateSampler(&samplerDesc));
 }
 
-void Material::InitMaterial(Shader& shader, std::vector<Texture> textures)
+void IMaterial::InitMaterial(Shader& shader, std::vector<Texture> textures)
 {
     m_Textures = textures;
 

@@ -99,44 +99,23 @@ const wgpu::BindGroup& Shader::GetModelBindGroup() const
   return modelsLayout.GetBindGroup();
 }
 
-void Shader::FixTextureBindings(uint8_t NumberOfTextures)
+void Shader::FixTextureBindings()
 {
-  textureBinding = {};
-  textureBinding.binding = 0;
-  textureBinding.visibility = wgpu::ShaderStage::Fragment;
-  textureBinding.texture.sampleType = wgpu::TextureSampleType::Float;
-  textureBinding.texture.viewDimension = wgpu::TextureViewDimension::e2D;
+  std::vector<wgpu::BindGroupLayoutEntry> entries;
+  entries.resize(NumberOfTextures + 1);
+  for(size_t i = 0; i < NumberOfTextures; i++)
+  {
+    entries[i] = {};
+    entries[i].binding = i;
+    entries[i].visibility = wgpu::ShaderStage::Fragment;
+    entries[i].texture.sampleType = wgpu::TextureSampleType::Float;
+    entries[i].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+  }
 
-  textureBinding2 = {};
-  textureBinding2.binding = 1;
-  textureBinding2.visibility = wgpu::ShaderStage::Fragment;
-  textureBinding2.texture.sampleType = wgpu::TextureSampleType::Float;
-  textureBinding2.texture.viewDimension = wgpu::TextureViewDimension::e2D;
-
-  textureBinding3 = {};
-  textureBinding3.binding = 2;
-  textureBinding3.visibility = wgpu::ShaderStage::Fragment;
-  textureBinding3.texture.sampleType = wgpu::TextureSampleType::Float;
-  textureBinding3.texture.viewDimension = wgpu::TextureViewDimension::e2D;
-
-  textureBinding4 = {};
-  textureBinding4.binding = 3;
-  textureBinding4.visibility = wgpu::ShaderStage::Fragment;
-  textureBinding4.texture.sampleType = wgpu::TextureSampleType::Float;
-  textureBinding4.texture.viewDimension = wgpu::TextureViewDimension::e2D;
-
-  textureBinding5 = {};
-  textureBinding5.binding = 4;
-  textureBinding5.visibility = wgpu::ShaderStage::Fragment;
-  textureBinding5.texture.sampleType = wgpu::TextureSampleType::Float;
-  textureBinding5.texture.viewDimension = wgpu::TextureViewDimension::e2D;
-
-  samplerBinding = {};
-  samplerBinding.binding = 5;
-  samplerBinding.visibility = wgpu::ShaderStage::Fragment;
-  samplerBinding.sampler.type = wgpu::SamplerBindingType::Filtering;
-
-  std::vector<wgpu::BindGroupLayoutEntry> entries = {textureBinding, textureBinding2, textureBinding3, textureBinding4, textureBinding5, samplerBinding};
+  entries[NumberOfTextures] = {};
+  entries[NumberOfTextures].binding = 5;
+  entries[NumberOfTextures].visibility = wgpu::ShaderStage::Fragment;
+  entries[NumberOfTextures].sampler.type = wgpu::SamplerBindingType::Filtering;
 
   wgpu::BindGroupLayoutDescriptor textureBindingLayout{};
   textureBindingLayout.entryCount = entries.size();
@@ -146,7 +125,7 @@ void Shader::FixTextureBindings(uint8_t NumberOfTextures)
 
 void Shader::LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat> outputFormats)
 {
-    FixTextureBindings(NumberOfTextures);
+    FixTextureBindings();
     uboLayout.Init();
     modelsLayout.Init();
 

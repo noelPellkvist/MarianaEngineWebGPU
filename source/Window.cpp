@@ -2,6 +2,11 @@
 #include <webgpu/webgpu_glfw.h>
 #include <Init.hpp>
 
+Window* Window::s_global = nullptr;
+
+void Window::SetGlobal(Window* w) { s_global = w; }
+Window* Window::GetGlobal()       { return s_global; }
+
 Window::Window(uint32_t width, uint32_t height, std::string title) : 
     m_Width(width),
     m_Height(height),
@@ -10,15 +15,38 @@ Window::Window(uint32_t width, uint32_t height, std::string title) :
     if (!glfwInit()) {
         return;
     }
-
+    Window::SetGlobal(this);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     m_Window = glfwCreateWindow(m_Width, m_Height, m_Title.c_str(), nullptr, nullptr);
+
+    glfwSetFramebufferSizeCallback(m_Window, FramebufferSizeCallback);
 }
 
 Window::~Window()
 {
     glfwDestroyWindow(m_Window);
     glfwTerminate();
+}
+
+void Window::RegisterResizeCallback(std::function<void(int, int)> callback)
+{
+    m_ResizeCallback = std::move(callback);
+}
+
+void Window::FramebufferSizeCallback(GLFWwindow* window, int width, int height)
+{
+    // Recover our C++ instance
+    Window* self = Window::GetGlobal();
+    if (!self) return;
+
+    // Update cached width/height
+    self->m_Width = width;
+    self->m_Height = height;
+
+    // Call user-provided callback
+    if (self->m_ResizeCallback) {
+        self->m_ResizeCallback(width, height);
+    }
 }
 
 void Window::ToggleFullscreen()

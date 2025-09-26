@@ -34,6 +34,8 @@ class EditorApp : public Application
         
         Mesh<GLTF::Vertex, uint32_t> mesh;
         Renderpass renderpass;
+        
+        void OnWindowResized(int w, int h);
 
         void DrawEntityNode(Entity& e);
         void DrawInspector(Entity& e);

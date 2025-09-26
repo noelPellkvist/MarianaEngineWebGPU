@@ -14,7 +14,7 @@ Renderer::Renderer()
 
 Renderer::~Renderer()
 {
-
+  
 }
 
 void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, Shader& shader)
