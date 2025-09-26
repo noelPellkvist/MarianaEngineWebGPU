@@ -1,13 +1,15 @@
 #include <Window.hpp>
 #include <webgpu/webgpu_glfw.h>
 #include <Init.hpp>
+#include <stb_image.h>
+#include <Logger.hpp>
 
 Window* Window::s_global = nullptr;
 
 void Window::SetGlobal(Window* w) { s_global = w; }
 Window* Window::GetGlobal()       { return s_global; }
 
-Window::Window(uint32_t width, uint32_t height, std::string title) : 
+Window::Window(uint32_t width, uint32_t height, std::string title, std::string logoPath) : 
     m_Width(width),
     m_Height(height),
     m_Title(title)
@@ -20,6 +22,14 @@ Window::Window(uint32_t width, uint32_t height, std::string title) :
     m_Window = glfwCreateWindow(m_Width, m_Height, m_Title.c_str(), nullptr, nullptr);
 
     glfwSetFramebufferSizeCallback(m_Window, FramebufferSizeCallback);
+
+    GLFWimage image;
+    image.pixels = stbi_load((std::string(RESOURCE_DIR) + logoPath).c_str(), &image.width, &image.height, nullptr, 4);
+    if (image.pixels)
+        glfwSetWindowIcon(m_Window, 1, &image);
+    else
+        Logger::Error("Failed to load window icon");
+    stbi_image_free(image.pixels);
 }
 
 Window::~Window()

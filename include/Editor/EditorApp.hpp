@@ -26,7 +26,7 @@ class EditorApp : public Application
     private:
         std::vector<IUniformLayout> uniformBuffers;
         Shader PBR_Shader;
-        Material material;
+        IMaterial material;
         Renderer renderer;
         Scene scene;
         uint64_t selectedEntityID = -1;
@@ -40,5 +40,6 @@ class EditorApp : public Application
         void DrawEntityNode(Entity& e);
         void DrawInspector(Entity& e);
         void DrawTopMenu();
+        void DrawAssetsWindow();
         void DrawMat4(const char* id, float m[16], bool editable = true, float speed = 0.05f, const char* fmt = "%.3f");
 };

@@ -1,6 +1,6 @@
-#include <EditorApp.hpp>
+#include <Editor/EditorApp.hpp>
 
 int main() {
-  EditorApp app("hejsan");
+  EditorApp app("Mariana Engine Editor");
   app.Start();
 }

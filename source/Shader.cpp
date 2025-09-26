@@ -13,10 +13,7 @@
 #include <ICamera.hpp>
 
 struct UBO {
-  glm::mat4x4 projection;
-  glm::mat4x4 view;
   glm::vec3 lightDir;
-  glm::vec3 cameraPos;
 };
 
 struct TransformData {
@@ -25,7 +22,7 @@ struct TransformData {
 };
 
 UBO ubo{};
-UniformLayout uboLayout(false, ubo, ubo.projection, ubo.view, ubo.lightDir, ubo.cameraPos);
+UniformLayout uboLayout(false, ubo, ubo.lightDir);
 
 TransformData modelsBuffer{};
 UniformLayout modelsLayout(true, modelsBuffer, modelsBuffer.modelMatrix, modelsBuffer.normalMatrix);
@@ -47,30 +44,9 @@ void Shader::WriteToUBO(glm::mat4 view, glm::vec3 cameraPos, float aspect)
     static const auto t0 = clock::now();
     const float t = std::chrono::duration<float>(clock::now() - t0).count();
 
-    // --- camera & projection
-    const float fovDeg = 60.0f;
-    const float zNear  = 0.1f;
-    const float zFar   = 100.0f;
-    ubo.projection = glm::perspectiveLH_ZO(glm::radians(fovDeg), aspect, zNear, zFar);
-
-    // const glm::vec3 eye{0.0f, 0.0f, 0.0f};
-    // const glm::vec3 target{0.0f, 0.0f, 1.0f};
-    // const glm::vec3 up{0.0f, 1.0f, 0.0f};
-    //ubo.view = glm::lookAtLH(eye, target, up);
-    ubo.view = view;
-
-    // --- model: spin around +Y
-    const float degPerSec = 45.0f;                 // rotation speed
+    const float degPerSec = 45.0f;            
     const float angle = glm::radians(degPerSec) * t;
-
-    
-
-    // --- light: fixed direction
     ubo.lightDir = glm::normalize(glm::vec3(1.0f, 0.5f, -1.0f));
-
-    ubo.cameraPos = cameraPos;
-
-    // (In your shader you were doing L = normalize(-lightDir); keep that convention.)
 
     uboLayout.pack(ubo);
     static bool init = false;

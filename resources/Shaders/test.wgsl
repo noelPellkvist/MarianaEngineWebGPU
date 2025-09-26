@@ -17,10 +17,7 @@ struct VertexOutput {
 };
 
 struct UBO {
-  projection: mat4x4<f32>,
-  view: mat4x4<f32>,
   lightDir: vec3f,
-  cameraPos: vec3f
 };
 
 struct ModelData {

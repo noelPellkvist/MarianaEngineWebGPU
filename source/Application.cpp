@@ -4,7 +4,7 @@
 #include <chrono>
 
 Application::Application(const std::string& name)
-    : m_Name(name), m_Running(false), m_Window(1366, 768, name), input(m_Window.GetWindow())
+    : m_Name(name), m_Running(false), m_Window(1366, 768, name, "/logo.png"), input(m_Window.GetWindow())
 {
     Init();
     Logger::Info("Application Created: " + m_Name);

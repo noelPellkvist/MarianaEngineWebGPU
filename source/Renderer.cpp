@@ -46,7 +46,7 @@ void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, Shader& 
     pass.SetBindGroup(1, shader.GetModelBindGroup(), 1, &dynamicOffset);
     for (Submesh& sm : mesh.submeshes)
     {
-      pass.SetBindGroup(2, AssetManager::LoadedMaterials[sm.materialIndex].GetTextureBindGroup(), 0, nullptr);
+      pass.SetBindGroup(2, AssetManager::LoadedMaterials[sm.materialIndex].material->GetTextureBindGroup(), 0, nullptr);
       pass.DrawIndexed(sm.indexCount, 1, sm.startIndex, 0, 0);
     }
     gui.PostUpdateGUI(pass);

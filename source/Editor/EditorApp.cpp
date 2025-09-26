@@ -1,4 +1,4 @@
-#include <EditorApp.hpp>
+#include <Editor/EditorApp.hpp>
 #include <FileReader.hpp>
 #include <moved_later/EditorCameraController.hpp>
 #include <AssetManager.hpp>
@@ -6,6 +6,8 @@
 #include <sstream>
 #include <imgui.h>
 #include <unordered_map>
+#include <filesystem>
+#include <algorithm>
 
 #pragma region Helpers
 
@@ -141,7 +143,7 @@ void EditorApp::OnGUI()
     ImGui::End();
 
     ImGui::Begin("Assets"); 
-
+    DrawAssetsWindow();
     ImGui::End();
 
     ImGui::Begin("Inspector"); 
@@ -152,12 +154,130 @@ void EditorApp::OnGUI()
     else
     {
         DrawInspector(selectedEntity);
+        DrawMat4("##mat4Global", selectedEntity.Get<WorldXform>()->model, false);
         PBR_Shader.WriteToModel(glm::make_mat4(selectedEntity.Get<WorldXform>()->model));
     }
     ImGui::End();
 }
 
 #pragma region GUI
+
+namespace fs = std::filesystem;
+
+void EditorApp::DrawAssetsWindow()
+{
+    static const fs::path kRoot = fs::path(RESOURCE_DIR); 
+    static float tileSize  = 96.0f;  
+    static float labelH    = 24.0f;  
+    static float padding   = 8.0f;  
+
+    static fs::path current = fs::exists(kRoot) ? fs::absolute(kRoot) : fs::current_path();
+    static std::string selectedPath; 
+    if (!fs::exists(current) || !fs::is_directory(current)) current = kRoot;
+
+    const float crumbH = ImGui::GetFrameHeight();
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4,0));
+    ImGui::BeginChild("##breadcrumbs",
+                      ImVec2(0, crumbH),
+                      false,
+                      ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
+    std::string rootLabel = kRoot.filename().empty() ? kRoot.string() : kRoot.filename().string();
+    if (ImGui::SmallButton(rootLabel.c_str())) { current = kRoot; selectedPath.clear(); }
+
+    fs::path rel;
+    try { rel = fs::relative(current, kRoot); } catch(...) { rel.clear(); }
+
+    fs::path accum = kRoot;
+    for (auto &part : rel) {
+        if (part.empty() || part == ".") continue;
+        ImGui::SameLine(); ImGui::TextUnformatted("▸"); ImGui::SameLine();
+        std::string seg = part.string();
+        if (ImGui::SmallButton(seg.c_str())) { accum /= part; current = accum; selectedPath.clear(); }
+        else { accum /= part; }
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleVar(2);
+
+    ImGui::Separator();
+
+    struct Entry { fs::path p; bool isDir; };
+    std::vector<Entry> items;
+    try {
+        for (auto &e : fs::directory_iterator(current)) items.push_back({ e.path(), e.is_directory() });
+    } catch(...) {}
+
+    std::sort(items.begin(), items.end(), [](const Entry& a, const Entry& b){
+        if (a.isDir != b.isDir) return a.isDir > b.isDir;
+        return a.p.filename().string() < b.p.filename().string();
+    });
+
+    ImGui::BeginChild("##grid", ImVec2(0,0), true, ImGuiWindowFlags_HorizontalScrollbar);
+
+    const float cellW = tileSize + padding*2.0f;
+    const float cellH = tileSize + labelH + padding*2.0f;
+    const float availX = ImGui::GetContentRegionAvail().x;
+    int columns = (int)std::max(1.0f, floorf(availX / cellW));
+
+    if (ImGui::BeginTable("##grid_table", columns, ImGuiTableFlags_SizingFixedFit)) {
+        int col = 0;
+        for (size_t i=0; i<items.size(); ++i) {
+            if (col == 0) ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(col);
+
+            const Entry& en = items[i];
+            ImGui::PushID((int)i);
+
+            bool selected = (!selectedPath.empty() && selectedPath == en.p.string());
+
+            // Invisible button to capture clicks/double-clicks
+            ImGui::InvisibleButton("tile", ImVec2(cellW, cellH));
+            bool clicked  = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+            bool dblClick = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+            ImVec2 rMin = ImGui::GetItemRectMin();
+            ImVec2 rMax = ImGui::GetItemRectMax();
+
+            // Draw frame
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            ImU32 colBg = ImGui::GetColorU32(selected ? ImGuiCol_Header : ImGuiCol_FrameBg);
+            dl->AddRectFilled(rMin, rMax, colBg, 6.0f);
+            dl->AddRect(rMin, rMax, ImGui::GetColorU32(ImGuiCol_Border), 6.0f);
+
+            // Fake thumbnail (rounded rect) centered
+            ImVec2 thumbMin = { rMin.x + padding, rMin.y + padding };
+            ImVec2 thumbMax = { rMax.x - padding, rMin.y + padding + tileSize };
+            dl->AddRectFilled(thumbMin, thumbMax, ImGui::GetColorU32(ImGuiCol_WindowBg), 4.0f);
+            dl->AddRect(thumbMin, thumbMax, ImGui::GetColorU32(ImGuiCol_Border), 4.0f);
+
+            // Label centered under thumbnail
+            std::string name = en.p.filename().string();
+            ImVec2 textSz = ImGui::CalcTextSize(name.c_str(), nullptr, true, cellW - padding*2.0f);
+            float textX = rMin.x + (cellW - textSz.x) * 0.5f;
+            float textY = thumbMax.y + (labelH - textSz.y) * 0.5f;
+            ImGui::SetCursorScreenPos(ImVec2(textX, textY));
+            ImGui::PushTextWrapPos(rMin.x + cellW - padding);
+            ImGui::TextUnformatted(name.c_str());
+            ImGui::PopTextWrapPos();
+
+            // Click behavior
+            if (clicked) selectedPath = en.p.string();
+            if (dblClick) {
+                if (en.isDir) { current = en.p; selectedPath.clear(); }
+                else {
+                    // If you have a file open callback, call it here.
+                }
+            }
+
+            ImGui::PopID();
+            col = (col + 1) % columns;
+        }
+        ImGui::EndTable();
+    }
+
+    ImGui::EndChild();
+}
+
 
 void EditorApp::DrawEntityNode(Entity& e)
 {
