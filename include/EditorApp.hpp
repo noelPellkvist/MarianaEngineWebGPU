@@ -38,4 +38,5 @@ class EditorApp : public Application
         void DrawEntityNode(Entity& e);
         void DrawInspector(Entity& e);
         void DrawTopMenu();
+        void DrawMat4(const char* id, float m[16], bool editable = true, float speed = 0.05f, const char* fmt = "%.3f");
 };

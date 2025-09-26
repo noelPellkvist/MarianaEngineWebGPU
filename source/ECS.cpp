@@ -16,7 +16,7 @@ struct TransformClock { uint32_t tick = 1; };
 static glm::mat4 make_local(const LocalTRS& t) {
     glm::mat4 M(1.f);
     M = glm::translate(M, {t.pos[0], t.pos[1], t.pos[2]});
-    M *= glm::eulerAngleXYZ(t.rot_euler[0], t.rot_euler[1], t.rot_euler[2]);
+    M *= glm::eulerAngleXYZ(glm::radians(t.rot_euler[0]), glm::radians(t.rot_euler[2]), glm::radians(t.rot_euler[2]));
     M = glm::scale(M, {t.scl[0], t.scl[1], t.scl[2]});
     return M;
 }
@@ -82,7 +82,7 @@ Scene::Scene() : _p(new Impl) {
         // Build local, then compose with parent if present
         glm::mat4 T(1.f);
         T = glm::translate(T, {local.pos[0], local.pos[1], local.pos[2]});
-        T *= glm::eulerAngleXYZ(local.rot_euler[0], local.rot_euler[1], local.rot_euler[2]);
+        T *= glm::eulerAngleXYZ(glm::radians(local.rot_euler[0]), glm::radians(local.rot_euler[1]), glm::radians(local.rot_euler[2]));
         T = glm::scale(T, {local.scl[0], local.scl[1], local.scl[2]});
 
         glm::mat4 M = T;

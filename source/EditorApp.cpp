@@ -70,6 +70,7 @@ void EditorApp::OnUpdate(float deltaTime)
         m_Window.GetSurface();
         renderpass.Recreate(m_Window.GetWidth(), m_Window.GetHeight());
     }
+    scene.Update(deltaTime);
 }
 
 void EditorApp::OnGUI()
@@ -95,6 +96,8 @@ void EditorApp::OnGUI()
     else
     {
         DrawInspector(selectedEntity);
+        DrawMat4("##world_transform", selectedEntity.Get<WorldXform>()->model, false);
+        PBR_Shader.WriteToModel(glm::make_mat4(selectedEntity.Get<WorldXform>()->model));
     }
     ImGui::End();
 }
@@ -150,10 +153,10 @@ void EditorApp::DrawInspector(Entity& e)
     const char* header = "⚙  Transform";
     if (ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen))
     {
-        static float pos[3]   = {0.0f, 0.0f, 0.0f};
-        static float rotDeg[3]= {0.0f, 0.0f, 0.0f}; 
-        static float scl[3]   = {1.0f, 1.0f, 1.0f};
-    
+        LocalTRS L_TRS = *(e.Get<LocalTRS>());
+        float* pos   = L_TRS.pos;
+        float* rotDeg = L_TRS.rot_euler;
+        float* scl   = L_TRS.scl;
 
         if (ImGui::BeginTable("##transform_table", 2, ImGuiTableFlags_SizingFixedFit|ImGuiTableFlags_NoBordersInBody))
         {
@@ -208,10 +211,77 @@ void EditorApp::DrawInspector(Entity& e)
             DrawVec3Row("Rotation", rotDeg, 0.0f, 0.0f, 0.0f, 0.5f);
             DrawVec3Row("Scale",    scl,    1.0f, 1.0f, 1.0f, 0.05f);
 
+            e.SetPosition(pos[0], pos[1], pos[2]);
+            e.SetRotationEuler(rotDeg[0], rotDeg[1], rotDeg[2]);
+            e.SetScale(scl[0], scl[1], scl[2]);
             ImGui::EndTable();
         }
     }
     e.SetName(entityName);
+}
+
+void EditorApp::DrawMat4(const char* id, float m[16], bool editable, float speed, const char* fmt)
+{
+    ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit
+                          | ImGuiTableFlags_Borders
+                          | ImGuiTableFlags_RowBg
+                          | ImGuiTableFlags_NoSavedSettings;
+
+    if (ImGui::BeginTable(id, 5, flags))
+    {
+        ImGui::TableSetupColumn(" ", ImGuiTableColumnFlags_WidthFixed, 22.0f);
+        ImGui::TableSetupColumn("X", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+        ImGui::TableSetupColumn("Y", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+        ImGui::TableSetupColumn("Z", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+        ImGui::TableSetupColumn("W", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+        ImGui::TableHeadersRow();
+
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(6, 4));
+
+        for (int r = 0; r < 4; ++r)
+        {
+            ImGui::TableNextRow();
+
+            // Row label
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextDisabled("r%d", r);
+
+            for (int c = 0; c < 4; ++c)
+            {
+                ImGui::TableSetColumnIndex(c + 1);
+
+                // Highlight the diagonal
+                bool is_diag = (r == c);
+                if (is_diag)
+                    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 220, 120, 255)); // warm tint
+
+                ImGui::PushID(r * 4 + c);
+                float& v = m[r * 4 + c]; // <-- change to m[c*4 + r] if your data is column-major
+
+                if (editable)
+                {
+                    // Right-aligned cells
+                    float w = ImGui::GetContentRegionAvail().x;
+                    ImGui::SetNextItemWidth(w);
+                    ImGui::DragFloat("##cell", &v, speed, 0, 0, fmt);
+                }
+                else
+                {
+                    ImGui::Text(fmt, v);
+                }
+
+                ImGui::PopID();
+                if (is_diag)
+                    ImGui::PopStyleColor();
+            }
+        }
+
+        ImGui::PopStyleVar();
+        ImGui::EndTable();
+
+        // Small legend
+        ImGui::TextDisabled("Diagonal highlighted • %s", editable ? "editable" : "read-only");
+    }
 }
 
 void EditorApp::DrawTopMenu()

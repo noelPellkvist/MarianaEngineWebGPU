@@ -19,6 +19,7 @@ class Shader
         wgpu::BindGroupLayout& GetTextureBindGroupLayout() { return textureBindgroupLayout; }
 
         void WriteToUBO(glm::mat4 view, glm::vec3 cameraPos, float aspect);
+        void WriteToModel(glm::mat4 model);
 
     private:
         wgpu::RenderPipeline m_Pipeline;
