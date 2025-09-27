@@ -161,6 +161,11 @@ void GUI::InitGui(Window& window)
     {
     }
     ApplyMarianaStyle(1.0f, ImVec4(0.35f, 0.75f, 0.55f, 1.0f));
+    ImFontConfig config;
+    config.MergeMode = false;
+    config.PixelSnapH = true;
+
+    io.Fonts->AddFontFromFileTTF((std::string(RESOURCE_DIR) + "/Fonts/JetBrainsMonoNerdFont-Regular.ttf").c_str(), 16.0f, &config);
 }
 
 void GUI::PreUpdateGUI()

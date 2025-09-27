@@ -192,7 +192,7 @@ void EditorApp::DrawAssetsWindow()
     fs::path accum = kRoot;
     for (auto &part : rel) {
         if (part.empty() || part == ".") continue;
-        ImGui::SameLine(); ImGui::TextUnformatted("▸"); ImGui::SameLine();
+        ImGui::SameLine(); ImGui::TextUnformatted("\uf054"); ImGui::SameLine();
         std::string seg = part.string();
         if (ImGui::SmallButton(seg.c_str())) { accum /= part; current = accum; selectedPath.clear(); }
         else { accum /= part; }
