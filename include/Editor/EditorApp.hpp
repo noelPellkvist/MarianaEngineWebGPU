@@ -25,7 +25,7 @@ class EditorApp : public Application
 
     private:
         std::vector<IUniformLayout> uniformBuffers;
-        Shader PBR_Shader;
+        std::unique_ptr<IShader> PBR_Shader;
         IMaterial material;
         Renderer renderer;
         Scene scene;

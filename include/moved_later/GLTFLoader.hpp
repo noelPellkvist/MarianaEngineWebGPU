@@ -28,10 +28,15 @@ struct Vertex {
     }
 };
 
+struct GLTFMaterialProperties
+{
+    glm::vec4 baseColor;
+};
+
 class GLTFLoader
 {
     public:
-        static void LoadGLTF(std::string filename, Shader& shader);
+        static void LoadGLTF(std::string filename, IShader& shader);
 };
 
 } // namespace GLTF

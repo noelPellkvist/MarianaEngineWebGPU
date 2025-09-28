@@ -29,7 +29,7 @@ void IMaterial::LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMo
     samplers.push_back(device.CreateSampler(&samplerDesc));
 }
 
-void IMaterial::InitMaterial(Shader& shader, std::vector<Texture> textures)
+void IMaterial::InitMaterial(IShader& shader, std::vector<Texture> textures)
 {
     m_Textures = textures;
 

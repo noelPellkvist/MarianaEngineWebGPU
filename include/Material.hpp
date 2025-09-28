@@ -16,7 +16,7 @@ class IMaterial
         IMaterial();
         ~IMaterial();
 
-        void InitMaterial(Shader& shader, std::vector<Texture> textures);
+        void InitMaterial(IShader& shader, std::vector<Texture> textures);
         wgpu::BindGroup& GetTextureBindGroup() { return bindGroup; }
     
     private:

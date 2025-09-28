@@ -4,7 +4,7 @@
 #include <Mesh.hpp>
 
 class Scene;
-class Shader;
+class IShader;
 class GUI;
 
 class Renderer
@@ -13,5 +13,5 @@ class Renderer
         Renderer();
         ~Renderer();
 
-        void Render(ICamera& camera, Renderpass& renderPass, GUI gui, Shader& shader);
+        void Render(ICamera& camera, Renderpass& renderPass, GUI gui, IShader& shader);
 };

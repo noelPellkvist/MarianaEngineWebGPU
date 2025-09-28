@@ -292,7 +292,7 @@ Mesh<GLTF::Vertex, uint32_t> LoadEntireMesh(const tinygltf::Model& model, tinygl
     return mesh;
 }
 
-void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader& shader)
+void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
 {
     std::vector<Texture> res;
     tinygltf::Model model;
@@ -329,11 +329,6 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader& shader)
 
     for (tinygltf::Material& mat : model.materials)
     {
-        struct GLTFMaterialProperties
-        {
-            glm::vec4 baseColor;
-        };
-
         Material<GLTFMaterialProperties> newMat;
         Texture& albedo = mat.pbrMetallicRoughness.baseColorTexture.index == -1 ? GetFlatAlbedoTexture() : AssetManager::LoadedTextures[mat.pbrMetallicRoughness.baseColorTexture.index + preTextures];
         Texture& normal = mat.normalTexture.index == -1 ? GetFlatNormalTexture() : AssetManager::LoadedTextures[mat.normalTexture.index + preTextures];

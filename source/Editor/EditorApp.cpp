@@ -68,7 +68,29 @@ inline std::string ToString(const float& v)
 
 #pragma endregion
 
-EditorApp::EditorApp(const std::string& name) : Application(name), PBR_Shader(5), renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window.GetHeight())
+struct UBO {
+  glm::vec3 lightDir;
+};
+
+UBO ubo{};
+UniformLayout uboLayout(false, ubo, ubo.lightDir);
+
+struct TransformData {
+  glm::mat4x4 modelMatrix;
+  glm::mat4x4 normalMatrix;
+};
+
+TransformData transformBuffer{};
+UniformLayout transformLayout(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix);
+
+GLTF::GLTFMaterialProperties materialsBuffer;
+UniformLayout materialsLayout(true, materialsBuffer, materialsBuffer.baseColor);
+
+GLTF::Vertex v{};
+VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
+
+EditorApp::EditorApp(const std::string& name) : Application(name), 
+PBR_Shader(std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5)), renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window.GetHeight())
 {
     cam = new EditorCameraController(input);
     auto avocado1 = scene.Instantiate("Fresh Avocado");
@@ -111,8 +133,8 @@ void EditorApp::OnStart()
     }
 
     renderpass.Init();
-    PBR_Shader.LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {m_Window.GetWindowFormat()});
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", PBR_Shader);
+    PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {m_Window.GetWindowFormat()});
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
     mesh = AssetManager::LoadedMeshes[0];
 }
 
@@ -154,8 +176,8 @@ void EditorApp::OnGUI()
     else
     {
         DrawInspector(selectedEntity);
-        DrawMat4("##mat4Global", selectedEntity.Get<WorldXform>()->model, false);
-        PBR_Shader.WriteToModel(glm::make_mat4(selectedEntity.Get<WorldXform>()->model));
+        //DrawMat4("##mat4Global", selectedEntity.Get<WorldXform>()->model, false);
+        //PBR_Shader.WriteToModel(glm::make_mat4(selectedEntity.Get<WorldXform>()->model));
     }
     ImGui::End();
 }
@@ -166,15 +188,16 @@ namespace fs = std::filesystem;
 
 void EditorApp::DrawAssetsWindow()
 {
-    static const fs::path kRoot = fs::path(RESOURCE_DIR); 
-    static float tileSize  = 96.0f;  
-    static float labelH    = 24.0f;  
-    static float padding   = 8.0f;  
+    static const fs::path kRoot = fs::path(RESOURCE_DIR);
+    static float tileSize  = 96.0f;
+    static float labelH    = 24.0f;
+    static float padding   = 8.0f;
 
     static fs::path current = fs::exists(kRoot) ? fs::absolute(kRoot) : fs::current_path();
-    static std::string selectedPath; 
+    static std::string selectedPath;
     if (!fs::exists(current) || !fs::is_directory(current)) current = kRoot;
 
+    // --- breadcrumbs (slim) ---
     const float crumbH = ImGui::GetFrameHeight();
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4,0));
@@ -192,7 +215,7 @@ void EditorApp::DrawAssetsWindow()
     fs::path accum = kRoot;
     for (auto &part : rel) {
         if (part.empty() || part == ".") continue;
-        ImGui::SameLine(); ImGui::TextUnformatted("\uf054"); ImGui::SameLine();
+        ImGui::SameLine(); ImGui::TextUnformatted("\uf054"); ImGui::SameLine(); // chevron (optional)
         std::string seg = part.string();
         if (ImGui::SmallButton(seg.c_str())) { accum /= part; current = accum; selectedPath.clear(); }
         else { accum /= part; }
@@ -202,6 +225,7 @@ void EditorApp::DrawAssetsWindow()
 
     ImGui::Separator();
 
+    // Collect entries
     struct Entry { fs::path p; bool isDir; };
     std::vector<Entry> items;
     try {
@@ -212,6 +236,15 @@ void EditorApp::DrawAssetsWindow()
         if (a.isDir != b.isDir) return a.isDir > b.isDir;
         return a.p.filename().string() < b.p.filename().string();
     });
+
+    // Attempt to find the icon font (assumes you added it after main font)
+    static ImFont* s_iconFont = nullptr;
+    if (!s_iconFont) {
+        ImGuiIO& io = ImGui::GetIO();
+        if (!io.Fonts->Fonts.empty()) {
+            s_iconFont = io.Fonts->Fonts.back();
+        }
+    }
 
     ImGui::BeginChild("##grid", ImVec2(0,0), true, ImGuiWindowFlags_HorizontalScrollbar);
 
@@ -238,17 +271,50 @@ void EditorApp::DrawAssetsWindow()
             ImVec2 rMin = ImGui::GetItemRectMin();
             ImVec2 rMax = ImGui::GetItemRectMax();
 
-            // Draw frame
+            // Draw subtle border only (no opaque background)
             ImDrawList* dl = ImGui::GetWindowDrawList();
-            ImU32 colBg = ImGui::GetColorU32(selected ? ImGuiCol_Header : ImGuiCol_FrameBg);
-            dl->AddRectFilled(rMin, rMax, colBg, 6.0f);
-            dl->AddRect(rMin, rMax, ImGui::GetColorU32(ImGuiCol_Border), 6.0f);
+            ImU32 borderCol = ImGui::GetColorU32(ImGuiCol_Border);
+            dl->AddRect(rMin, rMax, borderCol, 6.0f);
 
-            // Fake thumbnail (rounded rect) centered
+            // faint selected overlay if selected
+            if (selected) {
+                dl->AddRectFilled(rMin, rMax, ImGui::GetColorU32(ImGuiCol_Header, 0.08f), 6.0f);
+            }
+
+            // Thumbnail area (we keep it visually empty so icon stands out)
             ImVec2 thumbMin = { rMin.x + padding, rMin.y + padding };
             ImVec2 thumbMax = { rMax.x - padding, rMin.y + padding + tileSize };
-            dl->AddRectFilled(thumbMin, thumbMax, ImGui::GetColorU32(ImGuiCol_WindowBg), 4.0f);
-            dl->AddRect(thumbMin, thumbMax, ImGui::GetColorU32(ImGuiCol_Border), 4.0f);
+
+            // If folder, draw a *large* icon centered in the thumbnail
+            if (en.isDir) {
+                // Folder icon glyph
+                const char* folderGlyph = "\uf07b"; 
+                float glyphSize = tileSize * 1.25f; 
+
+                // Measure glyph size at this scale
+                ImVec2 glyphSz = s_iconFont
+                    ? s_iconFont->CalcTextSizeA(glyphSize, FLT_MAX, 0.0f, folderGlyph)
+                    : ImGui::CalcTextSize(folderGlyph);
+
+                // Compute centered position
+                float thumbW = thumbMax.x - thumbMin.x;
+                float thumbH = thumbMax.y - thumbMin.y;
+                float glyphX = thumbMin.x + (thumbW - glyphSz.x) * 0.5f;
+                float glyphY = thumbMin.y + (thumbH - glyphSz.y) * 0.5f;
+
+                // Small manual tweak for better horizontal centering (depends on font)
+                glyphX -= glyphSize * 0.125f; // shift left ~5% of glyph size
+
+                // Draw
+                if (s_iconFont) {
+                    dl->AddText(s_iconFont, glyphSize, ImVec2(glyphX, glyphY),
+                                ImGui::GetColorU32(ImGuiCol_Text), folderGlyph);
+                } else {
+                    ImGui::SetCursorScreenPos(ImVec2(glyphX, glyphY));
+                    ImGui::TextUnformatted("[DIR]");
+                }
+
+            }
 
             // Label centered under thumbnail
             std::string name = en.p.filename().string();
@@ -265,7 +331,7 @@ void EditorApp::DrawAssetsWindow()
             if (dblClick) {
                 if (en.isDir) { current = en.p; selectedPath.clear(); }
                 else {
-                    // If you have a file open callback, call it here.
+                    // file open callback can go here
                 }
             }
 
@@ -277,7 +343,6 @@ void EditorApp::DrawAssetsWindow()
 
     ImGui::EndChild();
 }
-
 
 void EditorApp::DrawEntityNode(Entity& e)
 {
@@ -505,9 +570,9 @@ void EditorApp::OnRender()
     float aspect = static_cast<float>(m_Window.GetWidth()) /
                static_cast<float>(m_Window.GetHeight());
     
-    PBR_Shader.WriteToUBO(cam->View(), cam->Position(), aspect);
+    //PBR_Shader.WriteToUBO(cam->View(), cam->Position(), aspect);
     
-    renderer.Render(*cam, renderpass, gui, PBR_Shader);
+    renderer.Render(*cam, renderpass, gui, *PBR_Shader);
 }
 
 void EditorApp::OnShutdown()
