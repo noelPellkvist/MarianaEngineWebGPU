@@ -31,6 +31,7 @@ void IMaterial::LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMo
 
 void IMaterial::InitMaterial(IShader& shader, std::vector<Texture> textures)
 {
+    m_Shader = &shader;
     m_Textures = textures;
 
     LoadSampler(-1, -1 , WrapMode::REPEAT, WrapMode::REPEAT);
@@ -54,8 +55,18 @@ void IMaterial::InitMaterial(IShader& shader, std::vector<Texture> textures)
     bindings[5].sampler = samplers[0];
 
     wgpu::BindGroupDescriptor bindGroupDesc;
-    bindGroupDesc.layout = shader.GetTextureBindGroupLayout();
+    bindGroupDesc.layout = shader.GetBindGroupLayout(2);
     bindGroupDesc.entryCount = (uint32_t)bindings.size();
     bindGroupDesc.entries = bindings.data();
-    bindGroup = device.CreateBindGroup(&bindGroupDesc);
+    MaterialBindGroup = device.CreateBindGroup(&bindGroupDesc);
+}
+
+const wgpu::BindGroup& IMaterial::GetBindGroup(uint32_t index)
+{
+    if(index == 2)
+        return MaterialBindGroup;
+    else
+    {
+        return m_Shader->GetBindGroup(index);
+    }
 }

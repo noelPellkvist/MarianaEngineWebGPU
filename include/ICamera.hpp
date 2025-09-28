@@ -44,7 +44,7 @@ class ICamera
         {
             static bool init = false;
             if(!init)
-                m_CameraBuffer.Init();
+                m_CameraBuffer.Init(0);
             init = true;
             m_CamInfo.proj = glm::perspectiveLH_ZO(glm::radians(fov), aspect, nearClip, farClip);
             m_CamInfo.view = _view;

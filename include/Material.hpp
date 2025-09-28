@@ -17,12 +17,14 @@ class IMaterial
         ~IMaterial();
 
         void InitMaterial(IShader& shader, std::vector<Texture> textures);
-        wgpu::BindGroup& GetTextureBindGroup() { return bindGroup; }
+
+        const wgpu::BindGroup& GetBindGroup(uint32_t index);
     
     private:
         std::vector<Texture> m_Textures;
         std::vector<wgpu::Sampler> samplers;
-        wgpu::BindGroup bindGroup;
+        wgpu::BindGroup MaterialBindGroup;
+        IShader* m_Shader = nullptr;
 
         void LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMode wrapT);
 };
@@ -33,6 +35,7 @@ class Material : public IMaterial
     private:
         MaterialData data;
         uint32_t bufferIndex;
+        
 };
 
 template<typename T>

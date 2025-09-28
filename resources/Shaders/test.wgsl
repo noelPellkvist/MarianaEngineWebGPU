@@ -25,6 +25,10 @@ struct ModelData {
   normalMatrix: mat4x4<f32>,
 };
 
+struct MaterialProperties {
+    baseColor: vec4f,
+};
+
 struct CameraInfoData {
   projection: mat4x4<f32>,
   view: mat4x4<f32>,
@@ -40,12 +44,13 @@ struct CameraInfoData {
 
 @group(1) @binding(0) var<uniform> ModelDataObject: ModelData;
 
-@group(2) @binding(0) var albedo: texture_2d<f32>;
-@group(2) @binding(1) var normalMap: texture_2d<f32>;
-@group(2) @binding(2) var ambientO: texture_2d<f32>;
-@group(2) @binding(3) var metallicRoughness: texture_2d<f32>;  
-@group(2) @binding(4) var emissiveTex: texture_2d<f32>;  
-@group(2) @binding(5) var textureSampler: sampler;
+@group(2) @binding(0) var<uniform> Material : MaterialProperties;
+@group(2) @binding(1) var albedo: texture_2d<f32>;
+@group(2) @binding(2) var normalMap: texture_2d<f32>;
+@group(2) @binding(3) var ambientO: texture_2d<f32>;
+@group(2) @binding(4) var metallicRoughness: texture_2d<f32>;  
+@group(2) @binding(5) var emissiveTex: texture_2d<f32>;  
+@group(2) @binding(6) var textureSampler: sampler;
 
 @group(3) @binding(0) var<uniform> camInfo: CameraInfoData;
 

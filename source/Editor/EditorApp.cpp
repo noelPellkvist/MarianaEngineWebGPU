@@ -90,9 +90,10 @@ GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
-PBR_Shader(std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5)), renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window.GetHeight())
+renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window.GetHeight())
 {
     cam = new EditorCameraController(input);
+    PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5);
     auto avocado1 = scene.Instantiate("Fresh Avocado");
     
     auto avocado1C = scene.Instantiate("Fresh Avocado child of first").SetParent(avocado1);

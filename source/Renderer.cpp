@@ -17,7 +17,7 @@ Renderer::~Renderer()
   
 }
 
-void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, Shader& shader)
+void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, IShader& shader)
 {
     wgpu::SurfaceTexture surfaceTexture;
     surface.GetCurrentTexture(&surfaceTexture);
@@ -38,15 +38,16 @@ void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, Shader& 
     pass.SetVertexBuffer(0, mesh.vertexBuffer, 0, mesh.vertexBuffer.GetSize());
     
     pass.SetIndexBuffer(mesh.indexBuffer, wgpu::IndexFormat::Uint32, 0, mesh.indexBuffer.GetSize());
-    pass.SetBindGroup(0, shader.GetBindGroup(), 0, nullptr);
+    
     uint32_t dynamicOffset = 0;
     
-    pass.SetBindGroup(3, camera.GetBinding().GetBindGroup(), 0, nullptr);
-
-    pass.SetBindGroup(1, shader.GetModelBindGroup(), 1, &dynamicOffset);
     for (Submesh& sm : mesh.submeshes)
     {
-      pass.SetBindGroup(2, AssetManager::LoadedMaterials[sm.materialIndex].material->GetTextureBindGroup(), 0, nullptr);
+      IMaterial& material = *(AssetManager::LoadedMaterials[sm.materialIndex].material);
+      pass.SetBindGroup(0, material.GetBindGroup(0), 0, nullptr); //UBO
+      pass.SetBindGroup(1, material.GetBindGroup(1), 1, &dynamicOffset); //Transform
+      pass.SetBindGroup(2, material.GetBindGroup(2), 0, nullptr); //Material & textures
+      pass.SetBindGroup(3, material.GetBindGroup(3), 0, nullptr); //Camera
       pass.DrawIndexed(sm.indexCount, 1, sm.startIndex, 0, 0);
     }
     gui.PostUpdateGUI(pass);

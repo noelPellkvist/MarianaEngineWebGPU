@@ -14,9 +14,31 @@ class IShader
         virtual ~IShader() = default;
 
         wgpu::RenderPipeline& GetPipeline() { return m_Pipeline; }
-        const wgpu::BindGroup& GetUBOBindGroup() const { return m_UBOBindGroup; };
-        const wgpu::BindGroup& GetPerDrawBindGroup() const { return m_PerDrawBindGroup; };
-        const wgpu::BindGroup& GetCameraBindgroup() const { return m_CameraBindGroup; };
+        const wgpu::BindGroup& GetBindGroup(uint32_t index) 
+        { 
+            if (index == 2)
+            {
+                Logger::Error("WTF HAPPENED HERE BOI");
+            } else if (index == 0)
+                return m_UBOBindGroup;
+            else if (index == 1)
+                return m_TransformBindGroup;
+            else if (index == 3)
+                return m_CameraBindGroup;
+        }
+
+        const wgpu::BindGroupLayout& GetBindGroupLayout(uint32_t index) 
+        { 
+            if (index == 2)
+            {
+                Logger::Error("WTF HAPPENED HERE BOI");
+            } else if (index == 0)
+                return m_UBOBindLayout;
+            else if (index == 1)
+                return m_TransformBindLayout;
+            else if (index == 3)
+                return m_CameraBindLayout;
+        }
 
         virtual void LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat> outputFormats) = 0;
 
@@ -25,16 +47,15 @@ class IShader
         wgpu::PipelineLayout m_Layout;
 
         wgpu::BindGroupLayout m_UBOBindLayout{};  
-        wgpu::BindGroupLayout m_PerDrawBindLayout{};  
+        wgpu::BindGroupLayout m_TransformBindLayout{};  
+        wgpu::BindGroupLayout m_MaterialBindLayout{};  
         wgpu::BindGroupLayout m_CameraBindLayout{};
         
         wgpu::BindGroup m_UBOBindGroup{};  
-        wgpu::BindGroup m_PerDrawBindGroup{};  
+        wgpu::BindGroup m_TransformBindGroup{};  
         wgpu::BindGroup m_CameraBindGroup{};
 
         uint8_t m_TextureCount;
-
-        void FixTextureBindings();
 };
 
 template<typename UBOLayout, typename TransformLayout, typename MaterialLayout, typename CameraLayout>
@@ -59,11 +80,13 @@ class Shader : public IShader
 
         void LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat> outputFormats) override 
         {
-            FixTextureBindings();
-            m_UBOLayout.Init();
-            m_TransformLayout.Init();
-            m_MaterialLayout.Init();
-            m_CameraLayout.Init();
+            m_UBOLayout.Init(0);
+            m_TransformLayout.Init(0);
+            m_MaterialLayout.Init(0);
+            m_CameraLayout.Init(0);
+
+            FixBindingLayouts();
+            CreateBindgroups();
 
             wgpu::ShaderSourceWGSL wgsl{{.code = shaderCode.c_str()}};
             wgpu::ShaderModuleDescriptor shaderModuleDescriptor{.nextInChain = &wgsl};
@@ -81,7 +104,7 @@ class Shader : public IShader
             depthStencilState.stencilReadMask = 0;
             depthStencilState.stencilWriteMask = 0;
 
-            std::vector<wgpu::BindGroupLayout> bindGroupLayouts = {m_UBOBindLayout, m_PerDrawBindLayout, m_CameraBindLayout};
+            std::vector<wgpu::BindGroupLayout> bindGroupLayouts = {m_UBOBindLayout, m_TransformBindLayout, m_MaterialBindLayout, m_CameraBindLayout};
             wgpu::PipelineLayoutDescriptor  layoutDesc = {};
             layoutDesc.bindGroupLayoutCount = bindGroupLayouts.size();
             layoutDesc.bindGroupLayouts = bindGroupLayouts.data();
@@ -109,12 +132,76 @@ class Shader : public IShader
             m_Pipeline = device.CreateRenderPipeline(&descriptor);
         }
 
-    private:
+        void FixMaterialBindingLayout()
+        {
+            std::vector<wgpu::BindGroupLayoutEntry> entries;
+            entries.resize(m_TextureCount + 2);
+
+            entries[0] = m_MaterialLayout.GetBindGroupLayoutEntry();
+
+            for(size_t i = 1; i < m_TextureCount + 1; i++)
+            {
+              entries[i] = {};
+              entries[i].binding = i;
+              entries[i].visibility = wgpu::ShaderStage::Fragment;
+              entries[i].texture.sampleType = wgpu::TextureSampleType::Float;
+              entries[i].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+            }
+        
+            entries[m_TextureCount + 1] = {};
+            entries[m_TextureCount + 1].binding = m_TextureCount + 1;
+            entries[m_TextureCount + 1].visibility = wgpu::ShaderStage::Fragment;
+            entries[m_TextureCount + 1].sampler.type = wgpu::SamplerBindingType::Filtering;
+        
+            wgpu::BindGroupLayoutDescriptor textureBindingLayout{};
+            textureBindingLayout.entryCount = entries.size();
+            textureBindingLayout.entries = entries.data();
+            m_MaterialBindLayout = device.CreateBindGroupLayout(&textureBindingLayout);
+        }
+
+        void FixBindingLayouts()
+        {
+            FixMaterialBindingLayout();
+
+            wgpu::BindGroupLayoutDescriptor UBOBindGroupLayoutDesc{};
+            UBOBindGroupLayoutDesc.entryCount = 1;
+            UBOBindGroupLayoutDesc.entries = &m_UBOLayout.GetBindGroupLayoutEntry();
+            m_UBOBindLayout = device.CreateBindGroupLayout(&UBOBindGroupLayoutDesc);
+
+            wgpu::BindGroupLayoutDescriptor TransformBindGroupLayoutDesc{};
+            TransformBindGroupLayoutDesc.entryCount = 1;
+            TransformBindGroupLayoutDesc.entries = &m_TransformLayout.GetBindGroupLayoutEntry();
+            m_TransformBindLayout = device.CreateBindGroupLayout(&TransformBindGroupLayoutDesc);
+
+            wgpu::BindGroupLayoutDescriptor CameraBindGroupLayoutDesc{};
+            CameraBindGroupLayoutDesc.entryCount = 1;
+            CameraBindGroupLayoutDesc.entries = &m_CameraLayout.GetBindGroupLayoutEntry();
+            m_CameraBindLayout = device.CreateBindGroupLayout(&CameraBindGroupLayoutDesc);
+        }
+
+        void CreateBindgroups()
+        {
+            wgpu::BindGroupDescriptor bindGroupDesc{};
+            bindGroupDesc.layout = m_UBOBindLayout;
+            bindGroupDesc.entryCount = 1;
+            bindGroupDesc.entries = &m_UBOLayout.GetBindGroupEntry();
+            m_UBOBindGroup = device.CreateBindGroup(&bindGroupDesc);
+
+            bindGroupDesc.layout = m_TransformBindLayout;
+            bindGroupDesc.entryCount = 1;
+            bindGroupDesc.entries = &m_TransformLayout.GetBindGroupEntry();
+            m_TransformBindGroup = device.CreateBindGroup(&bindGroupDesc);
+
+            bindGroupDesc.layout = m_CameraBindLayout;
+            bindGroupDesc.entryCount = 1;
+            bindGroupDesc.entries = &m_CameraLayout.GetBindGroupEntry();
+            m_CameraBindGroup = device.CreateBindGroup(&bindGroupDesc);
+        }
+
+    public:
         UniformLayout<UBOLayout> m_UBOLayout;
         UniformLayout<TransformLayout> m_TransformLayout;
         UniformLayout<MaterialLayout> m_MaterialLayout;
         UniformLayout<CameraLayout> m_CameraLayout;
         VertexBufferLayout m_VertexLayout;
-
-        
 };

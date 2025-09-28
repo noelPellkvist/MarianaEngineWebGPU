@@ -15,10 +15,15 @@
 struct IUniformLayout {
     virtual ~IUniformLayout() = default;
 
-    virtual void Init() = 0;
+    virtual void Init(uint32_t index) = 0;
 
-    virtual const wgpu::BindGroup&        GetBindGroup() const = 0;
-    virtual const wgpu::BindGroupLayout&  GetBindGroupLayout() const = 0;
+    public:
+        wgpu::BindGroupEntry& GetBindGroupEntry() { return m_BindgroupEntry; }
+        wgpu::BindGroupLayoutEntry& GetBindGroupLayoutEntry() { return m_BindgroupLayoutEntry; }
+
+    protected:
+        wgpu::BindGroupEntry m_BindgroupEntry{};
+        wgpu::BindGroupLayoutEntry m_BindgroupLayoutEntry{};
 };
 
 // ---------- WGSL uniform layout (std140-ish) ----------
@@ -170,10 +175,6 @@ class UniformLayout : public IUniformLayout {
 public:
     UniformLayout() = default;
 
-    const wgpu::BindGroup& GetBindGroup() const override { return bindGroup; }
-
-    const wgpu::BindGroupLayout& GetBindGroupLayout() const override { return bindGroupLayout; }
-
     template <typename... Ms>
     explicit UniformLayout(bool isDynamic, const T& base, const Ms&... fields) {
         this->m_isDynamic = isDynamic;
@@ -181,7 +182,7 @@ public:
         build_layout(base, fields...);
     }
 
-    void Init() override
+    void Init(uint32_t bindingIndex) override
     {
         wgpu::BufferDescriptor bufferDesc;
         if(m_isDynamic)
@@ -198,28 +199,16 @@ public:
 
         device.GetQueue().WriteBuffer(m_GPUBuffer, 0, m_Buffer.data(), m_Buffer.size());
 
-        bindingLayout.binding = 0;
-        bindingLayout.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
-        bindingLayout.buffer.type = wgpu::BufferBindingType::Uniform;
-        bindingLayout.buffer.minBindingSize = total_size_;
-        bindingLayout.buffer.hasDynamicOffset = m_isDynamic;
+        m_BindgroupLayoutEntry.binding = bindingIndex;
+        m_BindgroupLayoutEntry.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
+        m_BindgroupLayoutEntry.buffer.type = wgpu::BufferBindingType::Uniform;
+        m_BindgroupLayoutEntry.buffer.minBindingSize = m_isDynamic ? uniformStride : total_size_;
+        m_BindgroupLayoutEntry.buffer.hasDynamicOffset = m_isDynamic;
 
-        wgpu::BindGroupLayoutDescriptor bindGroupLayoutDesc{};
-        bindGroupLayoutDesc.entryCount = 1;
-        bindGroupLayoutDesc.entries = &bindingLayout;
-        bindGroupLayout = device.CreateBindGroupLayout(&bindGroupLayoutDesc);
-
-        wgpu::BindGroupEntry binding{};
-        binding.binding = 0;
-        binding.buffer = m_GPUBuffer;
-        binding.offset = 0;
-        binding.size = m_isDynamic ? uniformStride : total_size_;
-
-        wgpu::BindGroupDescriptor bindGroupDesc{};
-        bindGroupDesc.layout = bindGroupLayout;
-        bindGroupDesc.entryCount = 1;
-        bindGroupDesc.entries = &binding;
-        bindGroup = device.CreateBindGroup(&bindGroupDesc);
+        m_BindgroupEntry.buffer = m_GPUBuffer;
+        m_BindgroupEntry.offset = 0;
+        m_BindgroupEntry.size = m_isDynamic ? uniformStride : total_size_;
+        m_BindgroupEntry.binding = bindingIndex;
     }
 
     // Pack into a freshly allocated vector (returns padded-to-16B size)
@@ -332,9 +321,6 @@ private:
     bool m_isDynamic = false;
     uint32_t uniformStride;
 
-    wgpu::BindGroupLayout bindGroupLayout;
-
-    wgpu::BindGroupLayoutEntry bindingLayout{};
-    wgpu::BindGroup bindGroup{};
+    
 };
 
