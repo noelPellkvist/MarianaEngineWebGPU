@@ -1,7 +1,5 @@
 #pragma once
 #include <Renderpass.hpp>
-#include <ICamera.hpp>
-#include <Mesh.hpp>
 
 class Scene;
 class IShader;
@@ -13,5 +11,5 @@ class Renderer
         Renderer();
         ~Renderer();
 
-        void Render(ICamera& camera, Renderpass& renderPass, GUI gui, IShader& shader);
+        void Render(Renderpass& renderPass, GUI gui, IShader& shader);
 };

@@ -2,7 +2,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp> 
 #include <glm/ext/matrix_clip_space.hpp>
-#include <moved_later/IInput.hpp>
+#include <IInput.hpp>
 #include <UniformLayout.hpp>
 
 struct CameraInfo

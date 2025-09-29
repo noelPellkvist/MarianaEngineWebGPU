@@ -1,4 +1,4 @@
-#include <moved_later/GLTFLoader.hpp>
+#include <Editor/GLTFLoader.hpp>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION

@@ -5,8 +5,8 @@
 #include <Renderpass.hpp>
 #include <ICamera.hpp>
 
-#include <moved_later/GUI.hpp>
-#include <moved_later/IInput.hpp>
+#include <GUI.hpp>
+#include <IInput.hpp>
 
 class Application
 {

@@ -6,7 +6,7 @@
 #include <Material.hpp>
 #include <Mesh.hpp>
 
-#include <moved_later/GLTFLoader.hpp>
+#include <Editor/GLTFLoader.hpp>
 
 class AssetManager
 {

@@ -3,7 +3,7 @@
 #include <Shader.hpp>
 #include <Material.hpp>
 #include <Renderer.hpp>
-#include <moved_later/GLTFLoader.hpp>
+#include <Editor/GLTFLoader.hpp>
 #include <Mesh.hpp>
 #include <vector>
 #include <UniformLayout.hpp>

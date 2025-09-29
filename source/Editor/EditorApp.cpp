@@ -1,6 +1,6 @@
 #include <Editor/EditorApp.hpp>
 #include <FileReader.hpp>
-#include <moved_later/EditorCameraController.hpp>
+#include <Editor/EditorCameraController.hpp>
 #include <AssetManager.hpp>
 
 #include <sstream>
@@ -581,7 +581,7 @@ void EditorApp::OnRender()
     
     //PBR_Shader.WriteToUBO(cam->View(), cam->Position(), aspect);
     
-    renderer.Render(*cam, renderpass, gui, *PBR_Shader);
+    renderer.Render(renderpass, gui, *PBR_Shader);
 }
 
 void EditorApp::OnShutdown()
