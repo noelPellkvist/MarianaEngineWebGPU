@@ -94,6 +94,7 @@ renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window
 {
     cam = new EditorCameraController(input);
     PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5);
+
     auto avocado1 = scene.Instantiate("Fresh Avocado");
     
     auto avocado1C = scene.Instantiate("Fresh Avocado child of first").SetParent(avocado1);
@@ -137,6 +138,9 @@ void EditorApp::OnStart()
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {m_Window.GetWindowFormat()});
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
     mesh = AssetManager::LoadedMeshes[0];
+
+    ubo.lightDir = glm::normalize(glm::vec3(1.0f, 0.5f, -1.0f));
+    uboLayout.pack(ubo);
 }
 
 void EditorApp::OnUpdate(float deltaTime)
@@ -179,6 +183,10 @@ void EditorApp::OnGUI()
         DrawInspector(selectedEntity);
         //DrawMat4("##mat4Global", selectedEntity.Get<WorldXform>()->model, false);
         //PBR_Shader.WriteToModel(glm::make_mat4(selectedEntity.Get<WorldXform>()->model));
+        
+        transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
+        transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
+        transformLayout.pack(transformBuffer, 0);
     }
     ImGui::End();
 }

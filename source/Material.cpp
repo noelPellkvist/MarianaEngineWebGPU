@@ -35,24 +35,18 @@ void IMaterial::InitMaterial(IShader& shader, std::vector<Texture> textures)
     m_Textures = textures;
 
     LoadSampler(-1, -1 , WrapMode::REPEAT, WrapMode::REPEAT);
-    std::vector<wgpu::BindGroupEntry> bindings(6);
-    bindings[0].binding = 0;
-    bindings[0].textureView = m_Textures[0].GetTextureView();
+    std::vector<wgpu::BindGroupEntry> bindings(shader.GetTextureCount() + 2);
 
-    bindings[1].binding = 1;
-    bindings[1].textureView = m_Textures[1].GetTextureView();
+    bindings[0] = shader.GetMaterialBufferEntry();
 
-    bindings[2].binding = 2;
-    bindings[2].textureView = m_Textures[2].GetTextureView();
+    for(size_t i = 1; i < shader.GetTextureCount() + 1; i++)
+    {
+        bindings[i].binding = i;
+        bindings[i].textureView = m_Textures[i - 1].GetTextureView();
+    }
 
-    bindings[3].binding = 3;
-    bindings[3].textureView = m_Textures[3].GetTextureView();
-
-    bindings[4].binding = 4;
-    bindings[4].textureView = m_Textures[4].GetTextureView();
-
-    bindings[5].binding = 5;
-    bindings[5].sampler = samplers[0];
+    bindings[shader.GetTextureCount() + 1].binding = shader.GetTextureCount() + 1;
+    bindings[shader.GetTextureCount() + 1].sampler = samplers[0];
 
     wgpu::BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = shader.GetBindGroupLayout(2);

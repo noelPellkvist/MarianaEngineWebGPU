@@ -46,7 +46,7 @@ void Renderer::Render(ICamera& camera, Renderpass& renderPass, GUI gui, IShader&
       IMaterial& material = *(AssetManager::LoadedMaterials[sm.materialIndex].material);
       pass.SetBindGroup(0, material.GetBindGroup(0), 0, nullptr); //UBO
       pass.SetBindGroup(1, material.GetBindGroup(1), 1, &dynamicOffset); //Transform
-      pass.SetBindGroup(2, material.GetBindGroup(2), 0, nullptr); //Material & textures
+      pass.SetBindGroup(2, material.GetBindGroup(2), 1, &dynamicOffset); //Material & textures
       pass.SetBindGroup(3, material.GetBindGroup(3), 0, nullptr); //Camera
       pass.DrawIndexed(sm.indexCount, 1, sm.startIndex, 0, 0);
     }

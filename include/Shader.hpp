@@ -18,7 +18,7 @@ class IShader
         { 
             if (index == 2)
             {
-                Logger::Error("WTF HAPPENED HERE BOI");
+                Logger::Error("WHY YOU CALLING THIS???");
             } else if (index == 0)
                 return m_UBOBindGroup;
             else if (index == 1)
@@ -31,7 +31,7 @@ class IShader
         { 
             if (index == 2)
             {
-                Logger::Error("WTF HAPPENED HERE BOI");
+                return m_MaterialBindLayout;
             } else if (index == 0)
                 return m_UBOBindLayout;
             else if (index == 1)
@@ -41,6 +41,10 @@ class IShader
         }
 
         virtual void LoadShader(std::string shaderCode, std::vector<wgpu::TextureFormat> outputFormats) = 0;
+
+        virtual const wgpu::BindGroupEntry& GetMaterialBufferEntry() = 0;
+
+        uint8_t GetTextureCount() { return m_TextureCount; }
 
     protected:
         wgpu::RenderPipeline m_Pipeline;
@@ -62,10 +66,10 @@ template<typename UBOLayout, typename TransformLayout, typename MaterialLayout, 
 class Shader : public IShader
 {
     public:
-        Shader(UniformLayout<UBOLayout> UBOLayout,
-               UniformLayout<TransformLayout> transformLayout, 
-               UniformLayout<MaterialLayout> materialLayout,
-               UniformLayout<CameraLayout> cameraLayout, 
+        Shader(UniformLayout<UBOLayout>& UBOLayout,
+               UniformLayout<TransformLayout>& transformLayout, 
+               UniformLayout<MaterialLayout>& materialLayout,
+               UniformLayout<CameraLayout>& cameraLayout, 
                VertexBufferLayout vertexLayout,
                uint8_t textureCount) : 
                m_UBOLayout(UBOLayout), 
@@ -198,10 +202,14 @@ class Shader : public IShader
             m_CameraBindGroup = device.CreateBindGroup(&bindGroupDesc);
         }
 
+        const wgpu::BindGroupEntry& GetMaterialBufferEntry() override
+        {
+            return m_MaterialLayout.GetBindGroupEntry();
+        }
     public:
-        UniformLayout<UBOLayout> m_UBOLayout;
-        UniformLayout<TransformLayout> m_TransformLayout;
-        UniformLayout<MaterialLayout> m_MaterialLayout;
-        UniformLayout<CameraLayout> m_CameraLayout;
+        UniformLayout<UBOLayout>& m_UBOLayout;
+        UniformLayout<TransformLayout>& m_TransformLayout;
+        UniformLayout<MaterialLayout>& m_MaterialLayout;
+        UniformLayout<CameraLayout>& m_CameraLayout;
         VertexBufferLayout m_VertexLayout;
 };
