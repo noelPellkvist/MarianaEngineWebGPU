@@ -145,6 +145,15 @@ void EditorApp::OnStart()
 
     ubo.lightDir = glm::normalize(glm::vec3(1.0f, 0.5f, -1.0f));
     uboLayout.pack(ubo);
+
+    LoadFileTextures();
+}
+
+void EditorApp::LoadFileTextures()
+{
+    Texture newTexture;
+    newTexture.LoadTexture("/logo.png", TextureFormat::RGBA8UnormSrgb);
+    AssetsTextures.push_back(newTexture);
 }
 
 void EditorApp::OnUpdate(float deltaTime)
@@ -165,6 +174,7 @@ void EditorApp::OnGUI()
     float fps   = ImGui::GetIO().Framerate;
     float ms    = 1000.0f / fps;
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", ms, fps);
+    gui.DrawTexture(AssetsTextures[0], 200, 200);
     ImGui::End();
 
     ImGui::Begin("Hierachy"); 

@@ -9,6 +9,7 @@
 #include <UniformLayout.hpp>
 #include <ECS.hpp>
 #include <memory>
+#include <Texture.hpp>
 
 class EditorApp : public Application
 {
@@ -26,6 +27,7 @@ class EditorApp : public Application
     private:
         std::vector<IUniformLayout> uniformBuffers;
         std::unique_ptr<IShader> PBR_Shader;
+        std::vector<Texture> AssetsTextures;
         IMaterial material;
         Renderer renderer;
         Scene scene;
@@ -36,6 +38,8 @@ class EditorApp : public Application
         Renderpass renderpass;
         
         void OnWindowResized(int w, int h);
+
+        void LoadFileTextures();
 
         void DrawEntityNode(Entity& e);
         void DrawInspector(Entity& e);
