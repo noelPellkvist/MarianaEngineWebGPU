@@ -107,11 +107,10 @@ renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window
     auto avocado2 = scene.Instantiate("Fresh Avocado (1)");
     auto avocado2c = scene.Instantiate("Fresh Avocado (1) child").SetParent(avocado2);
 
-    auto s = scene.CreateSystem<LocalTRS, WorldXform>([](Entity ent, LocalTRS& trs, WorldXform& form){
-        Logger::Warning("Running system for entity: " + std::string(ent.GetName()));
+    auto s = scene.CreateSystem<LocalTRS, WorldXform>([](Entity ent, LocalTRS& trs, WorldXform& form, float dt){
+        Logger::Warning("Running system for entity: " + std::string(ent.GetName()) + ToString(dt));
     });
 
-    s.Run(1);
     scene.Update(0.f);
 
     m_Window.RegisterResizeCallback([this](int w, int h) {
@@ -186,9 +185,6 @@ void EditorApp::OnGUI()
     else
     {
         DrawInspector(selectedEntity);
-        //DrawMat4("##mat4Global", selectedEntity.Get<WorldXform>()->model, false);
-        //PBR_Shader.WriteToModel(glm::make_mat4(selectedEntity.Get<WorldXform>()->model));
-        
         transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
         transformLayout.pack(transformBuffer, 0);
@@ -199,6 +195,8 @@ void EditorApp::OnGUI()
 #pragma region GUI
 
 namespace fs = std::filesystem;
+
+
 
 void EditorApp::DrawAssetsWindow()
 {

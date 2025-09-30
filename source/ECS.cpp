@@ -86,7 +86,7 @@ struct System::Impl {
     std::vector<std::size_t> aligns;
 
     // opaque callback that was passed from header (CreateSystem_trampoline)
-    void(*cb)(void* ctx, uint64_t eid, void** comps) = nullptr;
+    void(*cb)(void* ctx, uint64_t eid, void** comps, float delta) = nullptr;
     void* ctx_ptr = nullptr; // heap allocated trampoline context; will be deleted in destructor
 
     ~Impl() {
@@ -107,7 +107,7 @@ struct System::Impl {
     }
 };
 
-static void run_query_and_call(ecs_world_t* world, ecs_query_t* q, System::Impl* impl) {
+static void run_query_and_call(ecs_world_t* world, ecs_query_t* q, System::Impl* impl, float delta) {
     ecs_iter_t it = ecs_query_iter(world, q);
     while (ecs_query_next(&it)) {
         // for each matched entity in this batch:
@@ -133,7 +133,7 @@ static void run_query_and_call(ecs_world_t* world, ecs_query_t* q, System::Impl*
             if (!ok) continue;
 
             // call callback with comps.data()
-            impl->cb(impl->ctx_ptr, (uint64_t)e, comps.data());
+            impl->cb(impl->ctx_ptr, (uint64_t)e, comps.data(), delta);
         }
     }
 }
@@ -275,7 +275,7 @@ void Scene::_forEachRootOpaque(void(*cb)(void*, uint64_t, Scene*), void* ctx) co
 System Scene::_create_system(const std::vector<const std::type_info*>& compTypes,
                              const std::vector<std::size_t>& sizes,
                              const std::vector<std::size_t>& aligns,
-                             void(*cb)(void* ctx, uint64_t eid, void** comps),
+                             void(*cb)(void* ctx, uint64_t eid, void** comps, float dt),
                              void* ctx,
                              bool /*cascade*/)
 {
@@ -352,7 +352,7 @@ System& System::operator=(System&& o) noexcept {
 
 void System::Run(float delta) {
     if (!_p || !_p->query || !_p->world) return;
-    run_query_and_call(_p->world, _p->query, _p);
+    run_query_and_call(_p->world, _p->query, _p, delta);
 }
 
 uint64_t Scene::_getParentId(uint64_t id) const {

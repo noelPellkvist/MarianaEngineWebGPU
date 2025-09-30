@@ -133,19 +133,19 @@ private:
     System _create_system(const std::vector<const std::type_info*>& compTypes,
                       const std::vector<std::size_t>& sizes,
                       const std::vector<std::size_t>& aligns,
-                      void(*cb)(void* ctx, uint64_t eid, void** comps),
+                      void(*cb)(void* ctx, uint64_t eid, void** comps, float dt),
                       void* ctx,
                       bool cascade);
 
     template<typename Ctx, typename... ComponentsT>
-    static void CreateSystem_trampoline(void* ctxptr, uint64_t eid, void** comps) {
+    static void CreateSystem_trampoline(void* ctxptr, uint64_t eid, void** comps, float delta) {
         auto* ctx = static_cast<Ctx*>(ctxptr);
         // Build an Entity with the Scene pointer that will be set by _create_system
         Entity e(ctx->scene, eid);
         // expand comps[] into typed references and call the user's function stored in ctx->fn
         // Use index sequence to unpack
         call_with_index_sequence([&](auto... I){
-            ctx->fn(e, *reinterpret_cast<ComponentsT*>(comps[I])...);
+            ctx->fn(e, *reinterpret_cast<ComponentsT*>(comps[I])..., delta);
         }, std::index_sequence_for<ComponentsT...>{});
     }
 
@@ -250,7 +250,7 @@ System Scene::CreateSystem(Fn&& fn, bool cascade) {
     // Allocate on heap and capture user's fn inside
     auto* ctx = new TrampolineCtx(UserFn(std::forward<Fn>(fn)));
 
-    using OpaqueCb = void(*)(void* ctx, uint64_t eid, void** comps);
+    using OpaqueCb = void(*)(void* ctx, uint64_t eid, void** comps, float dt);
     OpaqueCb cb = &Scene::template CreateSystem_trampoline<TrampolineCtx, Components...>;
 
     // Call the factory: pass types (type_info*), sizes and aligns.
