@@ -2,6 +2,13 @@
 #include <cstdint>
 #include <typeinfo>
 #include <typeindex>
+#include <vector>
+#include <functional>
+#include <utility>
+#include <memory>
+#include <cstddef>
+#include <string>
+#include <type_traits>
 
 struct LocalTRS {
     float pos[3]      {0.f,0.f,0.f};
@@ -20,6 +27,31 @@ struct WorldXform {
 };
 
 class Scene;
+
+class System {
+public:
+    struct Impl;            // opaque, defined in cpp
+    System() noexcept : _p(nullptr) {}
+    ~System();
+
+    System(System&&) noexcept;
+    System& operator=(System&&) noexcept;
+
+    // Not copyable
+    System(const System&) = delete;
+    System& operator=(const System&) = delete;
+
+    // Run the underlying flecs system (delta default 0). Implemented in cpp.
+    void Run(float delta = 0.0f);
+
+    bool IsValid() const noexcept { return _p != nullptr; }
+
+private:
+    explicit System(Impl* p) : _p(p) {}
+    Impl* _p;
+
+    friend class Scene;
+};
 
 class Entity {
 public:
@@ -74,6 +106,9 @@ public:
     template<class Fn>
     void ForEachRoot(Fn&& fn);
 
+    template<typename... Components, typename Fn>
+    System CreateSystem(Fn&& fn, bool cascade = false);
+
     Entity Parent(Entity e) const;
 
 private:
@@ -94,6 +129,34 @@ private:
     void     _setParent(uint64_t id, uint64_t parentId);
     void     _forEachChildOpaque(uint64_t parentId, void(*cb)(void*, uint64_t, Scene*), void* ctx) const;
     void _forEachRootOpaque(void(*cb)(void*, uint64_t, Scene*), void* ctx) const;
+
+    System _create_system(const std::vector<const std::type_info*>& compTypes,
+                      const std::vector<std::size_t>& sizes,
+                      const std::vector<std::size_t>& aligns,
+                      void(*cb)(void* ctx, uint64_t eid, void** comps),
+                      void* ctx,
+                      bool cascade);
+
+    template<typename Ctx, typename... ComponentsT>
+    static void CreateSystem_trampoline(void* ctxptr, uint64_t eid, void** comps) {
+        auto* ctx = static_cast<Ctx*>(ctxptr);
+        // Build an Entity with the Scene pointer that will be set by _create_system
+        Entity e(ctx->scene, eid);
+        // expand comps[] into typed references and call the user's function stored in ctx->fn
+        // Use index sequence to unpack
+        call_with_index_sequence([&](auto... I){
+            ctx->fn(e, *reinterpret_cast<ComponentsT*>(comps[I])...);
+        }, std::index_sequence_for<ComponentsT...>{});
+    }
+
+    template<typename Callable, size_t... I>
+    static void call_with_index_sequence_impl(Callable&& c, std::index_sequence<I...>) {
+        c(I...);
+    }
+    template<typename Callable, size_t... I>
+    static void call_with_index_sequence(Callable&& c, std::index_sequence<I...>) {
+        call_with_index_sequence_impl(std::forward<Callable>(c), std::index_sequence<I...>{});
+    }
     uint64_t _getParentId(uint64_t id) const;
 
     Impl* _p;
@@ -163,6 +226,35 @@ inline void Scene::ForEachRoot(Fn&& fn) {
         },
         &ctx
     );
+}
+
+template<typename... Components, typename Fn>
+System Scene::CreateSystem(Fn&& fn, bool cascade) {
+    static_assert(sizeof...(Components) > 0, "CreateSystem requires at least one component type.");
+
+    // Build lists of type_info pointers, sizes, aligns
+    std::vector<const std::type_info*> types { &typeid(Components)... };
+    std::vector<std::size_t> sizes { sizeof(Components)... };
+    std::vector<std::size_t> aligns{ alignof(Components)... };
+
+    // Trampoline context type (templated to own the user's Fn)
+    using UserFn = std::decay_t<Fn>;
+    struct TrampolineCtxBase {
+        Scene* scene = nullptr; // will be set by Scene::_create_system
+    };
+    // Specialized context with function
+    struct TrampolineCtx : TrampolineCtxBase {
+        UserFn fn;
+        TrampolineCtx(UserFn&& f) : fn(std::move(f)) {}
+    };
+    // Allocate on heap and capture user's fn inside
+    auto* ctx = new TrampolineCtx(UserFn(std::forward<Fn>(fn)));
+
+    using OpaqueCb = void(*)(void* ctx, uint64_t eid, void** comps);
+    OpaqueCb cb = &Scene::template CreateSystem_trampoline<TrampolineCtx, Components...>;
+
+    // Call the factory: pass types (type_info*), sizes and aligns.
+    return _create_system(types, sizes, aligns, cb, ctx, cascade);
 }
 
 inline Entity Scene::Parent(Entity e) const {

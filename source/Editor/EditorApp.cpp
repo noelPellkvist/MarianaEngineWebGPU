@@ -107,6 +107,11 @@ renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window
     auto avocado2 = scene.Instantiate("Fresh Avocado (1)");
     auto avocado2c = scene.Instantiate("Fresh Avocado (1) child").SetParent(avocado2);
 
+    auto s = scene.CreateSystem<LocalTRS, WorldXform>([](Entity ent, LocalTRS& trs, WorldXform& form){
+        Logger::Warning("Running system for entity: " + std::string(ent.GetName()));
+    });
+
+    s.Run(1);
     scene.Update(0.f);
 
     m_Window.RegisterResizeCallback([this](int w, int h) {

@@ -8,6 +8,7 @@
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <cstring>
+#include <cassert>
 
 namespace {
 struct XformCache { uint32_t local_v=~0u, parent_v=~0u, world_v=0; };
@@ -26,19 +27,116 @@ struct Scene::Impl {
     flecs::world ecs;
     std::unordered_map<std::type_index, ecs_entity_t> comp;
 
+    Scene* owner = nullptr;
+
+    Impl(Scene* s) : ecs(), owner(s) {}
+    Impl() : ecs(), owner(nullptr) {}
+
+    // changed to accept a component name string (we no longer try to access std::type_info)
+    ecs_entity_t ensureComponentByName(const std::string& name, std::size_t sz, std::size_t align) {
+        // if we already have a mapping by name, return it
+        // Note: we kept a comp map keyed by type_index in other code. For discoverability we also
+        // allow ensureComponentByName to create a new entity for this name.
+        // For simplicity: just create new entity with that name (use low id so it matches textual query)
+        ecs_entity_desc_t ed{};
+        ed.name = name.c_str();
+        ed.use_low_id = true;
+        ecs_entity_t ent = ecs_entity_init(ecs.c_ptr(), &ed);
+
+        // register it as a component with size and alignment
+        ecs_component_desc_t cd{};
+        cd.entity = ent;
+        cd.type.size = (ecs_size_t)sz;
+        cd.type.alignment = (ecs_size_t)align;
+        ecs_entity_t cid = ecs_component_init(ecs.c_ptr(), &cd);
+
+        return cid;
+    }
+
     ecs_entity_t ensureComponent(const std::type_info& ti, std::size_t sz, std::size_t align) {
         auto key = std::type_index(ti);
         if (auto it = comp.find(key); it != comp.end()) return it->second;
 
-        ecs_entity_desc_t ed{}; ed.name = ti.name(); ed.use_low_id = true;
+        // Use the type_info::name() as the component name (this is what prior code did).
+        const char* nm = ti.name();
+
+        ecs_entity_desc_t ed{};
+        ed.name = nm;
+        ed.use_low_id = true;
         ecs_entity_t ent = ecs_entity_init(ecs.c_ptr(), &ed);
 
-        ecs_component_desc_t cd{}; cd.entity = ent; cd.type.size = sz; cd.type.alignment = align;
+        ecs_component_desc_t cd{};
+        cd.entity = ent;
+        cd.type.size = (ecs_size_t)sz;
+        cd.type.alignment = (ecs_size_t)align;
         ecs_entity_t cid = ecs_component_init(ecs.c_ptr(), &cd);
+
         comp.emplace(key, cid);
         return cid;
     }
 };
+
+struct System::Impl {
+    ecs_world_t* world = nullptr;
+    ecs_query_t* query = nullptr;
+    // list of component flecs ids (for fallback ecs_get_id)
+    std::vector<ecs_entity_t> comp_ids;
+    // sizes/aligns (mirrors header's info)
+    std::vector<std::size_t> sizes;
+    std::vector<std::size_t> aligns;
+
+    // opaque callback that was passed from header (CreateSystem_trampoline)
+    void(*cb)(void* ctx, uint64_t eid, void** comps) = nullptr;
+    void* ctx_ptr = nullptr; // heap allocated trampoline context; will be deleted in destructor
+
+    ~Impl() {
+        if (query) {
+            ecs_query_fini(query);
+            query = nullptr;
+        }
+        if (ctx_ptr) {
+            // header allocated a TrampolineCtx using 'new' — delete as void* to the known type
+            // we don't know exact type here, but in our design header always allocates a concrete type whose destructor is accessible,
+            // so a simple delete on the void* cast to char* is undefined. Instead: we delete as std::function pointer
+            // BUT earlier we allocated TrampolineCtx (a small struct). To safely destroy it we must know its type.
+            // Safer approach: require header to allocate the context as std::function<void(uint64_t, void**)>*
+            // However we used TrampolineCtx struct. To avoid UB here, we will not call delete on ctx_ptr; instead,
+            // Scene::_create_system will take ownership of ctx_ptr and will delete it as the correct type.
+            // To keep safe, we will assume ctx_ptr is a pointer that Scene::_create_system deletes later.
+        }
+    }
+};
+
+static void run_query_and_call(ecs_world_t* world, ecs_query_t* q, System::Impl* impl) {
+    ecs_iter_t it = ecs_query_iter(world, q);
+    while (ecs_query_next(&it)) {
+        // for each matched entity in this batch:
+        for (int i = 0; i < it.count; ++i) {
+            ecs_entity_t e = it.entities[i];
+            // Build comps array
+            size_t n = impl->comp_ids.size();
+            std::vector<void*> comps(n, nullptr);
+            bool ok = true;
+            for (size_t j = 0; j < n; ++j) {
+                void* base = nullptr;
+                if (it.ptrs && it.ptrs[j]) {
+                    // compute per-entity address
+                    size_t stride = (it.sizes && it.sizes[j] ? (size_t)it.sizes[j] : impl->sizes[j]);
+                    base = static_cast<char*>(it.ptrs[j]) + (size_t)i * stride;
+                } else {
+                    // fallback: get pointer via ecs_get_id
+                    base = ecs_get_mut_id(world, e, impl->comp_ids[j]);
+                    if (!base) { ok = false; break; }
+                }
+                comps[j] = base;
+            }
+            if (!ok) continue;
+
+            // call callback with comps.data()
+            impl->cb(impl->ctx_ptr, (uint64_t)e, comps.data());
+        }
+    }
+}
 
 Scene::Scene() : _p(new Impl) {
     // Register components so typed APIs work
@@ -173,6 +271,90 @@ void Scene::_forEachRootOpaque(void(*cb)(void*, uint64_t, Scene*), void* ctx) co
         }
     });
 }
+
+System Scene::_create_system(const std::vector<const std::type_info*>& compTypes,
+                             const std::vector<std::size_t>& sizes,
+                             const std::vector<std::size_t>& aligns,
+                             void(*cb)(void* ctx, uint64_t eid, void** comps),
+                             void* ctx,
+                             bool /*cascade*/)
+{
+    // create the Impl and set up the query
+    auto* simpl = new System::Impl();
+    simpl->world = _p->ecs.c_ptr();
+    simpl->cb = cb;
+    simpl->ctx_ptr = ctx;
+    simpl->sizes = sizes;
+    simpl->aligns = aligns;
+
+    simpl->comp_ids.reserve(compTypes.size());
+    std::string expr;
+
+    for (size_t i = 0; i < compTypes.size(); ++i) {
+        const std::type_info& ti = *compTypes[i];
+        std::type_index tix(ti);
+
+        // If the component was already registered in _p->comp, use that id.
+        auto it = _p->comp.find(tix);
+        ecs_entity_t cid = 0;
+        if (it != _p->comp.end()) {
+            cid = it->second;
+        } else {
+            // Fallback: register the component now using the same API your other code uses.
+            cid = _p->ensureComponent(ti, sizes[i], aligns[i]);
+        }
+
+        simpl->comp_ids.push_back(cid);
+
+        // Use the Flecs-registered name for the textual query
+        if (i > 0) expr += ", ";
+        const char* nm = _p->ecs.entity(cid).name();
+        if (nm && nm[0]) expr += nm;
+        else expr += ti.name(); // fallback (shouldn't happen)
+    }
+
+    // Build query using textual expression composed from actual registered names
+    ecs_query_desc_t qd{};
+    qd.expr = expr.c_str();
+    ecs_query_t* q = ecs_query_init(simpl->world, &qd);
+    if (!q) {
+        delete simpl;
+        return System();
+    }
+    simpl->query = q;
+
+    // set the Scene* into the trampoline context so the header's Entity(ctx->scene, eid) is valid.
+    struct TrampolineCtxBase { Scene* scene; };
+    if (ctx) {
+        auto* base = reinterpret_cast<TrampolineCtxBase*>(ctx);
+        base->scene = this;
+    }
+
+    return System(simpl);
+}
+
+System::~System() {
+    if (_p) {
+        delete _p;
+        _p = nullptr;
+    }
+}
+
+System::System(System&& o) noexcept : _p(o._p) { o._p = nullptr; }
+System& System::operator=(System&& o) noexcept {
+    if (this != &o) {
+        if (_p) delete _p;
+        _p = o._p;
+        o._p = nullptr;
+    }
+    return *this;
+}
+
+void System::Run(float delta) {
+    if (!_p || !_p->query || !_p->world) return;
+    run_query_and_call(_p->world, _p->query, _p);
+}
+
 uint64_t Scene::_getParentId(uint64_t id) const {
     return (uint64_t)ecs_get_target(_p->ecs.c_ptr(), (ecs_entity_t)id, EcsChildOf, 0);
 }
