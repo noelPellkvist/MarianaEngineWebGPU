@@ -7,6 +7,8 @@
 #include <UniformLayout.hpp>
 #include <VertexBufferLayout.hpp>
 #include <Init.hpp>
+#include <any>
+#include <stdexcept>
 
 class IShader
 {
@@ -46,6 +48,7 @@ class IShader
 
         uint8_t GetTextureCount() { return m_TextureCount; }
 
+        virtual void UpdateMaterialBuffer(const std::any& data, uint32_t bufferIndex) = 0;
     protected:
         wgpu::RenderPipeline m_Pipeline;
         wgpu::PipelineLayout m_Layout;
@@ -206,6 +209,21 @@ class Shader : public IShader
         {
             return m_MaterialLayout.GetBindGroupEntry();
         }
+
+        void UpdateMaterialBuffer(const std::any& data, uint32_t bufferIndex) override
+        {
+            try
+            {
+                const MaterialLayout& d = std::any_cast<const MaterialLayout&>(data);
+                m_MaterialLayout.pack(d, bufferIndex);
+            }
+            catch(const std::exception& e)
+            {
+                throw std::runtime_error("Material::UpdateMaterialProperties: bad any_cast - wrong type passed");
+            }
+            
+        }
+
     public:
         UniformLayout<UBOLayout>& m_UBOLayout;
         UniformLayout<TransformLayout>& m_TransformLayout;

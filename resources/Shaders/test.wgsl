@@ -120,7 +120,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let TBN = mat3x3<f32>(input.world_tangent, input.world_bitangent, input.world_normal);
     let N = normalize(TBN * n);
 
-    var baseColor = textureSample(albedo, textureSampler, input.uv).rgb;
+    var baseColor = textureSample(albedo, textureSampler, input.uv).rgb * Material.baseColor.rgb;
 
     let mrSample = textureSample(metallicRoughness, textureSampler, input.uv);
     let perceptualRoughness = clamp(mrSample.g, 0.04, 1.0);

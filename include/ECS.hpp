@@ -26,6 +26,7 @@ struct WorldXform {
     };
 };
 
+
 class Scene;
 
 class System {

@@ -73,13 +73,14 @@ struct UBO {
   glm::vec3 lightDir;
 };
 
-UBO ubo{};
-UniformLayout uboLayout(false, ubo, ubo.lightDir);
 
 struct TransformData {
   glm::mat4x4 modelMatrix;
   glm::mat4x4 normalMatrix;
 };
+
+UBO ubo{};
+UniformLayout uboLayout(false, ubo, ubo.lightDir);
 
 TransformData transformBuffer{};
 UniformLayout transformLayout(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix);
@@ -134,7 +135,7 @@ void EditorApp::OnStart()
 
     renderpass.Init();
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {m_Window.GetWindowFormat()});
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", *PBR_Shader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
     
     renderer.Init(scene);
     
