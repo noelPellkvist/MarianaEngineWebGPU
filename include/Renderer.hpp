@@ -4,6 +4,13 @@
 class Scene;
 class IShader;
 class GUI;
+class Entity;
+
+struct RendererComponent
+{
+    uint32_t shaderIndex{0};
+    uint32_t meshIndex{0};
+};
 
 class Renderer
 {
@@ -11,5 +18,5 @@ class Renderer
         Renderer();
         ~Renderer();
 
-        void Render(Renderpass& renderPass, GUI gui, IShader& shader);
+        void Render(Renderpass& renderPass, GUI gui, RendererComponent& rendererComp);
 };

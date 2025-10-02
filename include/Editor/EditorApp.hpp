@@ -26,15 +26,12 @@ class EditorApp : public Application
 
     private:
         std::vector<IUniformLayout> uniformBuffers;
-        std::unique_ptr<IShader> PBR_Shader;
+        std::shared_ptr<IShader> PBR_Shader;
         std::vector<Texture> AssetsTextures;
-        IMaterial material;
         Renderer renderer;
         Scene scene;
         uint64_t selectedEntityID = -1;
         Entity selectedEntity;
-        
-        Mesh<GLTF::Vertex, uint32_t> mesh;
         Renderpass renderpass;
         
         void OnWindowResized(int w, int h);

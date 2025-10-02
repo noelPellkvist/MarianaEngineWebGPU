@@ -5,6 +5,7 @@
 
 #include <moved_later/tiny_gltf.h>
 
+#include <memory>
 #include <stdexcept>
 #include <vector>
 #include <cstring>
@@ -260,7 +261,7 @@ Texture& GetFlatMetallicRoughnessTexture()
 
 #pragma endregion
 
-Mesh<GLTF::Vertex, uint32_t> LoadEntireMesh(const tinygltf::Model& model, tinygltf::Mesh& rawMesh, size_t prevMaterials)
+std::shared_ptr<IMesh> LoadEntireMesh(const tinygltf::Model& model, tinygltf::Mesh& rawMesh, size_t prevMaterials)
 {
     std::vector<GLTF::Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -287,8 +288,8 @@ Mesh<GLTF::Vertex, uint32_t> LoadEntireMesh(const tinygltf::Model& model, tinygl
         submeshes.push_back(sm);
     }
 
-    Mesh<GLTF::Vertex, uint32_t> mesh(vertices, indices);    
-    mesh.submeshes = std::move(submeshes);
+    std::shared_ptr<IMesh> mesh = std::make_shared<Mesh<GLTF::Vertex, uint32_t>>(vertices, indices);  
+    mesh->submeshes = std::move(submeshes);
     return mesh;
 }
 
@@ -329,21 +330,21 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
 
     for (tinygltf::Material& mat : model.materials)
     {
-        Material<GLTFMaterialProperties> newMat;
+        std::shared_ptr<IMaterial> newMat = std::make_shared<Material<GLTFMaterialProperties>>();
         Texture& albedo = mat.pbrMetallicRoughness.baseColorTexture.index == -1 ? GetFlatAlbedoTexture() : AssetManager::LoadedTextures[mat.pbrMetallicRoughness.baseColorTexture.index + preTextures];
         Texture& normal = mat.normalTexture.index == -1 ? GetFlatNormalTexture() : AssetManager::LoadedTextures[mat.normalTexture.index + preTextures];
         Texture& ambient = mat.occlusionTexture.index == -1 ? GetFlatAOTexture() : AssetManager::LoadedTextures[mat.occlusionTexture.index + preTextures];
         Texture& metallicRoughness = mat.pbrMetallicRoughness.metallicRoughnessTexture.index == -1 ? GetFlatMetallicRoughnessTexture() : AssetManager::LoadedTextures[mat.pbrMetallicRoughness.metallicRoughnessTexture.index + preTextures];
         
         Texture& emmisive = mat.emissiveTexture.index == -1 ? GetFlatEmissiveTexture() : AssetManager::LoadedTextures[mat.emissiveTexture.index + preTextures];
-        newMat.InitMaterial(shader, {albedo, normal, ambient, metallicRoughness, emmisive});
-        AssetManager::LoadedMaterials.emplace_back(newMat);
+        newMat->InitMaterial(shader, {albedo, normal, ambient, metallicRoughness, emmisive});
+        AssetManager::LoadedMaterials.push_back(newMat);
     }
 
     for (tinygltf::Mesh& mesh : model.meshes)
     {
         auto newMesh = LoadEntireMesh(model, mesh, preTextures);
-        newMesh.BuildMesh();
+        newMesh->BuildMesh();
         AssetManager::LoadedMeshes.push_back(newMesh);
     }
 }

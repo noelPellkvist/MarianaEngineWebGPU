@@ -12,8 +12,9 @@ class AssetManager
 {
     public:
         static inline std::vector<Texture> LoadedTextures{};
-        static inline std::vector<MaterialInstance> LoadedMaterials{};
-        static inline std::vector<Mesh<GLTF::Vertex, uint32_t>> LoadedMeshes{};
+        static inline std::vector<std::shared_ptr<IMaterial>> LoadedMaterials{};
+        static inline std::vector<std::shared_ptr<IMesh>> LoadedMeshes{};
+        static inline std::vector<std::shared_ptr<IShader>> LoadedShaders{};
 
         AssetManager();
         ~AssetManager();

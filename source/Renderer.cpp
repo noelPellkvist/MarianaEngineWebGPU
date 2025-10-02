@@ -18,7 +18,7 @@ Renderer::~Renderer()
   
 }
 
-void Renderer::Render(Renderpass& renderPass, GUI gui, IShader& shader)
+void Renderer::Render(Renderpass& renderPass, GUI gui, RendererComponent& rendererComp)
 {
     wgpu::SurfaceTexture surfaceTexture;
     surface.GetCurrentTexture(&surfaceTexture);
@@ -34,17 +34,17 @@ void Renderer::Render(Renderpass& renderPass, GUI gui, IShader& shader)
 
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
     wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpassDesc);
-    pass.SetPipeline(shader.GetPipeline());
-    auto& mesh = AssetManager::LoadedMeshes[0];
-    pass.SetVertexBuffer(0, mesh.vertexBuffer, 0, mesh.vertexBuffer.GetSize());
+    pass.SetPipeline(AssetManager::LoadedShaders[rendererComp.shaderIndex]->GetPipeline());
+    auto& mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex];
+    pass.SetVertexBuffer(0, mesh->vertexBuffer, 0, mesh->vertexBuffer.GetSize());
     
-    pass.SetIndexBuffer(mesh.indexBuffer, wgpu::IndexFormat::Uint32, 0, mesh.indexBuffer.GetSize());
+    pass.SetIndexBuffer(mesh->indexBuffer, wgpu::IndexFormat::Uint32, 0, mesh->indexBuffer.GetSize());
     
     uint32_t dynamicOffset = 0;
     
-    for (Submesh& sm : mesh.submeshes)
+    for (Submesh& sm : mesh->submeshes)
     {
-      IMaterial& material = *(AssetManager::LoadedMaterials[sm.materialIndex].material);
+      IMaterial& material = *(AssetManager::LoadedMaterials[sm.materialIndex]);
       pass.SetBindGroup(0, material.GetBindGroup(0), 0, nullptr); //UBO
       pass.SetBindGroup(1, material.GetBindGroup(1), 1, &dynamicOffset); //Transform
       pass.SetBindGroup(2, material.GetBindGroup(2), 1, &dynamicOffset); //Material & textures

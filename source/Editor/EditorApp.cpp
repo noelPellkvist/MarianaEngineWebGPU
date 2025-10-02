@@ -89,23 +89,15 @@ UniformLayout materialsLayout(true, materialsBuffer, materialsBuffer.baseColor);
 GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
 
+Entity avocado;
+
 EditorApp::EditorApp(const std::string& name) : Application(name), 
 renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window.GetHeight())
 {
     cam = new EditorCameraController(input);
     PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5);
-
-    auto avocado1 = scene.Instantiate("Fresh Avocado");
-    
-    auto avocado1C = scene.Instantiate("Fresh Avocado child of first").SetParent(avocado1);
-
-    auto avocado1Cc1 = scene.Instantiate("Fresh Avocado child of first child 1").SetParent(avocado1C);
-    auto avocado1Cc2 = scene.Instantiate("Fresh Avocado child of first child 2").SetParent(avocado1C);
-    auto avocado1Cc3 = scene.Instantiate("Fresh Avocado child of first child 3 ").SetParent(avocado1C);
-    auto avocado1Cc4 = scene.Instantiate("Fresh Avocado child of first child 4").SetParent(avocado1C);
-
-    auto avocado2 = scene.Instantiate("Fresh Avocado (1)");
-    auto avocado2c = scene.Instantiate("Fresh Avocado (1) child").SetParent(avocado2);
+    AssetManager::LoadedShaders.push_back(PBR_Shader);
+    avocado = scene.Instantiate("Avocado");
 
     auto s = scene.CreateSystem<LocalTRS, WorldXform>([](Entity ent, LocalTRS& trs, WorldXform& form, float dt){
         Logger::Warning("Running system for entity: " + std::string(ent.GetName()) + ToString(dt));
@@ -141,8 +133,7 @@ void EditorApp::OnStart()
     renderpass.Init();
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {m_Window.GetWindowFormat()});
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
-    mesh = AssetManager::LoadedMeshes[0];
-
+    avocado.Add<RendererComponent>({0,0});
     ubo.lightDir = glm::normalize(glm::vec3(1.0f, 0.5f, -1.0f));
     uboLayout.pack(ubo);
 
@@ -594,7 +585,7 @@ void EditorApp::OnRender()
     
     //PBR_Shader.WriteToUBO(cam->View(), cam->Position(), aspect);
     
-    renderer.Render(renderpass, gui, *PBR_Shader);
+    renderer.Render(renderpass, gui, *avocado.Get<RendererComponent>());
 }
 
 void EditorApp::OnShutdown()
