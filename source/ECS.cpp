@@ -287,35 +287,45 @@ System Scene::_create_system(const std::vector<const std::type_info*>& compTypes
     simpl->sizes = sizes;
     simpl->aligns = aligns;
 
-    simpl->comp_ids.reserve(compTypes.size());
-    std::string expr;
+ecs_term_t terms[FLECS_TERM_COUNT_MAX];
+std::memset(terms, 0, sizeof(terms));
 
-    for (size_t i = 0; i < compTypes.size(); ++i) {
-        const std::type_info& ti = *compTypes[i];
-        std::type_index tix(ti);
+size_t term_count = compTypes.size();
+if(term_count > FLECS_TERM_COUNT_MAX) {
+    // handle error, too many components
+    term_count = FLECS_TERM_COUNT_MAX;
+}
 
-        // If the component was already registered in _p->comp, use that id.
-        auto it = _p->comp.find(tix);
-        ecs_entity_t cid = 0;
-        if (it != _p->comp.end()) {
-            cid = it->second;
-        } else {
-            // Fallback: register the component now using the same API your other code uses.
-            cid = _p->ensureComponent(ti, sizes[i], aligns[i]);
-        }
+for(size_t i = 0; i < term_count; ++i) {
+    const std::type_info& ti = *compTypes[i];
+    std::type_index tix(ti);
 
-        simpl->comp_ids.push_back(cid);
-
-        // Use the Flecs-registered name for the textual query
-        if (i > 0) expr += ", ";
-        const char* nm = _p->ecs.entity(cid).name();
-        if (nm && nm[0]) expr += nm;
-        else expr += ti.name(); // fallback (shouldn't happen)
+    ecs_entity_t cid = 0;
+    auto it = _p->comp.find(tix);
+    if(it != _p->comp.end()) {
+        cid = it->second;
+    } else {
+        cid = _p->ensureComponent(ti, sizes[i], aligns[i]);
     }
 
+    simpl->comp_ids.push_back(cid);
+
+    // Fill the term struct directly
+    ecs_term_t& term = terms[i];
+    std::memset(&term, 0, sizeof(term));
+    term.id = cid;      // component ID
+    term.oper = EcsAnd; // normal AND operation
+}
     // Build query using textual expression composed from actual registered names
-    ecs_query_desc_t qd{};
-    qd.expr = expr.c_str();
+ecs_query_desc_t qd{};
+qd.expr = NULL; // no textual expression
+qd.cache_kind = EcsQueryCacheNone; // default caching
+qd.flags = 0;
+
+// Copy the fixed array into qd.terms
+for(size_t i = 0; i < term_count; ++i) {
+    qd.terms[i] = terms[i];
+}
     ecs_query_t* q = ecs_query_init(simpl->world, &qd);
     if (!q) {
         delete simpl;

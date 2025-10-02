@@ -3,6 +3,7 @@
 #include <Editor/EditorCameraController.hpp>
 #include <AssetManager.hpp>
 
+
 #include <sstream>
 #include <imgui.h>
 #include <unordered_map>
@@ -97,14 +98,15 @@ renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window
     cam = new EditorCameraController(input);
     PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5);
     AssetManager::LoadedShaders.push_back(PBR_Shader);
+    
     avocado = scene.Instantiate("Avocado");
 
     auto s = scene.CreateSystem<LocalTRS, WorldXform>([](Entity ent, LocalTRS& trs, WorldXform& form, float dt){
         Logger::Warning("Running system for entity: " + std::string(ent.GetName()) + ToString(dt));
     });
+    avocado.Add<RendererComponent>({0,0});
 
     scene.Update(0.f);
-
     m_Window.RegisterResizeCallback([this](int w, int h) {
         this->OnWindowResized(w, h);
     });
@@ -132,8 +134,10 @@ void EditorApp::OnStart()
 
     renderpass.Init();
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {m_Window.GetWindowFormat()});
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
-    avocado.Add<RendererComponent>({0,0});
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", *PBR_Shader);
+    
+    renderer.Init(scene);
+    
     ubo.lightDir = glm::normalize(glm::vec3(1.0f, 0.5f, -1.0f));
     uboLayout.pack(ubo);
 
@@ -583,9 +587,7 @@ void EditorApp::OnRender()
     float aspect = static_cast<float>(m_Window.GetWidth()) /
                static_cast<float>(m_Window.GetHeight());
     
-    //PBR_Shader.WriteToUBO(cam->View(), cam->Position(), aspect);
-    
-    renderer.Render(renderpass, gui, *avocado.Get<RendererComponent>());
+    renderer.Render(renderpass, gui);
 }
 
 void EditorApp::OnShutdown()

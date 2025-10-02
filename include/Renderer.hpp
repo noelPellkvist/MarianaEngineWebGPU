@@ -1,10 +1,10 @@
 #pragma once
 #include <Renderpass.hpp>
+#include <ECS.hpp>
 
 class Scene;
 class IShader;
 class GUI;
-class Entity;
 
 struct RendererComponent
 {
@@ -18,5 +18,11 @@ class Renderer
         Renderer();
         ~Renderer();
 
-        void Render(Renderpass& renderPass, GUI gui, RendererComponent& rendererComp);
+        void Init(Scene& scene);
+
+        void Render(Renderpass& renderPass, GUI& gui);
+
+    private:
+        System renderSystem;
+        wgpu::RenderPassEncoder pass;
 };
