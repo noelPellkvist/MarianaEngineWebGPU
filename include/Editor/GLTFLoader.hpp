@@ -30,7 +30,16 @@ struct Vertex {
 
 struct GLTFMaterialProperties
 {
-    glm::vec4 baseColor;
+    glm::vec4 baseColor{1,1,1,1};
+    float metallicFactor{1};
+    float roughnessFactor{1};
+
+    float normalMapStrength{1};
+    float occlusionStrength{1};
+
+    glm::vec3 emissiveFactor{0,0,0};
+    float alphaCutoff{0.5};
+    
 };
 
 class GLTFLoader

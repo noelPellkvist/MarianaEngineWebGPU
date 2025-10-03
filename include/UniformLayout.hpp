@@ -20,6 +20,7 @@ struct IUniformLayout {
     public:
         wgpu::BindGroupEntry& GetBindGroupEntry() { return m_BindgroupEntry; }
         wgpu::BindGroupLayoutEntry& GetBindGroupLayoutEntry() { return m_BindgroupLayoutEntry; }
+        virtual uint32_t GetUniformStride() = 0;
 
     protected:
         wgpu::BindGroupEntry m_BindgroupEntry{};
@@ -253,6 +254,11 @@ public:
     // Introspection
     const std::vector<Field>& fieldTable() const { return layout_; }
     std::size_t total_size() const { return total_size_; }
+
+    uint32_t GetUniformStride() override
+    {
+        return uniformStride;
+    }
 
 private:
     struct Entry {

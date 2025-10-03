@@ -16,7 +16,7 @@
 class IMaterial
 {
     public:
-        IMaterial();
+        IMaterial(uint32_t index);
         ~IMaterial();
 
         void InitMaterial(IShader& shader, std::vector<Texture> textures);
@@ -30,6 +30,7 @@ class IMaterial
         std::vector<wgpu::Sampler> samplers;
         wgpu::BindGroup MaterialBindGroup;
         IShader* m_Shader = nullptr;
+        uint32_t bufferIndex;
 
         void LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMode wrapT);
 };
@@ -37,9 +38,9 @@ class IMaterial
 template<typename MaterialData>
 class Material : public IMaterial
 {
+    using IMaterial::IMaterial;
     private:
         MaterialData data;
-        uint32_t bufferIndex;
 
     public:
         void UpdateMaterialProperties(const std::any& matData) override

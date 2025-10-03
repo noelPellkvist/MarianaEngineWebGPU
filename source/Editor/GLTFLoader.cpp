@@ -328,9 +328,10 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
         res.push_back(newTexture);
     }
 
+    uint32_t currentMaterial = preMaterials;
     for (tinygltf::Material& mat : model.materials)
     {
-        std::shared_ptr<Material<GLTFMaterialProperties>> newMat = std::make_shared<Material<GLTFMaterialProperties>>();
+        std::shared_ptr<Material<GLTFMaterialProperties>> newMat = std::make_shared<Material<GLTFMaterialProperties>>(currentMaterial);
         Texture& albedo = mat.pbrMetallicRoughness.baseColorTexture.index == -1 ? GetFlatAlbedoTexture() : AssetManager::LoadedTextures[mat.pbrMetallicRoughness.baseColorTexture.index + preTextures];
         Texture& normal = mat.normalTexture.index == -1 ? GetFlatNormalTexture() : AssetManager::LoadedTextures[mat.normalTexture.index + preTextures];
         Texture& ambient = mat.occlusionTexture.index == -1 ? GetFlatAOTexture() : AssetManager::LoadedTextures[mat.occlusionTexture.index + preTextures];
@@ -341,11 +342,12 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
         newMat->InitMaterial(shader, {albedo, normal, ambient, metallicRoughness, emmisive});
         newMat->UpdateMaterialProperties(props);
         AssetManager::LoadedMaterials.push_back(newMat);
+        currentMaterial++;
     }
 
     for (tinygltf::Mesh& mesh : model.meshes)
     {
-        auto newMesh = LoadEntireMesh(model, mesh, preTextures);
+        auto newMesh = LoadEntireMesh(model, mesh, preMaterials);
         newMesh->BuildMesh();
         AssetManager::LoadedMeshes.push_back(newMesh);
     }

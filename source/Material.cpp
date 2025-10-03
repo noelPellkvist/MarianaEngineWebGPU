@@ -3,7 +3,7 @@
 #include <FileReader.hpp>
 
 
-IMaterial::IMaterial()
+IMaterial::IMaterial(uint32_t index) : bufferIndex(index)
 {
 
 }

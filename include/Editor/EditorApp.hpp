@@ -11,6 +11,8 @@
 #include <memory>
 #include <Texture.hpp>
 
+#include <unordered_map>
+
 class EditorApp : public Application
 {
     public:
@@ -25,9 +27,8 @@ class EditorApp : public Application
         void OnShutdown() override;
 
     private:
-        std::vector<IUniformLayout> uniformBuffers;
         std::shared_ptr<IShader> PBR_Shader;
-        std::vector<Texture> AssetsTextures;
+        std::unordered_map<std::string, Texture> AssetsTextures;
         Renderer renderer;
         Scene scene;
         uint64_t selectedEntityID = -1;
@@ -36,6 +37,7 @@ class EditorApp : public Application
         
         void OnWindowResized(int w, int h);
 
+        void LoadFileTexture(const std::string& path);
         void LoadFileTextures();
 
         void DrawEntityNode(Entity& e);

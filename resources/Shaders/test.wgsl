@@ -26,7 +26,13 @@ struct ModelData {
 };
 
 struct MaterialProperties {
-    baseColor: vec4f,
+    baseColor: vec4<f32>,
+    metallicFactor: f32,
+    roughnessFactor: f32,
+    normalMapStrength: f32,
+    occlusionStrength: f32,
+    emissiveFactor: vec3<f32>,
+    alphaCutoff: f32,
 };
 
 struct CameraInfoData {

@@ -6,10 +6,9 @@
 
 #include <sstream>
 #include <imgui.h>
-#include <unordered_map>
 #include <filesystem>
 #include <algorithm>
-
+namespace fs = std::filesystem;
 #pragma region Helpers
 
 static bool DragOrInputFloat(const char* id, float* v, float speed, const char* fmt, float width)
@@ -53,6 +52,17 @@ static bool DragOrInputFloat(const char* id, float* v, float speed, const char* 
     return changed;
 }
 
+inline bool IsImageExtension(const std::string& ext) {
+    if (ext.empty()) return false;
+    std::string e = ext;
+    std::transform(e.begin(), e.end(), e.begin(), ::tolower);
+    // Common image extensions supported by stb_image
+    static const std::vector<std::string> allowed = {
+        ".png", ".jpg", ".jpeg", ".bmp", ".tga", ".gif", ".psd", ".hdr", ".pic", ".ppm"
+    };
+    return std::find(allowed.begin(), allowed.end(), e) != allowed.end();
+}
+
 inline std::string ToString(const glm::vec3& v)
 {
     std::ostringstream ss;
@@ -92,6 +102,7 @@ GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
 
 Entity avocado;
+Entity helmet;
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
 renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window.GetHeight())
@@ -101,11 +112,13 @@ renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window
     AssetManager::LoadedShaders.push_back(PBR_Shader);
     
     avocado = scene.Instantiate("Avocado");
+    helmet = scene.Instantiate("Helmet");
 
     auto s = scene.CreateSystem<LocalTRS, WorldXform>([](Entity ent, LocalTRS& trs, WorldXform& form, float dt){
         Logger::Warning("Running system for entity: " + std::string(ent.GetName()) + ToString(dt));
     });
-    avocado.Add<RendererComponent>({0,0});
+    avocado.Add<RendererComponent>({0,0,0});
+    helmet.Add<RendererComponent>({0,1,1});
 
     scene.Update(0.f);
     m_Window.RegisterResizeCallback([this](int w, int h) {
@@ -136,6 +149,7 @@ void EditorApp::OnStart()
     renderpass.Init();
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {m_Window.GetWindowFormat()});
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", *PBR_Shader);
     
     renderer.Init(scene);
     
@@ -145,11 +159,67 @@ void EditorApp::OnStart()
     LoadFileTextures();
 }
 
+void EditorApp::LoadFileTexture(const std::string& path)
+{
+    try 
+    {
+        Texture newTexture;
+        newTexture.LoadTexture(path, TextureFormat::RGBA8UnormSrgb);
+        AssetsTextures[path] = newTexture;
+    }
+    catch (...)
+    {
+        Logger::Error("Failed to load image from this path: " + path);
+    }
+}
+
 void EditorApp::LoadFileTextures()
 {
-    Texture newTexture;
-    newTexture.LoadTexture("/logo.png", TextureFormat::RGBA8UnormSrgb);
-    AssetsTextures.push_back(newTexture);
+#ifdef RESOURCE_DIR
+    fs::path root = fs::path(RESOURCE_DIR);
+#else
+    fs::path root = fs::current_path();
+#endif
+
+    if (!fs::exists(root) || !fs::is_directory(root)) {
+        Logger::Error("RESOURCE_DIR not found or not a directory: " + root.string());
+        return;
+    }
+
+    std::error_code ec;
+    for (fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied, ec);
+         it != fs::recursive_directory_iterator();
+         it.increment(ec))
+    {
+        if (ec) {
+            Logger::Error("Iterator error: " + ec.message());
+            continue;
+        }
+
+        const fs::directory_entry& entry = *it;
+        if (!entry.is_regular_file(ec)) continue;
+
+        fs::path p = entry.path();
+        if (!IsImageExtension(p.extension().string())) continue;
+
+        // make relative to RESOURCE_DIR
+        std::error_code rel_ec;
+        fs::path rel = fs::relative(p, root, rel_ec);
+        if (rel_ec) {
+            Logger::Error("Could not make relative path for: " + p.string());
+            continue;
+        }
+
+        // turn into "/subdir/file.png"
+        std::string localPath = "/" + rel.generic_string();
+
+        try {
+            LoadFileTexture(localPath); // your existing function
+        }
+        catch (...) {
+            Logger::Error("Failed to load image from: " + localPath);
+        }
+    }
 }
 
 void EditorApp::OnUpdate(float deltaTime)
@@ -170,7 +240,6 @@ void EditorApp::OnGUI()
     float fps   = ImGui::GetIO().Framerate;
     float ms    = 1000.0f / fps;
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", ms, fps);
-    gui.DrawTexture(AssetsTextures[0], 200, 200);
     ImGui::End();
 
     ImGui::Begin("Hierachy"); 
@@ -193,14 +262,13 @@ void EditorApp::OnGUI()
         DrawInspector(selectedEntity);
         transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
-        transformLayout.pack(transformBuffer, 0);
+        transformLayout.pack(transformBuffer, selectedEntity.Get<RendererComponent>()->transformIndex);
     }
     ImGui::End();
 }
 
 #pragma region GUI
 
-namespace fs = std::filesystem;
 
 
 
@@ -306,8 +374,8 @@ void EditorApp::DrawAssetsWindow()
             // If folder, draw a *large* icon centered in the thumbnail
             if (en.isDir) {
                 // Folder icon glyph
-                const char* folderGlyph = "\uf07b"; 
-                float glyphSize = tileSize * 1.25f; 
+                const char* folderGlyph = "\uf07b";
+                float glyphSize = tileSize * 1.25f;
 
                 // Measure glyph size at this scale
                 ImVec2 glyphSz = s_iconFont
@@ -331,7 +399,49 @@ void EditorApp::DrawAssetsWindow()
                     ImGui::SetCursorScreenPos(ImVec2(glyphX, glyphY));
                     ImGui::TextUnformatted("[DIR]");
                 }
+            }
+            else
+            {
+                // --- file: attempt to draw texture thumbnail ---
+                try {
+                    // Compute local path relative to RESOURCE_DIR in form "/sub/dir/file.ext"
+                    std::error_code rel_ec;
+                    fs::path rel = fs::relative(en.p, kRoot, rel_ec);
+                    std::string localKey;
+                    if (!rel_ec) {
+                        localKey = "/" + rel.generic_string(); // forward slashes, leading slash
+                    } else {
+                        // fallback: use filename only (no leading dirs)
+                        localKey = "/" + en.p.filename().generic_string();
+                    }
 
+                    // Look up in AssetsTextures (assumes EditorApp::AssetsTextures exists)
+                    auto it = AssetsTextures.find(localKey);
+                    if (it != AssetsTextures.end()) {
+                        // Position cursor at thumbMin then draw texture of size tileSize x tileSize
+                        ImGui::SetCursorScreenPos(thumbMin);
+
+                        // IMPORTANT: gui.DrawTexture signature was given as gui.DrawTexture(texture, width, height)
+                        // adapt this call if your API differs (e.g. needs pointer/reference)
+                        gui.DrawTexture(it->second, (int)tileSize, (int)tileSize);
+
+                        // after drawing, reset cursor to avoid interfering with label placement below
+                        ImGui::SetCursorScreenPos(ImVec2(rMin.x, rMin.y + padding + tileSize + 0.0f));
+                    } else {
+                        // optional: draw a small file-type glyph or placeholder if texture missing
+                        // Example: draw file-extension text faintly centered
+                        std::string ext = en.p.has_extension() ? en.p.extension().string() : "";
+                        if (!ext.empty()) {
+                            ImVec2 extSz = ImGui::CalcTextSize(ext.c_str());
+                            float x = thumbMin.x + ((thumbMax.x - thumbMin.x) - extSz.x) * 0.5f;
+                            float y = thumbMin.y + ((thumbMax.y - thumbMin.y) - extSz.y) * 0.5f;
+                            ImGui::SetCursorScreenPos(ImVec2(x, y));
+                            ImGui::TextDisabled("%s", ext.c_str());
+                        }
+                    }
+                } catch (...) {
+                    // ignore any path errors, leave thumbnail empty
+                }
             }
 
             // Label centered under thumbnail

@@ -49,6 +49,10 @@ class IShader
         uint8_t GetTextureCount() { return m_TextureCount; }
 
         virtual void UpdateMaterialBuffer(const std::any& data, uint32_t bufferIndex) = 0;
+
+        virtual uint32_t GetMaterialDynamicOffset(uint32_t bufferIndex) = 0;
+        virtual uint32_t GetTransformDynamicOffset(uint32_t bufferIndex) = 0;
+
     protected:
         wgpu::RenderPipeline m_Pipeline;
         wgpu::PipelineLayout m_Layout;
@@ -222,6 +226,16 @@ class Shader : public IShader
                 throw std::runtime_error("Material::UpdateMaterialProperties: bad any_cast - wrong type passed");
             }
             
+        }
+
+        uint32_t GetMaterialDynamicOffset(uint32_t bufferIndex) override
+        {
+            return m_MaterialLayout.GetUniformStride() * bufferIndex;
+        }
+
+        uint32_t GetTransformDynamicOffset(uint32_t bufferIndex) override
+        {
+            return m_TransformLayout.GetUniformStride() * bufferIndex;
         }
 
     public:
