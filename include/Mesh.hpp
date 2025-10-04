@@ -1,8 +1,6 @@
 #pragma once
 #include <vector>
-#include <webgpu/webgpu_cpp.h>
-
-#include <Init.hpp>
+#include <memory>
 
 struct Submesh
 {
@@ -15,7 +13,8 @@ struct Submesh
 class IMesh
 {
     public:
-        virtual ~IMesh() = default; 
+        IMesh();
+        virtual ~IMesh(); 
         virtual size_t VertexCount() const = 0;
         virtual size_t IndexCount() const = 0;
 
@@ -25,9 +24,17 @@ class IMesh
 
         virtual void BuildMesh() = 0;
 
-        wgpu::Buffer vertexBuffer;
-        wgpu::Buffer indexBuffer;
+        void* GetVertexBuffer();
+        void* GetIndexBuffer();
+
+        struct Impl;
+        std::unique_ptr<Impl> impl;
         std::vector<Submesh> submeshes;
+
+
+
+    protected:
+        void _buildMesh(void* vertices, size_t verticesLength, size_t vertexSize, void* indices, size_t indicesLength, size_t indexSize);
 };
 
 template<typename VertexT, typename IndexT>
@@ -45,10 +52,12 @@ class Mesh : public IMesh
         std::vector<VertexT> vertices;
         std::vector<IndexT> indices;
     
-        Mesh() = default;
+        Mesh() {}
 
         Mesh(std::vector<VertexT> verts, std::vector<IndexT> inds)
-        : vertices(std::move(verts)), indices(std::move(inds)) {}
+        : vertices(std::move(verts)), indices(std::move(inds)) {
+            
+        }
 
         size_t VertexCount() const override { return vertices.size(); }
         size_t IndexCount()  const override { return indices.size();  }
@@ -68,18 +77,6 @@ class Mesh : public IMesh
 
         void BuildMesh() override
         {
-            wgpu::BufferDescriptor bufferDesc;
-            bufferDesc.size = vertices.size() * sizeof(VertexT);
-            bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex; 
-            bufferDesc.mappedAtCreation = false;
-            vertexBuffer = device.CreateBuffer(&bufferDesc);
-
-            device.GetQueue().WriteBuffer(vertexBuffer, 0, vertices.data(), bufferDesc.size);
-
-            bufferDesc.size = indices.size() * sizeof(IndexT);
-            bufferDesc.size = (bufferDesc.size + 3) & ~3;
-            bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
-            indexBuffer = device.CreateBuffer(&bufferDesc);
-            device.GetQueue().WriteBuffer(indexBuffer, 0, indices.data(), bufferDesc.size);
+            _buildMesh(vertices.data(), vertices.size(), sizeof(VertexT), indices.data(), indices.size(), sizeof(IndexT));
         }
 };

@@ -41,7 +41,7 @@ void Renderpass::CreateMSSATexture()
     mssaDesc.mipLevelCount = 1;
     mssaDesc.sampleCount = m_MSSA ? 4 : 1;
     mssaDesc.size = {m_Width, m_Height, 1};
-    mssaDesc.usage = wgpu::TextureUsage::RenderAttachment;
+    mssaDesc.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
     m_MssaTexture = device.CreateTexture(&mssaDesc);
 
     m_MssaTextureView = m_MssaTexture.CreateView();
@@ -55,7 +55,7 @@ void Renderpass::CreateDepthTexture()
     wgpu::TextureFormat depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
     wgpu::TextureDescriptor depthTextureDesc;
     depthTextureDesc.dimension = wgpu::TextureDimension::e2D;
-    depthTextureDesc.format = wgpu::TextureFormat::Depth24Plus;
+    depthTextureDesc.format = depthTextureFormat;
     depthTextureDesc.mipLevelCount = 1;
     depthTextureDesc.sampleCount = m_MSSA ? 4 : 1;
     depthTextureDesc.size = {m_Width, m_Height, 1};

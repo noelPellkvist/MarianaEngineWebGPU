@@ -24,9 +24,9 @@ void Renderer::Init(Scene& scene)
         auto shader = AssetManager::LoadedShaders[rendererComp.shaderIndex];
         pass.SetPipeline(shader->GetPipeline());
         auto& mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex];
-        pass.SetVertexBuffer(0, mesh->vertexBuffer, 0, mesh->vertexBuffer.GetSize());
+        pass.SetVertexBuffer(0, *static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer()), 0, (*static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer())).GetSize());
 
-        pass.SetIndexBuffer(mesh->indexBuffer, wgpu::IndexFormat::Uint32, 0, mesh->indexBuffer.GetSize());
+        pass.SetIndexBuffer(*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer()), wgpu::IndexFormat::Uint32, 0, (*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer())).GetSize());
 
         uint32_t transformOffset = 0;
         uint32_t materialOffset = 0;
@@ -36,10 +36,10 @@ void Renderer::Init(Scene& scene)
           IMaterial& material = *(AssetManager::LoadedMaterials[sm.materialIndex]);
           transformOffset = shader->GetTransformDynamicOffset(rendererComp.transformIndex);
           materialOffset = shader->GetMaterialDynamicOffset(sm.materialIndex);
-          pass.SetBindGroup(0, material.GetBindGroup(0), 0, nullptr);
-          pass.SetBindGroup(1, material.GetBindGroup(1), 1, &transformOffset);
-          pass.SetBindGroup(2, material.GetBindGroup(2), 1, &materialOffset);
-          pass.SetBindGroup(3, material.GetBindGroup(3), 0, nullptr);
+          pass.SetBindGroup(0, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(0)), 0, nullptr);
+          pass.SetBindGroup(1, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(1)), 1, &transformOffset);
+          pass.SetBindGroup(2, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(2)), 1, &materialOffset);
+          pass.SetBindGroup(3, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(3)), 0, nullptr);
           pass.DrawIndexed(sm.indexCount, 1, sm.startIndex, 0, 0);
         }
     });
@@ -62,7 +62,7 @@ void Renderer::Render(Renderpass& renderPass, GUI& gui)
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
     pass = encoder.BeginRenderPass(&renderpassDesc);
     renderSystem.Run();
-    gui.PostUpdateGUI(pass);
+    gui.PostUpdateGUI(&pass);
     pass.End();
 
     wgpu::CommandBuffer commands = encoder.Finish();

@@ -1,9 +1,15 @@
 #include <Material.hpp>
 #include <Init.hpp>
 #include <FileReader.hpp>
+#include <webgpu/webgpu_cpp.h>
 
+struct IMaterial::Impl
+{
+    std::vector<wgpu::Sampler> samplers;
+    wgpu::BindGroup MaterialBindGroup;
+};
 
-IMaterial::IMaterial(uint32_t index) : bufferIndex(index)
+IMaterial::IMaterial(uint32_t index) : bufferIndex(index), impl(std::make_unique<Impl>())
 {
 
 }
@@ -26,7 +32,7 @@ void IMaterial::LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMo
     samplerDesc.lodMaxClamp = 1000.0f;
     samplerDesc.compare = wgpu::CompareFunction::Undefined;
     samplerDesc.maxAnisotropy = 1;
-    samplers.push_back(device.CreateSampler(&samplerDesc));
+    impl->samplers.push_back(device.CreateSampler(&samplerDesc));
 }
 
 void IMaterial::InitMaterial(IShader& shader, std::vector<Texture> textures)
@@ -46,19 +52,19 @@ void IMaterial::InitMaterial(IShader& shader, std::vector<Texture> textures)
     }
 
     bindings[shader.GetTextureCount() + 1].binding = shader.GetTextureCount() + 1;
-    bindings[shader.GetTextureCount() + 1].sampler = samplers[0];
+    bindings[shader.GetTextureCount() + 1].sampler = impl->samplers[0];
 
     wgpu::BindGroupDescriptor bindGroupDesc;
     bindGroupDesc.layout = shader.GetBindGroupLayout(2);
     bindGroupDesc.entryCount = (uint32_t)bindings.size();
     bindGroupDesc.entries = bindings.data();
-    MaterialBindGroup = device.CreateBindGroup(&bindGroupDesc);
+    impl->MaterialBindGroup = device.CreateBindGroup(&bindGroupDesc);
 }
 
-const wgpu::BindGroup& IMaterial::GetBindGroup(uint32_t index)
+void* IMaterial::GetBindGroup(uint32_t index)
 {
     if(index == 2)
-        return MaterialBindGroup;
+        return &impl->MaterialBindGroup;
     else
     {
         return m_Shader->GetBindGroup(index);

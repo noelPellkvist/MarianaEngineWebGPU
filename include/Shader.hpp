@@ -16,17 +16,17 @@ class IShader
         virtual ~IShader() = default;
 
         wgpu::RenderPipeline& GetPipeline() { return m_Pipeline; }
-        const wgpu::BindGroup& GetBindGroup(uint32_t index) 
+        void* GetBindGroup(uint32_t index) 
         { 
             if (index == 2)
             {
                 Logger::Error("WHY YOU CALLING THIS???");
             } else if (index == 0)
-                return m_UBOBindGroup;
+                return &m_UBOBindGroup;
             else if (index == 1)
-                return m_TransformBindGroup;
+                return &m_TransformBindGroup;
             else if (index == 3)
-                return m_CameraBindGroup;
+                return &m_CameraBindGroup;
         }
 
         const wgpu::BindGroupLayout& GetBindGroupLayout(uint32_t index) 

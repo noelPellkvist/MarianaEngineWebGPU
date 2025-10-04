@@ -113,6 +113,7 @@ renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window
     
     avocado = scene.Instantiate("Avocado");
     helmet = scene.Instantiate("Helmet");
+    avocado.SetParent(helmet);
 
     auto s = scene.CreateSystem<LocalTRS, WorldXform>([](Entity ent, LocalTRS& trs, WorldXform& form, float dt){
         Logger::Warning("Running system for entity: " + std::string(ent.GetName()) + ToString(dt));

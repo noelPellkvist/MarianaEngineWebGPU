@@ -2,7 +2,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
-
+#include <webgpu/webgpu_cpp.h>
 #include <Init.hpp>
 
 static ImVec4 Lerp(const ImVec4& a, const ImVec4& b, float t) {
@@ -177,11 +177,12 @@ void GUI::PreUpdateGUI()
     ImGui::DockSpaceOverViewport(0, NULL, ImGuiDockNodeFlags_PassthruCentralNode);
 }
 
-void GUI::PostUpdateGUI(wgpu::RenderPassEncoder renderPass)
+void GUI::PostUpdateGUI(wgpu::RenderPassEncoder* renderPass)
 {
+    if(!renderPass) return;
     ImGui::EndFrame();
     ImGui::Render();
-    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass.Get());
+    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass->Get());
 }
 
 void GUI::DrawTexture(Texture texture, float width, float height)

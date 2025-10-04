@@ -123,7 +123,7 @@ void Texture::LoadTexture(const std::string& path, TextureFormat format)
     LoadTexture(pixels.data(), pixels.size(), width, height, format);
 }
 
-void Texture::LoadTexture(const uint8_t* pixels, size_t length, int width, int height, TextureFormat format)
+void Texture::LoadTexture(const uint8_t* pixels, size_t length, int width, int height, TextureFormat format, bool MSSA, bool renderTarget, bool isDepthTexture)
 {
     m_Width = width;
     m_Height = height;
@@ -132,15 +132,15 @@ void Texture::LoadTexture(const uint8_t* pixels, size_t length, int width, int h
     textureDesc.dimension = wgpu::TextureDimension::e2D;
     textureDesc.size = {(unsigned int)width, (unsigned int)height, 1};
     textureDesc.mipLevelCount = 1;
-    textureDesc.sampleCount = 1;
+    textureDesc.sampleCount = MSSA ? 4 : 1;
     textureDesc.format = ToWGPU(format);
-    textureDesc.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
+    textureDesc.usage = wgpu::TextureUsage::TextureBinding | (renderTarget ? wgpu::TextureUsage::RenderAttachment : wgpu::TextureUsage::CopyDst);
     textureDesc.viewFormatCount = 0;
     textureDesc.viewFormats = nullptr;
     m_Texture = device.CreateTexture(&textureDesc);
 
     wgpu::TextureViewDescriptor textureViewDesc{};
-    textureViewDesc.aspect = wgpu::TextureAspect::All;
+    textureViewDesc.aspect = (isDepthTexture ? wgpu::TextureAspect::DepthOnly : wgpu::TextureAspect::All);
     textureViewDesc.baseArrayLayer = 0;
     textureViewDesc.arrayLayerCount = 1;
     textureViewDesc.baseMipLevel = 0;
