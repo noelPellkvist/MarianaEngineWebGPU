@@ -120,10 +120,38 @@ void Texture::LoadTexture(const std::string& path, TextureFormat format)
 {
     int width, height;
     std::vector<uint8_t> pixels = FileReader::LoadPixelsFromImage(path, width, height);
-    LoadTexture(pixels.data(), pixels.size(), width, height, format);
+    CreateTexture(width, height, format);
+    UploadTexture(pixels.data(), pixels.size(), width, height);
 }
 
-void Texture::LoadTexture(const uint8_t* pixels, size_t length, int width, int height, TextureFormat format, bool MSSA, bool renderTarget, bool isDepthTexture)
+void Texture::CreateRenderTexture(TextureFormat format, int width, int height, bool MSSA)
+{
+    CreateTexture(width, height, format, MSSA, true, false);
+}
+
+void Texture::CreateDepthTexture(TextureFormat format, int width, int height, bool MSSA)
+{
+    CreateTexture(width, height, format, MSSA, true, true);
+}
+
+void Texture::UploadTexture(const uint8_t* pixels, size_t length, int width, int height)
+{
+    wgpu::TexelCopyTextureInfo destination;
+    destination.texture = m_Texture;
+    destination.mipLevel = 0;
+    destination.origin = {0, 0, 0};
+    destination.aspect = wgpu::TextureAspect::All;
+
+    wgpu::TexelCopyBufferLayout source;
+    source.offset = 0;
+    source.bytesPerRow = 4 * (unsigned int)width;
+    source.rowsPerImage = (unsigned int)height;
+
+    wgpu::Extent3D extent = {(unsigned int)width, (unsigned int)height, 1};
+    device.GetQueue().WriteTexture(&destination, pixels, length, &source, &extent);
+}
+
+void Texture::CreateTexture(int width, int height, TextureFormat format, bool MSSA, bool renderTarget, bool isDepthTexture)
 {
     m_Width = width;
     m_Height = height;
@@ -148,17 +176,4 @@ void Texture::LoadTexture(const uint8_t* pixels, size_t length, int width, int h
     textureViewDesc.dimension = wgpu::TextureViewDimension::e2D;
     textureViewDesc.format = textureDesc.format;
     m_View = m_Texture.CreateView(&textureViewDesc);
-
-    wgpu::TexelCopyTextureInfo destination;
-    destination.texture = m_Texture;
-    destination.mipLevel = 0;
-    destination.origin = {0, 0, 0};
-    destination.aspect = wgpu::TextureAspect::All;
-
-    wgpu::TexelCopyBufferLayout source;
-    source.offset = 0;
-    source.bytesPerRow = 4 * textureDesc.size.width;
-    source.rowsPerImage = textureDesc.size.height;
-
-    device.GetQueue().WriteTexture(&destination, pixels, length, &source, &textureDesc.size);
 }

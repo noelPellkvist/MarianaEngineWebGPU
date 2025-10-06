@@ -205,7 +205,8 @@ Texture& GetFlatAlbedoTexture()
     static bool inited = false;
     if (!inited) {
         static const uint8_t pixel[4] = { 255, 255, 255, 255 }; // white
-        tex.LoadTexture(pixel, 4, 1, 1, TextureFormat::RGBA8UnormSrgb);
+        tex.CreateTexture(1, 1, TextureFormat::RGBA8UnormSrgb);
+        tex.UploadTexture(pixel, 4, 1, 1);
         inited = true;
     }
     return tex;
@@ -217,7 +218,8 @@ Texture& GetFlatEmissiveTexture()
     static bool inited = false;
     if (!inited) {
         static const uint8_t pixel[4] = { 0, 0, 0, 255 }; // no emission
-        tex.LoadTexture(pixel, 4, 1, 1, TextureFormat::RGBA8UnormSrgb);
+        tex.CreateTexture(1, 1, TextureFormat::RGBA8UnormSrgb);
+        tex.UploadTexture(pixel, 4, 1, 1);
         inited = true;
     }
     return tex;
@@ -229,7 +231,8 @@ Texture& GetFlatAOTexture()
     static bool inited = false;
     if (!inited) {
         static const uint8_t pixel[4] = { 255, 255, 255, 255 };
-        tex.LoadTexture(pixel, 4, 1, 1, TextureFormat::RGBA8Unorm);
+        tex.CreateTexture(1, 1, TextureFormat::RGBA8Unorm);
+        tex.UploadTexture(pixel, 4, 1, 1);
         inited = true;
     }
     return tex;
@@ -241,7 +244,8 @@ Texture& GetFlatNormalTexture()
     static bool inited = false;
     if (!inited) {
         static const uint8_t pixel[4] = { 128, 128, 255, 255 };
-        flat.LoadTexture(pixel, 4, 1, 1, TextureFormat::RGBA8Unorm);
+        flat.CreateTexture(1, 1, TextureFormat::RGBA8Unorm);
+        flat.UploadTexture(pixel, 4, 1, 1);
         inited = true;
     }
     return flat;
@@ -253,7 +257,8 @@ Texture& GetFlatMetallicRoughnessTexture()
     static bool inited = false;
     if (!inited) {
         static const uint8_t pixel[4] = { 255, 255, 0, 255 };
-        flat.LoadTexture(pixel, 4, 1, 1, TextureFormat::RGBA8Unorm);
+        flat.CreateTexture(1, 1, TextureFormat::RGBA8Unorm);
+        flat.UploadTexture(pixel, 4, 1, 1);
         inited = true;
     }
     return flat;
@@ -323,7 +328,8 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
     for (tinygltf::Image& img : model.images)
     {
         Texture newTexture;
-        newTexture.LoadTexture(reinterpret_cast<uint8_t*>(img.image.data()), img.image.size(), img.width, img.height, TextureFormat::RGBA8Unorm);
+        newTexture.CreateTexture(img.width, img.height, TextureFormat::RGBA8Unorm);
+        newTexture.UploadTexture(reinterpret_cast<uint8_t*>(img.image.data()), img.image.size(), img.width, img.height);
         AssetManager::LoadedTextures.push_back(newTexture);
         res.push_back(newTexture);
     }

@@ -1,7 +1,7 @@
 #include <Renderpass.hpp>
 #include <Init.hpp>
 
-Renderpass::Renderpass(bool MSSA, bool depthTexture, wgpu::TextureFormat outputFormat, uint32_t width, uint32_t height) :
+Renderpass::Renderpass(bool MSSA, bool depthTexture, TextureFormat outputFormat, uint32_t width, uint32_t height) :
 m_MSSA(MSSA),
 m_HasDepthTexture(depthTexture),
 m_OutputFormat(outputFormat),
@@ -32,45 +32,16 @@ Renderpass::~Renderpass()
 
 void Renderpass::CreateMSSATexture()
 {
-    m_MssaTexture = nullptr;
-    m_MssaTextureView = nullptr;
-
-    wgpu::TextureDescriptor mssaDesc;
-    mssaDesc.dimension = wgpu::TextureDimension::e2D;
-    mssaDesc.format = windowFormat;
-    mssaDesc.mipLevelCount = 1;
-    mssaDesc.sampleCount = m_MSSA ? 4 : 1;
-    mssaDesc.size = {m_Width, m_Height, 1};
-    mssaDesc.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
-    m_MssaTexture = device.CreateTexture(&mssaDesc);
-
-    m_MssaTextureView = m_MssaTexture.CreateView();
+    Texture renderTarget;
+    renderTarget.CreateRenderTexture(m_OutputFormat, m_Width, m_Height, m_MSSA);
+    m_RenderTarget = renderTarget;
 }
 
 void Renderpass::CreateDepthTexture()
 {
-    m_DepthTexture = nullptr;
-    m_DepthTextureView = nullptr;
-
-    wgpu::TextureFormat depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
-    wgpu::TextureDescriptor depthTextureDesc;
-    depthTextureDesc.dimension = wgpu::TextureDimension::e2D;
-    depthTextureDesc.format = depthTextureFormat;
-    depthTextureDesc.mipLevelCount = 1;
-    depthTextureDesc.sampleCount = m_MSSA ? 4 : 1;
-    depthTextureDesc.size = {m_Width, m_Height, 1};
-    depthTextureDesc.usage = wgpu::TextureUsage::RenderAttachment;
-    m_DepthTexture = device.CreateTexture(&depthTextureDesc);
-
-    wgpu::TextureViewDescriptor depthTextureViewDesc;
-    depthTextureViewDesc.aspect = wgpu::TextureAspect::DepthOnly;
-    depthTextureViewDesc.baseArrayLayer = 0;
-    depthTextureViewDesc.arrayLayerCount = 1;
-    depthTextureViewDesc.baseMipLevel = 0;
-    depthTextureViewDesc.mipLevelCount = 1;
-    depthTextureViewDesc.dimension = wgpu::TextureViewDimension::e2D;
-    depthTextureViewDesc.format = depthTextureFormat;
-    m_DepthTextureView = m_DepthTexture.CreateView(&depthTextureViewDesc);
+    Texture depthTarget;
+    depthTarget.CreateDepthTexture(TextureFormat::Depth24Plus, m_Width, m_Height, m_MSSA);
+    m_DepthTexture = depthTarget;
 
     CreateDepthStencilAttachment();
 }
@@ -78,7 +49,7 @@ void Renderpass::CreateDepthTexture()
 void Renderpass::CreateDepthStencilAttachment()
 {
     m_DepthStencilAttachment = {};
-    m_DepthStencilAttachment.view = m_DepthTextureView;
+    m_DepthStencilAttachment.view = m_DepthTexture.GetTextureView();
     m_DepthStencilAttachment.depthClearValue = 1.0f;
     m_DepthStencilAttachment.depthLoadOp = wgpu::LoadOp::Clear;
     m_DepthStencilAttachment.depthStoreOp = wgpu::StoreOp::Store;

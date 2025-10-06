@@ -115,7 +115,10 @@ class Texture
         ~Texture();
 
         void LoadTexture(const std::string& path, TextureFormat format);
-        void LoadTexture(const uint8_t* pixels, size_t length, int width, int height, TextureFormat format, bool MSSA = false, bool renderTarget = false, bool isDepthTexture = false);
+        void CreateRenderTexture(TextureFormat format, int width, int height, bool MSSA);
+        void CreateDepthTexture(TextureFormat format, int width, int height, bool MSSA);
+        void CreateTexture(int width, int height, TextureFormat format, bool MSSA = false, bool renderTarget = false, bool isDepthTexture = false);
+        void UploadTexture(const uint8_t* pixels, size_t length, int width, int height);
 
         wgpu::Texture GetTexture() { return m_Texture; }
         wgpu::TextureView GetTextureView() { return m_View; }
@@ -127,4 +130,5 @@ class Texture
         wgpu::Texture m_Texture;
         wgpu::TextureView m_View;
         int m_Width, m_Height;
+
 };

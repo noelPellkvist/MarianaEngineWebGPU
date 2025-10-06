@@ -77,6 +77,20 @@ inline std::string ToString(const float& v)
     return ss.str();
 }
 
+inline std::string ToString(const int& v)
+{
+    std::ostringstream ss;
+    ss << v;
+    return ss.str();
+}
+
+inline std::string ToString(const uint32_t& v)
+{
+    std::ostringstream ss;
+    ss << v;
+    return ss.str();
+}
+
 #pragma endregion
 
 struct UBO {
@@ -101,25 +115,25 @@ UniformLayout materialsLayout(true, materialsBuffer, materialsBuffer.baseColor);
 GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
 
-Entity avocado;
-Entity helmet;
+System WriteTransformBufferSystem;
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
-renderpass(true, true, m_Window.GetWindowFormat(), m_Window.GetWidth(), m_Window.GetHeight())
+renderpass(true, true, TextureFormat::BGRA8Unorm, m_Window.GetWidth(), m_Window.GetHeight())
 {
     cam = new EditorCameraController(input);
     PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5);
     AssetManager::LoadedShaders.push_back(PBR_Shader);
-    
-    avocado = scene.Instantiate("Avocado");
-    helmet = scene.Instantiate("Helmet");
-    avocado.SetParent(helmet);
 
-    auto s = scene.CreateSystem<LocalTRS, WorldXform>([](Entity ent, LocalTRS& trs, WorldXform& form, float dt){
-        Logger::Warning("Running system for entity: " + std::string(ent.GetName()) + ToString(dt));
+    for(uint32_t i = 0; i < 25; i++)
+    {
+        scene.Instantiate((std::string("Avocado") + ToString(i)).c_str()).Add<RendererComponent>({0, 1, i}).SetScaleUniform(1).SetPosition(0,0,i);
+    }
+    
+    WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
+        transformBuffer.modelMatrix = glm::make_mat4(form.model);
+        transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
+        transformLayout.pack(transformBuffer, renderComp.transformIndex);
     });
-    avocado.Add<RendererComponent>({0,0,0});
-    helmet.Add<RendererComponent>({0,1,1});
 
     scene.Update(0.f);
     m_Window.RegisterResizeCallback([this](int w, int h) {
@@ -699,6 +713,7 @@ void EditorApp::OnRender()
     float aspect = static_cast<float>(m_Window.GetWidth()) /
                static_cast<float>(m_Window.GetHeight());
     
+    WriteTransformBufferSystem.Run();
     renderer.Render(renderpass, gui);
 }
 

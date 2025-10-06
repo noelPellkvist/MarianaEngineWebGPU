@@ -50,7 +50,7 @@ void Renderer::Render(Renderpass& renderPass, GUI& gui)
     wgpu::SurfaceTexture surfaceTexture;
     surface.GetCurrentTexture(&surfaceTexture);
     wgpu::RenderPassColorAttachment attachment{
-      .view = renderPass.GetMSSATextureView(),
+      .view = renderPass.GetRenderTarget().GetTextureView(),
       .resolveTarget = surfaceTexture.texture.CreateView(),
       .loadOp = wgpu::LoadOp::Clear,
       .storeOp = wgpu::StoreOp::Store};
