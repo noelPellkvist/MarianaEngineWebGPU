@@ -123,10 +123,11 @@ renderpass(true, true, TextureFormat::BGRA8Unorm, m_Window.GetWidth(), m_Window.
     cam = new EditorCameraController(input);
     PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5);
     AssetManager::LoadedShaders.push_back(PBR_Shader);
+    auto root = scene.Instantiate("Root mannen").SetPosition(0,0,0);
 
     for(uint32_t i = 0; i < 25; i++)
     {
-        scene.Instantiate((std::string("Avocado") + ToString(i)).c_str()).Add<RendererComponent>({0, 1, i}).SetScaleUniform(1).SetPosition(0,0,i);
+        scene.Instantiate((std::string("Avocado") + ToString(i)).c_str()).Add<RendererComponent>({0, 1, i}).SetScaleUniform(1).SetPosition(0,0,i).SetParent(root);
     }
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
@@ -275,9 +276,12 @@ void EditorApp::OnGUI()
     else
     {
         DrawInspector(selectedEntity);
-        transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
-        transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
-        transformLayout.pack(transformBuffer, selectedEntity.Get<RendererComponent>()->transformIndex);
+        if(selectedEntity.Has<RendererComponent>())
+        {
+            transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
+            transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
+            transformLayout.pack(transformBuffer, selectedEntity.Get<RendererComponent>()->transformIndex);
+        }
     }
     ImGui::End();
 }

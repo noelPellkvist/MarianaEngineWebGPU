@@ -28,6 +28,7 @@ class EditorApp : public Application
 
     private:
         std::shared_ptr<IShader> PBR_Shader;
+        std::shared_ptr<IShader> SkyBoxShader;
         std::unordered_map<std::string, Texture> AssetsTextures;
         Renderer renderer;
         Scene scene;
