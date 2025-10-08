@@ -1,6 +1,7 @@
 #pragma once
 #include <Renderpass.hpp>
 #include <ECS.hpp>
+#include <memory>
 
 class Scene;
 class IShader;
@@ -25,5 +26,7 @@ class Renderer
 
     private:
         System renderSystem;
-        wgpu::RenderPassEncoder pass;
+        struct Impl;
+        std::unique_ptr<Impl> _impl;
+        
 };

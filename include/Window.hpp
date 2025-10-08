@@ -1,5 +1,5 @@
 #pragma once
-#include <webgpu/webgpu_cpp.h>
+#include <Texture.hpp>
 #include <GLFW/glfw3.h>
 #include <string>
 #include <functional>
@@ -17,7 +17,7 @@ class Window {
         const uint32_t GetHeight() { return m_Height; }
         const uint32_t GetWidth() { return m_Width; }
 
-        wgpu::TextureFormat GetWindowFormat();
+        TextureFormat GetWindowFormat();
 
         GLFWwindow* GetWindow() { return m_Window; };
 

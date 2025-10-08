@@ -1,5 +1,6 @@
 #pragma once
 #include <Texture.hpp>
+#include <memory>
 
 class Renderpass 
 {
@@ -12,7 +13,7 @@ class Renderpass
         void Recreate(uint32_t width, uint32_t height);
         Texture& GetRenderTarget() { return m_RenderTarget; }
         Texture& GetDepthView() { return m_DepthTexture; }
-        wgpu::RenderPassDepthStencilAttachment* GetDepthStencilAttachment() { return &m_DepthStencilAttachment; }
+        void* GetDepthStencilAttachment();// { return &m_DepthStencilAttachment; }
 
     private:
         bool m_MSSA = true;
@@ -24,7 +25,8 @@ class Renderpass
         Texture m_RenderTarget;
         Texture m_DepthTexture;
 
-        wgpu::RenderPassDepthStencilAttachment m_DepthStencilAttachment;
+        struct Impl;
+        std::unique_ptr<Impl> _impl;
 
         void CreateMSSATexture();
         void CreateDepthTexture();

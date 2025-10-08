@@ -1,6 +1,6 @@
 #include <Window.hpp>
 #include <webgpu/webgpu_glfw.h>
-#include <Init.hpp>
+#include "Init.hpp"
 #include <stb_image.h>
 #include <Logger.hpp>
 
@@ -89,9 +89,9 @@ void Window::ToggleFullscreen()
     }
 }
 
-wgpu::TextureFormat Window::GetWindowFormat()
+TextureFormat Window::GetWindowFormat()
 {
-    return windowFormat;
+    return static_cast<TextureFormat>(windowFormat);
 }
 
 

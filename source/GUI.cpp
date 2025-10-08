@@ -3,7 +3,7 @@
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
 #include <webgpu/webgpu_cpp.h>
-#include <Init.hpp>
+#include "Init.hpp"
 
 static ImVec4 Lerp(const ImVec4& a, const ImVec4& b, float t) {
     return ImVec4(a.x + (b.x - a.x)*t,
@@ -187,7 +187,7 @@ void GUI::PostUpdateGUI(wgpu::RenderPassEncoder* renderPass)
 
 void GUI::DrawTexture(Texture texture, float width, float height)
 {
-    ImTextureID _tex = (ImTextureID)texture.GetTextureView().Get();
+    ImTextureID _tex = (ImTextureID)(((wgpu::TextureView*)texture.GetTextureView())->Get());
     ImVec2 size(width, height);
 
     ImGui::Image(_tex, size);

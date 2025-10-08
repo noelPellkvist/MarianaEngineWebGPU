@@ -1,14 +1,19 @@
 #include <Renderer.hpp>
 #include <ECS.hpp>
-#include <Init.hpp>
+#include "Init.hpp"
 #include <Material.hpp>
 #include <Mesh.hpp>
 #include <Shader.hpp>
 #include <GUI.hpp>
 #include <AssetManager.hpp>
+#include <webgpu/webgpu_cpp.h>
 
+struct Renderer::Impl
+{
+  wgpu::RenderPassEncoder pass;
+};
 
-Renderer::Renderer()
+Renderer::Renderer() : _impl(std::make_unique<Impl>())
 {
 
 }
@@ -21,8 +26,9 @@ Renderer::~Renderer()
 void Renderer::Init(Scene& scene)
 {
     renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
+        wgpu::RenderPassEncoder& pass = _impl->pass;
         auto shader = AssetManager::LoadedShaders[rendererComp.shaderIndex];
-        pass.SetPipeline(shader->GetPipeline());
+        pass.SetPipeline(*static_cast<wgpu::RenderPipeline*>(shader->GetPipeline()));
         auto& mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex];
         pass.SetVertexBuffer(0, *static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer()), 0, (*static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer())).GetSize());
 
@@ -50,20 +56,20 @@ void Renderer::Render(Renderpass& renderPass, GUI& gui)
     wgpu::SurfaceTexture surfaceTexture;
     surface.GetCurrentTexture(&surfaceTexture);
     wgpu::RenderPassColorAttachment attachment{
-      .view = renderPass.GetRenderTarget().GetTextureView(),
+      .view = *static_cast<wgpu::TextureView*>(renderPass.GetRenderTarget().GetTextureView()),
       .resolveTarget = surfaceTexture.texture.CreateView(),
       .loadOp = wgpu::LoadOp::Clear,
       .storeOp = wgpu::StoreOp::Store};
 
     wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = 1,
                                         .colorAttachments = &attachment,
-                                        .depthStencilAttachment = renderPass.GetDepthStencilAttachment()};
+                                        .depthStencilAttachment = static_cast<wgpu::RenderPassDepthStencilAttachment*>(renderPass.GetDepthStencilAttachment())};
 
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
-    pass = encoder.BeginRenderPass(&renderpassDesc);
+    _impl->pass = encoder.BeginRenderPass(&renderpassDesc);
     renderSystem.Run();
-    gui.PostUpdateGUI(&pass);
-    pass.End();
+    gui.PostUpdateGUI(&_impl->pass);
+    _impl->pass.End();
 
     wgpu::CommandBuffer commands = encoder.Finish();
     device.GetQueue().Submit(1, &commands);

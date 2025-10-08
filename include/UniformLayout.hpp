@@ -1,5 +1,3 @@
-// UniformBuffer_min.hpp (layout-only)
-// Keep all your existing includes except WebGPU ones are no longer needed here.
 #pragma once
 #include <cstddef>
 #include <cstdint>
@@ -9,22 +7,28 @@
 #include <type_traits>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <webgpu/webgpu_cpp.h>
-#include <Init.hpp>
+#include <memory>
 
 struct IUniformLayout {
-    virtual ~IUniformLayout() = default;
-
-    virtual void Init(uint32_t index) = 0;
+    IUniformLayout();
+    virtual ~IUniformLayout();
 
     public:
-        wgpu::BindGroupEntry& GetBindGroupEntry() { return m_BindgroupEntry; }
-        wgpu::BindGroupLayoutEntry& GetBindGroupLayoutEntry() { return m_BindgroupLayoutEntry; }
+        void* GetBindGroupEntry();
+        void* GetBindGroupLayoutEntry();
         virtual uint32_t GetUniformStride() = 0;
+        void Init(uint32_t bindingIndex);
+
+    private:
+        struct Impl;
+        std::unique_ptr<Impl> _impl;
 
     protected:
-        wgpu::BindGroupEntry m_BindgroupEntry{};
-        wgpu::BindGroupLayoutEntry m_BindgroupLayoutEntry{};
+        void WriteBuffer(uint64_t offset, void* data, size_t size);
+        bool m_isDynamic = false;
+        std::vector<std::byte> m_Buffer;
+        uint32_t uniformStride;
+        std::size_t total_size_ = 0;
 };
 
 // ---------- WGSL uniform layout (std140-ish) ----------
@@ -174,7 +178,6 @@ template<> struct map_kind<glm::mat4x3>  { static constexpr Kind value = Kind::m
 template <typename T>
 class UniformLayout : public IUniformLayout {
 public:
-    UniformLayout() = default;
 
     template <typename... Ms>
     explicit UniformLayout(bool isDynamic, const T& base, const Ms&... fields) {
@@ -183,48 +186,19 @@ public:
         build_layout(base, fields...);
     }
 
-    void Init(uint32_t bindingIndex) override
-    {
-        wgpu::BufferDescriptor bufferDesc;
-        if(m_isDynamic)
-        {
-            uniformStride = ceilToNextMultiple(total_size_);
-            bufferDesc.size = uniformStride * 256;
-        }
-        else
-            bufferDesc.size = total_size_;
-        
-        bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
-        bufferDesc.mappedAtCreation = false;
-        m_GPUBuffer = device.CreateBuffer(&bufferDesc);
-
-        device.GetQueue().WriteBuffer(m_GPUBuffer, 0, m_Buffer.data(), m_Buffer.size());
-
-        m_BindgroupLayoutEntry.binding = bindingIndex;
-        m_BindgroupLayoutEntry.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
-        m_BindgroupLayoutEntry.buffer.type = wgpu::BufferBindingType::Uniform;
-        m_BindgroupLayoutEntry.buffer.minBindingSize = m_isDynamic ? uniformStride : total_size_;
-        m_BindgroupLayoutEntry.buffer.hasDynamicOffset = m_isDynamic;
-
-        m_BindgroupEntry.buffer = m_GPUBuffer;
-        m_BindgroupEntry.offset = 0;
-        m_BindgroupEntry.size = m_isDynamic ? uniformStride : total_size_;
-        m_BindgroupEntry.binding = bindingIndex;
-    }
-
     // Pack into a freshly allocated vector (returns padded-to-16B size)
     inline void pack(const T& obj) {
         assert(m_isDynamic == false);
         m_Buffer.resize(total_size_);
         pack_into(obj, m_Buffer.data(), m_Buffer.size());
-        device.GetQueue().WriteBuffer(m_GPUBuffer, 0, m_Buffer.data(), m_Buffer.size());
+        WriteBuffer(0, m_Buffer.data(), m_Buffer.size());
     }
 
     inline void pack(const T& obj, uint32_t index) {
         assert(m_isDynamic == true);
         m_Buffer.resize(total_size_);
         pack_into(obj, m_Buffer.data(), m_Buffer.size());
-        device.GetQueue().WriteBuffer(m_GPUBuffer, uniformStride * index, m_Buffer.data(), m_Buffer.size());
+        WriteBuffer(uniformStride * index, m_Buffer.data(), m_Buffer.size());
     }
 
     // Pack into caller-provided memory (must be at least total_size())
@@ -320,13 +294,5 @@ private:
 private:
     std::vector<Field> layout_;
     std::vector<Entry> table_;
-    std::size_t total_size_ = 0;
-    std::vector<std::byte> m_Buffer;
-
-    wgpu::Buffer m_GPUBuffer;
-    bool m_isDynamic = false;
-    uint32_t uniformStride;
-
-    
 };
 

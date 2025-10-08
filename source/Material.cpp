@@ -1,5 +1,5 @@
 #include <Material.hpp>
-#include <Init.hpp>
+#include "Init.hpp"
 #include <FileReader.hpp>
 #include <webgpu/webgpu_cpp.h>
 
@@ -43,19 +43,19 @@ void IMaterial::InitMaterial(IShader& shader, std::vector<Texture> textures)
     LoadSampler(-1, -1 , WrapMode::REPEAT, WrapMode::REPEAT);
     std::vector<wgpu::BindGroupEntry> bindings(shader.GetTextureCount() + 2);
 
-    bindings[0] = shader.GetMaterialBufferEntry();
+    bindings[0] = *static_cast<wgpu::BindGroupEntry*>(shader.GetMaterialBufferEntry());
 
     for(size_t i = 1; i < shader.GetTextureCount() + 1; i++)
     {
         bindings[i].binding = i;
-        bindings[i].textureView = m_Textures[i - 1].GetTextureView();
+        bindings[i].textureView = *static_cast<wgpu::TextureView*>(m_Textures[i - 1].GetTextureView());
     }
 
     bindings[shader.GetTextureCount() + 1].binding = shader.GetTextureCount() + 1;
     bindings[shader.GetTextureCount() + 1].sampler = impl->samplers[0];
 
     wgpu::BindGroupDescriptor bindGroupDesc;
-    bindGroupDesc.layout = shader.GetBindGroupLayout(2);
+    bindGroupDesc.layout = *static_cast<wgpu::BindGroupLayout*>(shader.GetBindGroupLayout(2));
     bindGroupDesc.entryCount = (uint32_t)bindings.size();
     bindGroupDesc.entries = bindings.data();
     impl->MaterialBindGroup = device.CreateBindGroup(&bindGroupDesc);

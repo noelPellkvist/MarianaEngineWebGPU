@@ -1,5 +1,5 @@
 #include <Mesh.hpp>
-#include <Init.hpp>
+#include "Init.hpp"
 #include <webgpu/webgpu_cpp.h>
 
 struct IMesh::Impl

@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <webgpu/webgpu_cpp.h>
+#include <memory>
 
 enum class TextureFormat : uint32_t {
     Undefined          = 0x0000,
@@ -120,15 +120,17 @@ class Texture
         void CreateTexture(int width, int height, TextureFormat format, bool MSSA = false, bool renderTarget = false, bool isDepthTexture = false);
         void UploadTexture(const uint8_t* pixels, size_t length, int width, int height);
 
-        wgpu::Texture GetTexture() { return m_Texture; }
-        wgpu::TextureView GetTextureView() { return m_View; }
+        void* GetTexture();
+        void* GetTextureView();
 
         int GetHeight() { return m_Height; }
         int GetWidth() { return m_Width; }
 
     private:
-        wgpu::Texture m_Texture;
-        wgpu::TextureView m_View;
+        
+        struct Impl;
+        std::shared_ptr<Impl> _impl;
+
         int m_Width, m_Height;
 
 };

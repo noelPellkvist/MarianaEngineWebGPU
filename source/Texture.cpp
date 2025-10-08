@@ -1,8 +1,9 @@
 #include <Texture.hpp>
 #include <FileReader.hpp>
-#include <Init.hpp>
+#include "Init.hpp"
+#include <webgpu/webgpu_cpp.h>
 
-[[nodiscard]] constexpr wgpu::TextureFormat ToWGPU(TextureFormat f) noexcept {
+[[nodiscard]] wgpu::TextureFormat ToNative(TextureFormat f) noexcept {
     switch (f) {
         case TextureFormat::Undefined:             return wgpu::TextureFormat::Undefined;
         case TextureFormat::R8Unorm:               return wgpu::TextureFormat::R8Unorm;
@@ -110,11 +111,137 @@
     return wgpu::TextureFormat::Undefined;
 }
 
-Texture::Texture()
+[[nodiscard]] TextureFormat FromNative(void* native) noexcept {
+    wgpu::TextureFormat f = *reinterpret_cast<wgpu::TextureFormat*>(native);
+    switch (f) {
+        case wgpu::TextureFormat::Undefined:            return TextureFormat::Undefined;
+        case wgpu::TextureFormat::R8Unorm:              return TextureFormat::R8Unorm;
+        case wgpu::TextureFormat::R8Snorm:              return TextureFormat::R8Snorm;
+        case wgpu::TextureFormat::R8Uint:               return TextureFormat::R8Uint;
+        case wgpu::TextureFormat::R8Sint:               return TextureFormat::R8Sint;
+        case wgpu::TextureFormat::R16Unorm:             return TextureFormat::R16Unorm;
+        case wgpu::TextureFormat::R16Snorm:             return TextureFormat::R16Snorm;
+        case wgpu::TextureFormat::R16Uint:              return TextureFormat::R16Uint;
+        case wgpu::TextureFormat::R16Sint:              return TextureFormat::R16Sint;
+        case wgpu::TextureFormat::R16Float:             return TextureFormat::R16Float;
+        case wgpu::TextureFormat::RG8Unorm:             return TextureFormat::RG8Unorm;
+        case wgpu::TextureFormat::RG8Snorm:             return TextureFormat::RG8Snorm;
+        case wgpu::TextureFormat::RG8Uint:              return TextureFormat::RG8Uint;
+        case wgpu::TextureFormat::RG8Sint:              return TextureFormat::RG8Sint;
+        case wgpu::TextureFormat::R32Float:             return TextureFormat::R32Float;
+        case wgpu::TextureFormat::R32Uint:              return TextureFormat::R32Uint;
+        case wgpu::TextureFormat::R32Sint:              return TextureFormat::R32Sint;
+        case wgpu::TextureFormat::RG16Unorm:            return TextureFormat::RG16Unorm;
+        case wgpu::TextureFormat::RG16Snorm:            return TextureFormat::RG16Snorm;
+        case wgpu::TextureFormat::RG16Uint:             return TextureFormat::RG16Uint;
+        case wgpu::TextureFormat::RG16Sint:             return TextureFormat::RG16Sint;
+        case wgpu::TextureFormat::RG16Float:            return TextureFormat::RG16Float;
+        case wgpu::TextureFormat::RGBA8Unorm:           return TextureFormat::RGBA8Unorm;
+        case wgpu::TextureFormat::RGBA8UnormSrgb:       return TextureFormat::RGBA8UnormSrgb;
+        case wgpu::TextureFormat::RGBA8Snorm:           return TextureFormat::RGBA8Snorm;
+        case wgpu::TextureFormat::RGBA8Uint:            return TextureFormat::RGBA8Uint;
+        case wgpu::TextureFormat::RGBA8Sint:            return TextureFormat::RGBA8Sint;
+        case wgpu::TextureFormat::BGRA8Unorm:           return TextureFormat::BGRA8Unorm;
+        case wgpu::TextureFormat::BGRA8UnormSrgb:       return TextureFormat::BGRA8UnormSrgb;
+        case wgpu::TextureFormat::RGB10A2Uint:          return TextureFormat::RGB10A2Uint;
+        case wgpu::TextureFormat::RGB10A2Unorm:         return TextureFormat::RGB10A2Unorm;
+        case wgpu::TextureFormat::RG11B10Ufloat:        return TextureFormat::RG11B10Ufloat;
+        case wgpu::TextureFormat::RGB9E5Ufloat:         return TextureFormat::RGB9E5Ufloat;
+        case wgpu::TextureFormat::RG32Float:            return TextureFormat::RG32Float;
+        case wgpu::TextureFormat::RG32Uint:             return TextureFormat::RG32Uint;
+        case wgpu::TextureFormat::RG32Sint:             return TextureFormat::RG32Sint;
+        case wgpu::TextureFormat::RGBA16Unorm:          return TextureFormat::RGBA16Unorm;
+        case wgpu::TextureFormat::RGBA16Snorm:          return TextureFormat::RGBA16Snorm;
+        case wgpu::TextureFormat::RGBA16Uint:           return TextureFormat::RGBA16Uint;
+        case wgpu::TextureFormat::RGBA16Sint:           return TextureFormat::RGBA16Sint;
+        case wgpu::TextureFormat::RGBA16Float:          return TextureFormat::RGBA16Float;
+        case wgpu::TextureFormat::RGBA32Float:          return TextureFormat::RGBA32Float;
+        case wgpu::TextureFormat::RGBA32Uint:           return TextureFormat::RGBA32Uint;
+        case wgpu::TextureFormat::RGBA32Sint:           return TextureFormat::RGBA32Sint;
+        case wgpu::TextureFormat::Stencil8:             return TextureFormat::Stencil8;
+        case wgpu::TextureFormat::Depth16Unorm:         return TextureFormat::Depth16Unorm;
+        case wgpu::TextureFormat::Depth24Plus:          return TextureFormat::Depth24Plus;
+        case wgpu::TextureFormat::Depth24PlusStencil8:  return TextureFormat::Depth24PlusStencil8;
+        case wgpu::TextureFormat::Depth32Float:         return TextureFormat::Depth32Float;
+        case wgpu::TextureFormat::Depth32FloatStencil8: return TextureFormat::Depth32FloatStencil8;
+        case wgpu::TextureFormat::BC1RGBAUnorm:         return TextureFormat::BC1RGBAUnorm;
+        case wgpu::TextureFormat::BC1RGBAUnormSrgb:     return TextureFormat::BC1RGBAUnormSrgb;
+        case wgpu::TextureFormat::BC2RGBAUnorm:         return TextureFormat::BC2RGBAUnorm;
+        case wgpu::TextureFormat::BC2RGBAUnormSrgb:     return TextureFormat::BC2RGBAUnormSrgb;
+        case wgpu::TextureFormat::BC3RGBAUnorm:         return TextureFormat::BC3RGBAUnorm;
+        case wgpu::TextureFormat::BC3RGBAUnormSrgb:     return TextureFormat::BC3RGBAUnormSrgb;
+        case wgpu::TextureFormat::BC4RUnorm:            return TextureFormat::BC4RUnorm;
+        case wgpu::TextureFormat::BC4RSnorm:            return TextureFormat::BC4RSnorm;
+        case wgpu::TextureFormat::BC5RGUnorm:           return TextureFormat::BC5RGUnorm;
+        case wgpu::TextureFormat::BC5RGSnorm:           return TextureFormat::BC5RGSnorm;
+        case wgpu::TextureFormat::BC6HRGBUfloat:        return TextureFormat::BC6HRGBUfloat;
+        case wgpu::TextureFormat::BC6HRGBFloat:         return TextureFormat::BC6HRGBFloat;
+        case wgpu::TextureFormat::BC7RGBAUnorm:         return TextureFormat::BC7RGBAUnorm;
+        case wgpu::TextureFormat::BC7RGBAUnormSrgb:     return TextureFormat::BC7RGBAUnormSrgb;
+        case wgpu::TextureFormat::ETC2RGB8Unorm:        return TextureFormat::ETC2RGB8Unorm;
+        case wgpu::TextureFormat::ETC2RGB8UnormSrgb:    return TextureFormat::ETC2RGB8UnormSrgb;
+        case wgpu::TextureFormat::ETC2RGB8A1Unorm:      return TextureFormat::ETC2RGB8A1Unorm;
+        case wgpu::TextureFormat::ETC2RGB8A1UnormSrgb:  return TextureFormat::ETC2RGB8A1UnormSrgb;
+        case wgpu::TextureFormat::ETC2RGBA8Unorm:       return TextureFormat::ETC2RGBA8Unorm;
+        case wgpu::TextureFormat::ETC2RGBA8UnormSrgb:   return TextureFormat::ETC2RGBA8UnormSrgb;
+        case wgpu::TextureFormat::EACR11Unorm:          return TextureFormat::EACR11Unorm;
+        case wgpu::TextureFormat::EACR11Snorm:          return TextureFormat::EACR11Snorm;
+        case wgpu::TextureFormat::EACRG11Unorm:         return TextureFormat::EACRG11Unorm;
+        case wgpu::TextureFormat::EACRG11Snorm:         return TextureFormat::EACRG11Snorm;
+        case wgpu::TextureFormat::ASTC4x4Unorm:         return TextureFormat::ASTC4x4Unorm;
+        case wgpu::TextureFormat::ASTC4x4UnormSrgb:     return TextureFormat::ASTC4x4UnormSrgb;
+        case wgpu::TextureFormat::ASTC5x4Unorm:         return TextureFormat::ASTC5x4Unorm;
+        case wgpu::TextureFormat::ASTC5x4UnormSrgb:     return TextureFormat::ASTC5x4UnormSrgb;
+        case wgpu::TextureFormat::ASTC5x5Unorm:         return TextureFormat::ASTC5x5Unorm;
+        case wgpu::TextureFormat::ASTC5x5UnormSrgb:     return TextureFormat::ASTC5x5UnormSrgb;
+        case wgpu::TextureFormat::ASTC6x5Unorm:         return TextureFormat::ASTC6x5Unorm;
+        case wgpu::TextureFormat::ASTC6x5UnormSrgb:     return TextureFormat::ASTC6x5UnormSrgb;
+        case wgpu::TextureFormat::ASTC6x6Unorm:         return TextureFormat::ASTC6x6Unorm;
+        case wgpu::TextureFormat::ASTC6x6UnormSrgb:     return TextureFormat::ASTC6x6UnormSrgb;
+        case wgpu::TextureFormat::ASTC8x5Unorm:         return TextureFormat::ASTC8x5Unorm;
+        case wgpu::TextureFormat::ASTC8x5UnormSrgb:     return TextureFormat::ASTC8x5UnormSrgb;
+        case wgpu::TextureFormat::ASTC8x6Unorm:         return TextureFormat::ASTC8x6Unorm;
+        case wgpu::TextureFormat::ASTC8x6UnormSrgb:     return TextureFormat::ASTC8x6UnormSrgb;
+        case wgpu::TextureFormat::ASTC8x8Unorm:         return TextureFormat::ASTC8x8Unorm;
+        case wgpu::TextureFormat::ASTC8x8UnormSrgb:     return TextureFormat::ASTC8x8UnormSrgb;
+        case wgpu::TextureFormat::ASTC10x5Unorm:        return TextureFormat::ASTC10x5Unorm;
+        case wgpu::TextureFormat::ASTC10x5UnormSrgb:    return TextureFormat::ASTC10x5UnormSrgb;
+        case wgpu::TextureFormat::ASTC10x6Unorm:        return TextureFormat::ASTC10x6Unorm;
+        case wgpu::TextureFormat::ASTC10x6UnormSrgb:    return TextureFormat::ASTC10x6UnormSrgb;
+        case wgpu::TextureFormat::ASTC10x8Unorm:        return TextureFormat::ASTC10x8Unorm;
+        case wgpu::TextureFormat::ASTC10x8UnormSrgb:    return TextureFormat::ASTC10x8UnormSrgb;
+        case wgpu::TextureFormat::ASTC10x10Unorm:       return TextureFormat::ASTC10x10Unorm;
+        case wgpu::TextureFormat::ASTC10x10UnormSrgb:   return TextureFormat::ASTC10x10UnormSrgb;
+        case wgpu::TextureFormat::ASTC12x10Unorm:       return TextureFormat::ASTC12x10Unorm;
+        case wgpu::TextureFormat::ASTC12x10UnormSrgb:   return TextureFormat::ASTC12x10UnormSrgb;
+        case wgpu::TextureFormat::ASTC12x12Unorm:       return TextureFormat::ASTC12x12Unorm;
+        case wgpu::TextureFormat::ASTC12x12UnormSrgb:   return TextureFormat::ASTC12x12UnormSrgb;
+        default:                                        return TextureFormat::Undefined;
+    }
+}
+
+struct Texture::Impl
+{
+    wgpu::Texture m_Texture;
+    wgpu::TextureView m_View;
+};
+
+Texture::Texture() : _impl(std::make_shared<Impl>())
 {}
 
-Texture::~Texture()
-{}
+Texture::~Texture() = default;
+
+void* Texture::GetTexture()
+{
+    return &_impl->m_Texture;
+}
+
+void* Texture::GetTextureView()
+{
+    return &_impl->m_View;
+}
+
+
 
 void Texture::LoadTexture(const std::string& path, TextureFormat format)
 {
@@ -137,7 +264,7 @@ void Texture::CreateDepthTexture(TextureFormat format, int width, int height, bo
 void Texture::UploadTexture(const uint8_t* pixels, size_t length, int width, int height)
 {
     wgpu::TexelCopyTextureInfo destination;
-    destination.texture = m_Texture;
+    destination.texture = _impl->m_Texture;
     destination.mipLevel = 0;
     destination.origin = {0, 0, 0};
     destination.aspect = wgpu::TextureAspect::All;
@@ -161,11 +288,11 @@ void Texture::CreateTexture(int width, int height, TextureFormat format, bool MS
     textureDesc.size = {(unsigned int)width, (unsigned int)height, 1};
     textureDesc.mipLevelCount = 1;
     textureDesc.sampleCount = MSSA ? 4 : 1;
-    textureDesc.format = ToWGPU(format);
+    textureDesc.format = ToNative(format);
     textureDesc.usage = wgpu::TextureUsage::TextureBinding | (renderTarget ? wgpu::TextureUsage::RenderAttachment : wgpu::TextureUsage::CopyDst);
     textureDesc.viewFormatCount = 0;
     textureDesc.viewFormats = nullptr;
-    m_Texture = device.CreateTexture(&textureDesc);
+    _impl->m_Texture = device.CreateTexture(&textureDesc);
 
     wgpu::TextureViewDescriptor textureViewDesc{};
     textureViewDesc.aspect = (isDepthTexture ? wgpu::TextureAspect::DepthOnly : wgpu::TextureAspect::All);
@@ -175,5 +302,5 @@ void Texture::CreateTexture(int width, int height, TextureFormat format, bool MS
     textureViewDesc.mipLevelCount = 1;
     textureViewDesc.dimension = wgpu::TextureViewDimension::e2D;
     textureViewDesc.format = textureDesc.format;
-    m_View = m_Texture.CreateView(&textureViewDesc);
+    _impl->m_View = _impl->m_Texture.CreateView(&textureViewDesc);
 }

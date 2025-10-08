@@ -14,13 +14,6 @@ extern wgpu::TextureFormat windowFormat;
 
 extern wgpu::Limits deviceLimits;
 
-struct Vertex
-{
-    glm::vec3 position;
-    glm::vec3 normal;
-    glm::vec2 uv;
-};
-
 void Init();
 
 uint32_t ceilToNextMultiple(uint32_t value);
