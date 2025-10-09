@@ -54,6 +54,8 @@ private:
     friend class Scene;
 };
 
+class Prefab;
+
 class Entity {
 public:
     Entity() = default;
@@ -81,6 +83,7 @@ public:
 
 private:
     friend class Scene;
+    friend class Prefab;
     Entity(Scene* s, uint64_t id) : _scene(s), _id(id) {}
     Scene* _scene = nullptr;
     uint64_t _id = 0;
