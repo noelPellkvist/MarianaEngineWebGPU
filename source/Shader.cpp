@@ -17,10 +17,11 @@ struct IShader::Impl
     wgpu::BindGroup m_CameraBindGroup{};    
 };
 
-IShader::IShader(VertexBufferLayout vbl, uint8_t textureCount)
+IShader::IShader(VertexBufferLayout vbl, uint8_t textureCount, const Renderpass& renderpass)
     : _impl(std::make_unique<Impl>()),
       m_TextureCount(textureCount),
-      m_VertexLayout(std::move(vbl)) {}
+      m_VertexLayout(std::move(vbl)),
+      m_Renderpass(renderpass) {}
 
 IShader::~IShader() = default;
 
@@ -55,7 +56,7 @@ void* IShader::GetPipeline()
     return &_impl->m_Pipeline; 
 }
 
-void IShader::LoadShader(std::string shaderCode, std::vector<TextureFormat> outputFormats) 
+void IShader::LoadShader(std::string shaderCode) 
 {
     InitBuffers();
     wgpu::ShaderSourceWGSL wgsl{{.code = shaderCode.c_str()}};
@@ -63,11 +64,19 @@ void IShader::LoadShader(std::string shaderCode, std::vector<TextureFormat> outp
 
     wgpu::ShaderModule shaderModule =
     device.CreateShaderModule(&shaderModuleDescriptor);
+    const std::vector<TextureFormat>& outputFormats = m_Renderpass.GetOutputFormats();
+    std::vector<wgpu::ColorTargetState> colorTargetStates(outputFormats.size());
 
-    wgpu::ColorTargetState colorTargetState{.format = static_cast<wgpu::TextureFormat>((uint32_t)(outputFormats[0]))};
+    for(size_t i = 0; i < outputFormats.size(); i++)
+    {
+        colorTargetStates[i] = {
+            .format = static_cast<wgpu::TextureFormat>((uint32_t)(outputFormats[i])),
+            .writeMask = wgpu::ColorWriteMask::All,
+        };
+    }
 
     wgpu::FragmentState fragmentState{
-    .module = shaderModule, .targetCount = 1, .targets = &colorTargetState};
+    .module = shaderModule, .entryPoint = wgpu::StringView("fragmentMain"), .targetCount = 2, .targets = colorTargetStates.data()};
 
     wgpu::DepthStencilState depthStencilState{};
     depthStencilState.depthCompare = wgpu::CompareFunction::Less;
@@ -86,6 +95,7 @@ void IShader::LoadShader(std::string shaderCode, std::vector<TextureFormat> outp
     wgpu::RenderPipelineDescriptor descriptor{  .layout = _impl->m_Layout,
                                         .vertex = {
                                           .module = shaderModule,
+                                          .entryPoint = wgpu::StringView("vertexMain"),
                                           .bufferCount = 1,
                                           .buffers = &m_VertexLayout.vertexBufferLayout
                                         },
@@ -102,6 +112,8 @@ void IShader::LoadShader(std::string shaderCode, std::vector<TextureFormat> outp
                                      },
                                      .fragment = &fragmentState};
 
+   
+    
     _impl->m_Pipeline = device.CreateRenderPipeline(&descriptor);
 }
 

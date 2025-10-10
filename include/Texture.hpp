@@ -125,11 +125,13 @@ class Texture
 
         int GetHeight() { return m_Height; }
         int GetWidth() { return m_Width; }
+        TextureFormat GetFormat() { return m_Format; }
 
     private:
         
         struct Impl;
         std::shared_ptr<Impl> _impl;
+        TextureFormat m_Format;
 
         int m_Width, m_Height;
 

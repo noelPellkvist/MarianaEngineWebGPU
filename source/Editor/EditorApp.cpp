@@ -118,16 +118,15 @@ VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0,
 System WriteTransformBufferSystem;
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
-renderpass(true, true, TextureFormat::BGRA8Unorm, m_Window.GetWidth(), m_Window.GetHeight())
+renderpass(true, true, { TextureFormat::BGRA8Unorm, TextureFormat::BGRA8Unorm }, m_Window.GetWidth(), m_Window.GetHeight())
 {
     cam = new EditorCameraController(input);
-    PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5);
+    PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5, renderpass);
     AssetManager::LoadedShaders.push_back(PBR_Shader);
-    auto root = scene.Instantiate("Root mannen").SetPosition(0,0,0);
 
-    for(uint32_t i = 0; i < 25; i++)
+    for(uint32_t i = 0; i < 1; i++)
     {
-        scene.Instantiate((std::string("Avocado") + ToString(i)).c_str()).Add<RendererComponent>({0, 1, i}).SetScaleUniform(1).SetPosition(0,0,i).SetParent(root);
+        scene.Instantiate((std::string("Avocado") + ToString(i)).c_str()).Add<RendererComponent>({0, 1, i}).SetScaleUniform(1).SetPosition(0,0,i);
     }
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
@@ -163,7 +162,7 @@ void EditorApp::OnStart()
     }
 
     renderpass.Init();
-    PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"), {m_Window.GetWindowFormat()});
+    PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"));
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", *PBR_Shader);
     

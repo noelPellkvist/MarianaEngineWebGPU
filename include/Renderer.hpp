@@ -11,7 +11,7 @@ struct RendererComponent
 {
     uint32_t shaderIndex{0};
     uint32_t meshIndex{0};
-    uint32_t transformIndex{0};
+    uint32_t transformIndex{0}; 
 };
 
 class Renderer

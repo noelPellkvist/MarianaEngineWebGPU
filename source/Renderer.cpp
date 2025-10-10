@@ -51,25 +51,55 @@ void Renderer::Init(Scene& scene)
     });
 }
 
+void RenderGUI(wgpu::TextureView& view, wgpu::TextureView& resolve, wgpu::RenderPassDepthStencilAttachment* depth, wgpu::CommandEncoder& encoder, GUI& gui)
+{
+  wgpu::RenderPassColorAttachment attachment{
+    .view = view,
+    .resolveTarget = resolve,
+    .loadOp = wgpu::LoadOp::Load,
+    .storeOp = wgpu::StoreOp::Store
+  };
+
+  wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = 1,
+                                        .colorAttachments = &attachment,
+                                        .depthStencilAttachment = depth};
+
+  auto pass = encoder.BeginRenderPass(&renderpassDesc);
+  gui.PostUpdateGUI(&pass);
+  pass.End();
+}
+
 void Renderer::Render(Renderpass& renderPass, GUI& gui)
 {
     wgpu::SurfaceTexture surfaceTexture;
     surface.GetCurrentTexture(&surfaceTexture);
-    wgpu::RenderPassColorAttachment attachment{
-      .view = *static_cast<wgpu::TextureView*>(renderPass.GetRenderTarget().GetTextureView()),
-      .resolveTarget = surfaceTexture.texture.CreateView(),
+    wgpu::TextureView resolveTarget = surfaceTexture.texture.CreateView();
+
+    std::vector<wgpu::RenderPassColorAttachment> attachments(renderPass.NumberOfOutputs());
+    for (uint8_t i = 0; i < renderPass.NumberOfOutputs(); i++)
+    {
+      attachments[i] = {
+      .view = *static_cast<wgpu::TextureView*>(renderPass.GetRenderTarget(i).GetTextureView()),
+      .resolveTarget = (i == 0) ? resolveTarget : *static_cast<wgpu::TextureView*>(renderPass.GetRenderResloveTarget(i).GetTextureView()),
       .loadOp = wgpu::LoadOp::Clear,
       .storeOp = wgpu::StoreOp::Store};
+    }
 
-    wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = 1,
-                                        .colorAttachments = &attachment,
+    wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = attachments.size(),
+                                        .colorAttachments = attachments.data(),
                                         .depthStencilAttachment = static_cast<wgpu::RenderPassDepthStencilAttachment*>(renderPass.GetDepthStencilAttachment())};
 
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
     _impl->pass = encoder.BeginRenderPass(&renderpassDesc);
     renderSystem.Run();
-    gui.PostUpdateGUI(&_impl->pass);
+    
     _impl->pass.End();
+
+    RenderGUI(*static_cast<wgpu::TextureView*>(renderPass.GetRenderTarget(0).GetTextureView()),
+              resolveTarget,
+              static_cast<wgpu::RenderPassDepthStencilAttachment*>(renderPass.GetDepthStencilAttachment()),
+              encoder,
+              gui);
 
     wgpu::CommandBuffer commands = encoder.Finish();
     device.GetQueue().Submit(1, &commands);

@@ -9,7 +9,6 @@
 #include <vector>
 
 #include <Shader.hpp>
-#include <Sampler.hpp>
 #include <Texture.hpp>
 
 class IMaterial
@@ -31,7 +30,7 @@ class IMaterial
         uint32_t bufferIndex;
         std::unique_ptr<Impl> impl;
 
-        void LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMode wrapT);
+        void LoadSampler();
 };
 
 template<typename MaterialData>

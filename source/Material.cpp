@@ -19,7 +19,7 @@ IMaterial::~IMaterial()
 
 }
 
-void IMaterial::LoadSampler(int minFilter, int magFilter, WrapMode wrapS, WrapMode wrapT)
+void IMaterial::LoadSampler()
 {
     wgpu::SamplerDescriptor samplerDesc{};
     samplerDesc.addressModeU = wgpu::AddressMode::Repeat;
@@ -40,7 +40,7 @@ void IMaterial::InitMaterial(IShader& shader, std::vector<Texture> textures)
     m_Shader = &shader;
     m_Textures = textures;
 
-    LoadSampler(-1, -1 , WrapMode::REPEAT, WrapMode::REPEAT);
+    LoadSampler();
     std::vector<wgpu::BindGroupEntry> bindings(shader.GetTextureCount() + 2);
 
     bindings[0] = *static_cast<wgpu::BindGroupEntry*>(shader.GetMaterialBufferEntry());

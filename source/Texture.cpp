@@ -249,16 +249,19 @@ void Texture::LoadTexture(const std::string& path, TextureFormat format)
     std::vector<uint8_t> pixels = FileReader::LoadPixelsFromImage(path, width, height);
     CreateTexture(width, height, format);
     UploadTexture(pixels.data(), pixels.size(), width, height);
+    m_Format = format;
 }
 
 void Texture::CreateRenderTexture(TextureFormat format, int width, int height, bool MSSA)
 {
     CreateTexture(width, height, format, MSSA, true, false);
+    m_Format = format;
 }
 
 void Texture::CreateDepthTexture(TextureFormat format, int width, int height, bool MSSA)
 {
     CreateTexture(width, height, format, MSSA, true, true);
+    m_Format = format;
 }
 
 void Texture::UploadTexture(const uint8_t* pixels, size_t length, int width, int height)
@@ -303,4 +306,5 @@ void Texture::CreateTexture(int width, int height, TextureFormat format, bool MS
     textureViewDesc.dimension = wgpu::TextureViewDimension::e2D;
     textureViewDesc.format = textureDesc.format;
     _impl->m_View = _impl->m_Texture.CreateView(&textureViewDesc);
+    m_Format = format;
 }

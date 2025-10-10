@@ -5,6 +5,7 @@
 #include <vector>
 #include <UniformLayout.hpp>
 #include <VertexBufferLayout.hpp>
+#include <Renderpass.hpp>
 #include <any>
 #include <stdexcept>
 #include <Texture.hpp>
@@ -13,7 +14,7 @@
 class IShader
 {
     public:
-        IShader(VertexBufferLayout vbl, uint8_t textureCount);
+        IShader(VertexBufferLayout vbl, uint8_t textureCount, const Renderpass& renderpass);
         virtual ~IShader();
 
         void* GetPipeline();
@@ -21,7 +22,7 @@ class IShader
 
         void* GetBindGroupLayout(uint32_t index);
 
-        void LoadShader(std::string shaderCode, std::vector<TextureFormat> outputFormats);
+        void LoadShader(std::string shaderCode);
 
         virtual void* GetMaterialBufferEntry() = 0;
 
@@ -48,6 +49,7 @@ class IShader
         std::unique_ptr<Impl> _impl;
         uint8_t m_TextureCount;
         VertexBufferLayout m_VertexLayout;
+        const Renderpass& m_Renderpass;
 
         void FixMaterialBindingLayout();
         void FixBindingLayouts();
@@ -63,8 +65,9 @@ class Shader : public IShader
                UniformLayout<MaterialLayout>& materialLayout,
                UniformLayout<CameraLayout>& cameraLayout,
                VertexBufferLayout vertexLayout,
-               uint8_t textureCount)
-          : IShader(std::move(vertexLayout), textureCount),
+               uint8_t textureCount,
+               const Renderpass& renderpass)
+          : IShader(std::move(vertexLayout), textureCount, renderpass),
             m_UBOLayout(UBOLayout),
             m_TransformLayout(transformLayout),
             m_MaterialLayout(materialLayout),

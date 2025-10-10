@@ -120,8 +120,13 @@ fn tonemapACES(x: vec3f) -> vec3f {
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
 }
 
+struct FragOut {
+    @location(0) color: vec4f,
+    @location(1) color2: vec4f
+};
+
 @fragment
-fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+fn fragmentMain(input: VertexOutput) -> FragOut {
     var n = textureSample(normalMap, textureSampler, input.uv).xyz * 2.0 - 1.0;
     let TBN = mat3x3<f32>(input.world_tangent, input.world_bitangent, input.world_normal);
     let N = normalize(TBN * n);
@@ -172,5 +177,9 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     colorLinear = tonemapACES(colorLinear);
     
     colorLinear = saturate3(colorLinear);
-    return vec4f(colorLinear, 1.0);
+
+    var out : FragOut;
+    out.color = vec4f(colorLinear, 1.0);
+    out.color2 = vec4f(0.5, 0.25, 0.75, 1.0);
+    return out;
 }

@@ -7,10 +7,10 @@ struct Renderpass::Impl
     wgpu::RenderPassDepthStencilAttachment m_DepthStencilAttachment;
 };
 
-Renderpass::Renderpass(bool MSSA, bool depthTexture, TextureFormat outputFormat, uint32_t width, uint32_t height) :
+Renderpass::Renderpass(bool MSSA, bool depthTexture, std::vector<TextureFormat> outputFormats, uint32_t width, uint32_t height) :
 m_MSSA(MSSA),
 m_HasDepthTexture(depthTexture),
-m_OutputFormat(outputFormat),
+m_OutputFormats(outputFormats),
 m_Width(width),
 m_Height(height),
 _impl(std::make_unique<Impl>())
@@ -20,7 +20,7 @@ _impl(std::make_unique<Impl>())
 
 void Renderpass::Init()
 {
-    if (m_MSSA) CreateMSSATexture();
+    CreateMSSATexture();
     if (m_HasDepthTexture) CreateDepthTexture();
 }
 
@@ -41,9 +41,23 @@ void* Renderpass::GetDepthStencilAttachment()
 
 void Renderpass::CreateMSSATexture()
 {
-    Texture renderTarget;
-    renderTarget.CreateRenderTexture(m_OutputFormat, m_Width, m_Height, m_MSSA);
-    m_RenderTarget = renderTarget;
+    m_RenderTargets.resize(m_OutputFormats.size());
+    for(int i = 0; i < m_OutputFormats.size(); i++)
+    {
+        Texture renderTarget;
+        renderTarget.CreateRenderTexture(m_OutputFormats[i], m_Width, m_Height, m_MSSA);
+        m_RenderTargets[i] = renderTarget;
+    }
+    if (m_MSSA)
+    {
+        m_RenderTargetsResolve.resize(m_OutputFormats.size());
+        for(int i = 0; i < m_OutputFormats.size(); i++)
+        {
+            Texture renderTarget;
+            renderTarget.CreateRenderTexture(m_OutputFormats[i], m_Width, m_Height, false);
+            m_RenderTargetsResolve[i] = renderTarget;
+        }
+    }
 }
 
 void Renderpass::CreateDepthTexture()
