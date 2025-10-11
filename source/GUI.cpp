@@ -156,7 +156,7 @@ void GUI::InitGui(Window& window)
     info.NumFramesInFlight = 3;
     info.RenderTargetFormat = static_cast<WGPUTextureFormat>(windowFormat);
     info.DepthStencilFormat = WGPUTextureFormat_Depth24Plus;
-    info.PipelineMultisampleState.count = 4;
+    info.PipelineMultisampleState.count = 1;
     if(ImGui_ImplWGPU_Init(&info))
     {
     }

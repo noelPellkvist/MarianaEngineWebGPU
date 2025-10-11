@@ -118,7 +118,7 @@ VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0,
 System WriteTransformBufferSystem;
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
-renderpass(true, true, { TextureFormat::BGRA8Unorm, TextureFormat::BGRA8Unorm }, m_Window.GetWidth(), m_Window.GetHeight())
+renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight())
 {
     cam = new EditorCameraController(input);
     PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5, renderpass);
@@ -255,6 +255,7 @@ void EditorApp::OnGUI()
     float fps   = ImGui::GetIO().Framerate;
     float ms    = 1000.0f / fps;
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", ms, fps);
+    //gui.DrawTexture(renderpass.GetRenderTarget(1), 200, 422);
     ImGui::End();
 
     ImGui::Begin("Hierachy"); 

@@ -1,4 +1,5 @@
 #include <ECS.hpp>
+#define FLECS_ENTITY_T uint32_t
 #include <flecs.h>
 #include <unordered_map>
 #include <typeindex>
@@ -86,7 +87,7 @@ struct System::Impl {
     std::vector<std::size_t> aligns;
 
     // opaque callback that was passed from header (CreateSystem_trampoline)
-    void(*cb)(void* ctx, uint64_t eid, void** comps, float delta) = nullptr;
+    void(*cb)(void* ctx, uint32_t eid, void** comps, float delta) = nullptr;
     void* ctx_ptr = nullptr; // heap allocated trampoline context; will be deleted in destructor
 
     ~Impl() {
@@ -99,7 +100,7 @@ struct System::Impl {
             // we don't know exact type here, but in our design header always allocates a concrete type whose destructor is accessible,
             // so a simple delete on the void* cast to char* is undefined. Instead: we delete as std::function pointer
             // BUT earlier we allocated TrampolineCtx (a small struct). To safely destroy it we must know its type.
-            // Safer approach: require header to allocate the context as std::function<void(uint64_t, void**)>*
+            // Safer approach: require header to allocate the context as std::function<void(uint32_t, void**)>*
             // However we used TrampolineCtx struct. To avoid UB here, we will not call delete on ctx_ptr; instead,
             // Scene::_create_system will take ownership of ctx_ptr and will delete it as the correct type.
             // To keep safe, we will assume ctx_ptr is a pointer that Scene::_create_system deletes later.
@@ -133,7 +134,7 @@ static void run_query_and_call(ecs_world_t* world, ecs_query_t* q, System::Impl*
             if (!ok) continue;
 
             // call callback with comps.data()
-            impl->cb(impl->ctx_ptr, (uint64_t)e, comps.data(), delta);
+            impl->cb(impl->ctx_ptr, (uint32_t)e, comps.data(), delta);
         }
     }
 }
@@ -206,7 +207,7 @@ Scene::~Scene() { delete _p; }
 Scene::Scene(Scene&& o) noexcept : _p(o._p) { o._p = nullptr; }
 Scene& Scene::operator=(Scene&& o) noexcept { if (this!=&o){ delete _p; _p=o._p; o._p=nullptr; } return *this; }
 
-uint64_t Scene::_create(const char* name) {
+uint32_t Scene::_create(const char* name) {
     auto e = _p->ecs.entity();
     if (name && *name) e.set_name(name);
 
@@ -220,54 +221,54 @@ uint64_t Scene::_create(const char* name) {
 
     e.set<XformCache>({});
 
-    return (uint64_t)e.id();
+    return (uint32_t)e.id();
 }
 
-void Scene::_destroy(uint64_t id) { _p->ecs.entity((flecs::entity_t)id).destruct(); }
+void Scene::_destroy(uint32_t id) { _p->ecs.entity((flecs::entity_t)id).destruct(); }
 void Scene::_update(float) { _p->ecs.progress(); }
-void Scene::_setName(uint64_t id, const char* name) { _p->ecs.entity((flecs::entity_t)id).set_name(name ? name : ""); }
-const char* Scene::_getName(uint64_t eid) const { return ecs_get_name(_p->ecs.c_ptr(), (ecs_entity_t)eid); }
+void Scene::_setName(uint32_t id, const char* name) { _p->ecs.entity((flecs::entity_t)id).set_name(name ? name : ""); }
+const char* Scene::_getName(uint32_t eid) const { return ecs_get_name(_p->ecs.c_ptr(), (ecs_entity_t)eid); }
 
-bool Scene::_has(uint64_t id, const std::type_info& ti) const {
+bool Scene::_has(uint32_t id, const std::type_info& ti) const {
     auto it = _p->comp.find(std::type_index(ti));
     if (it == _p->comp.end()) return false;
     return ecs_has_id(_p->ecs.c_ptr(), (ecs_entity_t)id, it->second);
 }
-void* Scene::_getMut(uint64_t id, const std::type_info& ti, std::size_t sz, std::size_t align) const {
+void* Scene::_getMut(uint32_t id, const std::type_info& ti, std::size_t sz, std::size_t align) const {
     ecs_entity_t cid = _p->ensureComponent(ti, sz, align);
     return ecs_get_mut_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid);
 }
-void Scene::_addSet(uint64_t id, const std::type_info& ti, const void* data, std::size_t sz, std::size_t align) {
+void Scene::_addSet(uint32_t id, const std::type_info& ti, const void* data, std::size_t sz, std::size_t align) {
     ecs_entity_t cid = _p->ensureComponent(ti, sz, align);
     ecs_set_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid, sz, data);
 }
-void Scene::_remove(uint64_t id, const std::type_info& ti) const {
+void Scene::_remove(uint32_t id, const std::type_info& ti) const {
     auto it = _p->comp.find(std::type_index(ti));
     if (it == _p->comp.end()) return;
     ecs_remove_id(_p->ecs.c_ptr(), (ecs_entity_t)id, it->second);
 }
 
-void Scene::_setParent(uint64_t id, uint64_t parentId) {
+void Scene::_setParent(uint32_t id, uint32_t parentId) {
     ecs_world_t* w = _p->ecs.c_ptr();
     ecs_entity_t e = (ecs_entity_t)id;
     ecs_remove_pair(w, e, EcsChildOf, EcsWildcard);
     if (parentId) ecs_add_pair(w, e, EcsChildOf, (ecs_entity_t)parentId);
 }
-int Scene::_childCount(uint64_t parentId) const {
+int Scene::_childCount(uint32_t parentId) const {
     ecs_world_t* w = _p->ecs.c_ptr();
     return (int)ecs_count_id(w, ecs_pair(EcsChildOf, (ecs_entity_t)parentId));
 }
-void Scene::_forEachChildOpaque(uint64_t parentId, void(*cb)(void*, uint64_t, Scene*), void* ctx) const {
+void Scene::_forEachChildOpaque(uint32_t parentId, void(*cb)(void*, uint32_t, Scene*), void* ctx) const {
     flecs::entity parent(_p->ecs, (ecs_entity_t)parentId);
-    parent.children([&](flecs::entity child){ cb(ctx, (uint64_t)child.id(), const_cast<Scene*>(this)); });
+    parent.children([&](flecs::entity child){ cb(ctx, (uint32_t)child.id(), const_cast<Scene*>(this)); });
 }
-void Scene::_forEachRootOpaque(void(*cb)(void*, uint64_t, Scene*), void* ctx) const {
+void Scene::_forEachRootOpaque(void(*cb)(void*, uint32_t, Scene*), void* ctx) const {
     ecs_world_t* w = _p->ecs.c_ptr();
 
     auto q = _p->ecs.query_builder<LocalTRS>().build();
     q.each([&](flecs::entity e, LocalTRS&) {
         if (!ecs_get_target(w, e.id(), EcsChildOf, 0)) {
-            cb(ctx, (uint64_t)e.id(), const_cast<Scene*>(this));
+            cb(ctx, (uint32_t)e.id(), const_cast<Scene*>(this));
         }
     });
 }
@@ -275,7 +276,7 @@ void Scene::_forEachRootOpaque(void(*cb)(void*, uint64_t, Scene*), void* ctx) co
 System Scene::_create_system(const std::vector<const std::type_info*>& compTypes,
                              const std::vector<std::size_t>& sizes,
                              const std::vector<std::size_t>& aligns,
-                             void(*cb)(void* ctx, uint64_t eid, void** comps, float dt),
+                             void(*cb)(void* ctx, uint32_t eid, void** comps, float dt),
                              void* ctx,
                              bool /*cascade*/)
 {
@@ -365,6 +366,6 @@ void System::Run(float delta) {
     run_query_and_call(_p->world, _p->query, _p, delta);
 }
 
-uint64_t Scene::_getParentId(uint64_t id) const {
-    return (uint64_t)ecs_get_target(_p->ecs.c_ptr(), (ecs_entity_t)id, EcsChildOf, 0);
+uint32_t Scene::_getParentId(uint32_t id) const {
+    return (uint32_t)ecs_get_target(_p->ecs.c_ptr(), (ecs_entity_t)id, EcsChildOf, 0);
 }

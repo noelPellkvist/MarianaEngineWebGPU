@@ -79,14 +79,14 @@ public:
     template<class T> const T*  TryGet() const;
     template<class T> void      Remove();
 
-    uint64_t RawId() const { return _id; }
+    uint32_t RawId() const { return _id; }
 
 private:
     friend class Scene;
     friend class Prefab;
-    Entity(Scene* s, uint64_t id) : _scene(s), _id(id) {}
+    Entity(Scene* s, uint32_t id) : _scene(s), _id(id) {}
     Scene* _scene = nullptr;
-    uint64_t _id = 0;
+    uint32_t _id = 0;
 };
 
 class Scene {
@@ -118,31 +118,31 @@ public:
 private:
     friend class Entity;
 
-    uint64_t _create(const char* name);
-    void     _destroy(uint64_t eid);
+    uint32_t _create(const char* name);
+    void     _destroy(uint32_t eid);
     void     _update(float dt);
-    void     _setName(uint64_t eid, const char* name);
-    const char* _getName(uint64_t eid) const;
-    int _childCount(uint64_t parentId) const;
+    void     _setName(uint32_t eid, const char* name);
+    const char* _getName(uint32_t eid) const;
+    int _childCount(uint32_t parentId) const;
 
-    bool     _has(uint64_t id, const std::type_info& ti) const;
-    void*    _getMut(uint64_t id, const std::type_info& ti, std::size_t size, std::size_t align) const;
-    void     _addSet(uint64_t id, const std::type_info& ti, const void* data, std::size_t size, std::size_t align);
-    void     _remove(uint64_t id, const std::type_info& ti) const;
+    bool     _has(uint32_t id, const std::type_info& ti) const;
+    void*    _getMut(uint32_t id, const std::type_info& ti, std::size_t size, std::size_t align) const;
+    void     _addSet(uint32_t id, const std::type_info& ti, const void* data, std::size_t size, std::size_t align);
+    void     _remove(uint32_t id, const std::type_info& ti) const;
 
-    void     _setParent(uint64_t id, uint64_t parentId);
-    void     _forEachChildOpaque(uint64_t parentId, void(*cb)(void*, uint64_t, Scene*), void* ctx) const;
-    void _forEachRootOpaque(void(*cb)(void*, uint64_t, Scene*), void* ctx) const;
+    void     _setParent(uint32_t id, uint32_t parentId);
+    void     _forEachChildOpaque(uint32_t parentId, void(*cb)(void*, uint32_t, Scene*), void* ctx) const;
+    void _forEachRootOpaque(void(*cb)(void*, uint32_t, Scene*), void* ctx) const;
 
     System _create_system(const std::vector<const std::type_info*>& compTypes,
                       const std::vector<std::size_t>& sizes,
                       const std::vector<std::size_t>& aligns,
-                      void(*cb)(void* ctx, uint64_t eid, void** comps, float dt),
+                      void(*cb)(void* ctx, uint32_t eid, void** comps, float dt),
                       void* ctx,
                       bool cascade);
 
     template<typename Ctx, typename... ComponentsT>
-    static void CreateSystem_trampoline(void* ctxptr, uint64_t eid, void** comps, float delta) {
+    static void CreateSystem_trampoline(void* ctxptr, uint32_t eid, void** comps, float delta) {
         auto* ctx = static_cast<Ctx*>(ctxptr);
         // Build an Entity with the Scene pointer that will be set by _create_system
         Entity e(ctx->scene, eid);
@@ -161,7 +161,7 @@ private:
     static void call_with_index_sequence(Callable&& c, std::index_sequence<I...>) {
         call_with_index_sequence_impl(std::forward<Callable>(c), std::index_sequence<I...>{});
     }
-    uint64_t _getParentId(uint64_t id) const;
+    uint32_t _getParentId(uint32_t id) const;
 
     Impl* _p;
 };
@@ -213,7 +213,7 @@ inline void Scene::ForEachChild(Entity parent, Fn&& fn) {
     struct Ctx { Fn fn; Scene* self; };
     Ctx ctx{ std::forward<Fn>(fn), this };
     _forEachChildOpaque(parent.RawId(),
-        [](void* u, uint64_t childId, Scene* self){
+        [](void* u, uint32_t childId, Scene* self){
             auto& c = *static_cast<Ctx*>(u);
             c.fn( Entity(self, childId) );
         }, &ctx);
@@ -224,7 +224,7 @@ inline void Scene::ForEachRoot(Fn&& fn) {
     struct Ctx { Fn fn; Scene* self; };
     Ctx ctx{ std::forward<Fn>(fn), this };
     _forEachRootOpaque(
-        [](void* u, uint64_t id, Scene* self){
+        [](void* u, uint32_t id, Scene* self){
             auto& c = *static_cast<Ctx*>(u);
             c.fn( Entity(self, id) );
         },
@@ -254,7 +254,7 @@ System Scene::CreateSystem(Fn&& fn, bool cascade) {
     // Allocate on heap and capture user's fn inside
     auto* ctx = new TrampolineCtx(UserFn(std::forward<Fn>(fn)));
 
-    using OpaqueCb = void(*)(void* ctx, uint64_t eid, void** comps, float dt);
+    using OpaqueCb = void(*)(void* ctx, uint32_t eid, void** comps, float dt);
     OpaqueCb cb = &Scene::template CreateSystem_trampoline<TrampolineCtx, Components...>;
 
     // Call the factory: pass types (type_info*), sizes and aligns.
@@ -262,6 +262,6 @@ System Scene::CreateSystem(Fn&& fn, bool cascade) {
 }
 
 inline Entity Scene::Parent(Entity e) const {
-    uint64_t pid = _getParentId(e.RawId());
+    uint32_t pid = _getParentId(e.RawId());
     return pid ? Entity(const_cast<Scene*>(this), pid) : Entity{};
 }

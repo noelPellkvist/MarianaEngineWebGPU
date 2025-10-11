@@ -224,6 +224,8 @@ struct Texture::Impl
 {
     wgpu::Texture m_Texture;
     wgpu::TextureView m_View;
+    wgpu::Buffer readbackBuffer;
+    bool hasReadBackBuffer = false;
 };
 
 Texture::Texture() : _impl(std::make_shared<Impl>())
@@ -307,4 +309,60 @@ void Texture::CreateTexture(int width, int height, TextureFormat format, bool MS
     textureViewDesc.format = textureDesc.format;
     _impl->m_View = _impl->m_Texture.CreateView(&textureViewDesc);
     m_Format = format;
+}
+
+uint32_t Texture::SamplePixel(int x, int y)
+{
+    uint32_t outValue = 0;
+
+    if (!_impl->hasReadBackBuffer)
+    {
+        wgpu::BufferDescriptor bufDesc{};
+        bufDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
+        bufDesc.size = 256;
+        _impl->readbackBuffer = device.CreateBuffer(&bufDesc);
+        _impl->hasReadBackBuffer = true;
+    }
+    wgpu::TexelCopyTextureInfo  src{};
+    src.texture  = _impl->m_Texture;
+    src.mipLevel = 0;
+    src.origin   = { static_cast<uint32_t>(x), static_cast<uint32_t>(y), 0 };
+    src.aspect   = wgpu::TextureAspect::All;
+
+    wgpu::TexelCopyBufferInfo dst{};
+    dst.buffer = _impl->readbackBuffer;
+    dst.layout.offset = 0;
+    dst.layout.bytesPerRow = 256;
+    dst.layout.rowsPerImage = 1;
+
+    wgpu::Extent3D extent{1, 1, 1};
+
+    wgpu::CommandEncoder enc = device.CreateCommandEncoder();
+    enc.CopyTextureToBuffer(&src, &dst, &extent);
+    wgpu::CommandBuffer cb = enc.Finish();
+    device.GetQueue().Submit(1, &cb);
+
+    bool done = false;
+    _impl->readbackBuffer.MapAsync(
+        wgpu::MapMode::Read, 0, 256,
+        [&](wgpu::BufferMapState status) {
+            if (status == wgpu::BufferMapState::Mapped) {
+                done = true;
+            } else {
+                // handle mapping failure if needed
+                done = true;
+            }
+        }
+    );
+
+    while (!done) {
+        device.Tick(); // or whatever pumps your device
+    }
+
+    const uint8_t* ptr = static_cast<const uint8_t*>(_impl->readbackBuffer.GetConstMappedRange(0, 256));
+    if (ptr) {
+        outValue = *reinterpret_cast<const uint32_t*>(ptr);
+        _impl->readbackBuffer.Unmap();
+    }
+    return outValue;
 }

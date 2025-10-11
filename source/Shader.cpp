@@ -106,7 +106,7 @@ void IShader::LoadShader(std::string shaderCode)
                                         },
                                      .depthStencil = &depthStencilState,
                                      .multisample = {
-                                        .count = 4,
+                                        .count = 1,
                                         .mask = ~0u,
                                         .alphaToCoverageEnabled = false
                                      },

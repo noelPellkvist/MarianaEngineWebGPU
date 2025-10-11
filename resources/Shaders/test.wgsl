@@ -122,7 +122,7 @@ fn tonemapACES(x: vec3f) -> vec3f {
 
 struct FragOut {
     @location(0) color: vec4f,
-    @location(1) color2: vec4f
+    @location(1) pick_pic: u32
 };
 
 @fragment
@@ -180,6 +180,6 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
 
     var out : FragOut;
     out.color = vec4f(colorLinear, 1.0);
-    out.color2 = vec4f(0.5, 0.25, 0.75, 1.0);
+    out.pick_pic = 52;
     return out;
 }

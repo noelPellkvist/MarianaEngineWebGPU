@@ -55,7 +55,7 @@ void RenderGUI(wgpu::TextureView& view, wgpu::TextureView& resolve, wgpu::Render
 {
   wgpu::RenderPassColorAttachment attachment{
     .view = view,
-    .resolveTarget = resolve,
+    //.resolveTarget = resolve,
     .loadOp = wgpu::LoadOp::Load,
     .storeOp = wgpu::StoreOp::Store
   };
@@ -79,8 +79,8 @@ void Renderer::Render(Renderpass& renderPass, GUI& gui)
     for (uint8_t i = 0; i < renderPass.NumberOfOutputs(); i++)
     {
       attachments[i] = {
-      .view = *static_cast<wgpu::TextureView*>(renderPass.GetRenderTarget(i).GetTextureView()),
-      .resolveTarget = (i == 0) ? resolveTarget : *static_cast<wgpu::TextureView*>(renderPass.GetRenderResloveTarget(i).GetTextureView()),
+      .view = (i == 0) ? resolveTarget : *static_cast<wgpu::TextureView*>(renderPass.GetRenderTarget(i).GetTextureView()),
+      //.resolveTarget = (i == 0) ? resolveTarget : *static_cast<wgpu::TextureView*>(renderPass.GetRenderResloveTarget(i).GetTextureView()),
       .loadOp = wgpu::LoadOp::Clear,
       .storeOp = wgpu::StoreOp::Store};
     }
@@ -95,7 +95,7 @@ void Renderer::Render(Renderpass& renderPass, GUI& gui)
     
     _impl->pass.End();
 
-    RenderGUI(*static_cast<wgpu::TextureView*>(renderPass.GetRenderTarget(0).GetTextureView()),
+    RenderGUI(resolveTarget, //*static_cast<wgpu::TextureView*>(renderPass.GetRenderTarget(0).GetTextureView()),
               resolveTarget,
               static_cast<wgpu::RenderPassDepthStencilAttachment*>(renderPass.GetDepthStencilAttachment()),
               encoder,
