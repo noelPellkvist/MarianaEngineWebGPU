@@ -3,7 +3,7 @@
 #include <string>
 
 #include <Mesh.hpp>
-#include <Init.hpp>
+#include <glm/glm.hpp>
 
 struct Vertex
 {

@@ -23,6 +23,7 @@ struct UBO {
 struct ModelData {
   modelMatrix: mat4x4<f32>,
   normalMatrix: mat4x4<f32>,
+  entityID: u32,
 };
 
 struct MaterialProperties {
@@ -180,6 +181,6 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
 
     var out : FragOut;
     out.color = vec4f(colorLinear, 1.0);
-    out.pick_pic = 52;
+    out.pick_pic = ModelDataObject.entityID;
     return out;
 }

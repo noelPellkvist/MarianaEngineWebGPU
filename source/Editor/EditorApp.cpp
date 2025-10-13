@@ -101,13 +101,14 @@ struct UBO {
 struct TransformData {
   glm::mat4x4 modelMatrix;
   glm::mat4x4 normalMatrix;
+  uint32_t entityID{0};
 };
 
 UBO ubo{};
 UniformLayout uboLayout(false, ubo, ubo.lightDir);
 
 TransformData transformBuffer{};
-UniformLayout transformLayout(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix);
+UniformLayout transformLayout(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix, transformBuffer.entityID);
 
 GLTF::GLTFMaterialProperties materialsBuffer;
 UniformLayout materialsLayout(true, materialsBuffer, materialsBuffer.baseColor);
@@ -124,14 +125,15 @@ renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m
     PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5, renderpass);
     AssetManager::LoadedShaders.push_back(PBR_Shader);
 
-    for(uint32_t i = 0; i < 1; i++)
+    for(uint32_t i = 0; i < 10; i++)
     {
-        scene.Instantiate((std::string("Avocado") + ToString(i)).c_str()).Add<RendererComponent>({0, 1, i}).SetScaleUniform(1).SetPosition(0,0,i);
+        scene.Instantiate((std::string("Avocado") + ToString(i)).c_str()).Add<RendererComponent>({0, 1, i}).SetScaleUniform(1).SetPosition(0,0, i * 4);
     }
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
+        transformBuffer.entityID = ent.RawId();
         transformLayout.pack(transformBuffer, renderComp.transformIndex);
     });
 
@@ -245,6 +247,19 @@ void EditorApp::OnUpdate(float deltaTime)
         m_Window.GetSurface();
         renderpass.Recreate(m_Window.GetWidth(), m_Window.GetHeight());
     }
+
+    
+    double x, y;
+    input.GetMousePosition(x, y);
+    static uint32_t sampledPixel = 0;
+    if(x > 0 && y > 0 && x < m_Window.GetWidth() && y < m_Window.GetHeight())
+        sampledPixel = renderpass.GetRenderTarget(1).SamplePixel(x, y);
+
+    if(input.IsMouseButtonPressed(MouseButton::Left) && sampledPixel != 0)
+    {
+        selectedEntityID = sampledPixel;
+        selectedEntity = scene.FromId(selectedEntityID);
+    }
     scene.Update(deltaTime);
 }
 
@@ -280,6 +295,7 @@ void EditorApp::OnGUI()
         {
             transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
             transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
+            transformBuffer.entityID = selectedEntity.RawId();
             transformLayout.pack(transformBuffer, selectedEntity.Get<RendererComponent>()->transformIndex);
         }
     }

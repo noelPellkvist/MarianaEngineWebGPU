@@ -114,6 +114,7 @@ public:
     System CreateSystem(Fn&& fn, bool cascade = false);
 
     Entity Parent(Entity e) const;
+    Entity FromId(uint32_t id) const;
 
 private:
     friend class Entity;
@@ -264,4 +265,9 @@ System Scene::CreateSystem(Fn&& fn, bool cascade) {
 inline Entity Scene::Parent(Entity e) const {
     uint32_t pid = _getParentId(e.RawId());
     return pid ? Entity(const_cast<Scene*>(this), pid) : Entity{};
+}
+
+inline Entity Scene::FromId(uint32_t id) const
+{
+    return id ? Entity(const_cast<Scene*>(this), id) : Entity{};
 }

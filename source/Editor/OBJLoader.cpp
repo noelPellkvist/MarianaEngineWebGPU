@@ -1,4 +1,5 @@
 #include <Editor/OBJLoader.hpp>
+#include "../Init.hpp"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <moved_later/tiny_obj_loader.h>

@@ -220,13 +220,32 @@
     }
 }
 
+struct ReadbackSlot {
+    wgpu::Buffer buffer;
+    bool         mapped = false;
+};
+
 struct Texture::Impl
 {
     wgpu::Texture m_Texture;
     wgpu::TextureView m_View;
-    wgpu::Buffer readbackBuffer;
-    bool hasReadBackBuffer = false;
+    ReadbackSlot slots[2];
+    std::atomic<uint32_t> lastValue{0}; 
+    bool         inited = false;
+    int          dstIndex = 0;
 };
+
+static constexpr uint64_t kRowPitch   = 256;
+static constexpr uint64_t kCopySize   = kRowPitch; // one row
+static constexpr uint64_t kOffset     = 0;
+static constexpr uint64_t kBytesToRead = 4;
+
+static wgpu::Buffer MakeReadbackBuffer() {
+    wgpu::BufferDescriptor desc{};
+    desc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
+    desc.size  = kCopySize; 
+    return device.CreateBuffer(&desc);
+}
 
 Texture::Texture() : _impl(std::make_shared<Impl>())
 {}
@@ -294,7 +313,7 @@ void Texture::CreateTexture(int width, int height, TextureFormat format, bool MS
     textureDesc.mipLevelCount = 1;
     textureDesc.sampleCount = MSSA ? 4 : 1;
     textureDesc.format = ToNative(format);
-    textureDesc.usage = wgpu::TextureUsage::TextureBinding | (renderTarget ? wgpu::TextureUsage::RenderAttachment : wgpu::TextureUsage::CopyDst);
+    textureDesc.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc | (renderTarget ? wgpu::TextureUsage::RenderAttachment : wgpu::TextureUsage::CopyDst);
     textureDesc.viewFormatCount = 0;
     textureDesc.viewFormats = nullptr;
     _impl->m_Texture = device.CreateTexture(&textureDesc);
@@ -313,56 +332,73 @@ void Texture::CreateTexture(int width, int height, TextureFormat format, bool MS
 
 uint32_t Texture::SamplePixel(int x, int y)
 {
-    uint32_t outValue = 0;
+    auto& impl = *_impl;
 
-    if (!_impl->hasReadBackBuffer)
-    {
-        wgpu::BufferDescriptor bufDesc{};
-        bufDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-        bufDesc.size = 256;
-        _impl->readbackBuffer = device.CreateBuffer(&bufDesc);
-        _impl->hasReadBackBuffer = true;
+    if (!impl.inited) {
+        impl.slots[0].buffer = MakeReadbackBuffer();
+        impl.slots[1].buffer = MakeReadbackBuffer();
+        impl.inited = true;
+        impl.lastValue.store(0, std::memory_order_relaxed);
     }
-    wgpu::TexelCopyTextureInfo  src{};
-    src.texture  = _impl->m_Texture;
-    src.mipLevel = 0;
-    src.origin   = { static_cast<uint32_t>(x), static_cast<uint32_t>(y), 0 };
-    src.aspect   = wgpu::TextureAspect::All;
 
-    wgpu::TexelCopyBufferInfo dst{};
-    dst.buffer = _impl->readbackBuffer;
-    dst.layout.offset = 0;
-    dst.layout.bytesPerRow = 256;
-    dst.layout.rowsPerImage = 1;
+    ReadbackSlot& dst = impl.slots[impl.dstIndex];
+    ReadbackSlot& src = impl.slots[impl.dstIndex ^ 1]; // the other one (likely mapped)
+
+    // Ensure the destination buffer is unmapped before using as CopyDst.
+    if (dst.mapped) {
+        dst.buffer.Unmap();
+        dst.mapped = false;
+    }
+
+    // Encode a 1x1 copy from (x,y) into dst.
+    wgpu::TexelCopyTextureInfo srcTex{};
+    srcTex.texture  = impl.m_Texture;
+    srcTex.mipLevel = 0;
+    srcTex.origin   = { static_cast<uint32_t>(x), static_cast<uint32_t>(y), 0 };
+    srcTex.aspect   = wgpu::TextureAspect::All;
+
+    wgpu::TexelCopyBufferInfo dstBuf{};
+    dstBuf.buffer = dst.buffer;
+    dstBuf.layout.offset        = kOffset;
+    dstBuf.layout.bytesPerRow   = static_cast<uint32_t>(kRowPitch);
+    dstBuf.layout.rowsPerImage  = 1;
 
     wgpu::Extent3D extent{1, 1, 1};
 
     wgpu::CommandEncoder enc = device.CreateCommandEncoder();
-    enc.CopyTextureToBuffer(&src, &dst, &extent);
+    enc.CopyTextureToBuffer(&srcTex, &dstBuf, &extent);
     wgpu::CommandBuffer cb = enc.Finish();
     device.GetQueue().Submit(1, &cb);
 
-    bool done = false;
-    _impl->readbackBuffer.MapAsync(
-        wgpu::MapMode::Read, 0, 256,
-        [&](wgpu::BufferMapState status) {
-            if (status == wgpu::BufferMapState::Mapped) {
-                done = true;
+    ReadbackSlot* dstSlot = &dst;
+    Impl* implPtr = &impl;
+    (void)dstSlot->buffer.MapAsync(
+        wgpu::MapMode::Read,
+        kOffset,
+        kCopySize,
+        wgpu::CallbackMode::AllowSpontaneous,    // <-- new required arg
+        [implPtr, dstSlot](wgpu::MapAsyncStatus status, wgpu::StringView /*message*/) {
+            if (status == wgpu::MapAsyncStatus::Success) {
+                const void* p = dstSlot->buffer.GetConstMappedRange(kOffset, kBytesToRead);
+                if (p) {
+                    uint32_t v = 0;
+                    std::memcpy(&v, p, sizeof(uint32_t));
+                    implPtr->lastValue.store(v, std::memory_order_relaxed);
+                    dstSlot->mapped = true; // keep it mapped until reused as CopyDst
+                } else {
+                    dstSlot->mapped = false;
+                }
             } else {
-                // handle mapping failure if needed
-                done = true;
+                // mapping failed; keep prior lastValue
+                dstSlot->mapped = false;
             }
         }
     );
 
-    while (!done) {
-        device.Tick(); // or whatever pumps your device
-    }
+    uint32_t outValue = impl.lastValue.load(std::memory_order_relaxed);
 
-    const uint8_t* ptr = static_cast<const uint8_t*>(_impl->readbackBuffer.GetConstMappedRange(0, 256));
-    if (ptr) {
-        outValue = *reinterpret_cast<const uint32_t*>(ptr);
-        _impl->readbackBuffer.Unmap();
-    }
+    // Next call: flip roles.
+    impl.dstIndex ^= 1;
+
     return outValue;
 }
