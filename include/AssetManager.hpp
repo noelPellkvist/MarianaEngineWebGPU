@@ -8,8 +8,6 @@
 #include <Mesh.hpp>
 #include <Logger.hpp>
 
-#include <Editor/GLTFLoader.hpp>
-
 class AssetManager
 {
     public:

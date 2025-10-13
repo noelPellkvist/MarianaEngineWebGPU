@@ -28,7 +28,7 @@ void Renderpass::Recreate(uint32_t width, uint32_t height)
 {
     m_Width = width;
     m_Height = height;
-    if (m_MSSA) CreateMSSATexture();
+    CreateMSSATexture();
     if (m_HasDepthTexture) CreateDepthTexture();
 }
 
