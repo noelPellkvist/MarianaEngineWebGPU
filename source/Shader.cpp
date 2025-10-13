@@ -1,4 +1,5 @@
 #include <Shader.hpp>
+#include <Logger.hpp>
 #include "Init.hpp"
 #include <webgpu/webgpu_cpp.h>
 
@@ -97,7 +98,7 @@ void IShader::LoadShader(std::string shaderCode)
                                           .module = shaderModule,
                                           .entryPoint = wgpu::StringView("vertexMain"),
                                           .bufferCount = 1,
-                                          .buffers = &m_VertexLayout.vertexBufferLayout
+                                          .buffers = static_cast<const wgpu::VertexBufferLayout*>(m_VertexLayout.GetBackendLayout())
                                         },
                                         .primitive = {
                                           .stripIndexFormat = wgpu::IndexFormat::Undefined,
