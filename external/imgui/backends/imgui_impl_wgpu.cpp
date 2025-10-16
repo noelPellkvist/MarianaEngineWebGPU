@@ -20,6 +20,7 @@
 
 // CHANGELOG
 // (minor and older changes stripped away, please see git history for details)
+//  2025-09-18: Call platform_io.ClearRendererHandlers() on shutdown.
 //  2025-06-12: Added support for ImGuiBackendFlags_RendererHasTextures, for dynamic font atlas. (#8465)
 //  2025-02-26: Recreate image bind groups during render. (#8426, #8046, #7765, #8027) + Update for latest webgpu-native changes.
 //  2024-10-14: Update Dawn support for change of string usages. (#8082, #8083)
@@ -47,16 +48,14 @@
 
 #include "imgui.h"
 
-// When targeting native platforms (i.e. NOT emscripten), one of IMGUI_IMPL_WEBGPU_BACKEND_DAWN
+// When targeting native platforms (i.e. NOT Emscripten), one of IMGUI_IMPL_WEBGPU_BACKEND_DAWN
 // or IMGUI_IMPL_WEBGPU_BACKEND_WGPU must be provided. See imgui_impl_wgpu.h for more details.
 #ifndef __EMSCRIPTEN__
     #if defined(IMGUI_IMPL_WEBGPU_BACKEND_DAWN) == defined(IMGUI_IMPL_WEBGPU_BACKEND_WGPU)
     #error exactly one of IMGUI_IMPL_WEBGPU_BACKEND_DAWN or IMGUI_IMPL_WEBGPU_BACKEND_WGPU must be defined!
     #endif
 #else
-    #if defined(IMGUI_IMPL_WEBGPU_BACKEND_DAWN) || defined(IMGUI_IMPL_WEBGPU_BACKEND_WGPU)
-    #error neither IMGUI_IMPL_WEBGPU_BACKEND_DAWN nor IMGUI_IMPL_WEBGPU_BACKEND_WGPU may be defined if targeting emscripten!
-    #endif
+#include <emscripten/emscripten.h>
 #endif
 
 #ifndef IMGUI_DISABLE
@@ -287,17 +286,7 @@ static WGPUProgrammableStageDescriptor ImGui_ImplWGPU_CreateShaderModule(const c
 static WGPUBindGroup ImGui_ImplWGPU_CreateImageBindGroup(WGPUBindGroupLayout layout, WGPUTextureView texture)
 {
     ImGui_ImplWGPU_Data* bd = ImGui_ImplWGPU_GetBackendData();
-    WGPUBindGroupEntry image_bg_entries[] = {
-    {
-        .nextInChain = nullptr,
-        .binding     = 0,
-        .buffer      = nullptr,
-        .offset      = 0,
-        .size        = 0,                 // ignored for textures
-        .sampler     = nullptr,
-        .textureView = texture,
-    }
-};
+    WGPUBindGroupEntry image_bg_entries[] = { { nullptr, 0, 0, 0, 0, 0, texture } };
 
     WGPUBindGroupDescriptor image_bg_descriptor = {};
     image_bg_descriptor.layout = layout;
@@ -544,19 +533,18 @@ void ImGui_ImplWGPU_RenderDrawData(ImDrawData* draw_data, WGPURenderPassEncoder 
 
 static void ImGui_ImplWGPU_DestroyTexture(ImTextureData* tex)
 {
-    ImGui_ImplWGPU_Texture* backend_tex = (ImGui_ImplWGPU_Texture*)tex->BackendUserData;
-    if (backend_tex == nullptr)
-        return;
+    if (ImGui_ImplWGPU_Texture* backend_tex = (ImGui_ImplWGPU_Texture*)tex->BackendUserData)
+    {
+        IM_ASSERT(backend_tex->TextureView == (WGPUTextureView)(intptr_t)tex->TexID);
+        wgpuTextureViewRelease(backend_tex->TextureView);
+        wgpuTextureRelease(backend_tex->Texture);
+        IM_DELETE(backend_tex);
 
-    IM_ASSERT(backend_tex->TextureView == (WGPUTextureView)(intptr_t)tex->TexID);
-    wgpuTextureViewRelease(backend_tex->TextureView);
-    wgpuTextureRelease(backend_tex->Texture);
-    IM_DELETE(backend_tex);
-
-    // Clear identifiers and mark as destroyed (in order to allow e.g. calling InvalidateDeviceObjects while running)
-    tex->SetTexID(ImTextureID_Invalid);
+        // Clear identifiers and mark as destroyed (in order to allow e.g. calling InvalidateDeviceObjects while running)
+        tex->SetTexID(ImTextureID_Invalid);
+        tex->BackendUserData = nullptr;
+    }
     tex->SetStatus(ImTextureStatus_Destroyed);
-    tex->BackendUserData = nullptr;
 }
 
 void ImGui_ImplWGPU_UpdateTexture(ImTextureData* tex)
@@ -676,28 +664,65 @@ bool ImGui_ImplWGPU_CreateDeviceObjects()
     graphics_pipeline_desc.multisample = bd->initInfo.PipelineMultisampleState;
 
     // Bind group layouts
-    WGPUBindGroupLayoutEntry common_bg_layout_entries[2] = {};
-    common_bg_layout_entries[0].binding = 0;
-    common_bg_layout_entries[0].visibility = WGPUShaderStage_Vertex | WGPUShaderStage_Fragment;
-    common_bg_layout_entries[0].buffer.type = WGPUBufferBindingType_Uniform;
-    common_bg_layout_entries[0].buffer.minBindingSize = MEMALIGN(sizeof(Uniforms), 16);
-    common_bg_layout_entries[1].binding = 1;
-    common_bg_layout_entries[1].visibility = WGPUShaderStage_Fragment;
-    common_bg_layout_entries[1].sampler.type = WGPUSamplerBindingType_Filtering;
+    const uint64_t kUniformSize = MEMALIGN(sizeof(Uniforms), 16);
 
-    WGPUBindGroupLayoutEntry image_bg_layout_entries[1] = {};
-    image_bg_layout_entries[0].binding = 0;
-    image_bg_layout_entries[0].visibility = WGPUShaderStage_Fragment;
-    image_bg_layout_entries[0].texture.sampleType = WGPUTextureSampleType_Float;
-    image_bg_layout_entries[0].texture.viewDimension = WGPUTextureViewDimension_2D;
+WGPUBindGroupLayoutEntry common_bg_layout_entries[2] = {};
+common_bg_layout_entries[0].binding = 0;
+common_bg_layout_entries[0].visibility = WGPUShaderStage_Vertex | WGPUShaderStage_Fragment;
+common_bg_layout_entries[0].buffer.type = WGPUBufferBindingType_Uniform;
+common_bg_layout_entries[0].buffer.hasDynamicOffset = false;
+common_bg_layout_entries[0].buffer.minBindingSize   = kUniformSize;
+
+common_bg_layout_entries[1].binding = 1;
+common_bg_layout_entries[1].visibility = WGPUShaderStage_Fragment;
+common_bg_layout_entries[1].sampler.type = WGPUSamplerBindingType_Filtering;
+
+#ifndef WGPUTextureSampleType_FilterableFloat
+#  define WGPUTextureSampleType_FilterableFloat WGPUTextureSampleType_Float
+#endif
+WGPUBindGroupLayoutEntry image_bg_layout_entries[1] = {};
+image_bg_layout_entries[0].binding = 0;
+image_bg_layout_entries[0].visibility = WGPUShaderStage_Fragment;
+image_bg_layout_entries[0].texture.sampleType    = WGPUTextureSampleType_FilterableFloat;
+image_bg_layout_entries[0].texture.viewDimension = WGPUTextureViewDimension_2D;
+image_bg_layout_entries[0].texture.multisampled  = false;
+
+static_assert(sizeof(WGPUBindGroupLayoutEntry) >= 56, "Your WGPU headers look like the wrong set for emdawn");
+
+// Log the enums the shim sees (you already logged values; here we assert expected numbers)
+static_assert(WGPUShaderStage_Vertex == 1 && WGPUShaderStage_Fragment == 2, "ShaderStage enum mismatch");
+
+
+EM_ASM({
+  console.log('BGL check', {
+    e0:{b:$0, vis:$1, btype:$2, dyn:$3, min:$4},
+    e1:{b:$5, vis:$6, stype:$7},
+    e2:{b:$8, vis:$9, tsample:$10, tdim:$11, tmulti:$12}
+  });
+},
+common_bg_layout_entries[0].binding,
+common_bg_layout_entries[0].visibility,
+common_bg_layout_entries[0].buffer.type,
+common_bg_layout_entries[0].buffer.hasDynamicOffset,
+(int)common_bg_layout_entries[0].buffer.minBindingSize,
+common_bg_layout_entries[1].binding,
+common_bg_layout_entries[1].visibility,
+common_bg_layout_entries[1].sampler.type,
+image_bg_layout_entries[0].binding,
+image_bg_layout_entries[0].visibility,
+image_bg_layout_entries[0].texture.sampleType,
+image_bg_layout_entries[0].texture.viewDimension,
+image_bg_layout_entries[0].texture.multisampled);
 
     WGPUBindGroupLayoutDescriptor common_bg_layout_desc = {};
     common_bg_layout_desc.entryCount = 2;
     common_bg_layout_desc.entries = common_bg_layout_entries;
+    common_bg_layout_desc.nextInChain = nullptr;
 
     WGPUBindGroupLayoutDescriptor image_bg_layout_desc = {};
     image_bg_layout_desc.entryCount = 1;
     image_bg_layout_desc.entries = image_bg_layout_entries;
+    image_bg_layout_desc.nextInChain = nullptr;
 
     WGPUBindGroupLayout bg_layouts[2];
     bg_layouts[0] = wgpuDeviceCreateBindGroupLayout(bd->wgpuDevice, &common_bg_layout_desc);
@@ -799,26 +824,11 @@ bool ImGui_ImplWGPU_CreateDeviceObjects()
     bd->renderResources.Sampler = wgpuDeviceCreateSampler(bd->wgpuDevice, &sampler_desc);
 
     // Create resource bind group
-    WGPUBindGroupEntry common_bg_entries[] = {
+    WGPUBindGroupEntry common_bg_entries[] =
     {
-        .nextInChain = nullptr,
-        .binding     = 0,
-        .buffer      = bd->renderResources.Uniforms,
-        .offset      = 0,
-        .size        = MEMALIGN(sizeof(Uniforms), 16),  // <- this is the ONLY thing the validator wants
-        .sampler     = nullptr,
-        .textureView = nullptr,
-    },
-    {
-        .nextInChain = nullptr,
-        .binding     = 1,
-        .buffer      = nullptr,
-        .offset      = 0,
-        .size        = 0,                               // ignored for sampler
-        .sampler     = bd->renderResources.Sampler,
-        .textureView = nullptr,
-    },
-};
+        { nullptr, 0, bd->renderResources.Uniforms, 0, MEMALIGN(sizeof(Uniforms), 16), 0, 0 },
+        { nullptr, 1, 0, 0, 0, bd->renderResources.Sampler, 0 },
+    };
     WGPUBindGroupDescriptor common_bg_descriptor = {};
     common_bg_descriptor.layout = bg_layouts[0];
     common_bg_descriptor.entryCount = sizeof(common_bg_entries) / sizeof(WGPUBindGroupEntry);
@@ -908,6 +918,7 @@ void ImGui_ImplWGPU_Shutdown()
     ImGui_ImplWGPU_Data* bd = ImGui_ImplWGPU_GetBackendData();
     IM_ASSERT(bd != nullptr && "No renderer backend to shutdown, or already shutdown?");
     ImGuiIO& io = ImGui::GetIO();
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
     ImGui_ImplWGPU_InvalidateDeviceObjects();
     delete[] bd->pFrameResources;
@@ -920,6 +931,7 @@ void ImGui_ImplWGPU_Shutdown()
     io.BackendRendererName = nullptr;
     io.BackendRendererUserData = nullptr;
     io.BackendFlags &= ~(ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_RendererHasTextures);
+    platform_io.ClearRendererHandlers();
     IM_DELETE(bd);
 }
 

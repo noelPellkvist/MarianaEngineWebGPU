@@ -60,7 +60,7 @@ template<typename UBOLayout, typename TransformLayout, typename MaterialLayout, 
 class Shader : public IShader
 {
     public:
-        Shader(UniformLayout<UBOLayout>& UBOLayout,
+        Shader(UniformLayout<UBOLayout>& uboLayout,
                UniformLayout<TransformLayout>& transformLayout,
                UniformLayout<MaterialLayout>& materialLayout,
                UniformLayout<CameraLayout>& cameraLayout,
@@ -68,7 +68,7 @@ class Shader : public IShader
                uint8_t textureCount,
                const Renderpass& renderpass)
           : IShader(std::move(vertexLayout), textureCount, renderpass),
-            m_UBOLayout(UBOLayout),
+            m_UBOLayout(uboLayout),
             m_TransformLayout(transformLayout),
             m_MaterialLayout(materialLayout),
             m_CameraLayout(cameraLayout)

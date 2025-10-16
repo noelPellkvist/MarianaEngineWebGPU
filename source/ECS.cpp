@@ -1,5 +1,4 @@
 #include <ECS.hpp>
-#define FLECS_ENTITY_T uint32_t
 #include <flecs.h>
 #include <unordered_map>
 #include <typeindex>

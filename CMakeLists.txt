@@ -17,6 +17,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(flecs)
 
+get_target_property(FLECS_REAL_TARGET flecs::flecs_static ALIASED_TARGET)
+
+if(FLECS_REAL_TARGET)
+  target_compile_definitions(${FLECS_REAL_TARGET} PUBLIC
+    FLECS_STATIC
+    FLECS_ENTITY_T=uint32_t
+  )
+endif()
+
 file(GLOB_RECURSE APP_SOURCES
      CONFIGURE_DEPENDS
      "${CMAKE_CURRENT_SOURCE_DIR}/source/*.cpp")
@@ -24,7 +33,9 @@ file(GLOB_RECURSE APP_SOURCES
 add_executable(app ${APP_SOURCES})
 
 target_compile_definitions(app PRIVATE
-    RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources"
+  RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources"
+  FLECS_STATIC
+  FLECS_ENTITY_T=uint32_t
 )
 
 target_include_directories(app PUBLIC
@@ -38,33 +49,21 @@ target_link_libraries(app PRIVATE flecs::flecs_static)
 add_subdirectory(external/glm)
 target_link_libraries(app PRIVATE glm::glm)
 
-# --- ImGui ---
-add_library(imgui STATIC
-    external/imgui/backends/imgui_impl_wgpu.cpp
-    external/imgui/backends/imgui_impl_glfw.cpp
-    external/imgui/misc/cpp/imgui_stdlib.cpp
-    external/imgui/imgui.cpp
-    external/imgui/imgui_draw.cpp
-    external/imgui/imgui_tables.cpp
-    external/imgui/imgui_widgets.cpp
-)
+set(DAWN_FETCH_DEPENDENCIES ON)
+  set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC)
+  add_subdirectory("dawn" EXCLUDE_FROM_ALL)
 
-target_include_directories(imgui PUBLIC
-    external/imgui
-    external/imgui/backends
-    external/imgui/misc/cpp
-)
-
-
+add_subdirectory(external/imgui)
 
 if(EMSCRIPTEN)
-  target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_EMSCRIPTEN)
+if(FLECS_REAL_TARGET)
+    target_compile_definitions(${FLECS_REAL_TARGET} PUBLIC FLECS_NO_THREADS)
+endif()
+target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
+  target_compile_definitions(app PRIVATE FLECS_NO_THREADS)
 
-  target_include_directories(app   BEFORE PRIVATE "${CMAKE_SYSROOT}/include")
-  target_include_directories(imgui BEFORE PRIVATE "${CMAKE_SYSROOT}/include")
-
-  target_link_libraries(app PRIVATE flecs::flecs_static glm::glm imgui)
-  # Output: index.html using our custom shell
+  target_link_libraries(imgui PUBLIC emdawnwebgpu_cpp)
+  target_link_libraries(app PRIVATE emdawnwebgpu_cpp webgpu_glfw glm::glm imgui)
   set_target_properties(app PROPERTIES
     OUTPUT_NAME "index"
     SUFFIX ".html"
@@ -78,12 +77,10 @@ if(EMSCRIPTEN)
   target_link_options(app PRIVATE
     "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/shell_modern.html"
     "SHELL:-sALLOW_MEMORY_GROWTH=1"
-    "SHELL:-sINITIAL_MEMORY=67108864"
-    "SHELL:-sEXCEPTION_CATCHING_ALLOWED=['*']"
-    "SHELL:-sASSERTIONS=1"
+    "SHELL:-sINITIAL_MEMORY=256MB"
+    "SHELL:-sSTACK_SIZE=262144"
     "-sASYNCIFY=1"
     "-sUSE_GLFW=3"
-    "-sUSE_WEBGPU=1"
     "SHELL:-sFORCE_FILESYSTEM=1"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/resources"
   )
@@ -96,17 +93,7 @@ if(EMSCRIPTEN)
     VERBATIM
   )
 else()
-  # Link Dawn + GLFW explicitly
-
-  # --- Dawn ---
-  set(DAWN_FETCH_DEPENDENCIES ON)
-  set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC)
-  add_subdirectory("dawn" EXCLUDE_FROM_ALL)
-
   target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
   target_link_libraries(imgui PUBLIC webgpu_dawn webgpu_glfw glfw)
-  target_link_libraries(app PRIVATE webgpu_dawn webgpu_glfw glfw)
+  target_link_libraries(app PRIVATE webgpu_dawn webgpu_glfw glfw imgui)
 endif()
-
-# Finally, app depends on imgui
-target_link_libraries(app PRIVATE imgui)

@@ -127,7 +127,7 @@ renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m
 
     for(uint32_t i = 0; i < 10; i++)
     {
-        scene.Instantiate((std::string("Avocado") + ToString(i)).c_str()).Add<RendererComponent>({0, 1, i}).SetScaleUniform(1).SetPosition(0,0, i * 4);
+        scene.Instantiate((std::string("Avocado") + ToString(i)).c_str()).Add<RendererComponent>({0, 0, i}).SetScaleUniform(1).SetPosition(0,0, i * 4);
     }
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
@@ -166,7 +166,6 @@ void EditorApp::OnStart()
     renderpass.Init();
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"));
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", *PBR_Shader);
     
     renderer.Init(scene);
     
@@ -174,6 +173,7 @@ void EditorApp::OnStart()
     uboLayout.pack(ubo);
 
     LoadFileTextures();
+    Logger::Info("OnStart done");
 }
 
 void EditorApp::LoadFileTexture(const std::string& path)
@@ -270,7 +270,6 @@ void EditorApp::OnGUI()
     float fps   = ImGui::GetIO().Framerate;
     float ms    = 1000.0f / fps;
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", ms, fps);
-    //gui.DrawTexture(renderpass.GetRenderTarget(1), 200, 422);
     ImGui::End();
 
     ImGui::Begin("Hierachy"); 
@@ -334,9 +333,9 @@ void EditorApp::DrawAssetsWindow()
     try { rel = fs::relative(current, kRoot); } catch(...) { rel.clear(); }
 
     fs::path accum = kRoot;
-    for (auto &part : rel) {
+    for (const fs::path& part : rel) {
         if (part.empty() || part == ".") continue;
-        ImGui::SameLine(); ImGui::TextUnformatted("\uf054"); ImGui::SameLine(); // chevron (optional)
+        ImGui::SameLine(); ImGui::TextUnformatted("\uf054"); ImGui::SameLine();
         std::string seg = part.string();
         if (ImGui::SmallButton(seg.c_str())) { accum /= part; current = accum; selectedPath.clear(); }
         else { accum /= part; }

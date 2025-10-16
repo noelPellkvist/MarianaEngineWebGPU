@@ -1,8 +1,14 @@
 #include <Window.hpp>
-#include <webgpu/webgpu_glfw.h>
+#include <GLFW/glfw3.h>
+
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#endif
 #include "Init.hpp"
 #include <stb_image.h>
 #include <Logger.hpp>
+#include <webgpu/webgpu_cpp.h>
+#include <webgpu/webgpu_glfw.h>
 
 Window* Window::s_global = nullptr;
 
@@ -103,7 +109,6 @@ void Window::GetSurface()
     }    
     else 
         surface.Unconfigure();
-    
 
     int fbWidth = 0, fbHeight = 0;
     glfwGetFramebufferSize(m_Window, &fbWidth, &fbHeight);
@@ -124,19 +129,19 @@ void Window::GetSurface()
             break;
         }
     }
-    
-    // Fallback: just take the first if no sRGB found
     if (windowFormat == wgpu::TextureFormat::Undefined) {
         windowFormat = capabilities.formats[0];
     }
 
     wgpu::SurfaceConfiguration config{.device = device,
-                                    .format = windowFormat,
-                                    .width = m_Width,
-                                    .height = m_Height,
-                                    .presentMode = wgpu::PresentMode::Fifo};
+                                      .format = windowFormat,
+                                      .width = m_Width,
+                                      .height = m_Height,
+                                      .presentMode = wgpu::PresentMode::Fifo};
     surface.Configure(&config);
 }
+
+
 
 bool Window::ShouldClose()
 {

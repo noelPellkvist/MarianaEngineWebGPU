@@ -12,9 +12,9 @@
 //  [X] Platform: Multi-viewport support (multiple windows). Enable with 'io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable'.
 //  [X] Multiple Dear ImGui contexts support.
 // Missing features or Issues:
-//  [ ] Touch events are only correctly identified as Touch on Windows. This create issues with some interactions. GLFW doesn't provide a way to identify touch inputs from mouse inputs, we cannot call io.AddMouseSourceEvent() to identify the source. We provide a Windows-specific workaround.
-//  [ ] Missing ImGuiMouseCursor_Wait and ImGuiMouseCursor_Progress cursors.
-//  [ ] Multi-viewport: ParentViewportID not honored, and so io.ConfigViewportsNoDefaultParent has no effect (minor).
+//  [ ] Platform: Touch events are only correctly identified as Touch on Windows. This create issues with some interactions. GLFW doesn't provide a way to identify touch inputs from mouse inputs, we cannot call io.AddMouseSourceEvent() to identify the source. We provide a Windows-specific workaround.
+//  [ ] Platform: Missing ImGuiMouseCursor_Wait and ImGuiMouseCursor_Progress cursors.
+//  [ ] Platform: Multi-viewport: Missing ImGuiBackendFlags_HasParentViewport support. The viewport->ParentViewportID field is ignored, and therefore io.ConfigViewportsNoDefaultParent has no effect either.
 
 // You can use unmodified imgui_impl_* files in your project. See examples/ folder for examples of using this.
 // Prefer including the entire imgui/ repository into your project (either as a copy or as a submodule), and only build the backends you need.
@@ -32,6 +32,8 @@
 // CHANGELOG
 // (minor and older changes stripped away, please see git history for details)
 //  2025-XX-XX: Platform: Added support for multiple windows via the ImGuiPlatformIO interface.
+//  2025-09-18: Call platform_io.ClearPlatformHandlers() on shutdown.
+//  2025-09-15: Content Scales are always reported as 1.0 on Wayland. FramebufferScale are always reported as 1.0 on X11. (#8920, #8921)
 //  2025-09-10: [Docking] Improve multi-viewport behavior in tiling WMs on X11 via the ImGui_ImplGlfw_SetWindowFloating() function. Note: using GLFW backend on Linux/BSD etc. requires linking with -lX11. (#8884, #8474, #8289)
 //  2025-07-08: Made ImGui_ImplGlfw_GetContentScaleForWindow(), ImGui_ImplGlfw_GetContentScaleForMonitor() helpers return 1.0f on Emscripten and Android platforms, matching macOS logic. (#8742, #8733)
 //  2025-06-18: Added support for multiple Dear ImGui contexts. (#8676, #8239, #8069)
@@ -114,31 +116,35 @@
 #endif
 
 // GLFW
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
+#define GLFW_HAS_X11_OR_WAYLAND     1
+#else
+#define GLFW_HAS_X11_OR_WAYLAND     0
+#endif
 #include <GLFW/glfw3.h>
-
 #ifdef _WIN32
 #undef APIENTRY
-#ifndef GLFW_EXPOSE_NATIVE_WIN32
+#ifndef GLFW_EXPOSE_NATIVE_WIN32    // for glfwGetWin32Window()
 #define GLFW_EXPOSE_NATIVE_WIN32
 #endif
-#include <GLFW/glfw3native.h>   // for glfwGetWin32Window()
+#include <GLFW/glfw3native.h>
 #elif defined(__APPLE__)
-#ifndef GLFW_EXPOSE_NATIVE_COCOA
+#ifndef GLFW_EXPOSE_NATIVE_COCOA    // for glfwGetCocoaWindow()
 #define GLFW_EXPOSE_NATIVE_COCOA
 #endif
-#include <GLFW/glfw3native.h>   // for glfwGetCocoaWindow()
-#elif !defined(__EMSCRIPTEN__)
-// Freedesktop (Linux, BSD, etc)
-#ifndef GLFW_EXPOSE_NATIVE_X11
+#include <GLFW/glfw3native.h>
+#elif GLFW_HAS_X11_OR_WAYLAND
+#ifndef GLFW_EXPOSE_NATIVE_X11      // for glfwGetX11Display(), glfwGetX11Window() on Freedesktop (Linux, BSD, etc.)
 #define GLFW_EXPOSE_NATIVE_X11
 #include <X11/Xatom.h>
 #endif
 #ifndef GLFW_EXPOSE_NATIVE_WAYLAND
 #define GLFW_EXPOSE_NATIVE_WAYLAND
 #endif
-#include <GLFW/glfw3native.h>   // for getting the X11/Wayland window
+#include <GLFW/glfw3native.h>
 #undef Status                   // X11 headers are leaking this.
 #endif
+
 #ifndef _WIN32
 #include <unistd.h>             // for usleep()
 #endif
@@ -194,14 +200,14 @@ static void ImGui_ImplGlfw_ContextMap_Add(GLFWwindow* window, ImGuiContext* ctx)
 static void ImGui_ImplGlfw_ContextMap_Remove(GLFWwindow* window)                 { for (ImGui_ImplGlfw_WindowToContext& entry : g_ContextMap) if (entry.Window == window) { g_ContextMap.erase_unsorted(&entry); return; } }
 static ImGuiContext* ImGui_ImplGlfw_ContextMap_Get(GLFWwindow* window)           { for (ImGui_ImplGlfw_WindowToContext& entry : g_ContextMap) if (entry.Window == window) return entry.Context; return nullptr; }
 
-// GLFW data
 enum GlfwClientApi
 {
-    GlfwClientApi_Unknown,
     GlfwClientApi_OpenGL,
     GlfwClientApi_Vulkan,
+    GlfwClientApi_Unknown,  // Anything else fits here.
 };
 
+// GLFW data
 struct ImGui_ImplGlfw_Data
 {
     ImGuiContext*           Context;
@@ -214,6 +220,7 @@ struct ImGui_ImplGlfw_Data
     bool                    MouseIgnoreButtonUp;
     ImVec2                  LastValidMousePos;
     GLFWwindow*             KeyOwnerWindows[GLFW_KEY_LAST];
+    bool                    IsWayland;
     bool                    InstalledCallbacks;
     bool                    CallbacksChainForAllWindows;
     char                    BackendPlatformName[32];
@@ -263,6 +270,23 @@ static void ImGui_ImplGlfw_InitMultiViewportSupport();
 static void ImGui_ImplGlfw_ShutdownMultiViewportSupport();
 
 // Functions
+static bool ImGui_ImplGlfw_IsWayland()
+{
+#if !GLFW_HAS_X11_OR_WAYLAND
+    return false;
+#elif GLFW_HAS_GETPLATFORM
+    return glfwGetPlatform() == GLFW_PLATFORM_WAYLAND;
+#else
+    const char* version = glfwGetVersionString();
+    if (strstr(version, "Wayland") == NULL) // e.g. Ubuntu 22.04 ships with GLFW 3.3.6 compiled without Wayland
+        return false;
+#ifdef GLFW_EXPOSE_NATIVE_X11
+    if (glfwGetX11Display() != NULL)
+        return false;
+#endif
+    return true;
+#endif
+}
 
 // Not static to allow third-party code to use that if they want to (but undocumented)
 ImGuiKey ImGui_ImplGlfw_KeyToImGuiKey(int keycode, int scancode);
@@ -680,6 +704,7 @@ static bool ImGui_ImplGlfw_Init(GLFWwindow* window, bool install_callbacks, Glfw
     bd->Context = ImGui::GetCurrentContext();
     bd->Window = window;
     bd->Time = 0.0;
+    bd->IsWayland = ImGui_ImplGlfw_IsWayland();
     ImGui_ImplGlfw_ContextMap_Add(window, bd->Context);
 
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
@@ -792,10 +817,11 @@ void ImGui_ImplGlfw_Shutdown()
 {
     ImGui_ImplGlfw_Data* bd = ImGui_ImplGlfw_GetBackendData();
     IM_ASSERT(bd != nullptr && "No platform backend to shutdown, or already shutdown?");
+
     ImGuiIO& io = ImGui::GetIO();
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
     ImGui_ImplGlfw_ShutdownMultiViewportSupport();
-
     if (bd->InstalledCallbacks)
         ImGui_ImplGlfw_RestoreCallbacks(bd->Window);
 #ifdef EMSCRIPTEN_USE_EMBEDDED_GLFW3
@@ -817,6 +843,7 @@ void ImGui_ImplGlfw_Shutdown()
     io.BackendPlatformName = nullptr;
     io.BackendPlatformUserData = nullptr;
     io.BackendFlags &= ~(ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_HasSetMousePos | ImGuiBackendFlags_HasGamepad | ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_HasMouseHoveredViewport);
+    platform_io.ClearPlatformHandlers();
     ImGui_ImplGlfw_ContextMap_Remove(bd->Window);
     IM_DELETE(bd);
 }
@@ -1015,6 +1042,11 @@ static void ImGui_ImplGlfw_UpdateMonitors()
 // - Some accessibility applications are declaring virtual monitors with a DPI of 0.0f, see #7902. We preserve this value for caller to handle.
 float ImGui_ImplGlfw_GetContentScaleForWindow(GLFWwindow* window)
 {
+#if GLFW_HAS_X11_OR_WAYLAND
+    if (ImGui_ImplGlfw_Data* bd = ImGui_ImplGlfw_GetBackendData(window))
+        if (bd->IsWayland)
+            return 1.0f;
+#endif
 #if GLFW_HAS_PER_MONITOR_DPI && !(defined(__APPLE__) || defined(__EMSCRIPTEN__) || defined(__ANDROID__))
     float x_scale, y_scale;
     glfwGetWindowContentScale(window, &x_scale, &y_scale);
@@ -1027,6 +1059,10 @@ float ImGui_ImplGlfw_GetContentScaleForWindow(GLFWwindow* window)
 
 float ImGui_ImplGlfw_GetContentScaleForMonitor(GLFWmonitor* monitor)
 {
+#if GLFW_HAS_X11_OR_WAYLAND
+    if (ImGui_ImplGlfw_IsWayland()) // We can't access our bd->IsWayland cache for a monitor.
+        return 1.0f;
+#endif
 #if GLFW_HAS_PER_MONITOR_DPI && !(defined(__APPLE__) || defined(__EMSCRIPTEN__) || defined(__ANDROID__))
     float x_scale, y_scale;
     glfwGetMonitorContentScale(monitor, &x_scale, &y_scale);
@@ -1043,10 +1079,17 @@ static void ImGui_ImplGlfw_GetWindowSizeAndFramebufferScale(GLFWwindow* window, 
     int display_w, display_h;
     glfwGetWindowSize(window, &w, &h);
     glfwGetFramebufferSize(window, &display_w, &display_h);
+    float fb_scale_x = (w > 0) ? (float)display_w / w : 1.0f;
+    float fb_scale_y = (h > 0) ? (float)display_h / h : 1.0f;
+#if GLFW_HAS_X11_OR_WAYLAND
+    ImGui_ImplGlfw_Data* bd = ImGui_ImplGlfw_GetBackendData(window);
+    if (!bd->IsWayland)
+        fb_scale_x = fb_scale_y = 1.0f;
+#endif
     if (out_size != nullptr)
         *out_size = ImVec2((float)w, (float)h);
     if (out_framebuffer_scale != nullptr)
-        *out_framebuffer_scale = (w > 0 && h > 0) ? ImVec2((float)display_w / (float)w, (float)display_h / (float)h) : ImVec2(1.0f, 1.0f);
+        *out_framebuffer_scale = ImVec2(fb_scale_x, fb_scale_y);
 }
 
 void ImGui_ImplGlfw_NewFrame()

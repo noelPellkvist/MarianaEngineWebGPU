@@ -1,7 +1,7 @@
 #include "Init.hpp"
 #include <iostream>
-#include <dawn/webgpu_cpp_print.h>
 #include <Logger.hpp>
+#include <dawn/webgpu_cpp_print.h>
 
 wgpu::Instance instance;
 wgpu::Adapter adapter;

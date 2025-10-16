@@ -24,29 +24,29 @@ int main(int, char**)
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
     {
         printf("Error: SDL_Init(): %s\n", SDL_GetError());
-        return -1;
+        return 1;
     }
 
     // Create SDL window graphics context
     float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     SDL_WindowFlags window_flags = SDL_WINDOW_METAL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-    SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL3+Metal example", (int)(1280 * main_scale), (int)(720 * main_scale), window_flags);
+    SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL3+Metal example", (int)(1280 * main_scale), (int)(800 * main_scale), window_flags);
     if (window == nullptr)
     {
         printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
-        return -1;
+        return 1;
     }
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_ShowWindow(window);
 
     // Create Metal device _before_ creating the view/layer
-    id<MTLDevice> metalDevice = MTLCreateSystemDefaultDevice(); 
+    id<MTLDevice> metalDevice = MTLCreateSystemDefaultDevice();
     if (!metalDevice)
     {
         printf("Error: failed to create Metal device.\n");
         SDL_DestroyWindow(window);
         SDL_Quit();
-        return -1;
+        return 1;
     }
     SDL_MetalView view = SDL_Metal_CreateView(window);
     CAMetalLayer* layer = (__bridge CAMetalLayer*)SDL_Metal_GetLayer(view);
@@ -128,7 +128,7 @@ int main(int, char**)
 
             int width, height;
             SDL_GetWindowSizeInPixels(window, &width, &height);
-        
+
             layer.drawableSize = CGSizeMake(width, height);
             id<CAMetalDrawable> drawable = [layer nextDrawable];
 

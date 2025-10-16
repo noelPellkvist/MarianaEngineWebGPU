@@ -1,6 +1,8 @@
 #include <Application.hpp>
 #include "Init.hpp"
-
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#endif
 #include <chrono>
 
 Application::Application(const std::string& name)
@@ -25,16 +27,19 @@ void Application::Start()
     #if defined(__EMSCRIPTEN__)
         emscripten_set_main_loop_arg([](void* arg) {
                 static_cast<Application*>(arg)->MainLoop();
-            }, this, 0, false);
+            }, this, 0, true);
     #else
     while (!m_Window.ShouldClose() && m_Running)
     {
         MainLoop();
+        surface.Present();
+        instance.ProcessEvents();
     }
+    #endif
     Logger::Info("Application Shutting down...");
     OnShutdown();
     Shutdown();
-    #endif
+    
 }
 
 void Application::Initalize()
@@ -62,8 +67,7 @@ void Application::MainLoop()
     OnRender();
 
     input.Update();
-    surface.Present();
-    instance.ProcessEvents();
+    
 }
 
 void Application::Shutdown()

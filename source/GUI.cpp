@@ -1,9 +1,12 @@
 #include <GUI.hpp>
 #include <imgui.h>
+#include <webgpu/webgpu_cpp.h>
+#include <webgpu/webgpu.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
-#include <webgpu/webgpu_cpp.h>
+
 #include "Init.hpp"
+#include <Logger.hpp>
 
 static ImVec4 Lerp(const ImVec4& a, const ImVec4& b, float t) {
     return ImVec4(a.x + (b.x - a.x)*t,
@@ -159,7 +162,10 @@ void GUI::InitGui(Window& window)
     info.PipelineMultisampleState.count = 1;
     if(ImGui_ImplWGPU_Init(&info))
     {
+        Logger::Error("Successfully started ImGUI");
     }
+    else
+        Logger::Error("Failed to start ImGui");
     ApplyMarianaStyle(1.0f, ImVec4(0.35f, 0.75f, 0.55f, 1.0f));
     ImFontConfig config;
     config.MergeMode = false;
