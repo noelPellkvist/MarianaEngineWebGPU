@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <memory>
+#include <any>
 
 struct IUniformLayout {
     IUniformLayout();
@@ -18,6 +19,12 @@ struct IUniformLayout {
         void* GetBindGroupLayoutEntry();
         virtual uint32_t GetUniformStride() = 0;
         void Init(uint32_t bindingIndex);
+        virtual inline void pack(std::any objData) = 0;
+        virtual inline void pack(std::any objData, uint32_t index) = 0;
+        bool IsDynamic()
+        {
+            return m_isDynamic;
+        }
 
     private:
         struct Impl;
@@ -187,14 +194,16 @@ public:
     }
 
     // Pack into a freshly allocated vector (returns padded-to-16B size)
-    inline void pack(const T& obj) {
+    inline void pack(std::any objData) override {
+        const T& obj = std::any_cast<const T&>(objData);
         assert(m_isDynamic == false);
         m_Buffer.resize(total_size_);
         pack_into(obj, m_Buffer.data(), m_Buffer.size());
         WriteBuffer(0, m_Buffer.data(), m_Buffer.size());
     }
 
-    inline void pack(const T& obj, uint32_t index) {
+    inline void pack(std::any objData, uint32_t index) {
+        const T& obj = std::any_cast<const T&>(objData);
         assert(m_isDynamic == true);
         m_Buffer.resize(total_size_);
         pack_into(obj, m_Buffer.data(), m_Buffer.size());

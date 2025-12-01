@@ -11,6 +11,37 @@
 #include <Texture.hpp>
 #include <memory>
 
+enum CullMode
+{
+    NONE,
+    FRONT,
+    BACK
+};
+
+enum FillMode
+{
+    SOLID,
+    WIREFRAME
+};
+
+enum CompareOp
+{
+    LESS,
+    LESSEQUAL,
+    ALWAYS
+};
+
+struct ShaderProperties
+{
+    bool doubleSided;
+    CullMode cullMode;
+    FillMode fillMode;
+
+    bool depthTest;
+    bool depthWrite;
+    CompareOp compareOp;
+};
+
 class IShader
 {
     public:
@@ -33,16 +64,14 @@ class IShader
         virtual void UpdateMaterialBuffer(const std::any& data, uint32_t bufferIndex) = 0;
 
         virtual uint32_t GetMaterialDynamicOffset(uint32_t bufferIndex) = 0;
-        virtual uint32_t GetTransformDynamicOffset(uint32_t bufferIndex) = 0;
+        virtual uint32_t GetBufferDynamicOffset(uint32_t binding, uint32_t bufferIndex) = 0;
 
-        virtual void* GetUBOBindGroupLayoutEntry() = 0;
-        virtual void* GetTransformBindGroupLayoutEntry() = 0;
-        virtual void* GetMaterialBindGroupLayoutEntry() = 0;
-        virtual void* GetCameraBindGroupLayoutEntry() = 0;
+        virtual uint32_t GetBufferDynamicOffsets(uint32_t binding) = 0;
+        virtual uint32_t GetBindingsCount() = 0;
 
-        virtual void* GetUBOBindGroupEntry() = 0;
-        virtual void* GetTransformBindGroupEntry() = 0;
-        virtual void* GetCameraBindGroupEntry() = 0;
+        virtual void* GetBindGroupLayoutEntry(uint32_t binding) = 0;
+
+        virtual void* GetBindGroupEntry(uint32_t binding) = 0;
 
     protected:
         struct Impl;
@@ -56,48 +85,44 @@ class IShader
         void CreateBindgroups();
 };
 
-template<typename UBOLayout, typename TransformLayout, typename MaterialLayout, typename CameraLayout>
+template<typename... Layouts>
 class Shader : public IShader
 {
     public:
-        Shader(UniformLayout<UBOLayout>& uboLayout,
-               UniformLayout<TransformLayout>& transformLayout,
-               UniformLayout<MaterialLayout>& materialLayout,
-               UniformLayout<CameraLayout>& cameraLayout,
+        Shader(UniformLayout<Layouts>&... layouts,
                VertexBufferLayout vertexLayout,
                uint8_t textureCount,
                const Renderpass& renderpass)
-          : IShader(std::move(vertexLayout), textureCount, renderpass),
-            m_UBOLayout(uboLayout),
-            m_TransformLayout(transformLayout),
-            m_MaterialLayout(materialLayout),
-            m_CameraLayout(cameraLayout)
+          : IShader(std::move(vertexLayout), textureCount, renderpass)
         {
-
+            static_assert(sizeof...(Layouts) >= 1 && sizeof...(Layouts) <= 4,
+              "Shader must have between 1 and 4 layout types.");
+            (m_layouts.emplace_back(&layouts), ...);
         }
         ~Shader() = default;
 
         void InitBuffers() override
         {
-            m_UBOLayout.Init(0);
-            m_TransformLayout.Init(0);
-            m_MaterialLayout.Init(0);
-            m_CameraLayout.Init(0);
+
+            for (auto layout : m_layouts)
+            {
+                layout->Init(0);
+            }
+
             FixBindingLayouts();
             CreateBindgroups();
         }
 
         void* GetMaterialBufferEntry() override
         {
-            return m_MaterialLayout.GetBindGroupEntry();
+            return m_layouts.back()->GetBindGroupEntry();
         }
 
         void UpdateMaterialBuffer(const std::any& data, uint32_t bufferIndex) override
         {
             try
             {
-                const MaterialLayout& d = std::any_cast<const MaterialLayout&>(data);
-                m_MaterialLayout.pack(d, bufferIndex);
+                m_layouts.back()->pack(data, bufferIndex);
             }
             catch(const std::exception& e)
             {
@@ -108,52 +133,35 @@ class Shader : public IShader
 
         uint32_t GetMaterialDynamicOffset(uint32_t bufferIndex) override
         {
-            return m_MaterialLayout.GetUniformStride() * bufferIndex;
+            return m_layouts.back()->GetUniformStride() * bufferIndex;
         }
 
-        uint32_t GetTransformDynamicOffset(uint32_t bufferIndex) override
+        uint32_t GetBufferDynamicOffset(uint32_t binding, uint32_t bufferIndex) override
         {
-            return m_TransformLayout.GetUniformStride() * bufferIndex;
+            
+            return m_layouts[binding]->IsDynamic() ? m_layouts[binding]->GetUniformStride() * bufferIndex : 0;
         }
 
-        void* GetUBOBindGroupLayoutEntry() override
+        uint32_t GetBufferDynamicOffsets(uint32_t binding)
         {
-            return m_UBOLayout.GetBindGroupLayoutEntry();
+            return m_layouts[binding]->IsDynamic() ? 1 : 0;
         }
 
-        void* GetTransformBindGroupLayoutEntry() override
+        void* GetBindGroupLayoutEntry(uint32_t binding) override
         {
-            return m_TransformLayout.GetBindGroupLayoutEntry();
+            return m_layouts[binding]->GetBindGroupLayoutEntry();
         }
 
-        void* GetMaterialBindGroupLayoutEntry() override
+        void* GetBindGroupEntry(uint32_t binding) override
         {
-            return m_MaterialLayout.GetBindGroupLayoutEntry();
+            return m_layouts[binding]->GetBindGroupEntry();
         }
 
-        void* GetCameraBindGroupLayoutEntry() override
+        uint32_t GetBindingsCount() override
         {
-            return m_CameraLayout.GetBindGroupLayoutEntry();
-        }
-
-        void* GetUBOBindGroupEntry() override
-        {
-            return m_UBOLayout.GetBindGroupEntry();
-        }
-        
-        void* GetTransformBindGroupEntry() override
-        {
-            return m_TransformLayout.GetBindGroupEntry();
-        }
-
-        void* GetCameraBindGroupEntry() override
-        {
-            return m_CameraLayout.GetBindGroupEntry();
+            return m_layouts.size();
         }
 
     private:
-        UniformLayout<UBOLayout>& m_UBOLayout;
-        UniformLayout<TransformLayout>& m_TransformLayout;
-        UniformLayout<MaterialLayout>& m_MaterialLayout;
-        UniformLayout<CameraLayout>& m_CameraLayout;
+        std::vector<IUniformLayout*> m_layouts;
 };

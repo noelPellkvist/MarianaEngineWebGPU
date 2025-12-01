@@ -55,7 +55,7 @@ void IMaterial::InitMaterial(IShader& shader, std::vector<Texture> textures)
     bindings[shader.GetTextureCount() + 1].sampler = impl->samplers[0];
 
     wgpu::BindGroupDescriptor bindGroupDesc;
-    bindGroupDesc.layout = *static_cast<wgpu::BindGroupLayout*>(shader.GetBindGroupLayout(2));
+    bindGroupDesc.layout = *static_cast<wgpu::BindGroupLayout*>(shader.GetBindGroupLayout(shader.GetBindingsCount() - 1));
     bindGroupDesc.entryCount = (uint32_t)bindings.size();
     bindGroupDesc.entries = bindings.data();
     impl->MaterialBindGroup = device.CreateBindGroup(&bindGroupDesc);
@@ -63,7 +63,7 @@ void IMaterial::InitMaterial(IShader& shader, std::vector<Texture> textures)
 
 void* IMaterial::GetBindGroup(uint32_t index)
 {
-    if(index == 2)
+    if(index == m_Shader->GetBindingsCount() - 1)
         return &impl->MaterialBindGroup;
     else
     {

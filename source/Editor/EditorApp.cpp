@@ -111,10 +111,20 @@ TransformData transformBuffer{};
 UniformLayout transformLayout(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix, transformBuffer.entityID);
 
 GLTF::GLTFMaterialProperties materialsBuffer;
-UniformLayout materialsLayout(true, materialsBuffer, materialsBuffer.baseColor);
+UniformLayout materialsLayout(true, materialsBuffer, materialsBuffer.baseColor, materialsBuffer.metallicFactor, materialsBuffer.roughnessFactor,
+    materialsBuffer.normalMapStrength, materialsBuffer.occlusionStrength,
+    materialsBuffer.emissiveFactor, materialsBuffer.alphaCutoff);
 
 GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
+
+struct SkyBoxSettings
+{
+    float exposure{1.0f};
+    float rotation{0.0f};
+};
+SkyBoxSettings skybox;
+UniformLayout SkyboxSettings(false, skybox, skybox.exposure, skybox.rotation);
 
 System WriteTransformBufferSystem;
 
@@ -122,13 +132,14 @@ EditorApp::EditorApp(const std::string& name) : Application(name),
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight())
 {
     cam = new EditorCameraController(input);
-    PBR_Shader = std::make_unique<Shader<UBO, TransformData, GLTF::GLTFMaterialProperties, CameraInfo>>(uboLayout, transformLayout, materialsLayout, cam->GetBinding(), vertexLayout, 5, renderpass);
+    PBR_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, 5, renderpass);
     AssetManager::LoadedShaders.push_back(PBR_Shader);
 
-    for(uint32_t i = 0; i < 10; i++)
-    {
-        scene.Instantiate((std::string("Avocado") + ToString(i)).c_str()).Add<RendererComponent>({0, 0, i}).SetScaleUniform(1).SetPosition(0,0, i * 4);
-    }
+    //SkyBoxShader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, 5, renderpass);
+    //AssetManager::LoadedShaders.push_back(SkyBoxShader);
+
+    scene.Instantiate((std::string("Cube")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0,0, 0);
+    scene.Instantiate((std::string("Plane")).c_str()).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(1).SetPosition(0,-2, 0);
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
@@ -165,7 +176,9 @@ void EditorApp::OnStart()
 
     renderpass.Init();
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"));
+    //SkyBoxShader->LoadShader(FileReader::LoadRawString("/Shaders/skybox.wgsl"));
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", *PBR_Shader);
     
     renderer.Init(scene);
     

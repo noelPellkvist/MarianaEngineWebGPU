@@ -8,48 +8,31 @@ struct IShader::Impl
     wgpu::RenderPipeline m_Pipeline;
     wgpu::PipelineLayout m_Layout;
 
-    wgpu::BindGroupLayout m_UBOBindLayout{};  
-    wgpu::BindGroupLayout m_TransformBindLayout{};  
-    wgpu::BindGroupLayout m_MaterialBindLayout{};  
-    wgpu::BindGroupLayout m_CameraBindLayout{};
-        
-    wgpu::BindGroup m_UBOBindGroup{};  
-    wgpu::BindGroup m_TransformBindGroup{};  
-    wgpu::BindGroup m_CameraBindGroup{};    
+    std::vector<wgpu::BindGroupLayout> m_BindgroupLayouts;
+    std::vector<wgpu::BindGroup> m_Bindgroups;  
 };
 
 IShader::IShader(VertexBufferLayout vbl, uint8_t textureCount, const Renderpass& renderpass)
     : _impl(std::make_unique<Impl>()),
       m_TextureCount(textureCount),
       m_VertexLayout(std::move(vbl)),
-      m_Renderpass(renderpass) {}
+      m_Renderpass(renderpass) {
+      }
 
 IShader::~IShader() = default;
 
 void* IShader::GetBindGroup(uint32_t index) 
 { 
-    if (index == 2)
+    if (index == GetBindingsCount() - 1)
     {
         Logger::Error("WHY YOU CALLING THIS???");
-    } else if (index == 0)
-        return &_impl->m_UBOBindGroup;
-    else if (index == 1)
-        return &_impl->m_TransformBindGroup;
-    else if (index == 3)
-        return &_impl->m_CameraBindGroup;
+    } else
+        return &_impl->m_Bindgroups[index];
 }
 
 void* IShader::GetBindGroupLayout(uint32_t index) 
 { 
-    if (index == 2)
-    {
-        return &_impl->m_MaterialBindLayout;
-    } else if (index == 0)
-        return &_impl->m_UBOBindLayout;
-    else if (index == 1)
-        return &_impl->m_TransformBindLayout;
-    else if (index == 3)
-        return &_impl->m_CameraBindLayout;
+    return &_impl->m_BindgroupLayouts[index];
 }
 
 void* IShader::GetPipeline() 
@@ -59,6 +42,8 @@ void* IShader::GetPipeline()
 
 void IShader::LoadShader(std::string shaderCode) 
 {
+    _impl->m_BindgroupLayouts.resize(GetBindingsCount());
+    _impl->m_Bindgroups.resize(GetBindingsCount());
     InitBuffers();
     wgpu::ShaderSourceWGSL wgsl{{.code = shaderCode.c_str()}};
     wgpu::ShaderModuleDescriptor shaderModuleDescriptor{.nextInChain = &wgsl};
@@ -85,12 +70,10 @@ void IShader::LoadShader(std::string shaderCode)
     depthStencilState.format = wgpu::TextureFormat::Depth24Plus;
     depthStencilState.stencilReadMask = 0;
     depthStencilState.stencilWriteMask = 0;
-
-    std::vector<wgpu::BindGroupLayout> bindGroupLayouts = {_impl->m_UBOBindLayout, _impl->m_TransformBindLayout, _impl->m_MaterialBindLayout, _impl->m_CameraBindLayout};
     
     wgpu::PipelineLayoutDescriptor  layoutDesc = {};
-    layoutDesc.bindGroupLayoutCount = bindGroupLayouts.size();
-    layoutDesc.bindGroupLayouts = bindGroupLayouts.data();
+    layoutDesc.bindGroupLayoutCount = _impl->m_BindgroupLayouts.size();
+    layoutDesc.bindGroupLayouts = _impl->m_BindgroupLayouts.data();
     _impl->m_Layout = device.CreatePipelineLayout(&layoutDesc);
 
     wgpu::RenderPipelineDescriptor descriptor{  .layout = _impl->m_Layout,
@@ -123,7 +106,7 @@ void IShader::FixMaterialBindingLayout()
     std::vector<wgpu::BindGroupLayoutEntry> entries;
     entries.resize(m_TextureCount + 2);
 
-    entries[0] = *static_cast<wgpu::BindGroupLayoutEntry*>(GetMaterialBindGroupLayoutEntry());
+    entries[0] = *static_cast<wgpu::BindGroupLayoutEntry*>(GetBindGroupLayoutEntry(GetBindingsCount() - 1));
 
     for(size_t i = 1; i < m_TextureCount + 1; i++)
     {
@@ -140,46 +123,37 @@ void IShader::FixMaterialBindingLayout()
     entries[m_TextureCount + 1].sampler.type = wgpu::SamplerBindingType::Filtering;
 
     wgpu::BindGroupLayoutDescriptor textureBindingLayout{};
+    textureBindingLayout.label = "Material Bindgroup Layout";
     textureBindingLayout.entryCount = entries.size();
     textureBindingLayout.entries = entries.data();
-    _impl->m_MaterialBindLayout = device.CreateBindGroupLayout(&textureBindingLayout);
+    auto m = GetBindingsCount();
+    _impl->m_BindgroupLayouts[GetBindingsCount() - 1] = device.CreateBindGroupLayout(&textureBindingLayout);
 }
 
 void IShader::FixBindingLayouts()
 {
     FixMaterialBindingLayout();
 
-    wgpu::BindGroupLayoutDescriptor UBOBindGroupLayoutDesc{};
-    UBOBindGroupLayoutDesc.entryCount = 1;
-    UBOBindGroupLayoutDesc.entries = static_cast<wgpu::BindGroupLayoutEntry*>(GetUBOBindGroupLayoutEntry());
-    _impl->m_UBOBindLayout = device.CreateBindGroupLayout(&UBOBindGroupLayoutDesc);
-
-    wgpu::BindGroupLayoutDescriptor TransformBindGroupLayoutDesc{};
-    TransformBindGroupLayoutDesc.entryCount = 1;
-    TransformBindGroupLayoutDesc.entries = static_cast<wgpu::BindGroupLayoutEntry*>(GetTransformBindGroupLayoutEntry());
-    _impl->m_TransformBindLayout = device.CreateBindGroupLayout(&TransformBindGroupLayoutDesc);
-
-    wgpu::BindGroupLayoutDescriptor CameraBindGroupLayoutDesc{};
-    CameraBindGroupLayoutDesc.entryCount = 1;
-    CameraBindGroupLayoutDesc.entries = static_cast<wgpu::BindGroupLayoutEntry*>(GetCameraBindGroupLayoutEntry());
-    _impl->m_CameraBindLayout = device.CreateBindGroupLayout(&CameraBindGroupLayoutDesc);
+    for(size_t i = 0; i < GetBindingsCount() - 1; i++)
+    {
+        std::string label = "Bindgroup Layout " + std::to_string(i);
+        wgpu::BindGroupLayoutDescriptor BindGroupLayoutDesc{};
+        BindGroupLayoutDesc.label = label.c_str();
+        BindGroupLayoutDesc.entryCount = 1;
+        BindGroupLayoutDesc.entries = static_cast<wgpu::BindGroupLayoutEntry*>(GetBindGroupLayoutEntry(i));
+        _impl->m_BindgroupLayouts[i] = device.CreateBindGroupLayout(&BindGroupLayoutDesc);
+    }
 }
 
 void IShader::CreateBindgroups()
 {
-    wgpu::BindGroupDescriptor bindGroupDesc{};
-    bindGroupDesc.layout = _impl->m_UBOBindLayout;
-    bindGroupDesc.entryCount = 1;
-    bindGroupDesc.entries = static_cast<wgpu::BindGroupEntry*>(GetUBOBindGroupEntry());
-    _impl->m_UBOBindGroup = device.CreateBindGroup(&bindGroupDesc);
 
-    bindGroupDesc.layout = _impl->m_TransformBindLayout;
-    bindGroupDesc.entryCount = 1;
-    bindGroupDesc.entries = static_cast<wgpu::BindGroupEntry*>(GetTransformBindGroupEntry());
-    _impl->m_TransformBindGroup = device.CreateBindGroup(&bindGroupDesc);
-
-    bindGroupDesc.layout = _impl->m_CameraBindLayout;
-    bindGroupDesc.entryCount = 1;
-    bindGroupDesc.entries = static_cast<wgpu::BindGroupEntry*>(GetCameraBindGroupEntry());
-    _impl->m_CameraBindGroup = device.CreateBindGroup(&bindGroupDesc);
+    for (size_t i = 0; i < GetBindingsCount() - 1; i++)
+    {
+        wgpu::BindGroupDescriptor bindGroupDesc{};
+        bindGroupDesc.layout = _impl->m_BindgroupLayouts[i];
+        bindGroupDesc.entryCount = 1;
+        bindGroupDesc.entries = static_cast<wgpu::BindGroupEntry*>(GetBindGroupEntry(i));
+        _impl->m_Bindgroups[i] = device.CreateBindGroup(&bindGroupDesc);
+    }
 }

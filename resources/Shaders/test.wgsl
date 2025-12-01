@@ -51,15 +51,15 @@ struct CameraInfoData {
 
 @group(1) @binding(0) var<uniform> ModelDataObject: ModelData;
 
-@group(2) @binding(0) var<uniform> Material : MaterialProperties;
-@group(2) @binding(1) var albedo: texture_2d<f32>;
-@group(2) @binding(2) var normalMap: texture_2d<f32>;
-@group(2) @binding(3) var ambientO: texture_2d<f32>;
-@group(2) @binding(4) var metallicRoughness: texture_2d<f32>;  
-@group(2) @binding(5) var emissiveTex: texture_2d<f32>;  
-@group(2) @binding(6) var textureSampler: sampler;
+@group(3) @binding(0) var<uniform> Material : MaterialProperties;
+@group(3) @binding(1) var albedo: texture_2d<f32>;
+@group(3) @binding(2) var normalMap: texture_2d<f32>;
+@group(3) @binding(3) var ambientO: texture_2d<f32>;
+@group(3) @binding(4) var metallicRoughness: texture_2d<f32>;  
+@group(3) @binding(5) var emissiveTex: texture_2d<f32>;  
+@group(3) @binding(6) var textureSampler: sampler;
 
-@group(3) @binding(0) var<uniform> camInfo: CameraInfoData;
+@group(2) @binding(0) var<uniform> camInfo: CameraInfoData;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {

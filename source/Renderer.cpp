@@ -34,18 +34,18 @@ void Renderer::Init(Scene& scene)
 
         pass.SetIndexBuffer(*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer()), wgpu::IndexFormat::Uint32, 0, (*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer())).GetSize());
 
-        uint32_t transformOffset = 0;
-        uint32_t materialOffset = 0;
-
         for (Submesh& sm : mesh->submeshes)
         {
           IMaterial& material = *(AssetManager::LoadedMaterials[sm.materialIndex]);
-          transformOffset = shader->GetTransformDynamicOffset(rendererComp.transformIndex);
-          materialOffset = shader->GetMaterialDynamicOffset(sm.materialIndex);
-          pass.SetBindGroup(0, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(0)), 0, nullptr);
-          pass.SetBindGroup(1, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(1)), 1, &transformOffset);
-          pass.SetBindGroup(2, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(2)), 1, &materialOffset);
-          pass.SetBindGroup(3, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(3)), 0, nullptr);
+          uint32_t materialBinding = shader->GetBindingsCount() - 1;
+          for(uint32_t i = 0; i < materialBinding; i++)
+          {
+            size_t dynamicOffsetCount = shader->GetBufferDynamicOffsets(static_cast<uint32_t>(i));
+            uint32_t offset = dynamicOffsetCount == 0 ? 0 : shader->GetBufferDynamicOffset(static_cast<uint32_t>(i), rendererComp.transformIndex);
+            pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(i)), dynamicOffsetCount, dynamicOffsetCount == 0 ? nullptr : &offset);
+          }
+          uint32_t materialOffset = shader->GetMaterialDynamicOffset(sm.materialIndex);
+          pass.SetBindGroup(materialBinding, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(materialBinding)), 1, &materialOffset);
           pass.DrawIndexed(sm.indexCount, 1, sm.startIndex, 0, 0);
         }
     });
