@@ -142,7 +142,7 @@ class Shader : public IShader
             return m_layouts[binding]->IsDynamic() ? m_layouts[binding]->GetUniformStride() * bufferIndex : 0;
         }
 
-        uint32_t GetBufferDynamicOffsets(uint32_t binding)
+        uint32_t GetBufferDynamicOffsets(uint32_t binding) override
         {
             return m_layouts[binding]->IsDynamic() ? 1 : 0;
         }
