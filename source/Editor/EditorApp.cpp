@@ -135,11 +135,12 @@ renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m
     PBR_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, 5, renderpass);
     AssetManager::LoadedShaders.push_back(PBR_Shader);
 
-    //SkyBoxShader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, 5, renderpass);
-    //AssetManager::LoadedShaders.push_back(SkyBoxShader);
+    Outline_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, 5, renderpass);
+    AssetManager::LoadedShaders.push_back(Outline_Shader);
 
-    scene.Instantiate((std::string("Cube")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0,0, 0);
-    scene.Instantiate((std::string("Plane")).c_str()).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(1).SetPosition(0,-2, 0);
+    scene.Instantiate((std::string("Avocado")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(20).SetPosition(0,0, 0);
+    scene.Instantiate((std::string("Helmet1")).c_str()).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(1).SetPosition(0,-2, 0);
+    scene.Instantiate((std::string("Helmet2")).c_str()).Add<RendererComponent>({0, 1, 2}).SetScaleUniform(1).SetPosition(0,2, 0);
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
@@ -176,7 +177,7 @@ void EditorApp::OnStart()
 
     renderpass.Init();
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"));
-    //SkyBoxShader->LoadShader(FileReader::LoadRawString("/Shaders/skybox.wgsl"));
+    Outline_Shader->LoadShader(FileReader::LoadRawString("/Shaders/outline.wgsl"));
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", *PBR_Shader);
     
@@ -270,8 +271,21 @@ void EditorApp::OnUpdate(float deltaTime)
 
     if(input.IsMouseButtonPressed(MouseButton::Left) && sampledPixel != 0)
     {
+        if(selectedEntityID != -1 && selectedEntity.Has<RendererComponent>())
+        {
+            selectedEntity.Get<RendererComponent>()->shaderIndex = 0;
+        }
         selectedEntityID = sampledPixel;
         selectedEntity = scene.FromId(selectedEntityID);
+        selectedEntity.Get<RendererComponent>()->shaderIndex = 1;
+    }
+    else if (input.IsMouseButtonPressed(MouseButton::Left) && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
+    {
+        if(selectedEntityID != -1 && selectedEntity.Has<RendererComponent>())
+        {
+            selectedEntity.Get<RendererComponent>()->shaderIndex = 0;
+        }
+        selectedEntityID = -1;
     }
     scene.Update(deltaTime);
 }
@@ -534,8 +548,13 @@ void EditorApp::DrawEntityNode(Entity& e)
     bool open = ImGui::TreeNodeEx("label", flags, "%s", name);
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)  && !ImGui::IsItemToggledOpen()) {
-        selectedEntityID = e.RawId();
+        if(selectedEntityID != -1 && selectedEntity.Has<RendererComponent>())
+        {
+            selectedEntity.Get<RendererComponent>()->shaderIndex = 0;
+        }
+        selectedEntityID = e.RawId();;
         selectedEntity = e;
+        selectedEntity.Get<RendererComponent>()->shaderIndex = 1;
     }
 
     if (ImGui::BeginPopupContextItem("entity_ctx")) {

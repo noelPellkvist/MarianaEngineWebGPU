@@ -106,7 +106,8 @@ class Shader : public IShader
 
             for (auto layout : m_layouts)
             {
-                layout->Init(0);
+                if (!layout->IsInitialized())
+                    layout->Init(0);
             }
 
             FixBindingLayouts();

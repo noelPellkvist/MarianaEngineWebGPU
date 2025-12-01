@@ -56,4 +56,5 @@ void IUniformLayout::Init(uint32_t bindingIndex)
     _impl->m_BindgroupEntry.offset = 0;
     _impl->m_BindgroupEntry.size = m_isDynamic ? uniformStride : total_size_;
     _impl->m_BindgroupEntry.binding = bindingIndex;
+    isInitialized = true;
 }

@@ -19,6 +19,7 @@ struct IUniformLayout {
         void* GetBindGroupLayoutEntry();
         virtual uint32_t GetUniformStride() = 0;
         void Init(uint32_t bindingIndex);
+        bool IsInitialized() { return isInitialized; }
         virtual inline void pack(std::any objData) = 0;
         virtual inline void pack(std::any objData, uint32_t index) = 0;
         bool IsDynamic()
@@ -29,6 +30,7 @@ struct IUniformLayout {
     private:
         struct Impl;
         std::unique_ptr<Impl> _impl;
+        bool isInitialized = false;
 
     protected:
         void WriteBuffer(uint64_t offset, void* data, size_t size);
