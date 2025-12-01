@@ -202,7 +202,7 @@ public:
         WriteBuffer(0, m_Buffer.data(), m_Buffer.size());
     }
 
-    inline void pack(std::any objData, uint32_t index) {
+    inline void pack(std::any objData, uint32_t index) override {
         const T& obj = std::any_cast<const T&>(objData);
         assert(m_isDynamic == true);
         m_Buffer.resize(total_size_);
