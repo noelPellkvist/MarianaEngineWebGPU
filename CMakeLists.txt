@@ -59,7 +59,7 @@ if(EMSCRIPTEN)
 if(FLECS_REAL_TARGET)
     target_compile_definitions(${FLECS_REAL_TARGET} PUBLIC FLECS_NO_THREADS)
 endif()
-target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
+#target_compile_definitions(imgui PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
   target_compile_definitions(app PRIVATE FLECS_NO_THREADS)
 
   target_link_libraries(imgui PUBLIC emdawnwebgpu_cpp)
