@@ -3,6 +3,7 @@
 #include <Editor/EditorCameraController.hpp>
 #include <AssetManager.hpp>
 
+#include "ImGuizmo.h"
 
 #include <sstream>
 #include <imgui.h>
@@ -314,6 +315,27 @@ void EditorApp::OnUpdate(float deltaTime)
 
 void EditorApp::OnGUI()
 {
+    if(selectedEntityID != -1)
+    {
+        glm::mat4 model = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
+        DrawGizmo(model, cam->View(), cam->Projection());
+
+        glm::vec3 translation, rotation, scale;
+
+        float matrix[16];
+        memcpy(matrix, glm::value_ptr(model), sizeof(matrix));
+
+        ImGuizmo::DecomposeMatrixToComponents(
+            matrix,
+            glm::value_ptr(translation),
+            glm::value_ptr(rotation),
+            glm::value_ptr(scale)
+        );
+        selectedEntity.SetPosition(translation.x, translation.y, translation.z);
+        selectedEntity.SetRotationEuler(rotation.x, rotation.y, rotation.z);
+        selectedEntity.SetScale(scale.x, scale.y, scale.z);
+    }
+
     DrawTopMenu();
     ImGui::Begin("Stats"); 
     float fps   = ImGui::GetIO().Framerate;
@@ -352,6 +374,7 @@ void EditorApp::OnGUI()
 
 void EditorApp::SelectEntity(uint64_t id)
 {
+    if(ImGuizmo::IsOver() || ImGuizmo::IsUsing()) return;
     selectedEntityID = id;
     selectedEntity = scene.FromId(id);
     selectedEntity.Get<RendererComponent>()->shaderIndex = 1;
@@ -359,6 +382,7 @@ void EditorApp::SelectEntity(uint64_t id)
 
 void EditorApp::DeselectEntity()
 {
+    if(ImGuizmo::IsOver() || ImGuizmo::IsUsing()) return;
     if(selectedEntityID != -1 && selectedEntity.Has<RendererComponent>())
     {
         selectedEntity.Get<RendererComponent>()->shaderIndex = 0;
@@ -790,6 +814,35 @@ void EditorApp::DrawTopMenu()
         ImGui::EndMainMenuBar();
     }
 }
+
+bool EditorApp::DrawGizmo(glm::mat4& transform, const glm::mat4& view, const glm::mat4& proj)
+{
+    ImGuizmo::BeginFrame();
+    ImGuizmo::SetOrthographic(false);
+
+    // 1. draw OUTSIDE any imgui window
+    ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
+
+    // 2. cover the entire app window
+    ImGuizmo::SetRect(
+        0,
+        0,
+        ImGui::GetIO().DisplaySize.x,
+        ImGui::GetIO().DisplaySize.y
+    );
+
+    float matrix[16];
+    memcpy(matrix, glm::value_ptr(transform), sizeof(matrix));
+
+    if (ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj),
+                             ImGuizmo::TRANSLATE, ImGuizmo::LOCAL, matrix))
+    {
+        transform = glm::make_mat4(matrix);
+    }
+
+    return ImGuizmo::IsUsing();
+}
+
 
 #pragma endregion
 

@@ -49,4 +49,5 @@ class EditorApp : public Application
         void DrawTopMenu();
         void DrawAssetsWindow();
         void DrawMat4(const char* id, float m[16], bool editable = true, float speed = 0.05f, const char* fmt = "%.3f");
+        bool DrawGizmo(glm::mat4& transform, const glm::mat4& view, const glm::mat4& proj);
 };

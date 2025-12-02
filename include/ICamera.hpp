@@ -42,7 +42,8 @@ class ICamera
 
         void UpdateBuffer()
         {
-            m_CamInfo.proj = glm::perspectiveLH_ZO(glm::radians(fov), aspect, nearClip, farClip);
+            _proj = glm::perspectiveLH_ZO(glm::radians(fov), aspect, nearClip, farClip);
+            m_CamInfo.proj = _proj;
             m_CamInfo.view = _view;
             m_CamInfo.viewProj = m_CamInfo.proj * m_CamInfo.view;
             m_CamInfo.invView = glm::inverse(m_CamInfo.view);
@@ -56,12 +57,14 @@ class ICamera
         UniformLayout<CameraInfo>& GetBinding() { return m_CameraBuffer; }
 
         const glm::mat4& View() const { return _view; }
+        const glm::mat4& Projection() const { return _proj; }
         glm::vec3 Position()   const { return _pos; }
 
     protected:
         IInput& _input;
         glm::vec3 _pos;
         glm::mat4 _view{1.0f};
+        glm::mat4 _proj{1.0f};
         float fov = 60.0f;
         float nearClip = 0.1f, farClip = 100.0f;
         float exposure = 1.0;        
