@@ -302,6 +302,62 @@ void Texture::UploadTexture(const uint8_t* pixels, size_t length, int width, int
     device.GetQueue().WriteTexture(&destination, pixels, length, &source, &extent);
 }
 
+void Texture::LoadCubeTexture(const std::vector<std::string> paths, TextureFormat format)
+{
+    int k_width, k_height;
+    
+    assert(paths.size() == 6 && "Cube texture requires 6 image paths.");
+    
+
+    int width, height;
+    std::vector<std::vector<uint8_t>> facePixels(6);
+    facePixels[0] = FileReader::LoadPixelsFromImage(paths[0], k_width, k_height);
+    for (size_t i = 1; i < paths.size(); ++i) {
+        facePixels[i] = FileReader::LoadPixelsFromImage(paths[i], width, height);
+        assert(width == k_width && "Texture dimensions must match.");
+        assert(height == k_height && "Texture dimensions must match.");
+    }
+
+    wgpu::TextureFormat textureFormat = ToNative(format);
+    wgpu::TextureDescriptor textureDesc;
+    textureDesc.dimension = wgpu::TextureDimension::e2D;
+    textureDesc.format = textureFormat;
+    textureDesc.mipLevelCount = 1;
+    textureDesc.sampleCount = 1;
+    textureDesc.size = {static_cast<unsigned int>(width), static_cast<unsigned int>(height), 6};
+    textureDesc.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
+    textureDesc.viewFormatCount = 1;
+    textureDesc.viewFormats = &textureFormat;
+    _impl->m_Texture = device.CreateTexture(&textureDesc);
+
+    for (size_t i = 0; i < facePixels.size(); ++i) {
+        wgpu::TexelCopyTextureInfo destination;
+        destination.texture = _impl->m_Texture;
+        destination.mipLevel = 0;
+        destination.origin = {0, 0, static_cast<uint32_t>(i)};
+        destination.aspect = wgpu::TextureAspect::All;
+
+        wgpu::TexelCopyBufferLayout source;
+        source.offset = 0;
+        source.bytesPerRow = 4 * width;
+        source.rowsPerImage = height;
+
+        wgpu::Extent3D size = {static_cast<unsigned int>(width), static_cast<unsigned int>(height), 1};
+        device.GetQueue().WriteTexture(&destination, facePixels[i].data(), facePixels[i].size(), &source, &size);
+    }
+    
+
+    wgpu::TextureViewDescriptor textureViewDesc;
+    textureViewDesc.aspect = wgpu::TextureAspect::All;
+    textureViewDesc.baseArrayLayer = 0;
+    textureViewDesc.arrayLayerCount = 6;
+    textureViewDesc.baseMipLevel = 0;
+    textureViewDesc.mipLevelCount = 1;
+    textureViewDesc.dimension = wgpu::TextureViewDimension::Cube;
+    textureViewDesc.format = textureFormat;
+    _impl->m_View = _impl->m_Texture.CreateView(&textureViewDesc);
+}
+
 void Texture::CreateTexture(int width, int height, TextureFormat format, bool MSSA, bool renderTarget, bool isDepthTexture)
 {
     m_Width = width;

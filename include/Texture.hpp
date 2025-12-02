@@ -108,6 +108,13 @@ enum class TextureFormat : uint32_t {
     ASTC12x12UnormSrgb = 0x0065,
 };
 
+enum TextureType {
+    TextureType_2D,
+    TextureType_3D,
+    TextureType_Cube,
+    TextureType_2DArray
+};
+
 class Texture
 {
     public:
@@ -119,6 +126,7 @@ class Texture
         void CreateDepthTexture(TextureFormat format, int width, int height, bool MSSA);
         void CreateTexture(int width, int height, TextureFormat format, bool MSSA = false, bool renderTarget = false, bool isDepthTexture = false);
         void UploadTexture(const uint8_t* pixels, size_t length, int width, int height);
+        void LoadCubeTexture(const std::vector<std::string> paths, TextureFormat format);
         uint32_t SamplePixel(int x, int y);
 
         void* GetTexture();

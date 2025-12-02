@@ -12,11 +12,12 @@ struct IShader::Impl
     std::vector<wgpu::BindGroup> m_Bindgroups;  
 };
 
-IShader::IShader(VertexBufferLayout vbl, uint8_t textureCount, const Renderpass& renderpass)
+IShader::IShader(VertexBufferLayout vbl, std::vector<TextureType> textureTypes, const Renderpass& renderpass)
     : _impl(std::make_unique<Impl>()),
-      m_TextureCount(textureCount),
+      m_TextureTypes(textureTypes),
       m_VertexLayout(std::move(vbl)),
       m_Renderpass(renderpass) {
+        m_TextureCount = static_cast<uint16_t>(textureTypes.size());
       }
 
 IShader::~IShader() = default;
@@ -65,7 +66,7 @@ void IShader::LoadShader(std::string shaderCode)
     .module = shaderModule, .entryPoint = wgpu::StringView("fragmentMain"), .targetCount = 2, .targets = colorTargetStates.data()};
 
     wgpu::DepthStencilState depthStencilState{};
-    depthStencilState.depthCompare = wgpu::CompareFunction::Less;
+    depthStencilState.depthCompare = wgpu::CompareFunction::LessEqual;
     depthStencilState.depthWriteEnabled = true;
     depthStencilState.format = wgpu::TextureFormat::Depth24Plus;
     depthStencilState.stencilReadMask = 0;
@@ -114,7 +115,13 @@ void IShader::FixMaterialBindingLayout()
       entries[i].binding = i;
       entries[i].visibility = wgpu::ShaderStage::Fragment;
       entries[i].texture.sampleType = wgpu::TextureSampleType::Float;
-      entries[i].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+
+      if(m_TextureTypes[i - 1] == TextureType_Cube)
+          entries[i].texture.viewDimension = wgpu::TextureViewDimension::Cube;
+      else if (m_TextureTypes[i - 1] == TextureType_2D)
+        entries[i].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+      else
+          Logger::Error("Unsupported texture type in shader!");
     }
 
     entries[m_TextureCount + 1] = {};

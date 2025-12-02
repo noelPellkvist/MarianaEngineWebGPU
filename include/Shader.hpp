@@ -45,7 +45,7 @@ struct ShaderProperties
 class IShader
 {
     public:
-        IShader(VertexBufferLayout vbl, uint8_t textureCount, const Renderpass& renderpass);
+        IShader(VertexBufferLayout vbl, std::vector<TextureType> textureTypes, const Renderpass& renderpass);
         virtual ~IShader();
 
         void* GetPipeline();
@@ -76,8 +76,9 @@ class IShader
     protected:
         struct Impl;
         std::unique_ptr<Impl> _impl;
-        uint8_t m_TextureCount;
         VertexBufferLayout m_VertexLayout;
+        std::vector<TextureType> m_TextureTypes;
+        uint16_t m_TextureCount;
         const Renderpass& m_Renderpass;
 
         void FixMaterialBindingLayout();
@@ -91,9 +92,9 @@ class Shader : public IShader
     public:
         Shader(UniformLayout<Layouts>&... layouts,
                VertexBufferLayout vertexLayout,
-               uint8_t textureCount,
+               std::vector<TextureType> textureTypes,
                const Renderpass& renderpass)
-          : IShader(std::move(vertexLayout), textureCount, renderpass)
+          : IShader(std::move(vertexLayout), textureTypes, renderpass)
         {
             static_assert(sizeof...(Layouts) >= 1 && sizeof...(Layouts) <= 4,
               "Shader must have between 1 and 4 layout types.");

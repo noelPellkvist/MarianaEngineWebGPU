@@ -124,7 +124,7 @@ struct SkyBoxSettings
     float rotation{0.0f};
 };
 SkyBoxSettings skybox;
-UniformLayout SkyboxSettings(false, skybox, skybox.exposure, skybox.rotation);
+UniformLayout SkyboxSettings(true, skybox, skybox.exposure, skybox.rotation);
 
 System WriteTransformBufferSystem;
 
@@ -132,15 +132,18 @@ EditorApp::EditorApp(const std::string& name) : Application(name),
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight())
 {
     cam = new EditorCameraController(input);
-    PBR_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, 5, renderpass);
+    PBR_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, std::vector<TextureType>{ TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D }, renderpass);
     AssetManager::LoadedShaders.push_back(PBR_Shader);
 
-    Outline_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, 5, renderpass);
+    Outline_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, std::vector<TextureType>{ TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D }, renderpass);
     AssetManager::LoadedShaders.push_back(Outline_Shader);
+    Skybox_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, SkyBoxSettings>>(uboLayout, transformLayout, cam->GetBinding(), SkyboxSettings, vertexLayout, std::vector<TextureType>{ TextureType_Cube }, renderpass);
+    AssetManager::LoadedShaders.push_back(Skybox_Shader);
 
     scene.Instantiate((std::string("Avocado")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(20).SetPosition(0,0, 0);
     scene.Instantiate((std::string("Helmet1")).c_str()).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(1).SetPosition(0,-2, 0);
     scene.Instantiate((std::string("Helmet2")).c_str()).Add<RendererComponent>({0, 1, 2}).SetScaleUniform(1).SetPosition(0,2, 0);
+    scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({2, 2, 2}).SetScaleUniform(1).SetPosition(0,2, 0);
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
@@ -178,8 +181,28 @@ void EditorApp::OnStart()
     renderpass.Init();
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"));
     Outline_Shader->LoadShader(FileReader::LoadRawString("/Shaders/outline.wgsl"));
+    Skybox_Shader->LoadShader(FileReader::LoadRawString("/Shaders/skybox.wgsl"));
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", *PBR_Shader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", *PBR_Shader);
+
+    Texture skyboxTex;
+    skyboxTex.LoadCubeTexture({
+        "/Textures/skybox/right.jpg",
+        "/Textures/skybox/left.jpg",
+        "/Textures/skybox/top.jpg",
+        "/Textures/skybox/bottom.jpg",
+        "/Textures/skybox/back.jpg",
+        "/Textures/skybox/front.jpg",
+    }, TextureFormat::RGBA8UnormSrgb);
+    AssetManager::LoadedTextures.push_back(skyboxTex);
+
+    auto matID = AssetManager::LoadedMaterials.size() - 1;
+
+    std::shared_ptr<Material<SkyBoxSettings>> newMat = std::make_shared<Material<SkyBoxSettings>>(matID);
+    newMat->InitMaterial(*Skybox_Shader, { skyboxTex });
+    newMat->UpdateMaterialProperties(skybox);
+    AssetManager::LoadedMaterials[matID] = newMat;
     
     renderer.Init(scene);
     
