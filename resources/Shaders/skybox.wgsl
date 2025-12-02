@@ -104,6 +104,6 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
 
     var out: FragOut;
     out.color = vec4f(sky, 1.0);
-    out.pick_pic = 0u;   // Never write entity ID
+    out.pick_pic = 0xFFFFFFFFu;
     return out;
 }

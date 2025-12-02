@@ -41,6 +41,8 @@ class EditorApp : public Application
 
         void LoadFileTexture(const std::string& path);
         void LoadFileTextures();
+        void SelectEntity(uint64_t id);
+        void DeselectEntity();
 
         void DrawEntityNode(Entity& e);
         void DrawInspector(Entity& e);

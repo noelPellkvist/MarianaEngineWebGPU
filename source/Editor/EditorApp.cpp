@@ -91,6 +91,13 @@ inline std::string ToString(const uint32_t& v)
     return ss.str();
 }
 
+inline std::string ToString(const uint64_t& v)
+{
+    std::ostringstream ss;
+    ss << v;
+    return ss.str();
+}
+
 #pragma endregion
 
 struct UBO {
@@ -143,7 +150,7 @@ renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m
     scene.Instantiate((std::string("Avocado")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(20).SetPosition(0,0, 0);
     scene.Instantiate((std::string("Helmet1")).c_str()).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(1).SetPosition(0,-2, 0);
     scene.Instantiate((std::string("Helmet2")).c_str()).Add<RendererComponent>({0, 1, 2}).SetScaleUniform(1).SetPosition(0,2, 0);
-    scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({2, 2, 2}).SetScaleUniform(1).SetPosition(0,2, 0);
+    scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({2, 2, 3}).SetScaleUniform(1).SetPosition(0,2, 0);
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
@@ -292,23 +299,15 @@ void EditorApp::OnUpdate(float deltaTime)
     if(x > 0 && y > 0 && x < m_Window.GetWidth() && y < m_Window.GetHeight())
         sampledPixel = renderpass.GetRenderTarget(1).SamplePixel(x, y);
 
-    if(input.IsMouseButtonPressed(MouseButton::Left) && sampledPixel != 0)
+    if(input.IsMouseButtonPressed(MouseButton::Left) && sampledPixel != 4294967295)
     {
-        if(selectedEntityID != -1 && selectedEntity.Has<RendererComponent>())
-        {
-            selectedEntity.Get<RendererComponent>()->shaderIndex = 0;
-        }
-        selectedEntityID = sampledPixel;
-        selectedEntity = scene.FromId(selectedEntityID);
-        selectedEntity.Get<RendererComponent>()->shaderIndex = 1;
+        DeselectEntity();
+        SelectEntity((uint64_t)sampledPixel);
+        
     }
     else if (input.IsMouseButtonPressed(MouseButton::Left) && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
     {
-        if(selectedEntityID != -1 && selectedEntity.Has<RendererComponent>())
-        {
-            selectedEntity.Get<RendererComponent>()->shaderIndex = 0;
-        }
-        selectedEntityID = -1;
+        DeselectEntity();
     }
     scene.Update(deltaTime);
 }
@@ -349,6 +348,22 @@ void EditorApp::OnGUI()
         }
     }
     ImGui::End();
+}
+
+void EditorApp::SelectEntity(uint64_t id)
+{
+    selectedEntityID = id;
+    selectedEntity = scene.FromId(id);
+    selectedEntity.Get<RendererComponent>()->shaderIndex = 1;
+}
+
+void EditorApp::DeselectEntity()
+{
+    if(selectedEntityID != -1 && selectedEntity.Has<RendererComponent>())
+    {
+        selectedEntity.Get<RendererComponent>()->shaderIndex = 0;
+    }
+    selectedEntityID = -1;
 }
 
 #pragma region GUI
@@ -571,13 +586,9 @@ void EditorApp::DrawEntityNode(Entity& e)
     bool open = ImGui::TreeNodeEx("label", flags, "%s", name);
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)  && !ImGui::IsItemToggledOpen()) {
-        if(selectedEntityID != -1 && selectedEntity.Has<RendererComponent>())
-        {
-            selectedEntity.Get<RendererComponent>()->shaderIndex = 0;
-        }
-        selectedEntityID = e.RawId();;
-        selectedEntity = e;
-        selectedEntity.Get<RendererComponent>()->shaderIndex = 1;
+        DeselectEntity();
+        SelectEntity(e.RawId());
+        
     }
 
     if (ImGui::BeginPopupContextItem("entity_ctx")) {
