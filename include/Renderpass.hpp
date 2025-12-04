@@ -18,6 +18,7 @@ class Renderpass
         Texture& GetDepthView() { return m_DepthTexture; }
         const std::vector<TextureFormat>& GetOutputFormats() const { return m_OutputFormats; }
         void* GetDepthStencilAttachment();
+        bool HasDepthTexture() const { return m_HasDepthTexture; }
 
     private:
         bool m_MSSA = true;

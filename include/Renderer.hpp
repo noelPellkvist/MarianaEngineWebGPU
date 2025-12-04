@@ -2,6 +2,7 @@
 #include <Renderpass.hpp>
 #include <ECS.hpp>
 #include <memory>
+#include <vector>
 
 class Scene;
 class IShader;
@@ -21,11 +22,13 @@ class Renderer
         ~Renderer();
 
         void Init(Scene& scene);
+        void PushRenderpass(Renderpass* renderpass) { m_Renderpasses.push_back(renderpass); }
 
-        void Render(Renderpass& renderPass, GUI& gui);
+        void Render(GUI* gui);
 
     private:
         System renderSystem;
+        std::vector<Renderpass*> m_Renderpasses;
         struct Impl;
         std::unique_ptr<Impl> _impl;
         

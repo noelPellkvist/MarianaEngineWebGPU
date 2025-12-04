@@ -139,6 +139,7 @@ System WriteTransformBufferSystem;
 EditorApp::EditorApp(const std::string& name) : Application(name), 
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight())
 {
+
     cam = new EditorCameraController(input);
     PBR_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, std::vector<TextureType>{ TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D }, renderpass);
     AssetManager::LoadedShaders.push_back(PBR_Shader);
@@ -213,6 +214,7 @@ void EditorApp::OnStart()
     AssetManager::LoadedMaterials[matID] = newMat;
     
     renderer.Init(scene);
+    renderer.PushRenderpass(&renderpass);
     
     ubo.lightDir = glm::normalize(glm::vec3(1.0f, 0.5f, -1.0f));
     uboLayout.pack(ubo);
@@ -852,7 +854,7 @@ void EditorApp::OnRender()
                static_cast<float>(m_Window.GetHeight());
     
     WriteTransformBufferSystem.Run();
-    renderer.Render(renderpass, gui);
+    renderer.Render(&gui);
 }
 
 void EditorApp::OnShutdown()

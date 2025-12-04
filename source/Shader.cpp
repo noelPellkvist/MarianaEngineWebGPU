@@ -63,7 +63,7 @@ void IShader::LoadShader(std::string shaderCode)
     }
 
     wgpu::FragmentState fragmentState{
-    .module = shaderModule, .entryPoint = wgpu::StringView("fragmentMain"), .targetCount = 2, .targets = colorTargetStates.data()};
+    .module = shaderModule, .entryPoint = wgpu::StringView("fragmentMain"), .targetCount = outputFormats.size(), .targets = colorTargetStates.data()};
 
     wgpu::DepthStencilState depthStencilState{};
     depthStencilState.depthCompare = wgpu::CompareFunction::LessEqual;
