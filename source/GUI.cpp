@@ -162,7 +162,6 @@ void GUI::InitGui(Window& window)
     info.PipelineMultisampleState.count = 1;
     if(ImGui_ImplWGPU_Init(&info))
     {
-        Logger::Error("Successfully started ImGUI");
     }
     else
         Logger::Error("Failed to start ImGui");

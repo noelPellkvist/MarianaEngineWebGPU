@@ -25,31 +25,6 @@ void Renderpass::Init(Scene& scene)
 {
     CreateMSSATexture();
     if (m_HasDepthTexture) CreateDepthTexture();
-
-    renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
-        wgpu::RenderPassEncoder& pass = _impl->pass;
-        auto shader = AssetManager::LoadedShaders[rendererComp.shaderIndex];
-        pass.SetPipeline(*static_cast<wgpu::RenderPipeline*>(shader->GetPipeline()));
-        auto& mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex];
-        pass.SetVertexBuffer(0, *static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer()), 0, (*static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer())).GetSize());
-
-        pass.SetIndexBuffer(*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer()), wgpu::IndexFormat::Uint32, 0, (*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer())).GetSize());
-
-        for (Submesh& sm : mesh->submeshes)
-        {
-          IMaterial& material = *(AssetManager::LoadedMaterials[sm.materialIndex]);
-          uint32_t materialBinding = shader->GetBindingsCount() - 1;
-          for(uint32_t i = 0; i < materialBinding; i++)
-          {
-            size_t dynamicOffsetCount = shader->GetBufferDynamicOffsets(static_cast<uint32_t>(i));
-            uint32_t offset = dynamicOffsetCount == 0 ? 0 : shader->GetBufferDynamicOffset(static_cast<uint32_t>(i), rendererComp.transformIndex);
-            pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(i)), dynamicOffsetCount, dynamicOffsetCount == 0 ? nullptr : &offset);
-          }
-          uint32_t materialOffset = shader->GetMaterialDynamicOffset(sm.materialIndex);
-          pass.SetBindGroup(materialBinding, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(materialBinding)), 1, &materialOffset);
-          pass.DrawIndexed(sm.indexCount, 1, sm.startIndex, 0, 0);
-        }
-    });
 }
 
 void Renderpass::Recreate(uint32_t width, uint32_t height)
@@ -116,22 +91,31 @@ void Renderpass::CreateDepthStencilAttachment()
 
 void Renderpass::SetShader(IShader* shader)
 {
-    
+    _impl->pass.SetPipeline(*static_cast<wgpu::RenderPipeline*>(shader->GetPipeline()));
 }
 
-void Renderpass::SetMesh(IMesh* shader)
+void Renderpass::SetMesh(IMesh* mesh)
 {
-    
+    _impl->pass.SetVertexBuffer(0, *static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer()), 0, (*static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer())).GetSize());
+    _impl->pass.SetIndexBuffer(*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer()), mesh->IsUINT16() ? wgpu::IndexFormat::Uint16 :  wgpu::IndexFormat::Uint32, 0, (*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer())).GetSize());
 }
 
-void Renderpass::SetMaterial(IMaterial* shader)
+void Renderpass::SetMaterial(IShader* shader, IMaterial* material, RendererComponent* rendererComp, uint32_t materialIndex)
 {
-    
+    uint32_t materialBinding = shader->GetBindingsCount() - 1;
+    for(uint32_t i = 0; i < materialBinding; i++)
+    {
+      size_t dynamicOffsetCount = shader->GetBufferDynamicOffsets(static_cast<uint32_t>(i));
+      uint32_t offset = dynamicOffsetCount == 0 ? 0 : shader->GetBufferDynamicOffset(static_cast<uint32_t>(i), rendererComp->transformIndex);
+      _impl->pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(material->GetBindGroup(i)), dynamicOffsetCount, dynamicOffsetCount == 0 ? nullptr : &offset);
+    }
+    uint32_t materialOffset = shader->GetMaterialDynamicOffset(materialIndex);
+    _impl->pass.SetBindGroup(materialBinding, *static_cast<wgpu::BindGroup*>(material->GetBindGroup(materialBinding)), 1, &materialOffset);
 }
 
 void Renderpass::Draw(uint32_t indexCount, uint32_t startIndex)
 {
-    
+    _impl->pass.DrawIndexed(indexCount, 1, startIndex, 0, 0);
 }
 
 

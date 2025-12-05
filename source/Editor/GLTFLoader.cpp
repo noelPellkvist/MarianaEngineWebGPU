@@ -306,9 +306,7 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
     std::string err;
     std::string warn;
 
-    Logger::Error("Starting to load the binary gltf");
     bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, filename);
-    Logger::Error("Binary is loaded");
 
     if (!warn.empty()) {
       Logger::Warning(warn);
@@ -327,7 +325,6 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
     size_t preMaterials = AssetManager::LoadedMaterials.size();
     size_t preMeshes = AssetManager::LoadedMeshes.size();
 
-    Logger::Error("Start loading the gltf images");
     for (tinygltf::Image& img : model.images)
     {
         Texture newTexture;
@@ -336,7 +333,6 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
         AssetManager::LoadedTextures.push_back(newTexture);
         res.push_back(newTexture);
     }
-    Logger::Error("Textures are loaded");
 
     uint32_t currentMaterial = preMaterials;
     for (tinygltf::Material& mat : model.materials)
@@ -354,15 +350,11 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
         AssetManager::LoadedMaterials.push_back(newMat);
         currentMaterial++;
     }
-    Logger::Error("Materials are loaded");
 
     for (tinygltf::Mesh& mesh : model.meshes)
     {
-        Logger::Error("Loading mesh");
         auto newMesh = LoadEntireMesh(model, mesh, preMaterials);
-        Logger::Error("Building mesh");
         newMesh->BuildMesh();
         AssetManager::LoadedMeshes.push_back(newMesh);
-        Logger::Error("DONE");
     }
 }

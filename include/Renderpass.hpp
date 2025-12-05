@@ -8,6 +8,7 @@ class Renderer;
 class IShader;
 class IMesh;
 class IMaterial;
+struct RendererComponent;
 
 class Renderpass 
 {
@@ -16,6 +17,8 @@ class Renderpass
         ~Renderpass();
 
         void Init(Scene& scene);
+
+        System renderSystem;
 
         void Recreate(uint32_t width, uint32_t height);
         uint8_t NumberOfOutputs() { return m_OutputFormats.size(); }
@@ -28,14 +31,14 @@ class Renderpass
 
         void SetShader(IShader* shader);
         void SetMesh(IMesh* shader);
-        void SetMaterial(IMaterial* shader);
+        void SetMaterial(IShader* shader, IMaterial* material, RendererComponent* rendererComp, uint32_t materialIndex);
         void Draw(uint32_t indexCount, uint32_t startIndex);
 
         
 
     private:
         friend class Renderer;
-        System renderSystem;
+        
         bool m_MSSA = true;
         bool m_HasDepthTexture = true;
         std::vector<TextureFormat> m_OutputFormats;

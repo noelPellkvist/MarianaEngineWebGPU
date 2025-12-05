@@ -37,6 +37,7 @@ class EditorApp : public Application
         Entity selectedEntity;
         Renderpass renderpass;
         
+        
         void OnWindowResized(int w, int h);
 
         void LoadFileTexture(const std::string& path);

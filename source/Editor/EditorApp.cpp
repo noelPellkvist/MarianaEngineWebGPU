@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <algorithm>
 namespace fs = std::filesystem;
+
 #pragma region Helpers
 
 static bool DragOrInputFloat(const char* id, float* v, float speed, const char* fmt, float width)
@@ -101,6 +102,8 @@ inline std::string ToString(const uint64_t& v)
 
 #pragma endregion
 
+#pragma region ShaderUniforms
+
 struct UBO {
   glm::vec3 lightDir;
 };
@@ -133,6 +136,8 @@ struct SkyBoxSettings
 };
 SkyBoxSettings skybox;
 UniformLayout SkyboxSettings(true, skybox, skybox.exposure, skybox.rotation);
+
+#pragma endregion
 
 System WriteTransformBufferSystem;
 
@@ -219,6 +224,21 @@ void EditorApp::OnStart()
     uboLayout.pack(ubo);
 
     LoadFileTextures();
+
+    renderpass.renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
+        IShader* shader = AssetManager::LoadedShaders[rendererComp.shaderIndex].get();
+        IMesh* mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex].get();
+
+        renderpass.SetShader(shader);
+        renderpass.SetMesh(mesh);
+
+        for (Submesh& sm : mesh->submeshes)
+        {
+          IMaterial* material = AssetManager::LoadedMaterials[sm.materialIndex].get();
+          renderpass.SetMaterial(shader, material, &rendererComp, sm.materialIndex);
+          renderpass.Draw(sm.indexCount, sm.startIndex);
+        }
+    });
     Logger::Info("OnStart done");
 }
 
