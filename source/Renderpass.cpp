@@ -1,10 +1,13 @@
 #include <Renderpass.hpp>
 #include "Init.hpp"
 #include <webgpu/webgpu_cpp.h>
+#include <Renderer.hpp>
+#include <AssetManager.hpp>
 
 struct Renderpass::Impl
 {
     wgpu::RenderPassDepthStencilAttachment m_DepthStencilAttachment;
+    wgpu::RenderPassEncoder pass;
 };
 
 Renderpass::Renderpass(bool MSSA, bool depthTexture, std::vector<TextureFormat> outputFormats, uint32_t width, uint32_t height) :
@@ -18,10 +21,35 @@ _impl(std::make_unique<Impl>())
 
 }
 
-void Renderpass::Init()
+void Renderpass::Init(Scene& scene)
 {
     CreateMSSATexture();
     if (m_HasDepthTexture) CreateDepthTexture();
+
+    renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
+        wgpu::RenderPassEncoder& pass = _impl->pass;
+        auto shader = AssetManager::LoadedShaders[rendererComp.shaderIndex];
+        pass.SetPipeline(*static_cast<wgpu::RenderPipeline*>(shader->GetPipeline()));
+        auto& mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex];
+        pass.SetVertexBuffer(0, *static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer()), 0, (*static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer())).GetSize());
+
+        pass.SetIndexBuffer(*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer()), wgpu::IndexFormat::Uint32, 0, (*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer())).GetSize());
+
+        for (Submesh& sm : mesh->submeshes)
+        {
+          IMaterial& material = *(AssetManager::LoadedMaterials[sm.materialIndex]);
+          uint32_t materialBinding = shader->GetBindingsCount() - 1;
+          for(uint32_t i = 0; i < materialBinding; i++)
+          {
+            size_t dynamicOffsetCount = shader->GetBufferDynamicOffsets(static_cast<uint32_t>(i));
+            uint32_t offset = dynamicOffsetCount == 0 ? 0 : shader->GetBufferDynamicOffset(static_cast<uint32_t>(i), rendererComp.transformIndex);
+            pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(i)), dynamicOffsetCount, dynamicOffsetCount == 0 ? nullptr : &offset);
+          }
+          uint32_t materialOffset = shader->GetMaterialDynamicOffset(sm.materialIndex);
+          pass.SetBindGroup(materialBinding, *static_cast<wgpu::BindGroup*>(material.GetBindGroup(materialBinding)), 1, &materialOffset);
+          pass.DrawIndexed(sm.indexCount, 1, sm.startIndex, 0, 0);
+        }
+    });
 }
 
 void Renderpass::Recreate(uint32_t width, uint32_t height)
@@ -83,3 +111,48 @@ void Renderpass::CreateDepthStencilAttachment()
     _impl->m_DepthStencilAttachment.stencilStoreOp = wgpu::StoreOp::Undefined;
     _impl->m_DepthStencilAttachment.stencilReadOnly = true;
 }
+
+#pragma region Drawing
+
+void Renderpass::SetShader(IShader* shader)
+{
+    
+}
+
+void Renderpass::SetMesh(IMesh* shader)
+{
+    
+}
+
+void Renderpass::SetMaterial(IMaterial* shader)
+{
+    
+}
+
+void Renderpass::Draw(uint32_t indexCount, uint32_t startIndex)
+{
+    
+}
+
+
+void Renderpass::Start(void* encoder, bool surfaceTarget, void* surfaceView)
+{
+    std::vector<wgpu::RenderPassColorAttachment> attachments(NumberOfOutputs());
+    for (uint8_t i = 0; i < NumberOfOutputs(); i++)
+    {
+      attachments[i] = {
+      .view = (i == 0 && surfaceTarget) ? *static_cast<wgpu::TextureView*>(surfaceView) : *static_cast<wgpu::TextureView*>(GetRenderTarget(i).GetTextureView()),
+      .loadOp = wgpu::LoadOp::Clear,
+      .storeOp = wgpu::StoreOp::Store};
+    }
+
+    wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = attachments.size(),
+                                          .colorAttachments = attachments.size() == 0 ? nullptr : attachments.data(),
+                                          .depthStencilAttachment = HasDepthTexture() ? static_cast<wgpu::RenderPassDepthStencilAttachment*>(GetDepthStencilAttachment()) : nullptr};
+    wgpu::CommandEncoder R_encoder = *(static_cast<wgpu::CommandEncoder*>(encoder));
+    _impl->pass = R_encoder.BeginRenderPass(&renderpassDesc);
+    renderSystem.Run();
+    _impl->pass.End();
+}
+
+#pragma endregion

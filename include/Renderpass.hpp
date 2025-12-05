@@ -1,7 +1,13 @@
 #pragma once
 #include <Texture.hpp>
+#include <ECS.hpp>
 #include <memory>
 #include <vector>
+
+class Renderer;
+class IShader;
+class IMesh;
+class IMaterial;
 
 class Renderpass 
 {
@@ -9,7 +15,7 @@ class Renderpass
         Renderpass(bool MSSA, bool depthTexture, std::vector<TextureFormat> outputFormats, uint32_t width, uint32_t height);
         ~Renderpass();
 
-        void Init();
+        void Init(Scene& scene);
 
         void Recreate(uint32_t width, uint32_t height);
         uint8_t NumberOfOutputs() { return m_OutputFormats.size(); }
@@ -20,7 +26,16 @@ class Renderpass
         void* GetDepthStencilAttachment();
         bool HasDepthTexture() const { return m_HasDepthTexture; }
 
+        void SetShader(IShader* shader);
+        void SetMesh(IMesh* shader);
+        void SetMaterial(IMaterial* shader);
+        void Draw(uint32_t indexCount, uint32_t startIndex);
+
+        
+
     private:
+        friend class Renderer;
+        System renderSystem;
         bool m_MSSA = true;
         bool m_HasDepthTexture = true;
         std::vector<TextureFormat> m_OutputFormats;
@@ -37,4 +52,6 @@ class Renderpass
         void CreateMSSATexture();
         void CreateDepthTexture();
         void CreateDepthStencilAttachment();
+
+        void Start(void* encoder, bool surfaceTarget, void* resolveTarget);
 };

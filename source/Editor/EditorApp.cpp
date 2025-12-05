@@ -187,7 +187,7 @@ void EditorApp::OnStart()
         editorCam->SetYawPitch(glm::half_pi<float>(), 0.0f);
     }
 
-    renderpass.Init();
+    renderpass.Init(scene);
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"));
     Outline_Shader->LoadShader(FileReader::LoadRawString("/Shaders/outline.wgsl"));
     Skybox_Shader->LoadShader(FileReader::LoadRawString("/Shaders/skybox.wgsl"));
@@ -213,7 +213,6 @@ void EditorApp::OnStart()
     newMat->UpdateMaterialProperties(skybox);
     AssetManager::LoadedMaterials[matID] = newMat;
     
-    renderer.Init(scene);
     renderer.PushRenderpass(&renderpass);
     
     ubo.lightDir = glm::normalize(glm::vec3(1.0f, 0.5f, -1.0f));
