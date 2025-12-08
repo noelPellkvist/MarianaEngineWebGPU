@@ -12,11 +12,15 @@ struct IShader::Impl
     std::vector<wgpu::BindGroup> m_Bindgroups;  
 };
 
-IShader::IShader(VertexBufferLayout vbl, std::vector<TextureType> textureTypes, const Renderpass& renderpass)
+IShader::IShader(VertexBufferLayout vbl, std::vector<TextureType> textureTypes, const Renderpass& renderpass, bool material)
     : _impl(std::make_unique<Impl>()),
       m_TextureTypes(textureTypes),
       m_VertexLayout(std::move(vbl)),
-      m_Renderpass(renderpass) {
+      m_Renderpass(renderpass),
+      hasMaterial(material) {
+        if (!material && textureTypes.size() != 0) {
+            assert(false && "Cant define textures if theres no material.");
+        }
         m_TextureCount = static_cast<uint16_t>(textureTypes.size());
       }
 
@@ -26,6 +30,10 @@ void* IShader::GetBindGroup(uint32_t index)
 { 
     if (index == GetBindingsCount() - 1)
     {
+        if(!hasMaterial)
+        {
+            return &_impl->m_Bindgroups[index];
+        }
         Logger::Error("WHY YOU CALLING THIS???");
     } else
         return &_impl->m_Bindgroups[index];
@@ -139,9 +147,12 @@ void IShader::FixMaterialBindingLayout()
 
 void IShader::FixBindingLayouts()
 {
-    FixMaterialBindingLayout();
+    uint32_t bindings = hasMaterial ? GetBindingsCount() - 1 : GetBindingsCount();
 
-    for(size_t i = 0; i < GetBindingsCount() - 1; i++)
+    if(hasMaterial)
+        FixMaterialBindingLayout();
+
+    for(size_t i = 0; i < bindings; i++)
     {
         std::string label = "Bindgroup Layout " + std::to_string(i);
         wgpu::BindGroupLayoutDescriptor BindGroupLayoutDesc{};
@@ -154,8 +165,9 @@ void IShader::FixBindingLayouts()
 
 void IShader::CreateBindgroups()
 {
+    uint32_t bindings = hasMaterial ? GetBindingsCount() - 1 : GetBindingsCount();
 
-    for (size_t i = 0; i < GetBindingsCount() - 1; i++)
+    for (size_t i = 0; i < bindings; i++)
     {
         wgpu::BindGroupDescriptor bindGroupDesc{};
         bindGroupDesc.layout = _impl->m_BindgroupLayouts[i];

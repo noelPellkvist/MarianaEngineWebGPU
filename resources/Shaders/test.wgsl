@@ -18,6 +18,7 @@ struct VertexOutput {
 
 struct UBO {
   lightDir: vec3f,
+  lightVP: mat4x4<f32>,
 };
 
 struct ModelData {
@@ -142,7 +143,7 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
     let ao = textureSample(ambientO, textureSampler, input.uv).r;
     let aoTerm = mix(1.0, ao, aoStrength);
 
-    let L = normalize(UniformBufferObject.lightDir);
+    let L = normalize(-UniformBufferObject.lightDir);
     let V = normalize(camInfo.position - input.world_pos);
     let H = normalize(L + V);
     let NoL = saturate(dot(N, L));

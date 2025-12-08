@@ -16,7 +16,7 @@ class Renderpass
         Renderpass(bool MSSA, bool depthTexture, std::vector<TextureFormat> outputFormats, uint32_t width, uint32_t height);
         ~Renderpass();
 
-        void Init(Scene& scene);
+        void Init();
 
         System renderSystem;
 
@@ -29,7 +29,7 @@ class Renderpass
         void* GetDepthStencilAttachment();
         bool HasDepthTexture() const { return m_HasDepthTexture; }
 
-        void SetShader(IShader* shader);
+        void SetShader(IShader* shader, uint32_t transformIndex);
         void SetMesh(IMesh* shader);
         void SetMaterial(IShader* shader, IMaterial* material, RendererComponent* rendererComp, uint32_t materialIndex);
         void Draw(uint32_t indexCount, uint32_t startIndex);

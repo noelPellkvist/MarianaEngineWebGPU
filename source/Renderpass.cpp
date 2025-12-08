@@ -21,7 +21,7 @@ _impl(std::make_unique<Impl>())
 
 }
 
-void Renderpass::Init(Scene& scene)
+void Renderpass::Init()
 {
     CreateMSSATexture();
     if (m_HasDepthTexture) CreateDepthTexture();
@@ -89,9 +89,16 @@ void Renderpass::CreateDepthStencilAttachment()
 
 #pragma region Drawing
 
-void Renderpass::SetShader(IShader* shader)
+void Renderpass::SetShader(IShader* shader, uint32_t transformIndex)
 {
     _impl->pass.SetPipeline(*static_cast<wgpu::RenderPipeline*>(shader->GetPipeline()));
+    uint32_t shaderBindingCount = shader->HasMaterial() ? shader->GetBindingsCount() - 1 : shader->GetBindingsCount();
+    for(uint32_t i = 0; i < shaderBindingCount; i++)
+    {
+      size_t dynamicOffsetCount = shader->GetBufferDynamicOffsets(static_cast<uint32_t>(i));
+      uint32_t offset = dynamicOffsetCount == 0 ? 0 : shader->GetBufferDynamicOffset(static_cast<uint32_t>(i), transformIndex);
+      _impl->pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(shader->GetBindGroup(i)), dynamicOffsetCount, dynamicOffsetCount == 0 ? nullptr : &offset);
+    }
 }
 
 void Renderpass::SetMesh(IMesh* mesh)
@@ -103,12 +110,6 @@ void Renderpass::SetMesh(IMesh* mesh)
 void Renderpass::SetMaterial(IShader* shader, IMaterial* material, RendererComponent* rendererComp, uint32_t materialIndex)
 {
     uint32_t materialBinding = shader->GetBindingsCount() - 1;
-    for(uint32_t i = 0; i < materialBinding; i++)
-    {
-      size_t dynamicOffsetCount = shader->GetBufferDynamicOffsets(static_cast<uint32_t>(i));
-      uint32_t offset = dynamicOffsetCount == 0 ? 0 : shader->GetBufferDynamicOffset(static_cast<uint32_t>(i), rendererComp->transformIndex);
-      _impl->pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(material->GetBindGroup(i)), dynamicOffsetCount, dynamicOffsetCount == 0 ? nullptr : &offset);
-    }
     uint32_t materialOffset = shader->GetMaterialDynamicOffset(materialIndex);
     _impl->pass.SetBindGroup(materialBinding, *static_cast<wgpu::BindGroup*>(material->GetBindGroup(materialBinding)), 1, &materialOffset);
 }

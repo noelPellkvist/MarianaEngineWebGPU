@@ -30,13 +30,14 @@ class EditorApp : public Application
         std::shared_ptr<IShader> PBR_Shader;
         std::shared_ptr<IShader> Outline_Shader;
         std::shared_ptr<IShader> Skybox_Shader;
+        std::shared_ptr<IShader> Shadowmap_Shader;
         std::unordered_map<std::string, Texture> AssetsTextures;
         Renderer renderer;
         Scene scene;
         uint64_t selectedEntityID = -1;
         Entity selectedEntity;
         Renderpass renderpass;
-        
+        Renderpass shadowpass;
         
         void OnWindowResized(int w, int h);
 

@@ -20,6 +20,7 @@ struct VertexOutput {
 
 struct UBO {
   lightDir: vec3f,
+  lightVP: mat4x4<f32>,
 };
 
 struct ModelData {
