@@ -112,7 +112,8 @@ enum TextureType {
     TextureType_2D,
     TextureType_3D,
     TextureType_Cube,
-    TextureType_2DArray
+    TextureType_2DArray,
+    TextureType_Depth,
 };
 
 class Texture

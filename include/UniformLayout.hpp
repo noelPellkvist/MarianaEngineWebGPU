@@ -245,6 +245,10 @@ public:
         return uniformStride;
     }
 
+    std::vector<std::byte>& GetBuffer() {
+        return m_Buffer;
+    }
+
 private:
     struct Entry {
         std::size_t dst_offset; // where in the WGSL buffer to write
@@ -302,8 +306,127 @@ private:
         total_size_ = align_to(current_dst, 16);
     }
 
+    
+
 private:
     std::vector<Field> layout_;
     std::vector<Entry> table_;
 };
 
+class UniformBufferLayout {
+
+public:
+    template <typename T, typename... Ms>
+    UniformBufferLayout(bool isDynamic, const T& base, const Ms&... fields) {
+        m_isDynamic = isDynamic;
+        static_assert(sizeof...(Ms) > 0, "Provide at least one field.");
+        build_layout(base, fields...);
+    }
+
+    ~UniformBufferLayout() = default;
+
+    template <typename T>
+    std::vector<std::byte>& Pack(T& obj) {
+        m_Buffer.resize(total_size_);
+        pack_into(obj, m_Buffer.data(), m_Buffer.size());
+        return m_Buffer;
+    }
+
+    template <typename T>
+    void pack_into(const T& obj, void* dst, std::size_t dstBytes) const {
+        if (dstBytes < total_size_) throw std::runtime_error("pack_into: dst too small");
+        std::byte* buffer = reinterpret_cast<std::byte*>(dst);
+        const std::byte* base = reinterpret_cast<const std::byte*>(&obj);
+
+        for (const auto& e : table_) {
+            const std::byte* src = base + e.src_offset;
+            std::byte*       d   = buffer + e.dst_offset;
+
+            if (!is_matrix(e.kind)) {
+                std::memcpy(d, src, e.copy_bytes);
+            } else {
+                const int C = mat_cols(e.kind);
+                const int R = mat_rows(e.kind);
+                const std::size_t src_col_bytes = 4 * R;   // float * rows
+                const std::size_t dst_stride     = 16;     // WGSL/std140 column stride
+                for (int c = 0; c < C; ++c) {
+                    std::memcpy(d + c * dst_stride, src + c * src_col_bytes, src_col_bytes);
+                }
+            }
+        }
+    }
+
+    bool IsDynamic() const
+    {
+        return m_isDynamic;
+    }
+
+    std::size_t total_size() const { return total_size_; }
+    uint32_t GetUniformStride() const
+    {
+        return uniformStride;
+    }
+
+private:
+    struct Entry {
+        std::size_t dst_offset; 
+        std::size_t src_offset;
+        std::size_t copy_bytes; 
+        Kind kind;
+    };
+    bool m_isDynamic{false};
+    std::vector<Field> layout_;
+    std::vector<Entry> table_;
+    std::vector<std::byte> m_Buffer;
+    uint32_t uniformStride;
+    std::size_t total_size_ = 0;
+
+    template<typename U>
+    static constexpr Kind deduce_kind(const U&) {
+        using Dec = std::decay_t<U>;
+        static_assert(!std::is_pointer_v<Dec>, "Fields must be values/references, not pointers.");
+        return map_kind<Dec>::value;
+    }
+
+    template<typename T, typename U>
+    static std::size_t offset_in_T(const T& base, const U& field_ref) {
+        const auto* base_b  = reinterpret_cast<const std::byte*>(&base);
+        const auto* field_b = reinterpret_cast<const std::byte*>(&field_ref);
+        std::ptrdiff_t d = field_b - base_b;
+        if (d < 0 || static_cast<std::size_t>(d) >= sizeof(T)) {
+            throw std::runtime_error("Field does not belong to the provided base object.");
+        }
+        return static_cast<std::size_t>(d);
+    }
+
+    template<typename T, typename U>
+    void add_one(const T& base, const U& field_ref, std::size_t& current_dst) {
+        const Kind k = deduce_kind(field_ref);
+        const std::size_t A = align_of(k);
+        const std::size_t S = size_of(k);
+        const std::size_t C = raw_copy_bytes(k);
+
+        current_dst = align_to(current_dst, A);
+
+        const std::size_t src_off = offset_in_T(base, field_ref);
+
+        layout_.push_back(Field{ k, current_dst, S });
+        table_.push_back(Entry{ current_dst, src_off, C, k });
+
+        current_dst += S;
+    }
+
+    template<typename T, typename U, typename... Rest>
+    void add_all(const T& base, std::size_t& current_dst, const U& first, const Rest&... rest) {
+        add_one(base, first, current_dst);
+        if constexpr (sizeof...(rest) > 0) add_all(base, current_dst, rest...);
+    }
+    
+    template <typename T, typename... Ms>
+    void build_layout(const T& base, const Ms&... fields) {
+        std::size_t current_dst = 0;
+        add_all(base, current_dst, fields...);
+        total_size_ = align_to(current_dst, 16);
+        uniformStride = static_cast<uint32_t>(align_to(total_size_, 256));
+    }
+};

@@ -10,6 +10,9 @@ class IMesh;
 class IMaterial;
 struct RendererComponent;
 
+class Material2;
+class Shader2;
+
 class Renderpass 
 {
     public:
@@ -33,6 +36,9 @@ class Renderpass
         void SetMesh(IMesh* shader);
         void SetMaterial(IShader* shader, IMaterial* material, RendererComponent* rendererComp, uint32_t materialIndex);
         void Draw(uint32_t indexCount, uint32_t startIndex);
+
+        void SetShader2(Shader2& shader, uint32_t transformIndex);
+        void SetMaterial2(Shader2& shader, Material2& material, uint32_t materialIndex);
 
         
 

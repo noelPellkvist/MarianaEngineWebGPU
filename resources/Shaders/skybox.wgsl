@@ -52,6 +52,7 @@ struct CameraInfoData {
 @group(3) @binding(0) var<uniform> Material : MaterialProperties;
 @group(3) @binding(1) var albedo: texture_cube<f32>;
 @group(3) @binding(2) var textureSampler: sampler;
+@group(3) @binding(3) var shadowSampler: sampler_comparison;
 
 @group(2) @binding(0) var<uniform> camInfo: CameraInfoData;
 

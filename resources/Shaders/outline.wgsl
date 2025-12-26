@@ -49,18 +49,16 @@ struct CameraInfoData {
 };
 
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
+@group(0) @binding(1) var<uniform> ModelDataObject: ModelData;
+@group(0) @binding(2) var<uniform> camInfo: CameraInfoData;
+@group(0) @binding(3) var<uniform> Material : MaterialProperties;
 
-@group(1) @binding(0) var<uniform> ModelDataObject: ModelData;
-
-@group(3) @binding(0) var<uniform> Material : MaterialProperties;
-@group(3) @binding(1) var albedo: texture_2d<f32>;
-@group(3) @binding(2) var normalMap: texture_2d<f32>;
-@group(3) @binding(3) var ambientO: texture_2d<f32>;
-@group(3) @binding(4) var metallicRoughness: texture_2d<f32>;  
-@group(3) @binding(5) var emissiveTex: texture_2d<f32>;  
-@group(3) @binding(6) var textureSampler: sampler;
-
-@group(2) @binding(0) var<uniform> camInfo: CameraInfoData;
+@group(1) @binding(0) var albedo: texture_2d<f32>;
+@group(1) @binding(1) var normalMap: texture_2d<f32>;
+@group(1) @binding(2) var ambientO: texture_2d<f32>;
+@group(1) @binding(3) var metallicRoughness: texture_2d<f32>;  
+@group(1) @binding(4) var emissiveTex: texture_2d<f32>;  
+@group(1) @binding(5) var textureSampler: sampler;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -145,7 +143,7 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
     let ao = textureSample(ambientO, textureSampler, input.uv).r;
     let aoTerm = mix(1.0, ao, aoStrength);
 
-    let L = normalize(UniformBufferObject.lightDir);
+    let L = normalize(-UniformBufferObject.lightDir);
     let V = normalize(camInfo.position - input.world_pos);
     let H = normalize(L + V);
     let NoL = saturate(dot(N, L));

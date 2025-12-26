@@ -118,17 +118,28 @@ struct TransformData {
 
 UBO ubo{};
 UniformLayout uboLayout(false, ubo, ubo.lightDir, ubo.lightVP);
+UniformBufferLayout uboLayout2(false, ubo, ubo.lightDir, ubo.lightVP);
 
 TransformData transformBuffer{};
 UniformLayout transformLayout(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix, transformBuffer.entityID);
+UniformBufferLayout transformLayout2(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix, transformBuffer.entityID);
 
 GLTF::GLTFMaterialProperties materialsBuffer;
 UniformLayout materialsLayout(true, materialsBuffer, materialsBuffer.baseColor, materialsBuffer.metallicFactor, materialsBuffer.roughnessFactor,
     materialsBuffer.normalMapStrength, materialsBuffer.occlusionStrength,
     materialsBuffer.emissiveFactor, materialsBuffer.alphaCutoff);
 
+UniformBufferLayout materialsLayout2(true, materialsBuffer, materialsBuffer.baseColor, materialsBuffer.metallicFactor, materialsBuffer.roughnessFactor,
+    materialsBuffer.normalMapStrength, materialsBuffer.occlusionStrength,
+    materialsBuffer.emissiveFactor, materialsBuffer.alphaCutoff);
+
+CameraInfo cameraInfo{};
+UniformBufferLayout camLayout(false, cameraInfo, cameraInfo.proj, cameraInfo.view, cameraInfo.viewProj, cameraInfo.invView, cameraInfo.invProj, cameraInfo.invViewProj, cameraInfo.pos, cameraInfo.exposure);
+
 GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
+
+
 
 struct SkyBoxSettings
 {
@@ -141,6 +152,8 @@ UniformLayout SkyboxSettings(true, skybox, skybox.exposure, skybox.rotation);
 #pragma endregion
 
 System WriteTransformBufferSystem;
+Shader2 testNewShader("TestShader");
+Material2 testMaterial;
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
@@ -151,25 +164,37 @@ shadowpass(false, true, {  }, 2048, 2048)
     PBR_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, std::vector<TextureType>{ TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D }, renderpass);
     AssetManager::LoadedShaders.push_back(PBR_Shader);
 
-    Outline_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, std::vector<TextureType>{ TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D }, renderpass);
-    AssetManager::LoadedShaders.push_back(Outline_Shader);
+    auto m = transformLayout2.GetUniformStride();
 
-    Skybox_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, SkyBoxSettings>>(uboLayout, transformLayout, cam->GetBinding(), SkyboxSettings, vertexLayout, std::vector<TextureType>{ TextureType_Cube }, renderpass);
-    AssetManager::LoadedShaders.push_back(Skybox_Shader);
+    testNewShader.Group(0)
+    .AddUniformBuffer("UBO", 0, uboLayout2)
+    .AddUniformBuffer("ModelData", 1, transformLayout2)
+    .AddUniformBuffer("CameraInfo", 2, camLayout)
+    .AddUniformBuffer("Material", 3, materialsLayout2);
 
-    Shadowmap_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo>>(uboLayout, transformLayout, cam->GetBinding(), vertexLayout, std::vector<TextureType>{  }, shadowpass, false);
-    AssetManager::LoadedShaders.push_back(Shadowmap_Shader);
+    testNewShader.Group(1)
+    .AddTexture("albedoMap", 0, TextureType_2D)
+    .AddTexture("normalMap", 1, TextureType_2D)
+    .AddTexture("metallicRoughnessMap", 2, TextureType_2D)
+    .AddTexture("occlusionMap", 3, TextureType_2D)
+    .AddTexture("emissiveMap", 4, TextureType_2D)
+    .AddSampler("sampler", 5);
 
-    scene.Instantiate((std::string("Avocado")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(20).SetPosition(0,0, 0);
-    scene.Instantiate((std::string("Helmet1")).c_str()).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(1).SetPosition(0,-2, 0);
-    scene.Instantiate((std::string("Helmet2")).c_str()).Add<RendererComponent>({0, 1, 2}).SetScaleUniform(1).SetPosition(0,2, 0);
-    scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({2, 2, 3}).SetScaleUniform(1).SetPosition(0,2, 0);
+    testNewShader.SetMaterialGroup(1);
+    testNewShader.SetVertexStructLayout(vertexLayout);
+    testNewShader.SetWGSL(FileReader::LoadRawString("/Shaders/test.wgsl"));
+    testNewShader.SetRenderpass(&renderpass);
+
+    testNewShader.Build();
+
+    scene.Instantiate((std::string("Avocado")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0, 0, 0);
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
         transformBuffer.entityID = ent.RawId();
         transformLayout.pack(transformBuffer, renderComp.transformIndex);
+        testNewShader.WriteToBuffer("ModelData", transformBuffer, renderComp.transformIndex);
     });
 
     scene.Update(0.f);
@@ -201,12 +226,15 @@ void EditorApp::OnStart()
     renderpass.Init();
     shadowpass.Init();
     PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"));
-    Outline_Shader->LoadShader(FileReader::LoadRawString("/Shaders/outline.wgsl"));
-    Skybox_Shader->LoadShader(FileReader::LoadRawString("/Shaders/skybox.wgsl"));
-    Shadowmap_Shader->LoadShader(FileReader::LoadRawString("/Shaders/shadow.wgsl"));
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", *PBR_Shader);
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", *PBR_Shader);
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", *PBR_Shader);
+
+    testMaterial.InitFromShader(testNewShader);
+    testMaterial.SetTexture("albedoMap", AssetManager::LoadedTextures[3]);
+    testMaterial.SetTexture("normalMap", AssetManager::LoadedTextures[1]);
+    testMaterial.SetTexture("metallicRoughnessMap", AssetManager::LoadedTextures[2]);
+    testMaterial.SetTexture("occlusionMap", AssetManager::LoadedTextures[2]);
+    testMaterial.SetTexture("emissiveMap", AssetManager::LoadedTextures[0]); 
+    testMaterial.Build();
 
     Texture skyboxTex;
     skyboxTex.LoadCubeTexture({
@@ -219,61 +247,57 @@ void EditorApp::OnStart()
     }, TextureFormat::RGBA8UnormSrgb);
     AssetManager::LoadedTextures.push_back(skyboxTex);
 
-    auto matID = AssetManager::LoadedMaterials.size() - 1;
-
-    std::shared_ptr<Material<SkyBoxSettings>> newMat = std::make_shared<Material<SkyBoxSettings>>(matID);
-    newMat->InitMaterial(*Skybox_Shader, { skyboxTex });
-    newMat->UpdateMaterialProperties(skybox);
-    AssetManager::LoadedMaterials[matID] = newMat;
     
-    renderer.PushRenderpass(&shadowpass);
     renderer.PushRenderpass(&renderpass);
     
     
     ubo.lightDir = glm::normalize(-glm::vec3(1.0f, 0.5f, -1.0f));
-    glm::vec3 sceneCenter = glm::vec3(0.0f);   // Or your actual bounding-box center
-float lightDistance = 20.0f;               // Tweaked to cover your scene
+    glm::vec3 sceneCenter = glm::vec3(0.0f);   
+float lightDistance = 20.0f;               
 
 glm::vec3 lightPos = sceneCenter - ubo.lightDir * lightDistance;
 
 ubo.lightVP =
-    glm::orthoLH_NO(-10.0f, 10.0f,
-                    -10.0f, 10.0f,
-                     0.1f, 50.0f)
+    glm::orthoLH_ZO(-50.0f, 50.0f,
+                    -50.0f, 50.0f,
+                     0.1f, 200.0f)
   * glm::lookAtLH(lightPos,
                   sceneCenter,
                   glm::vec3(0.0f, 1.0f, 0.0f));
+
+    materialsBuffer.baseColor = glm::vec4(1,1,1,1);    
     uboLayout.pack(ubo);
+    testNewShader.WriteToBuffer("UBO", ubo, 0);
+    testNewShader.WriteToBuffer("Material", materialsBuffer, 0);
 
     LoadFileTextures();
 
     renderpass.renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
-        IShader* shader = AssetManager::LoadedShaders[rendererComp.shaderIndex].get();
         IMesh* mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex].get();
 
-        renderpass.SetShader(shader, rendererComp.transformIndex);
+        renderpass.SetShader2(testNewShader, rendererComp.transformIndex);
         renderpass.SetMesh(mesh);
 
         for (Submesh& sm : mesh->submeshes)
         {
-          IMaterial* material = AssetManager::LoadedMaterials[sm.materialIndex].get();
-          renderpass.SetMaterial(shader, material, &rendererComp, sm.materialIndex);
+          renderpass.SetMaterial2(testNewShader, testMaterial, sm.materialIndex);
           renderpass.Draw(sm.indexCount, sm.startIndex);
         }
     });
 
-    shadowpass.renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
-        IShader* shader = Shadowmap_Shader.get();
-        IMesh* mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex].get();
+    // shadowpass.renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
+    //     if(ent.RawId() == skyboxEntity.RawId()) return;
+    //     IShader* shader = Shadowmap_Shader.get();
+    // IMesh* mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex].get();
 
-        shadowpass.SetShader(shader, rendererComp.transformIndex);
-        shadowpass.SetMesh(mesh);
+    //     shadowpass.SetShader(shader, rendererComp.transformIndex);
+    //     shadowpass.SetMesh(mesh);
 
-        for (Submesh& sm : mesh->submeshes)
-        {
-          shadowpass.Draw(sm.indexCount, sm.startIndex);
-        }
-    });
+    //     for (Submesh& sm : mesh->submeshes)
+    //     {
+    //       shadowpass.Draw(sm.indexCount, sm.startIndex);
+    //     }
+    // });
     Logger::Info("OnStart done");
 }
 
@@ -366,6 +390,7 @@ void EditorApp::OnUpdate(float deltaTime)
     {
         DeselectEntity();
     }
+    testNewShader.WriteToBuffer("CameraInfo", cam->GetCameraInfo(), 0);
     scene.Update(deltaTime);
 }
 

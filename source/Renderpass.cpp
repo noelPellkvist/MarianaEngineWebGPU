@@ -119,6 +119,22 @@ void Renderpass::Draw(uint32_t indexCount, uint32_t startIndex)
     _impl->pass.DrawIndexed(indexCount, 1, startIndex, 0, 0);
 }
 
+void Renderpass::SetShader2(Shader2& shader, uint32_t transformIndex)
+{
+    _impl->pass.SetPipeline(*static_cast<wgpu::RenderPipeline*>(shader.GetPipeline()));
+    uint32_t shaderBindingCount = shader.GetGroupCount();
+    for(uint32_t i = 0; i < shaderBindingCount; i++)
+    {
+        if (shader.m_MaterialIndex == i) continue;
+        uint32_t offsets[] = { 0, 0 };
+        _impl->pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(shader.GetBindGroup(i)), 2, offsets);
+    }
+}
+
+void Renderpass::SetMaterial2(Shader2& shader, Material2& material, uint32_t materialIndex)
+{
+    _impl->pass.SetBindGroup(shader.m_MaterialIndex, *static_cast<wgpu::BindGroup*>(material.GetBindGroup()), 0, nullptr);
+}
 
 void Renderpass::Start(void* encoder, bool surfaceTarget, void* surfaceView)
 {

@@ -56,6 +56,8 @@ class ICamera
 
         UniformLayout<CameraInfo>& GetBinding() { return m_CameraBuffer; }
 
+        CameraInfo& GetCameraInfo() { return m_CamInfo; }
+
         const glm::mat4& View() const { return _view; }
         const glm::mat4& Projection() const { return _proj; }
         glm::vec3 Position()   const { return _pos; }
