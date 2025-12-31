@@ -3,182 +3,6 @@
 #include "Init.hpp"
 #include <webgpu/webgpu_cpp.h>
 
-struct IShader::Impl
-{
-    wgpu::RenderPipeline m_Pipeline;
-    wgpu::PipelineLayout m_Layout;
-
-    std::vector<wgpu::BindGroupLayout> m_BindgroupLayouts;
-    std::vector<wgpu::BindGroup> m_Bindgroups;  
-};
-
-IShader::IShader(VertexBufferLayout vbl, std::vector<TextureType> textureTypes, const Renderpass& renderpass, bool material)
-    : _impl(std::make_unique<Impl>()),
-      m_TextureTypes(textureTypes),
-      m_VertexLayout(std::move(vbl)),
-      m_Renderpass(renderpass),
-      hasMaterial(material) {
-        if (!material && textureTypes.size() != 0) {
-            assert(false && "Cant define textures if theres no material.");
-        }
-        m_TextureCount = static_cast<uint16_t>(textureTypes.size());
-      }
-
-IShader::~IShader() = default;
-
-void* IShader::GetBindGroup(uint32_t index) 
-{ 
-    if (index == GetBindingsCount() - 1)
-    {
-        if(!hasMaterial)
-        {
-            return &_impl->m_Bindgroups[index];
-        }
-        Logger::Error("WHY YOU CALLING THIS???");
-    } else
-        return &_impl->m_Bindgroups[index];
-}
-
-void* IShader::GetBindGroupLayout(uint32_t index) 
-{ 
-    return &_impl->m_BindgroupLayouts[index];
-}
-
-void* IShader::GetPipeline() 
-{ 
-    return &_impl->m_Pipeline; 
-}
-
-void IShader::LoadShader(std::string shaderCode) 
-{
-    _impl->m_BindgroupLayouts.resize(GetBindingsCount());
-    _impl->m_Bindgroups.resize(GetBindingsCount());
-    InitBuffers();
-    wgpu::ShaderSourceWGSL wgsl{{.code = shaderCode.c_str()}};
-    wgpu::ShaderModuleDescriptor shaderModuleDescriptor{.nextInChain = &wgsl};
-
-    wgpu::ShaderModule shaderModule =
-    device.CreateShaderModule(&shaderModuleDescriptor);
-    const std::vector<TextureFormat>& outputFormats = m_Renderpass.GetOutputFormats();
-    std::vector<wgpu::ColorTargetState> colorTargetStates(outputFormats.size());
-
-    for(size_t i = 0; i < outputFormats.size(); i++)
-    {
-        colorTargetStates[i] = {
-            .format = static_cast<wgpu::TextureFormat>((uint32_t)(outputFormats[i])),
-            .writeMask = wgpu::ColorWriteMask::All,
-        };
-    }
-
-    wgpu::FragmentState fragmentState{
-    .module = shaderModule, .entryPoint = wgpu::StringView("fragmentMain"), .targetCount = outputFormats.size(), .targets = colorTargetStates.data()};
-
-    wgpu::DepthStencilState depthStencilState{};
-    depthStencilState.depthCompare = wgpu::CompareFunction::LessEqual;
-    depthStencilState.depthWriteEnabled = true;
-    depthStencilState.format = wgpu::TextureFormat::Depth24Plus;
-    depthStencilState.stencilReadMask = 0;
-    depthStencilState.stencilWriteMask = 0;
-    
-    wgpu::PipelineLayoutDescriptor  layoutDesc = {};
-    layoutDesc.bindGroupLayoutCount = _impl->m_BindgroupLayouts.size();
-    layoutDesc.bindGroupLayouts = _impl->m_BindgroupLayouts.data();
-    _impl->m_Layout = device.CreatePipelineLayout(&layoutDesc);
-
-    wgpu::RenderPipelineDescriptor descriptor{  .layout = _impl->m_Layout,
-                                        .vertex = {
-                                          .module = shaderModule,
-                                          .entryPoint = wgpu::StringView("vertexMain"),
-                                          .bufferCount = 1,
-                                          .buffers = static_cast<const wgpu::VertexBufferLayout*>(m_VertexLayout.GetBackendLayout())
-                                        },
-                                        .primitive = {
-                                          .stripIndexFormat = wgpu::IndexFormat::Undefined,
-                                          .frontFace = wgpu::FrontFace::CW,
-                                          .cullMode = wgpu::CullMode::Back
-                                        },
-                                     .depthStencil = &depthStencilState,
-                                     .multisample = {
-                                        .count = 1,
-                                        .mask = ~0u,
-                                        .alphaToCoverageEnabled = false
-                                     },
-                                     .fragment = &fragmentState};
-
-   
-    
-    _impl->m_Pipeline = device.CreateRenderPipeline(&descriptor);
-}
-
-void IShader::FixMaterialBindingLayout()
-{
-    std::vector<wgpu::BindGroupLayoutEntry> entries;
-    entries.resize(m_TextureCount + 2);
-
-    entries[0] = *static_cast<wgpu::BindGroupLayoutEntry*>(GetBindGroupLayoutEntry(GetBindingsCount() - 1));
-
-    for(size_t i = 1; i < m_TextureCount + 1; i++)
-    {
-      entries[i] = {};
-      entries[i].binding = i;
-      entries[i].visibility = wgpu::ShaderStage::Fragment;
-      if(m_TextureTypes[i - 1] == TextureType_Depth)
-          entries[i].texture.sampleType = wgpu::TextureSampleType::Depth;
-      else
-        entries[i].texture.sampleType = wgpu::TextureSampleType::Float;
-
-      if(m_TextureTypes[i - 1] == TextureType_Cube)
-          entries[i].texture.viewDimension = wgpu::TextureViewDimension::Cube;
-      else
-        entries[i].texture.viewDimension = wgpu::TextureViewDimension::e2D;
-      
-    }
-
-    entries[m_TextureCount + 1] = {};
-    entries[m_TextureCount + 1].binding = m_TextureCount + 1;
-    entries[m_TextureCount + 1].visibility = wgpu::ShaderStage::Fragment;
-    entries[m_TextureCount + 1].sampler.type = wgpu::SamplerBindingType::Filtering;
-
-    wgpu::BindGroupLayoutDescriptor textureBindingLayout{};
-    textureBindingLayout.label = "Material Bindgroup Layout";
-    textureBindingLayout.entryCount = entries.size();
-    textureBindingLayout.entries = entries.data();
-    auto m = GetBindingsCount();
-    _impl->m_BindgroupLayouts[GetBindingsCount() - 1] = device.CreateBindGroupLayout(&textureBindingLayout);
-}
-
-void IShader::FixBindingLayouts()
-{
-    uint32_t bindings = hasMaterial ? GetBindingsCount() - 1 : GetBindingsCount();
-
-    if(hasMaterial)
-        FixMaterialBindingLayout();
-
-    for(size_t i = 0; i < bindings; i++)
-    {
-        std::string label = "Bindgroup Layout old? " + std::to_string(i);
-        wgpu::BindGroupLayoutDescriptor BindGroupLayoutDesc{};
-        BindGroupLayoutDesc.label = label.c_str();
-        BindGroupLayoutDesc.entryCount = 1;
-        BindGroupLayoutDesc.entries = static_cast<wgpu::BindGroupLayoutEntry*>(GetBindGroupLayoutEntry(i));
-        _impl->m_BindgroupLayouts[i] = device.CreateBindGroupLayout(&BindGroupLayoutDesc);
-    }
-}
-
-void IShader::CreateBindgroups()
-{
-    uint32_t bindings = hasMaterial ? GetBindingsCount() - 1 : GetBindingsCount();
-
-    for (size_t i = 0; i < bindings; i++)
-    {
-        wgpu::BindGroupDescriptor bindGroupDesc{};
-        bindGroupDesc.layout = _impl->m_BindgroupLayouts[i];
-        bindGroupDesc.entryCount = 1;
-        bindGroupDesc.entries = static_cast<wgpu::BindGroupEntry*>(GetBindGroupEntry(i));
-        _impl->m_Bindgroups[i] = device.CreateBindGroup(&bindGroupDesc);
-    }
-}
-
 struct UniformBufferResource::Impl
 {
     wgpu::Buffer m_Buffer;
@@ -220,6 +44,8 @@ BindGroup::BindGroup() : _impl(std::make_shared<Impl>()) {}
 
 BindGroup& BindGroup::AddUniformBuffer(const char* name, uint32_t binding, UniformBufferLayout layout) {
     resources.emplace_back(UniformBufferResource{ name, binding, layout });
+    if (layout.IsDynamic())
+        m_DynamicBufferCount++;
     return *this;
 }
 
@@ -288,8 +114,8 @@ void Shader2::BuildBindgroupLayouts()
     _impl->m_BindgroupLayouts.resize(m_BindGroups.size());
     for(size_t i{0}; i < m_BindGroups.size(); ++i)
     {
-        const BindGroup& group = m_BindGroups[i];
-        const std::vector<ShaderResource>& resources = group.GetResources();
+        BindGroup& group = m_BindGroups[i];
+        std::vector<ShaderResource>& resources = group.GetResources();
         std::vector<wgpu::BindGroupLayoutEntry> layoutEntries;
         layoutEntries.reserve(resources.size());
 
@@ -404,11 +230,20 @@ Shader2& Shader2::Build()
     for (size_t i{0}; i < m_BindGroups.size(); ++i)
     {
         if (i == m_MaterialIndex) continue;
-        for (const ShaderResource& res : m_BindGroups[i].GetResources())
+        
+        for (size_t j = 0; j < m_BindGroups[i].GetResources().size(); ++j)
         {
+            ShaderResource& res = m_BindGroups[i].GetResources()[j];
+            uint32_t dynamicBuffers = 0;
             if (std::holds_alternative<UniformBufferResource>(res))
             {
-                const UniformBufferResource& ubr = std::get<UniformBufferResource>(res);
+                UniformBufferResource& ubr = std::get<UniformBufferResource>(res);
+                ubr.group = static_cast<uint32_t>(i);
+                if (ubr.layout.IsDynamic())
+                {
+                    ubr.dynamicBufferOffsetIndex = dynamicBuffers;
+                    dynamicBuffers++;
+                }
                 m_BindGroupLayoutMap[ubr.name] = (ShaderResource*)&ubr;
             }
             else if (std::holds_alternative<TextureResource>(res))

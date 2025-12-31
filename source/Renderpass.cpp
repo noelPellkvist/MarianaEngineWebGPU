@@ -89,49 +89,45 @@ void Renderpass::CreateDepthStencilAttachment()
 
 #pragma region Drawing
 
-void Renderpass::SetShader(IShader* shader, uint32_t transformIndex)
-{
-    _impl->pass.SetPipeline(*static_cast<wgpu::RenderPipeline*>(shader->GetPipeline()));
-    uint32_t shaderBindingCount = shader->HasMaterial() ? shader->GetBindingsCount() - 1 : shader->GetBindingsCount();
-    for(uint32_t i = 0; i < shaderBindingCount; i++)
-    {
-      size_t dynamicOffsetCount = shader->GetBufferDynamicOffsets(static_cast<uint32_t>(i));
-      uint32_t offset = dynamicOffsetCount == 0 ? 0 : shader->GetBufferDynamicOffset(static_cast<uint32_t>(i), transformIndex);
-      _impl->pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(shader->GetBindGroup(i)), dynamicOffsetCount, dynamicOffsetCount == 0 ? nullptr : &offset);
-    }
-}
-
 void Renderpass::SetMesh(IMesh* mesh)
 {
     _impl->pass.SetVertexBuffer(0, *static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer()), 0, (*static_cast<wgpu::Buffer*>(mesh->GetVertexBuffer())).GetSize());
     _impl->pass.SetIndexBuffer(*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer()), mesh->IsUINT16() ? wgpu::IndexFormat::Uint16 :  wgpu::IndexFormat::Uint32, 0, (*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer())).GetSize());
 }
 
-void Renderpass::SetMaterial(IShader* shader, IMaterial* material, RendererComponent* rendererComp, uint32_t materialIndex)
-{
-    uint32_t materialBinding = shader->GetBindingsCount() - 1;
-    uint32_t materialOffset = shader->GetMaterialDynamicOffset(materialIndex);
-    _impl->pass.SetBindGroup(materialBinding, *static_cast<wgpu::BindGroup*>(material->GetBindGroup(materialBinding)), 1, &materialOffset);
-}
-
 void Renderpass::Draw(uint32_t indexCount, uint32_t startIndex)
 {
-    _impl->pass.DrawIndexed(indexCount, 1, startIndex, 0, 0);
-}
-
-void Renderpass::SetShader2(Shader2& shader, uint32_t transformIndex)
-{
-    _impl->pass.SetPipeline(*static_cast<wgpu::RenderPipeline*>(shader.GetPipeline()));
+    assert(m_CurrentShader != nullptr);
+    Shader2& shader = *m_CurrentShader;
     uint32_t shaderBindingCount = shader.GetGroupCount();
     for(uint32_t i = 0; i < shaderBindingCount; i++)
     {
-        if (shader.m_MaterialIndex == i) continue;
-        uint32_t offsets[] = { 0, 0 };
-        _impl->pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(shader.GetBindGroup(i)), 2, offsets);
+        _impl->pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(shader.GetBindGroup(i)), m_BindGroupOffsets[i].size(), m_BindGroupOffsets[i].data());
     }
+    _impl->pass.DrawIndexed(indexCount, 1, startIndex, 0, 0);
 }
 
-void Renderpass::SetMaterial2(Shader2& shader, Material2& material, uint32_t materialIndex)
+void Renderpass::SetBufferIndex(std::string name, uint32_t index)
+{
+    assert(m_CurrentShader != nullptr);
+    assert(std::holds_alternative<UniformBufferResource>(*m_CurrentShader->m_BindGroupLayoutMap[name]));
+    const UniformBufferResource& ubr = std::get<UniformBufferResource>(*m_CurrentShader->m_BindGroupLayoutMap[name]);
+    assert(ubr.layout.IsDynamic());
+    m_BindGroupOffsets[ubr.group][ubr.dynamicBufferOffsetIndex] = ubr.layout.GetUniformStride() * index;
+}
+
+void Renderpass::SetShader2(Shader2& shader)
+{
+    _impl->pass.SetPipeline(*static_cast<wgpu::RenderPipeline*>(shader.GetPipeline()));
+    m_BindGroupOffsets.resize(shader.GetGroupCount());
+    for (size_t i = 0; i < m_BindGroupOffsets.size(); i++)
+    {
+        m_BindGroupOffsets[i].resize(shader.Group(i).GetDynamicBufferCount(), 0);
+    }
+    m_CurrentShader = &shader;
+}
+
+void Renderpass::SetMaterial2(Shader2& shader, Material2& material)
 {
     _impl->pass.SetBindGroup(shader.m_MaterialIndex, *static_cast<wgpu::BindGroup*>(material.GetBindGroup()), 0, nullptr);
 }

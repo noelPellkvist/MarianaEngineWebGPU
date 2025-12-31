@@ -27,7 +27,6 @@ class EditorApp : public Application
         void OnShutdown() override;
 
     private:
-        std::shared_ptr<IShader> PBR_Shader;
         std::unordered_map<std::string, Texture> AssetsTextures;
         Renderer renderer;
         Scene scene;

@@ -23,17 +23,7 @@ class ICamera
         
 
         ICamera(IInput& input) :
-        _input(input),
-        m_CameraBuffer(false,
-                      m_CamInfo,
-                      m_CamInfo.proj, 
-                      m_CamInfo.view, 
-                      m_CamInfo.viewProj, 
-                      m_CamInfo.invView, 
-                      m_CamInfo.invProj, 
-                      m_CamInfo.invViewProj, 
-                      m_CamInfo.pos, 
-                      m_CamInfo.exposure) {}
+        _input(input) {}
         virtual ~ICamera() = default;
 
         virtual void OnUpdate(float deltaTime) {}
@@ -51,10 +41,7 @@ class ICamera
             m_CamInfo.invViewProj = m_CamInfo.invView * m_CamInfo.invProj;
             m_CamInfo.pos = _pos;
             m_CamInfo.exposure = exposure;
-            m_CameraBuffer.pack(m_CamInfo);
         }
-
-        UniformLayout<CameraInfo>& GetBinding() { return m_CameraBuffer; }
 
         CameraInfo& GetCameraInfo() { return m_CamInfo; }
 
@@ -74,5 +61,4 @@ class ICamera
 
     private:
         CameraInfo m_CamInfo;
-        UniformLayout<CameraInfo> m_CameraBuffer;
 };

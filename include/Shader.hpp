@@ -42,135 +42,6 @@ struct ShaderProperties
     CompareOp compareOp;
 };
 
-class IShader
-{
-    public:
-        IShader(VertexBufferLayout vbl, std::vector<TextureType> textureTypes, const Renderpass& renderpass, bool material = true);
-        virtual ~IShader();
-
-        void* GetPipeline();
-        void* GetBindGroup(uint32_t index);
-
-        void* GetBindGroupLayout(uint32_t index);
-
-        void LoadShader(std::string shaderCode);
-
-        virtual void* GetMaterialBufferEntry() = 0;
-
-        virtual void InitBuffers() = 0;
-
-        uint8_t GetTextureCount() { return m_TextureCount; }
-
-        virtual void UpdateMaterialBuffer(const std::any& data, uint32_t bufferIndex) = 0;
-
-        virtual uint32_t GetMaterialDynamicOffset(uint32_t bufferIndex) = 0;
-        virtual uint32_t GetBufferDynamicOffset(uint32_t binding, uint32_t bufferIndex) = 0;
-
-        virtual uint32_t GetBufferDynamicOffsets(uint32_t binding) = 0;
-        virtual uint32_t GetBindingsCount() = 0;
-
-        virtual void* GetBindGroupLayoutEntry(uint32_t binding) = 0;
-
-        virtual void* GetBindGroupEntry(uint32_t binding) = 0;
-
-        bool HasMaterial() const { return hasMaterial; }
-
-    protected:
-        struct Impl;
-        std::unique_ptr<Impl> _impl;
-        VertexBufferLayout m_VertexLayout;
-        std::vector<TextureType> m_TextureTypes;
-        uint16_t m_TextureCount;
-        const Renderpass& m_Renderpass;
-        bool hasMaterial = true;
-
-        void FixMaterialBindingLayout();
-        void FixBindingLayouts();
-        void CreateBindgroups();
-};
-
-template<typename... Layouts>
-class Shader : public IShader
-{
-    public:
-        Shader(UniformLayout<Layouts>&... layouts,
-               VertexBufferLayout vertexLayout,
-               std::vector<TextureType> textureTypes,
-               const Renderpass& renderpass, bool hasMaterial = true)
-          : IShader(std::move(vertexLayout), textureTypes, renderpass, hasMaterial)
-        {
-            static_assert(sizeof...(Layouts) >= 1 && sizeof...(Layouts) <= 4,
-              "Shader must have between 1 and 4 layout types.");
-            (m_layouts.emplace_back(&layouts), ...);
-        }
-        ~Shader() = default;
-
-        void InitBuffers() override
-        {
-
-            for (auto layout : m_layouts)
-            {
-                if (!layout->IsInitialized())
-                    layout->Init(0);
-            }
-
-            FixBindingLayouts();
-            CreateBindgroups();
-        }
-
-        void* GetMaterialBufferEntry() override
-        {
-            return m_layouts.back()->GetBindGroupEntry();
-        }
-
-        void UpdateMaterialBuffer(const std::any& data, uint32_t bufferIndex) override
-        {
-            try
-            {
-                m_layouts.back()->pack(data, bufferIndex);
-            }
-            catch(const std::exception& e)
-            {
-                throw std::runtime_error("Material::UpdateMaterialProperties: bad any_cast - wrong type passed");
-            }
-            
-        }
-
-        uint32_t GetMaterialDynamicOffset(uint32_t bufferIndex) override
-        {
-            return m_layouts.back()->GetUniformStride() * bufferIndex;
-        }
-
-        uint32_t GetBufferDynamicOffset(uint32_t binding, uint32_t bufferIndex) override
-        {
-            
-            return m_layouts[binding]->IsDynamic() ? m_layouts[binding]->GetUniformStride() * bufferIndex : 0;
-        }
-
-        uint32_t GetBufferDynamicOffsets(uint32_t binding) override
-        {
-            return m_layouts[binding]->IsDynamic() ? 1 : 0;
-        }
-
-        void* GetBindGroupLayoutEntry(uint32_t binding) override
-        {
-            return m_layouts[binding]->GetBindGroupLayoutEntry();
-        }
-
-        void* GetBindGroupEntry(uint32_t binding) override
-        {
-            return m_layouts[binding]->GetBindGroupEntry();
-        }
-
-        uint32_t GetBindingsCount() override
-        {
-            return m_layouts.size();
-        }
-
-    private:
-        std::vector<IUniformLayout*> m_layouts;
-};
-
 enum class ShaderResourceType {
     UniformBuffer,
     Texture,
@@ -181,6 +52,8 @@ struct UniformBufferResource {
     const char* name;
     uint32_t binding;
     UniformBufferLayout layout;
+    uint32_t group;
+    uint32_t dynamicBufferOffsetIndex = 0;
     struct Impl;
     std::shared_ptr<Impl> _impl;
 
@@ -220,6 +93,13 @@ class Renderpass;
 class BindGroup {
     friend class Shader2;
     friend class Material2;
+private:
+    std::vector<ShaderResource> resources;
+    struct Impl;
+    std::shared_ptr<Impl> _impl;
+    void* GetBindGroup();
+    uint32_t m_DynamicBufferCount = 0;
+    
 public:
     BindGroup();
     ~BindGroup() = default;
@@ -230,13 +110,11 @@ public:
 
     BindGroup& AddSampler(const char* name, uint32_t binding);
 
-    const std::vector<ShaderResource>& GetResources() const { return resources; }
+    std::vector<ShaderResource>& GetResources() { return resources; }
 
-private:
-    std::vector<ShaderResource> resources;
-    struct Impl;
-    std::shared_ptr<Impl> _impl;
-    void* GetBindGroup();
+    const uint32_t GetDynamicBufferCount() const { return m_DynamicBufferCount; }
+
+
 };
 
 

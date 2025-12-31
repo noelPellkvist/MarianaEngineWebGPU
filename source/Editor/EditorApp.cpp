@@ -117,22 +117,15 @@ struct TransformData {
 };
 
 UBO ubo{};
-UniformLayout uboLayout(false, ubo, ubo.lightDir, ubo.lightVP);
 UniformBufferLayout uboLayout2(false, ubo, ubo.lightDir, ubo.lightVP);
 
 TransformData transformBuffer{};
-UniformLayout transformLayout(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix, transformBuffer.entityID);
 UniformBufferLayout transformLayout2(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix, transformBuffer.entityID);
 
 GLTF::GLTFMaterialProperties materialsBuffer;
-UniformLayout materialsLayout(true, materialsBuffer, materialsBuffer.baseColor, materialsBuffer.metallicFactor, materialsBuffer.roughnessFactor,
-    materialsBuffer.normalMapStrength, materialsBuffer.occlusionStrength,
-    materialsBuffer.emissiveFactor, materialsBuffer.alphaCutoff);
-
 UniformBufferLayout materialsLayout2(true, materialsBuffer, materialsBuffer.baseColor, materialsBuffer.metallicFactor, materialsBuffer.roughnessFactor,
     materialsBuffer.normalMapStrength, materialsBuffer.occlusionStrength,
     materialsBuffer.emissiveFactor, materialsBuffer.alphaCutoff);
-
 CameraInfo cameraInfo{};
 UniformBufferLayout camLayout(false, cameraInfo, cameraInfo.proj, cameraInfo.view, cameraInfo.viewProj, cameraInfo.invView, cameraInfo.invProj, cameraInfo.invViewProj, cameraInfo.pos, cameraInfo.exposure);
 
@@ -147,13 +140,11 @@ struct SkyBoxSettings
     float rotation{0.0f};
 };
 SkyBoxSettings skybox;
-UniformLayout SkyboxSettings(true, skybox, skybox.exposure, skybox.rotation);
 
 #pragma endregion
 
 System WriteTransformBufferSystem;
 Shader2 testNewShader("TestShader");
-Material2 testMaterial;
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
@@ -161,10 +152,6 @@ shadowpass(false, true, {  }, 2048, 2048)
 {
 
     cam = new EditorCameraController(input);
-    PBR_Shader = std::make_unique<Shader<UBO, TransformData, CameraInfo, GLTF::GLTFMaterialProperties>>(uboLayout, transformLayout, cam->GetBinding(), materialsLayout, vertexLayout, std::vector<TextureType>{ TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D, TextureType_2D }, renderpass);
-    AssetManager::LoadedShaders.push_back(PBR_Shader);
-
-    auto m = transformLayout2.GetUniformStride();
 
     testNewShader.Group(0)
     .AddUniformBuffer("UBO", 0, uboLayout2)
@@ -187,13 +174,13 @@ shadowpass(false, true, {  }, 2048, 2048)
 
     testNewShader.Build();
 
-    scene.Instantiate((std::string("Avocado")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0, 0, 0);
+    scene.Instantiate((std::string("Helmet")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0, -1, 0);
+    scene.Instantiate((std::string("Helmet2")).c_str()).Add<RendererComponent>({0, 0, 1}).SetScaleUniform(1).SetPosition(0, 2, 0);
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
         transformBuffer.entityID = ent.RawId();
-        transformLayout.pack(transformBuffer, renderComp.transformIndex);
         testNewShader.WriteToBuffer("ModelData", transformBuffer, renderComp.transformIndex);
     });
 
@@ -225,16 +212,8 @@ void EditorApp::OnStart()
 
     renderpass.Init();
     shadowpass.Init();
-    PBR_Shader->LoadShader(FileReader::LoadRawString("/Shaders/test.wgsl"));
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", *PBR_Shader);
-
-    testMaterial.InitFromShader(testNewShader);
-    testMaterial.SetTexture("albedoMap", AssetManager::LoadedTextures[3]);
-    testMaterial.SetTexture("normalMap", AssetManager::LoadedTextures[1]);
-    testMaterial.SetTexture("metallicRoughnessMap", AssetManager::LoadedTextures[2]);
-    testMaterial.SetTexture("occlusionMap", AssetManager::LoadedTextures[2]);
-    testMaterial.SetTexture("emissiveMap", AssetManager::LoadedTextures[0]); 
-    testMaterial.Build();
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", testNewShader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", testNewShader);
 
     Texture skyboxTex;
     skyboxTex.LoadCubeTexture({
@@ -266,7 +245,6 @@ ubo.lightVP =
                   glm::vec3(0.0f, 1.0f, 0.0f));
 
     materialsBuffer.baseColor = glm::vec4(1,1,1,1);    
-    uboLayout.pack(ubo);
     testNewShader.WriteToBuffer("UBO", ubo, 0);
     testNewShader.WriteToBuffer("Material", materialsBuffer, 0);
 
@@ -275,12 +253,15 @@ ubo.lightVP =
     renderpass.renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
         IMesh* mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex].get();
 
-        renderpass.SetShader2(testNewShader, rendererComp.transformIndex);
+        renderpass.SetShader2(testNewShader);
         renderpass.SetMesh(mesh);
+        renderpass.SetBufferIndex("ModelData", rendererComp.transformIndex);
+        
 
         for (Submesh& sm : mesh->submeshes)
         {
-          renderpass.SetMaterial2(testNewShader, testMaterial, sm.materialIndex);
+          renderpass.SetMaterial2(testNewShader, AssetManager::LoadedMaterials[sm.materialIndex]);
+          renderpass.SetBufferIndex("Material", sm.materialIndex);
           renderpass.Draw(sm.indexCount, sm.startIndex);
         }
     });
@@ -447,7 +428,7 @@ void EditorApp::OnGUI()
             transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
             transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
             transformBuffer.entityID = selectedEntity.RawId();
-            transformLayout.pack(transformBuffer, selectedEntity.Get<RendererComponent>()->transformIndex);
+            // transformLayout.pack(transformBuffer, selectedEntity.Get<RendererComponent>()->transformIndex);
         }
     }
     ImGui::End();

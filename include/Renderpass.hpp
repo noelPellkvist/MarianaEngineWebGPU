@@ -32,18 +32,18 @@ class Renderpass
         void* GetDepthStencilAttachment();
         bool HasDepthTexture() const { return m_HasDepthTexture; }
 
-        void SetShader(IShader* shader, uint32_t transformIndex);
         void SetMesh(IMesh* shader);
-        void SetMaterial(IShader* shader, IMaterial* material, RendererComponent* rendererComp, uint32_t materialIndex);
         void Draw(uint32_t indexCount, uint32_t startIndex);
-
-        void SetShader2(Shader2& shader, uint32_t transformIndex);
-        void SetMaterial2(Shader2& shader, Material2& material, uint32_t materialIndex);
+        void SetShader2(Shader2& shader);
+        void SetMaterial2(Shader2& shader, Material2& material);
+        void SetBufferIndex(std::string name, uint32_t index);
 
         
 
     private:
         friend class Renderer;
+        std::vector<std::vector<uint32_t>> m_BindGroupOffsets;
+        Shader2* m_CurrentShader = nullptr;
         
         bool m_MSSA = true;
         bool m_HasDepthTexture = true;

@@ -298,7 +298,7 @@ std::shared_ptr<IMesh> LoadEntireMesh(const tinygltf::Model& model, tinygltf::Me
     return mesh;
 }
 
-void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
+void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
 {
     std::vector<Texture> res;
     tinygltf::Model model;
@@ -337,7 +337,6 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
     uint32_t currentMaterial = preMaterials;
     for (tinygltf::Material& mat : model.materials)
     {
-        std::shared_ptr<Material<GLTFMaterialProperties>> newMat = std::make_shared<Material<GLTFMaterialProperties>>(currentMaterial);
         Texture& albedo = mat.pbrMetallicRoughness.baseColorTexture.index == -1 ? GetFlatAlbedoTexture() : AssetManager::LoadedTextures[mat.pbrMetallicRoughness.baseColorTexture.index + preTextures];
         Texture& normal = mat.normalTexture.index == -1 ? GetFlatNormalTexture() : AssetManager::LoadedTextures[mat.normalTexture.index + preTextures];
         Texture& ambient = mat.occlusionTexture.index == -1 ? GetFlatAOTexture() : AssetManager::LoadedTextures[mat.occlusionTexture.index + preTextures];
@@ -345,8 +344,14 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, IShader& shader)
         GLTFMaterialProperties props;
         props.baseColor = {1,1,1,1};
         Texture& emmisive = mat.emissiveTexture.index == -1 ? GetFlatEmissiveTexture() : AssetManager::LoadedTextures[mat.emissiveTexture.index + preTextures];
-        newMat->InitMaterial(shader, {albedo, normal, ambient, metallicRoughness, emmisive});
-        newMat->UpdateMaterialProperties(props);
+        Material2 newMat;
+        newMat.InitFromShader(shader)
+              .SetTexture("albedoMap", albedo)
+              .SetTexture("normalMap", normal)
+              .SetTexture("occlusionMap", ambient)
+              .SetTexture("metallicRoughnessMap", metallicRoughness)
+              .SetTexture("emissiveMap", emmisive)
+              .Build();
         AssetManager::LoadedMaterials.push_back(newMat);
         currentMaterial++;
     }

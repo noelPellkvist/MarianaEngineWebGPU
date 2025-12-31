@@ -45,7 +45,7 @@ struct GLTFMaterialProperties
 class GLTFLoader
 {
     public:
-        static void LoadGLTF(std::string filename, IShader& shader);
+        static void LoadGLTF(std::string filename, Shader2& shader);
 };
 
 } // namespace GLTF
