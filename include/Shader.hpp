@@ -120,6 +120,12 @@ public:
 
 
 class Shader2 {
+private:
+    struct PendingTextureBind {
+        std::string name;
+        Texture* texture = nullptr;
+    };
+    std::vector<PendingTextureBind> m_PendingTextures;
 public:
     friend class Material2;
     friend class Renderpass;
@@ -151,6 +157,16 @@ public:
         return *this;
     }
 
+    Shader2& SetTexture(const std::string& name, Texture& texture)
+    {
+        PendingTextureBind ptb;
+        ptb.name = name;
+        ptb.texture = &texture;
+        m_PendingTextures.push_back(ptb);
+
+        return *this;
+    }
+
     Shader2& SetMaterialGroup(uint32_t index) { m_MaterialIndex = index; return *this; }
     Shader2& SetVertexStructLayout(VertexBufferLayout vbl) { m_VertexLayout = vbl; return *this; }
     Shader2& SetWGSL(std::string src) { m_ShaderSource = src; return *this; }
@@ -165,8 +181,9 @@ private:
     VertexBufferLayout m_VertexLayout;
     uint32_t m_MaterialIndex = 5;
     struct Impl;
-    std::unique_ptr<Impl> _impl;
+    std::shared_ptr<Impl> _impl;
     std::unordered_map<std::string, ShaderResource*> m_BindGroupLayoutMap;
+    
 
     void BuildBindgroupLayouts();
     void BuildBindgroups();

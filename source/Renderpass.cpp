@@ -102,6 +102,7 @@ void Renderpass::Draw(uint32_t indexCount, uint32_t startIndex)
     uint32_t shaderBindingCount = shader.GetGroupCount();
     for(uint32_t i = 0; i < shaderBindingCount; i++)
     {
+        if (i == shader.m_MaterialIndex) continue;
         _impl->pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(shader.GetBindGroup(i)), m_BindGroupOffsets[i].size(), m_BindGroupOffsets[i].data());
     }
     _impl->pass.DrawIndexed(indexCount, 1, startIndex, 0, 0);

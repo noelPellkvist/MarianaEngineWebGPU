@@ -18,22 +18,6 @@ struct VertexOutput {
     @location(4) world_pos: vec3f,
 };
 
-struct UBO {
-  lightDir: vec3f,
-  lightVP: mat4x4<f32>,
-};
-
-struct ModelData {
-  modelMatrix: mat4x4<f32>,
-  normalMatrix: mat4x4<f32>,
-  entityID: u32,
-};
-
-struct MaterialProperties {
-    exposure: f32,
-    rotation: f32,
-};
-
 struct CameraInfoData {
   projection: mat4x4<f32>,
   view: mat4x4<f32>,
@@ -44,17 +28,11 @@ struct CameraInfoData {
   position: vec3f,
   exposure: f32,
 };
+@group(0) @binding(0) var<uniform> camInfo: CameraInfoData;
+@group(0) @binding(1) var albedo: texture_cube<f32>;
+@group(0) @binding(2) var textureSampler: sampler;
 
-@group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
 
-@group(1) @binding(0) var<uniform> ModelDataObject: ModelData;
-
-@group(3) @binding(0) var<uniform> Material : MaterialProperties;
-@group(3) @binding(1) var albedo: texture_cube<f32>;
-@group(3) @binding(2) var textureSampler: sampler;
-@group(3) @binding(3) var shadowSampler: sampler_comparison;
-
-@group(2) @binding(0) var<uniform> camInfo: CameraInfoData;
 
 // ---------------------- Skybox Vertex Shader ----------------------
 

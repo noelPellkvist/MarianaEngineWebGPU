@@ -144,22 +144,22 @@ SkyBoxSettings skybox;
 #pragma endregion
 
 System WriteTransformBufferSystem;
-Shader2 testNewShader("TestShader");
+Shader2 StandardPBRShader("StandardPBR");
+Shader2 StandardSkyboxShader("StandardSkybox");
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
 shadowpass(false, true, {  }, 2048, 2048)
 {
-
     cam = new EditorCameraController(input);
 
-    testNewShader.Group(0)
+    StandardPBRShader.Group(0)
     .AddUniformBuffer("UBO", 0, uboLayout2)
     .AddUniformBuffer("ModelData", 1, transformLayout2)
     .AddUniformBuffer("CameraInfo", 2, camLayout)
     .AddUniformBuffer("Material", 3, materialsLayout2);
 
-    testNewShader.Group(1)
+    StandardPBRShader.Group(1)
     .AddTexture("albedoMap", 0, TextureType_2D)
     .AddTexture("normalMap", 1, TextureType_2D)
     .AddTexture("metallicRoughnessMap", 2, TextureType_2D)
@@ -167,21 +167,24 @@ shadowpass(false, true, {  }, 2048, 2048)
     .AddTexture("emissiveMap", 4, TextureType_2D)
     .AddSampler("sampler", 5);
 
-    testNewShader.SetMaterialGroup(1);
-    testNewShader.SetVertexStructLayout(vertexLayout);
-    testNewShader.SetWGSL(FileReader::LoadRawString("/Shaders/test.wgsl"));
-    testNewShader.SetRenderpass(&renderpass);
+    StandardPBRShader.SetMaterialGroup(1);
+    StandardPBRShader.SetVertexStructLayout(vertexLayout);
+    StandardPBRShader.SetWGSL(FileReader::LoadRawString("/Shaders/test.wgsl"));
+    StandardPBRShader.SetRenderpass(&renderpass);
 
-    testNewShader.Build();
+    StandardPBRShader.Build();
+
+    
 
     scene.Instantiate((std::string("Helmet")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0, -1, 0);
-    scene.Instantiate((std::string("Helmet2")).c_str()).Add<RendererComponent>({0, 0, 1}).SetScaleUniform(1).SetPosition(0, 2, 0);
+    scene.Instantiate((std::string("Avocado")).c_str()).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(20).SetPosition(0, 2, 0);
+    scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({1, 2, 2}).SetScaleUniform(20).SetPosition(0, 2, 0);
     
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
         transformBuffer.entityID = ent.RawId();
-        testNewShader.WriteToBuffer("ModelData", transformBuffer, renderComp.transformIndex);
+        StandardPBRShader.WriteToBuffer("ModelData", transformBuffer, renderComp.transformIndex);
     });
 
     scene.Update(0.f);
@@ -212,8 +215,9 @@ void EditorApp::OnStart()
 
     renderpass.Init();
     shadowpass.Init();
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", testNewShader);
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", testNewShader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", StandardPBRShader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", StandardPBRShader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", StandardPBRShader);
 
     Texture skyboxTex;
     skyboxTex.LoadCubeTexture({
@@ -226,6 +230,17 @@ void EditorApp::OnStart()
     }, TextureFormat::RGBA8UnormSrgb);
     AssetManager::LoadedTextures.push_back(skyboxTex);
 
+    StandardSkyboxShader.Group(0)
+    .AddUniformBuffer("CameraInfo", 0, camLayout)
+    .AddTexture("CubeMap", 1, TextureType_Cube)
+    .AddSampler("Sampler", 2);
+
+    StandardSkyboxShader.SetTexture("CubeMap", skyboxTex);
+
+    StandardSkyboxShader.SetVertexStructLayout(vertexLayout);
+    StandardSkyboxShader.SetWGSL(FileReader::LoadRawString("/Shaders/skybox.wgsl"));
+    StandardSkyboxShader.SetRenderpass(&renderpass);
+    StandardSkyboxShader.Build();
     
     renderer.PushRenderpass(&renderpass);
     
@@ -245,24 +260,38 @@ ubo.lightVP =
                   glm::vec3(0.0f, 1.0f, 0.0f));
 
     materialsBuffer.baseColor = glm::vec4(1,1,1,1);    
-    testNewShader.WriteToBuffer("UBO", ubo, 0);
-    testNewShader.WriteToBuffer("Material", materialsBuffer, 0);
+    StandardPBRShader.WriteToBuffer("UBO", ubo, 0);
+    StandardPBRShader.WriteToBuffer("Material", materialsBuffer, 0);
 
     LoadFileTextures();
 
     renderpass.renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
         IMesh* mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex].get();
 
-        renderpass.SetShader2(testNewShader);
-        renderpass.SetMesh(mesh);
-        renderpass.SetBufferIndex("ModelData", rendererComp.transformIndex);
-        
-
-        for (Submesh& sm : mesh->submeshes)
+        if (rendererComp.shaderIndex == 0)
         {
-          renderpass.SetMaterial2(testNewShader, AssetManager::LoadedMaterials[sm.materialIndex]);
-          renderpass.SetBufferIndex("Material", sm.materialIndex);
-          renderpass.Draw(sm.indexCount, sm.startIndex);
+
+            renderpass.SetShader2(StandardPBRShader);
+            renderpass.SetMesh(mesh);
+            renderpass.SetBufferIndex("ModelData", rendererComp.transformIndex);
+            
+
+            for (Submesh& sm : mesh->submeshes)
+            {
+              renderpass.SetMaterial2(StandardPBRShader, AssetManager::LoadedMaterials[sm.materialIndex]);
+              renderpass.SetBufferIndex("Material", sm.materialIndex);
+              renderpass.Draw(sm.indexCount, sm.startIndex);
+            }
+        }
+        else
+        {
+            renderpass.SetShader2(StandardSkyboxShader);
+            renderpass.SetMesh(mesh);
+
+            for (Submesh& sm : mesh->submeshes)
+            {
+              renderpass.Draw(sm.indexCount, sm.startIndex);
+            }
         }
     });
 
@@ -371,7 +400,8 @@ void EditorApp::OnUpdate(float deltaTime)
     {
         DeselectEntity();
     }
-    testNewShader.WriteToBuffer("CameraInfo", cam->GetCameraInfo(), 0);
+    StandardPBRShader.WriteToBuffer("CameraInfo", cam->GetCameraInfo(), 0);
+    StandardSkyboxShader.WriteToBuffer("CameraInfo", cam->GetCameraInfo(), 0);
     scene.Update(deltaTime);
 }
 

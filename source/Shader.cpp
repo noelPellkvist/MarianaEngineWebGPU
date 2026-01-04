@@ -104,7 +104,7 @@ wgpu::BindGroupLayoutEntry BuildUniformBufferLayoutEntry(uint32_t binding, bool 
 
 #pragma endregion
 
-Shader2::Shader2(const char* name) : m_Name(name), _impl(std::make_unique<Impl>())
+Shader2::Shader2(const char* name) : m_Name(name), _impl(std::make_shared<Impl>())
 {}
 
 Shader2::~Shader2() = default;
@@ -224,8 +224,6 @@ void Shader2::BuildBindgroups()
 
 Shader2& Shader2::Build()
 {
-    BuildBindgroupLayouts();
-    BuildBindgroups();
     m_BindGroupLayoutMap.clear();
     for (size_t i{0}; i < m_BindGroups.size(); ++i)
     {
@@ -258,6 +256,23 @@ Shader2& Shader2::Build()
             }
         }
     }
+    for (const PendingTextureBind& ptb : m_PendingTextures)
+    {
+        auto it = m_BindGroupLayoutMap.find(ptb.name);
+        if (it == m_BindGroupLayoutMap.end())
+            continue;
+
+        ShaderResource* res = it->second;
+        if (!std::holds_alternative<TextureResource>(*res))
+            continue;
+
+        auto& tr = std::get<TextureResource>(*res);
+        tr.texture = ptb.texture;
+    }
+    BuildBindgroupLayouts();
+    BuildBindgroups();
+    
+    
 
     wgpu::ShaderSourceWGSL wgsl{{.code = m_ShaderSource.c_str()}};
     wgpu::ShaderModuleDescriptor shaderModuleDescriptor{.nextInChain = &wgsl};
