@@ -39,7 +39,7 @@ jobs:
 
       - name: Build
         run: |
-          cmake --build build-web -j
+          cmake --build build-web -j4
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
