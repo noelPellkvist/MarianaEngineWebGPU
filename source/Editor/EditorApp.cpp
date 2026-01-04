@@ -132,7 +132,11 @@ UniformBufferLayout camLayout(false, cameraInfo, cameraInfo.proj, cameraInfo.vie
 GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
 
-
+struct ShadowCasterComponent
+{
+    uint32_t meshIndex{0};
+    uint32_t transformIndex{0}; 
+};
 
 struct SkyBoxSettings
 {
@@ -146,12 +150,17 @@ SkyBoxSettings skybox;
 System WriteTransformBufferSystem;
 Shader2 StandardPBRShader("StandardPBR");
 Shader2 StandardSkyboxShader("StandardSkybox");
+Shader2 ShadowMapShader("StandardShadowMap");
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
 shadowpass(false, true, {  }, 2048, 2048)
 {
     cam = new EditorCameraController(input);
+
+    ShadowMapShader.Group(0)
+    .AddUniformBuffer("UBO", 0, uboLayout2)
+    .AddUniformBuffer("ModelData", 1, transformLayout2);
 
     StandardPBRShader.Group(0)
     .AddUniformBuffer("UBO", 0, uboLayout2)
@@ -176,10 +185,10 @@ shadowpass(false, true, {  }, 2048, 2048)
 
     
 
-    scene.Instantiate((std::string("Helmet")).c_str()).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0, -1, 0);
-    scene.Instantiate((std::string("Avocado")).c_str()).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(20).SetPosition(0, 2, 0);
-    scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({1, 2, 2}).SetScaleUniform(20).SetPosition(0, 2, 0);
-    
+    scene.Instantiate((std::string("Helmet")).c_str()).Add<ShadowCasterComponent>({0,0}).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0, -1, 0);
+    scene.Instantiate((std::string("Avocado")).c_str()).Add<ShadowCasterComponent>({1,1}).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(20).SetPosition(0, 2, 0);
+    scene.Instantiate((std::string("SkyBox")).c_str()).Add<ShadowCasterComponent>({2,2}).Add<RendererComponent>({1, 2, 2}).SetScaleUniform(20).SetPosition(0, 2, 0);
+
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
@@ -295,19 +304,17 @@ ubo.lightVP =
         }
     });
 
-    // shadowpass.renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
-    //     if(ent.RawId() == skyboxEntity.RawId()) return;
-    //     IShader* shader = Shadowmap_Shader.get();
-    // IMesh* mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex].get();
+    shadowpass.renderSystem = scene.CreateSystem<ShadowCasterComponent>([&](Entity ent, ShadowCasterComponent& shadowCasterComp, float dt){
+        renderpass.SetShader2(StandardPBRShader);
+        IMesh* mesh = AssetManager::LoadedMeshes[shadowCasterComp.meshIndex].get();
+        renderpass.SetMesh(mesh);
+        renderpass.SetBufferIndex("ModelData", shadowCasterComp.transformIndex);
 
-    //     shadowpass.SetShader(shader, rendererComp.transformIndex);
-    //     shadowpass.SetMesh(mesh);
-
-    //     for (Submesh& sm : mesh->submeshes)
-    //     {
-    //       shadowpass.Draw(sm.indexCount, sm.startIndex);
-    //     }
-    // });
+        for (Submesh& sm : mesh->submeshes)
+        {
+          renderpass.Draw(sm.indexCount, sm.startIndex);
+        }
+    });
     Logger::Info("OnStart done");
 }
 
@@ -469,7 +476,7 @@ void EditorApp::SelectEntity(uint64_t id)
     if(ImGuizmo::IsOver() || ImGuizmo::IsUsing()) return;
     selectedEntityID = id;
     selectedEntity = scene.FromId(id);
-    selectedEntity.Get<RendererComponent>()->shaderIndex = 1;
+    //selectedEntity.Get<RendererComponent>()->shaderIndex = 1;
 }
 
 void EditorApp::DeselectEntity()

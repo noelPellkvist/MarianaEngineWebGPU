@@ -45,9 +45,8 @@ struct CameraInfoData {
 
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
 
-@group(1) @binding(0) var<uniform> ModelDataObject: ModelData;
+@group(0) @binding(1) var<uniform> ModelDataObject: ModelData;
 
-@group(2) @binding(0) var<uniform> camInfo: CameraInfoData;
 
 @vertex
 fn vertexMain(input: VertexInput) -> ShadowOut {

@@ -18,15 +18,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (no submodules)
+      - name: Checkout (with submodules)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1           # shallow clone
-          submodules: false        # don't pull submodules here
+          fetch-depth: 0           # shallow clone
+          submodules: true        # don't pull submodules here
 
-      - name: Init required submodules (shallow, non-recursive)
+      - name: Verify submodule commits
         run: |
-          git submodule update --init --depth=1 --recommend-shallow external/glm dawn
           git submodule status
 
       - name: Setup Emscripten
