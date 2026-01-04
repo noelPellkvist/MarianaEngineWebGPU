@@ -36,6 +36,12 @@ jobs:
       - name: Configure (Emscripten)
         run: |
           emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release
+          
+      - name: Debug Dawn generated headers
+        run: |
+          echo "=== Dawn gen webgpu headers ==="
+          ls -R build-web/dawn/gen/src/emdawnwebgpu/include/webgpu || true
+
 
       - name: Build
         run: |
