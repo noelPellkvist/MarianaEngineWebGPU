@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/CMakeFiles/flecs-populate"
+		},
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/CMakeFiles/flecs-populate.rule"
+		},
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/CMakeFiles/flecs-populate-complete.rule"
+		},
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-build.rule"
+		},
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-configure.rule"
+		},
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-download.rule"
+		},
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-install.rule"
+		},
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-mkdir.rule"
+		},
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-patch.rule"
+		},
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-test.rule"
+		},
+		{
+			"file" : "G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"flecs-populate"
+		],
+		"name" : "flecs-populate"
+	}
+}

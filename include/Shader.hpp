@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <Texture.hpp>
 #include <memory>
+#include <Buffer.hpp>
 
 enum CullMode
 {
@@ -51,14 +52,12 @@ enum class ShaderResourceType {
 struct UniformBufferResource {
     const char* name;
     uint32_t binding;
-    UniformBufferLayout layout;
+    Buffer buffer;
     uint32_t group;
     uint32_t dynamicBufferOffsetIndex = 0;
-    struct Impl;
-    std::shared_ptr<Impl> _impl;
 
     UniformBufferResource() = default;
-    UniformBufferResource(const char* name, uint32_t binding, UniformBufferLayout layout);
+    UniformBufferResource(const char* name, uint32_t binding, Buffer& buffer);
     ~UniformBufferResource();
 };
 
@@ -73,11 +72,12 @@ struct TextureResource {
 struct SamplerResource {
     const char* name;
     uint32_t binding;
+    bool isComparison = false;
     struct Impl;
     std::shared_ptr<Impl> _impl;
 
     SamplerResource() = default;
-    SamplerResource(const char* name, uint32_t binding);
+    SamplerResource(const char* name, uint32_t binding, bool isComparison = false);
     ~SamplerResource();
 };
 #include <variant>
@@ -104,11 +104,11 @@ public:
     BindGroup();
     ~BindGroup() = default;
 
-    BindGroup& AddUniformBuffer(const char* name, uint32_t binding, UniformBufferLayout layout);
+    BindGroup& AddUniformBuffer(const char* name, uint32_t binding, Buffer& buffer);
 
     BindGroup& AddTexture(const char* name, uint32_t binding, TextureType type);
 
-    BindGroup& AddSampler(const char* name, uint32_t binding);
+    BindGroup& AddSampler(const char* name, uint32_t binding, bool isComparison = false);
 
     std::vector<ShaderResource>& GetResources() { return resources; }
 
@@ -139,24 +139,6 @@ public:
         return m_BindGroups[index];
     }
 
-    template <typename T>
-    Shader2& WriteToBuffer(const std::string& name, const T& data, uint32_t index)
-    {
-        auto it = m_BindGroupLayoutMap.find(name);
-        if (it == m_BindGroupLayoutMap.end())
-            return *this;
-
-        ShaderResource* res = it->second;
-        if (!std::holds_alternative<UniformBufferResource>(*res))
-            return *this;
-
-        auto& ubr = std::get<UniformBufferResource>(*res);
-
-        _writeToBuffer(&ubr, ubr.layout.Pack(data), index);
-
-        return *this;
-    }
-
     Shader2& SetTexture(const std::string& name, Texture& texture)
     {
         PendingTextureBind ptb;
@@ -171,7 +153,7 @@ public:
     Shader2& SetVertexStructLayout(VertexBufferLayout vbl) { m_VertexLayout = vbl; return *this; }
     Shader2& SetWGSL(std::string src) { m_ShaderSource = src; return *this; }
     Shader2& SetRenderpass(Renderpass* pass) { m_Renderpass = pass; return *this; }
-    Shader2& Build();
+    Shader2& Build(bool shadow = false);
 
 private:
     std::string m_Name;
@@ -192,6 +174,4 @@ private:
     void* GetPipeline();
     void* GetBindGroup(uint32_t index);
     uint32_t GetGroupCount() const { return static_cast<uint32_t>(m_BindGroups.size()); }
-
-    void _writeToBuffer(UniformBufferResource* res, std::vector<std::byte>& data, uint32_t index);
 };

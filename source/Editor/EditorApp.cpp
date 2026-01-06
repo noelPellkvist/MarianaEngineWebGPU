@@ -2,6 +2,7 @@
 #include <FileReader.hpp>
 #include <Editor/EditorCameraController.hpp>
 #include <AssetManager.hpp>
+#include <Buffer.hpp>
 
 #include "ImGuizmo.h"
 
@@ -118,16 +119,21 @@ struct TransformData {
 
 UBO ubo{};
 UniformBufferLayout uboLayout2(false, ubo, ubo.lightDir, ubo.lightVP);
+Buffer uboBuffer(uboLayout2);
 
 TransformData transformBuffer{};
 UniformBufferLayout transformLayout2(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix, transformBuffer.entityID);
+Buffer transformBufferBuffer(transformLayout2);
 
 GLTF::GLTFMaterialProperties materialsBuffer;
 UniformBufferLayout materialsLayout2(true, materialsBuffer, materialsBuffer.baseColor, materialsBuffer.metallicFactor, materialsBuffer.roughnessFactor,
     materialsBuffer.normalMapStrength, materialsBuffer.occlusionStrength,
     materialsBuffer.emissiveFactor, materialsBuffer.alphaCutoff);
+Buffer materialsBufferBuffer(materialsLayout2);
+
 CameraInfo cameraInfo{};
 UniformBufferLayout camLayout(false, cameraInfo, cameraInfo.proj, cameraInfo.view, cameraInfo.viewProj, cameraInfo.invView, cameraInfo.invProj, cameraInfo.invViewProj, cameraInfo.pos, cameraInfo.exposure);
+Buffer cameraBuffer(camLayout);
 
 GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
@@ -157,16 +163,32 @@ renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m
 shadowpass(false, true, {  }, 2048, 2048)
 {
     cam = new EditorCameraController(input);
+    uboBuffer.Build();
+    transformBufferBuffer.Build();
+    materialsBufferBuffer.Build();
+    cameraBuffer.Build();
+
+    renderpass.Init();
+    shadowpass.Init();
 
     ShadowMapShader.Group(0)
-    .AddUniformBuffer("UBO", 0, uboLayout2)
-    .AddUniformBuffer("ModelData", 1, transformLayout2);
+    .AddUniformBuffer("UBO", 0, uboBuffer)
+    .AddUniformBuffer("ModelData", 1, transformBufferBuffer);
+
+    ShadowMapShader.SetVertexStructLayout(vertexLayout);
+    ShadowMapShader.SetWGSL(FileReader::LoadRawString("/Shaders/shadow.wgsl"));
+    ShadowMapShader.SetRenderpass(&shadowpass);
+    ShadowMapShader.Build(true);
 
     StandardPBRShader.Group(0)
-    .AddUniformBuffer("UBO", 0, uboLayout2)
-    .AddUniformBuffer("ModelData", 1, transformLayout2)
-    .AddUniformBuffer("CameraInfo", 2, camLayout)
-    .AddUniformBuffer("Material", 3, materialsLayout2);
+    .AddUniformBuffer("UBO", 0, uboBuffer)
+    .AddUniformBuffer("ModelData", 1, transformBufferBuffer)
+    .AddUniformBuffer("CameraInfo", 2, cameraBuffer)
+    .AddUniformBuffer("Material", 3, materialsBufferBuffer)
+    .AddTexture("ShadowMap", 4, TextureType_Depth)
+    .AddSampler("ShadowSampler", 5, true);
+
+    StandardPBRShader.SetTexture("ShadowMap", shadowpass.GetDepthView());
 
     StandardPBRShader.Group(1)
     .AddTexture("albedoMap", 0, TextureType_2D)
@@ -185,15 +207,16 @@ shadowpass(false, true, {  }, 2048, 2048)
 
     
 
-    scene.Instantiate((std::string("Helmet")).c_str()).Add<ShadowCasterComponent>({0,0}).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0, -1, 0);
-    scene.Instantiate((std::string("Avocado")).c_str()).Add<ShadowCasterComponent>({1,1}).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(20).SetPosition(0, 2, 0);
-    scene.Instantiate((std::string("SkyBox")).c_str()).Add<ShadowCasterComponent>({2,2}).Add<RendererComponent>({1, 2, 2}).SetScaleUniform(20).SetPosition(0, 2, 0);
+    scene.Instantiate((std::string("Helmet")).c_str()).Add<ShadowCasterComponent>({0,0}).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0, 2, 0);
+    scene.Instantiate((std::string("Plane")).c_str()).Add<ShadowCasterComponent>({1,1}).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(5).SetPosition(0, -1, 0);
+    scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({1, 2, 2}).SetScaleUniform(20).SetPosition(0, 2, 0);
 
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
         transformBuffer.entityID = ent.RawId();
-        StandardPBRShader.WriteToBuffer("ModelData", transformBuffer, renderComp.transformIndex);
+        //StandardPBRShader.WriteToBuffer("ModelData", transformBuffer, renderComp.transformIndex);
+        transformBufferBuffer.Write(transformBuffer, renderComp.transformIndex);
     });
 
     scene.Update(0.f);
@@ -222,10 +245,9 @@ void EditorApp::OnStart()
         editorCam->SetYawPitch(glm::half_pi<float>(), 0.0f);
     }
 
-    renderpass.Init();
-    shadowpass.Init();
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/DamagedHelmet.glb", StandardPBRShader);
+    
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", StandardPBRShader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Plane.glb", StandardPBRShader);
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", StandardPBRShader);
 
     Texture skyboxTex;
@@ -240,7 +262,7 @@ void EditorApp::OnStart()
     AssetManager::LoadedTextures.push_back(skyboxTex);
 
     StandardSkyboxShader.Group(0)
-    .AddUniformBuffer("CameraInfo", 0, camLayout)
+    .AddUniformBuffer("CameraInfo", 0, cameraBuffer)
     .AddTexture("CubeMap", 1, TextureType_Cube)
     .AddSampler("Sampler", 2);
 
@@ -251,26 +273,33 @@ void EditorApp::OnStart()
     StandardSkyboxShader.SetRenderpass(&renderpass);
     StandardSkyboxShader.Build();
     
+    renderer.PushRenderpass(&shadowpass);
     renderer.PushRenderpass(&renderpass);
-    
-    
-    ubo.lightDir = glm::normalize(-glm::vec3(1.0f, 0.5f, -1.0f));
+
+
+    ubo.lightDir = glm::normalize(glm::vec3(1.0f, -1.0f, 0.0f));
     glm::vec3 sceneCenter = glm::vec3(0.0f);   
-float lightDistance = 20.0f;               
+    float lightDistance = 50.0f;               
 
-glm::vec3 lightPos = sceneCenter - ubo.lightDir * lightDistance;
+    glm::vec3 lightPos = sceneCenter - ubo.lightDir * lightDistance;
 
-ubo.lightVP =
+    glm::vec3 lightForward = glm::normalize(lightPos - sceneCenter);
+    glm::vec3 up = (fabs(glm::dot(lightForward, glm::vec3(0.0f, 1.0f, 0.0f))) > 0.99f)
+        ? glm::vec3(0.0f, 0.0f, 1.0f)
+        : glm::vec3(0.0f, 1.0f, 0.0f);
+
+    ubo.lightVP =
     glm::orthoLH_ZO(-50.0f, 50.0f,
                     -50.0f, 50.0f,
-                     0.1f, 200.0f)
-  * glm::lookAtLH(lightPos,
-                  sceneCenter,
-                  glm::vec3(0.0f, 1.0f, 0.0f));
+                     0.1f, 200.0f) *
+    glm::lookAtLH(lightPos, sceneCenter, up);
 
     materialsBuffer.baseColor = glm::vec4(1,1,1,1);    
-    StandardPBRShader.WriteToBuffer("UBO", ubo, 0);
-    StandardPBRShader.WriteToBuffer("Material", materialsBuffer, 0);
+    // StandardPBRShader.WriteToBuffer("UBO", ubo, 0);
+    // StandardPBRShader.WriteToBuffer("Material", materialsBuffer, 0);
+    uboBuffer.Write(ubo, 0);
+    materialsBufferBuffer.Write(materialsBuffer, 0);
+    materialsBufferBuffer.Write(materialsBuffer, 1);
 
     LoadFileTextures();
 
@@ -305,14 +334,14 @@ ubo.lightVP =
     });
 
     shadowpass.renderSystem = scene.CreateSystem<ShadowCasterComponent>([&](Entity ent, ShadowCasterComponent& shadowCasterComp, float dt){
-        renderpass.SetShader2(StandardPBRShader);
+        shadowpass.SetShader2(ShadowMapShader);
         IMesh* mesh = AssetManager::LoadedMeshes[shadowCasterComp.meshIndex].get();
-        renderpass.SetMesh(mesh);
-        renderpass.SetBufferIndex("ModelData", shadowCasterComp.transformIndex);
+        shadowpass.SetMesh(mesh);
+        shadowpass.SetBufferIndex("ModelData", shadowCasterComp.transformIndex);
 
         for (Submesh& sm : mesh->submeshes)
         {
-          renderpass.Draw(sm.indexCount, sm.startIndex);
+          shadowpass.Draw(sm.indexCount, sm.startIndex);
         }
     });
     Logger::Info("OnStart done");
@@ -407,8 +436,10 @@ void EditorApp::OnUpdate(float deltaTime)
     {
         DeselectEntity();
     }
-    StandardPBRShader.WriteToBuffer("CameraInfo", cam->GetCameraInfo(), 0);
-    StandardSkyboxShader.WriteToBuffer("CameraInfo", cam->GetCameraInfo(), 0);
+    // StandardPBRShader.WriteToBuffer("CameraInfo", cam->GetCameraInfo(), 0);
+    // StandardSkyboxShader.WriteToBuffer("CameraInfo", cam->GetCameraInfo(), 0);
+    cameraInfo = cam->GetCameraInfo();
+    cameraBuffer.Write(cameraInfo, 0);
     scene.Update(deltaTime);
 }
 

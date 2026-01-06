@@ -45,16 +45,19 @@
     main {
       display: grid; place-items: center;
       padding: 12px clamp(16px, 4vw, 40px) 48px;
+      background:
+        radial-gradient(800px 400px at center, rgba(255,255,255,0.04), transparent 70%);
     }
 
-    /* Card that holds the loader/canvas */
     .stage {
-      width: min(96vw, 1200px);
+      width: fit-content;
+      max-width: 100%;
+      margin-inline: auto;
       background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
       border: 1px solid var(--ring);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 16px;
+      padding: 12px;
     }
 
     /* Responsive canvas wrapper with aspect-ratio; adjust as you like */
@@ -64,9 +67,8 @@
       overflow: hidden;
       background: #0b0c11;
       border: 1px solid #23242d;
-      aspect-ratio: 16/9;
-      /* You can force a fixed height instead:
-         height: 720px; */
+      height: min(80vh, 900px);
+      aspect-ratio: 16 / 9;
     }
 
     canvas {

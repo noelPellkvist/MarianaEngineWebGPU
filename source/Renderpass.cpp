@@ -113,8 +113,8 @@ void Renderpass::SetBufferIndex(std::string name, uint32_t index)
     assert(m_CurrentShader != nullptr);
     assert(std::holds_alternative<UniformBufferResource>(*m_CurrentShader->m_BindGroupLayoutMap[name]));
     const UniformBufferResource& ubr = std::get<UniformBufferResource>(*m_CurrentShader->m_BindGroupLayoutMap[name]);
-    assert(ubr.layout.IsDynamic());
-    m_BindGroupOffsets[ubr.group][ubr.dynamicBufferOffsetIndex] = ubr.layout.GetUniformStride() * index;
+    assert(ubr.buffer.GetLayout().IsDynamic());
+    m_BindGroupOffsets[ubr.group][ubr.dynamicBufferOffsetIndex] = ubr.buffer.GetLayout().GetUniformStride() * index;
 }
 
 void Renderpass::SetShader2(Shader2& shader)

@@ -1,3 +1,5 @@
+// ===================== structs unchanged =====================
+
 struct VertexInput {
     @location(0) position: vec3f,
     @location(1) normal: vec3f,
@@ -17,14 +19,14 @@ struct VertexOutput {
 };
 
 struct UBO {
-  lightDir: vec3f,
-  lightVP: mat4x4<f32>,
+    lightDir: vec3f,
+    lightVP: mat4x4<f32>,
 };
 
 struct ModelData {
-  modelMatrix: mat4x4<f32>,
-  normalMatrix: mat4x4<f32>,
-  entityID: u32,
+    modelMatrix: mat4x4<f32>,
+    normalMatrix: mat4x4<f32>,
+    entityID: u32,
 };
 
 struct MaterialProperties {
@@ -38,150 +40,111 @@ struct MaterialProperties {
 };
 
 struct CameraInfoData {
-  projection: mat4x4<f32>,
-  view: mat4x4<f32>,
-  viewProj: mat4x4<f32>,
-  invView: mat4x4<f32>,
-  invProj: mat4x4<f32>,
-  invViewProj: mat4x4<f32>,
-  position: vec3f,
-  exposure: f32,
+    projection: mat4x4<f32>,
+    view: mat4x4<f32>,
+    viewProj: mat4x4<f32>,
+    invView: mat4x4<f32>,
+    invProj: mat4x4<f32>,
+    invViewProj: mat4x4<f32>,
+    position: vec3<f32>,
+    exposure: f32,
 };
+
+// ===================== bindings unchanged =====================
 
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
 @group(0) @binding(1) var<uniform> ModelDataObject: ModelData;
 @group(0) @binding(2) var<uniform> camInfo: CameraInfoData;
-@group(0) @binding(3) var<uniform> Material : MaterialProperties;
+@group(0) @binding(3) var<uniform> Material: MaterialProperties;
+@group(0) @binding(4) var shadowMap: texture_depth_2d;
+@group(0) @binding(5) var shadowSampler: sampler_comparison;
 
 @group(1) @binding(0) var albedo: texture_2d<f32>;
 @group(1) @binding(1) var normalMap: texture_2d<f32>;
 @group(1) @binding(2) var ambientO: texture_2d<f32>;
-@group(1) @binding(3) var metallicRoughness: texture_2d<f32>;  
-@group(1) @binding(4) var emissiveTex: texture_2d<f32>;  
+@group(1) @binding(3) var metallicRoughness: texture_2d<f32>;
+@group(1) @binding(4) var emissiveTex: texture_2d<f32>;
 @group(1) @binding(5) var textureSampler: sampler;
-
-
-
-@vertex
-fn vertexMain(input: VertexInput) -> VertexOutput {
-    var output: VertexOutput;
-
-    let world_pos4 = ModelDataObject.modelMatrix * vec4f(input.position, 1.0);
-    output.world_pos = world_pos4.xyz;
-
-    let mvp = camInfo.viewProj * ModelDataObject.modelMatrix;
-    output.position = mvp * vec4f(input.position, 1.0);
-
-    // If your normalMatrix is inverse-transpose(model), you can safely use it for N & T rotation
-    let Nw_raw = (ModelDataObject.normalMatrix * vec4f(input.normal, 0.0)).xyz;
-    let Tw_raw = (ModelDataObject.normalMatrix * vec4f(input.tangent.xyz, 0.0)).xyz;
-
-    let Nw = normalize(Nw_raw);
-    let Tn = normalize(Tw_raw - Nw * dot(Tw_raw, Nw));
-    let Bw = normalize(cross(Nw, Tn)) * input.tangent.w; // handedness in .w
-
-    output.world_normal  = Nw;
-    output.world_tangent = Tn;
-    output.world_bitangent = Bw;
-    output.uv = input.texcoord0;
-    return output;
-}
-
-// ---- PBR helpers (GGX + Smith + Schlick) ----
-fn saturate(x: f32) -> f32 { return clamp(x, 0.0, 1.0); }
-fn saturate3(v: vec3f) -> vec3f { return clamp(v, vec3f(0.0), vec3f(1.0)); }
-
-fn D_GGX(N: vec3f, H: vec3f, a: f32) -> f32 {
-    let a2 = a * a;
-    let NoH = saturate(dot(N, H));
-    let d = (NoH * NoH) * (a2 - 1.0) + 1.0;
-    return a2 / (3.14159265 * d * d + 1e-7);
-}
-
-fn G_Smith_correlated(N: vec3f, V: vec3f, L: vec3f, a: f32) -> f32 {
-    let a2 = a * a;
-    let NoV = saturate(dot(N, V));
-    let NoL = saturate(dot(N, L));
-    let gv = NoV + sqrt(a2 + (1.0 - a2) * NoV * NoV);
-    let gl = NoL + sqrt(a2 + (1.0 - a2) * NoL * NoL);
-    return 1.0 / (gv * gl + 1e-7);
-}
-
-fn F_Schlick(F0: vec3f, VoH: f32) -> vec3f {
-    let f = pow(1.0 - saturate(VoH), 5.0);
-    return F0 + (1.0 - F0) * f;
-}
-
-fn tonemapACES(x: vec3f) -> vec3f {
-    // ACES fitted curve (Krzysztof Narkowicz, 2015)
-    let a = 2.51;
-    let b = 0.03;
-    let c = 2.43;
-    let d = 0.59;
-    let e = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
-}
 
 struct FragOut {
     @location(0) color: vec4f,
     @location(1) pick_pic: u32
 };
 
+// ===================== helpers =====================
+
+fn saturate(x: f32) -> f32 { return clamp(x, 0.0, 1.0); }
+
+// ===================== vertex =====================
+
+@vertex
+fn vertexMain(input: VertexInput) -> VertexOutput {
+    var out: VertexOutput;
+
+    let worldPos4 = ModelDataObject.modelMatrix * vec4f(input.position, 1.0);
+    out.world_pos = worldPos4.xyz;
+
+    out.position = camInfo.viewProj * worldPos4;
+
+    out.world_normal =
+        normalize((ModelDataObject.normalMatrix * vec4f(input.normal, 0.0)).xyz);
+
+    // Kept to preserve the exact VS output layout; unused in the demo fragment.
+    out.world_tangent = vec3f(0.0);
+    out.world_bitangent = vec3f(0.0);
+
+    out.uv = input.texcoord0;
+    return out;
+}
+
+// ===================== fragment (final correct) =====================
+
 @fragment
 fn fragmentMain(input: VertexOutput) -> FragOut {
-    var n = textureSample(normalMap, textureSampler, input.uv).xyz * 2.0 - 1.0;
-    let TBN = mat3x3<f32>(input.world_tangent, input.world_bitangent, input.world_normal);
-    let N = normalize(TBN * n);
-
-    var baseColor = textureSample(albedo, textureSampler, input.uv).rgb * Material.baseColor.rgb;
-
-    let mrSample = textureSample(metallicRoughness, textureSampler, input.uv);
-    let perceptualRoughness = clamp(mrSample.g, 0.04, 1.0);
-    let metallic = clamp(mrSample.b, 0.0, 1.0);
-
-    let aoStrength = 1.0;
-    let ao = textureSample(ambientO, textureSampler, input.uv).r;
-    let aoTerm = mix(1.0, ao, aoStrength);
-
+    let N = normalize(input.world_normal);
     let L = normalize(-UniformBufferObject.lightDir);
-    let V = normalize(camInfo.position - input.world_pos);
-    let H = normalize(L + V);
     let NoL = saturate(dot(N, L));
-    let NoV = saturate(dot(N, V));
-    let VoH = saturate(dot(V, H));
 
-    // Dielectric F0 ~ 0.04, metals use baseColor as F0
-    let F0_dielectric = vec3f(0.04);
-    let F0 = mix(F0_dielectric, baseColor, metallic);
+    let lightClip = UniformBufferObject.lightVP * vec4f(input.world_pos, 1.0);
+    let ndc = lightClip.xyz / max(lightClip.w, 1e-8);
 
-    let a = max(1e-3, perceptualRoughness * perceptualRoughness);
+    // ✅ NO Y FLIP
+    let uv = vec2f(ndc.x, -ndc.y) * 0.5 + vec2f(0.5);
 
-    let  D = D_GGX(N, H, a);
-    let  G = G_Smith_correlated(N, V, L, a);
-    let  F = F_Schlick(F0, VoH);
+    let biasMin = 0.0005;
+    let biasMax = 0.0040;
+    let bias = mix(biasMax, biasMin, NoL);
 
-    let  spec = (D * G) * F / max(4.0 * NoV * NoL + 1e-7, 1e-7);
+    // Directional + ortho + LessEqual → +bias
+    let normalBias = 0.002 * (1.0 - NoL);
+    let depthRef = ndc.z - (bias + normalBias);
 
-    let kd = (1.0 - F) * (1.0 - metallic);
-    let diffuse = kd * baseColor / 3.14159265;
+    let shadowRaw = textureSampleCompare(
+        shadowMap,
+        shadowSampler,
+        clamp(uv, vec2f(0.0), vec2f(1.0)),
+        clamp(depthRef, 0.0, 1.0)
+    );
 
-    let direct = (diffuse + spec) * NoL * 1.0;
+    let inXY =
+        step(-1.0, ndc.x) * step(ndc.x, 1.0) *
+        step(-1.0, ndc.y) * step(ndc.y, 1.0);
+    let inZ = step(0.0, ndc.z) * step(ndc.z, 1.0);
+    let inW = step(0.0, lightClip.w);
+    let inFrustum = inXY * inZ * inW;
 
-    let ambient = 0.03 * aoTerm * baseColor;
+    let litMask = step(0.0, NoL);
 
-    let exposure = 2.0;
+    let shadow =
+        (mix(1.0, shadowRaw, inFrustum) * litMask) +
+        (1.0 - litMask);
 
-    var emmisiveTexture = textureSample(emissiveTex, textureSampler, input.uv).rgb;
-    emmisiveTexture = pow(emmisiveTexture, vec3f(2.2));
+    let baseColor = vec3f(1.0);
+    let ambient = 0.10 * baseColor;
+    let diffuse = baseColor * NoL * shadow;
 
-    var colorLinear = (direct + ambient + emmisiveTexture) * exposure;
-    
-    colorLinear = tonemapACES(colorLinear);
-    
-    colorLinear = saturate3(colorLinear);
-
-    var out : FragOut;
-    out.color = vec4f(colorLinear, 1.0);
+    var out: FragOut;
+    out.color = vec4f(ambient + diffuse, 1.0);
     out.pick_pic = ModelDataObject.entityID;
     return out;
 }

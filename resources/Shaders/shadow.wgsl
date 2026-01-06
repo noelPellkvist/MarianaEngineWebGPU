@@ -22,27 +22,6 @@ struct ModelData {
   entityID: u32,
 };
 
-struct MaterialProperties {
-    baseColor: vec4<f32>,
-    metallicFactor: f32,
-    roughnessFactor: f32,
-    normalMapStrength: f32,
-    occlusionStrength: f32,
-    emissiveFactor: vec3<f32>,
-    alphaCutoff: f32,
-};
-
-struct CameraInfoData {
-  projection: mat4x4<f32>,
-  view: mat4x4<f32>,
-  viewProj: mat4x4<f32>,
-  invView: mat4x4<f32>,
-  invProj: mat4x4<f32>,
-  invViewProj: mat4x4<f32>,
-  position: vec3f,
-  exposure: f32,
-};
-
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
 
 @group(0) @binding(1) var<uniform> ModelDataObject: ModelData;

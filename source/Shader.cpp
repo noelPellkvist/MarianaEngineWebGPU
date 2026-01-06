@@ -2,11 +2,7 @@
 #include <Logger.hpp>
 #include "Init.hpp"
 #include <webgpu/webgpu_cpp.h>
-
-struct UniformBufferResource::Impl
-{
-    wgpu::Buffer m_Buffer;
-};
+#include <Buffer.hpp>
 
 struct SamplerResource::Impl
 {
@@ -27,24 +23,24 @@ struct Shader2::Impl
 };
 
 UniformBufferResource::~UniformBufferResource() = default;
-UniformBufferResource::UniformBufferResource(const char* name, uint32_t binding, UniformBufferLayout layout)
+UniformBufferResource::UniformBufferResource(const char* name, uint32_t binding, Buffer& buffer)
     : name(name),
       binding(binding),
-      layout(std::move(layout)),
-      _impl(std::make_shared<Impl>()) {}
+      buffer(buffer) {}
 
 TextureResource::~TextureResource() = default;
 SamplerResource::~SamplerResource() = default;
-SamplerResource::SamplerResource(const char* name, uint32_t binding)
+SamplerResource::SamplerResource(const char* name, uint32_t binding, bool isComparison)
     : name(name),
       binding(binding),
+        isComparison(isComparison),
       _impl(std::make_shared<Impl>()) {}
 
 BindGroup::BindGroup() : _impl(std::make_shared<Impl>()) {}
 
-BindGroup& BindGroup::AddUniformBuffer(const char* name, uint32_t binding, UniformBufferLayout layout) {
-    resources.emplace_back(UniformBufferResource{ name, binding, layout });
-    if (layout.IsDynamic())
+BindGroup& BindGroup::AddUniformBuffer(const char* name, uint32_t binding, Buffer& buffer) {
+    resources.emplace_back(UniformBufferResource{ name, binding, buffer });
+    if (buffer.GetLayout().IsDynamic())
         m_DynamicBufferCount++;
     return *this;
 }
@@ -54,8 +50,8 @@ BindGroup& BindGroup::AddTexture(const char* name, uint32_t binding, TextureType
     return *this;
 }
 
-BindGroup& BindGroup::AddSampler(const char* name, uint32_t binding) {
-    resources.emplace_back(SamplerResource{ name, binding });
+BindGroup& BindGroup::AddSampler(const char* name, uint32_t binding, bool isComparison) {
+    resources.emplace_back(SamplerResource{ name, binding, isComparison });
     return *this;
 }
 
@@ -82,12 +78,12 @@ wgpu::BindGroupLayoutEntry BuildTextureLayoutEntry(uint32_t binding, TextureType
     return entry;
 }
 
-wgpu::BindGroupLayoutEntry BuildSamplerLayoutEntry(uint32_t binding)
+wgpu::BindGroupLayoutEntry BuildSamplerLayoutEntry(uint32_t binding, bool isComparison)
 {
     wgpu::BindGroupLayoutEntry entry{};
     entry.binding = binding;
     entry.visibility = wgpu::ShaderStage::Fragment;
-    entry.sampler.type = wgpu::SamplerBindingType::Filtering;
+    entry.sampler.type = isComparison ? wgpu::SamplerBindingType::Comparison : wgpu::SamplerBindingType::Filtering;
     return entry;
 }
 
@@ -123,7 +119,7 @@ void Shader2::BuildBindgroupLayouts()
         {
             if (std::holds_alternative<UniformBufferResource>(res))
             {
-                layoutEntries.push_back(BuildUniformBufferLayoutEntry(std::get<UniformBufferResource>(res).binding, std::get<UniformBufferResource>(res).layout.IsDynamic(), std::get<UniformBufferResource>(res).layout.total_size()));
+                layoutEntries.push_back(BuildUniformBufferLayoutEntry(std::get<UniformBufferResource>(res).binding, std::get<UniformBufferResource>(res).buffer.GetLayout().IsDynamic(), std::get<UniformBufferResource>(res).buffer.GetLayout().total_size()));
             }
             else if (std::holds_alternative<TextureResource>(res))
             {
@@ -131,7 +127,7 @@ void Shader2::BuildBindgroupLayouts()
             }
             else if (std::holds_alternative<SamplerResource>(res))
             {
-                layoutEntries.push_back(BuildSamplerLayoutEntry(std::get<SamplerResource>(res).binding));
+                layoutEntries.push_back(BuildSamplerLayoutEntry(std::get<SamplerResource>(res).binding, std::get<SamplerResource>(res).isComparison));
             }
         }
         wgpu::BindGroupLayoutDescriptor bindgroupLayoutDesc{};
@@ -154,20 +150,21 @@ void Shader2::BuildBindgroupFromLayout(BindGroup& bg, int i)
         {
             const UniformBufferResource& ubr = std::get<UniformBufferResource>(res);
             wgpu::BindGroupEntry entry;
-            wgpu::BufferDescriptor bufferDesc;
-            bufferDesc.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
-            bufferDesc.mappedAtCreation = false;
-            if(ubr.layout.IsDynamic())
-            {
-                bufferDesc.size = ubr.layout.GetUniformStride() * 256;
-            }
-            else
-                bufferDesc.size = ubr.layout.total_size();
-            ubr._impl->m_Buffer = device.CreateBuffer(&bufferDesc);
+            // wgpu::BufferDescriptor bufferDesc;
+            // bufferDesc.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
+            // bufferDesc.mappedAtCreation = false;
+            // if(ubr.layout.IsDynamic())
+            // {
+            //     bufferDesc.size = ubr.layout.GetUniformStride() * 256;
+            // }
+            // else
+            //     bufferDesc.size = ubr.layout.total_size();
+            // ubr._impl->m_Buffer = device.CreateBuffer(&bufferDesc);
             
-            entry.buffer = ubr._impl->m_Buffer;
+            //entry.buffer = ubr._impl->m_Buffer;
+            entry.buffer = *reinterpret_cast<const wgpu::Buffer*>(ubr.buffer.GetBuffer());
             entry.offset = 0;
-            entry.size = ubr.layout.IsDynamic() ? ubr.layout.GetUniformStride() : ubr.layout.total_size();
+            entry.size = ubr.buffer.GetBindingSize();
             entry.binding = ubr.binding;
             bindgroupEntries.push_back(entry);
         }
@@ -188,15 +185,29 @@ void Shader2::BuildBindgroupFromLayout(BindGroup& bg, int i)
             const SamplerResource& sr = std::get<SamplerResource>(res);
             wgpu::BindGroupEntry entry;
             wgpu::SamplerDescriptor samplerDesc{};
-            samplerDesc.addressModeU = wgpu::AddressMode::Repeat;
-            samplerDesc.addressModeV = wgpu::AddressMode::Repeat;
-            samplerDesc.addressModeW = wgpu::AddressMode::Repeat;
+            if (sr.isComparison)
+            {
+                samplerDesc.addressModeU = wgpu::AddressMode::ClampToEdge;
+                samplerDesc.addressModeV = wgpu::AddressMode::ClampToEdge;
+                samplerDesc.addressModeW = wgpu::AddressMode::ClampToEdge;
+
+                samplerDesc.minFilter = wgpu::FilterMode::Linear;
+            }
+            else
+            {
+                samplerDesc.addressModeU = wgpu::AddressMode::Repeat;
+                samplerDesc.addressModeV = wgpu::AddressMode::Repeat;
+                samplerDesc.addressModeW = wgpu::AddressMode::Repeat;
+
+                samplerDesc.minFilter = wgpu::FilterMode::Nearest;
+            }
+            
             samplerDesc.magFilter = wgpu::FilterMode::Linear;
-            samplerDesc.minFilter = wgpu::FilterMode::Nearest;
+            
             samplerDesc.mipmapFilter = wgpu::MipmapFilterMode::Linear;
             samplerDesc.lodMinClamp = 0.0f;
             samplerDesc.lodMaxClamp = 1000.0f;
-            samplerDesc.compare = wgpu::CompareFunction::Undefined;
+            samplerDesc.compare = sr.isComparison ? wgpu::CompareFunction::LessEqual : wgpu::CompareFunction::Undefined;
             samplerDesc.maxAnisotropy = 1;
             sr._impl->m_Sampler = device.CreateSampler(&samplerDesc);
             entry.binding = sr.binding;
@@ -222,7 +233,7 @@ void Shader2::BuildBindgroups()
 }
 
 
-Shader2& Shader2::Build()
+Shader2& Shader2::Build(bool shadow)
 {
     m_BindGroupLayoutMap.clear();
     for (size_t i{0}; i < m_BindGroups.size(); ++i)
@@ -237,7 +248,7 @@ Shader2& Shader2::Build()
             {
                 UniformBufferResource& ubr = std::get<UniformBufferResource>(res);
                 ubr.group = static_cast<uint32_t>(i);
-                if (ubr.layout.IsDynamic())
+                if (ubr.buffer.GetLayout().IsDynamic())
                 {
                     ubr.dynamicBufferOffsetIndex = dynamicBuffers;
                     dynamicBuffers++;
@@ -315,7 +326,7 @@ Shader2& Shader2::Build()
                                         .primitive = {
                                           .stripIndexFormat = wgpu::IndexFormat::Undefined,
                                           .frontFace = wgpu::FrontFace::CW,
-                                          .cullMode = wgpu::CullMode::Back
+                                          .cullMode = shadow ? wgpu::CullMode::None : wgpu::CullMode::Back
                                         },
                                      .depthStencil = &depthStencilState,
                                      .multisample = {
@@ -323,18 +334,18 @@ Shader2& Shader2::Build()
                                         .mask = ~0u,
                                         .alphaToCoverageEnabled = false
                                      },
-                                     .fragment = &fragmentState};
+                                     .fragment = outputFormats.size() == 0 ? nullptr : &fragmentState};
     
     _impl->m_Pipeline = device.CreateRenderPipeline(&descriptor);
     
     return *this;
 }
 
-void Shader2::_writeToBuffer(UniformBufferResource* res, std::vector<std::byte>& data, uint32_t index)
-{
-    wgpu::Queue queue = device.GetQueue();
-    queue.WriteBuffer(res->_impl->m_Buffer, index * res->layout.GetUniformStride(), data.data(), data.size());
-}
+// void Shader2::_writeToBuffer(UniformBufferResource* res, std::vector<std::byte>& data, uint32_t index)
+// {
+//     wgpu::Queue queue = device.GetQueue();
+//     queue.WriteBuffer(res->_impl->m_Buffer, index * res->layout.GetUniformStride(), data.data(), data.size());
+// }
 
 void* Shader2::GetPipeline()
 {

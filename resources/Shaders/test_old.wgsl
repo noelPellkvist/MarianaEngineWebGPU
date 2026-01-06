@@ -49,18 +49,20 @@ struct CameraInfoData {
 };
 
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
+@group(0) @binding(1) var<uniform> ModelDataObject: ModelData;
+@group(0) @binding(2) var<uniform> camInfo: CameraInfoData;
+@group(0) @binding(3) var<uniform> Material : MaterialProperties;
+@group(0) @binding(4) var shadowMap: texture_depth_2d;
+@group(0) @binding(5) var shadowSampler: sampler_comparison;
 
-@group(1) @binding(0) var<uniform> ModelDataObject: ModelData;
+@group(1) @binding(0) var albedo: texture_2d<f32>;
+@group(1) @binding(1) var normalMap: texture_2d<f32>;
+@group(1) @binding(2) var ambientO: texture_2d<f32>;
+@group(1) @binding(3) var metallicRoughness: texture_2d<f32>;  
+@group(1) @binding(4) var emissiveTex: texture_2d<f32>;  
+@group(1) @binding(5) var textureSampler: sampler;
 
-@group(3) @binding(0) var<uniform> Material : MaterialProperties;
-@group(3) @binding(1) var albedo: texture_2d<f32>;
-@group(3) @binding(2) var normalMap: texture_2d<f32>;
-@group(3) @binding(3) var ambientO: texture_2d<f32>;
-@group(3) @binding(4) var metallicRoughness: texture_2d<f32>;  
-@group(3) @binding(5) var emissiveTex: texture_2d<f32>;  
-@group(3) @binding(6) var textureSampler: sampler;
 
-@group(2) @binding(0) var<uniform> camInfo: CameraInfoData;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {

@@ -1,0 +1,14 @@
+# Target labels
+ flecs-populate
+# Source files and their labels
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/CMakeFiles/flecs-populate
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/CMakeFiles/flecs-populate.rule
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/CMakeFiles/flecs-populate-complete.rule
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-build.rule
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-configure.rule
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-download.rule
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-install.rule
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-mkdir.rule
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-patch.rule
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-test.rule
+G:/MARIANA/New/MarianaEngineWebGPU/build-web/_deps/flecs-subbuild/flecs-populate-prefix/src/flecs-populate-stamp/flecs-populate-update.rule
