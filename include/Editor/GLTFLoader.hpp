@@ -31,7 +31,7 @@ struct Vertex {
 struct GLTFMaterialProperties
 {
     glm::vec4 baseColor{1,1,1,1};
-    float metallicFactor{1};
+    float metallicFactor{0};
     float roughnessFactor{1};
 
     float normalMapStrength{1};

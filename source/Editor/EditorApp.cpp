@@ -113,7 +113,7 @@ struct UBO {
 
 struct TransformData {
   glm::mat4x4 modelMatrix;
-  glm::mat4x4 normalMatrix;
+  glm::mat3x3 normalMatrix;
   uint32_t entityID{0};
 };
 
@@ -160,7 +160,7 @@ Shader2 ShadowMapShader("StandardShadowMap");
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
-shadowpass(false, true, {  }, 2048, 2048)
+shadowpass(false, true, {  }, 8192 , 8192 )
 {
     cam = new EditorCameraController(input);
     uboBuffer.Build();
@@ -207,7 +207,7 @@ shadowpass(false, true, {  }, 2048, 2048)
 
     
 
-    scene.Instantiate((std::string("Helmet")).c_str()).Add<ShadowCasterComponent>({0,0}).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(1).SetPosition(0, 2, 0);
+    scene.Instantiate((std::string("Tree")).c_str()).Add<ShadowCasterComponent>({0,0}).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(5).SetPosition(0, 1.272f, 0).SetRotationEuler(0, 80, 0);
     scene.Instantiate((std::string("Plane")).c_str()).Add<ShadowCasterComponent>({1,1}).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(5).SetPosition(0, -1, 0);
     scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({1, 2, 2}).SetScaleUniform(20).SetPosition(0, 2, 0);
 
@@ -241,12 +241,12 @@ void EditorApp::OnStart()
     Logger::Info("Starting");
 
     if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam)) {
-        editorCam->SetPosition({0.0f, 0.0f, 0.0f});
-        editorCam->SetYawPitch(glm::half_pi<float>(), 0.0f);
+        editorCam->SetPosition({-10.0f, 3.0f, -10.0f});
+        editorCam->SetYawPitch(glm::half_pi<float>() / 2, -glm::half_pi<float>() / 5);
     }
 
     
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", StandardPBRShader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Tree.glb", StandardPBRShader);
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Plane.glb", StandardPBRShader);
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", StandardPBRShader);
 
@@ -289,8 +289,8 @@ void EditorApp::OnStart()
         : glm::vec3(0.0f, 1.0f, 0.0f);
 
     ubo.lightVP =
-    glm::orthoLH_ZO(-50.0f, 50.0f,
-                    -50.0f, 50.0f,
+    glm::orthoLH_ZO(-25.0f, 25.0f,
+                    -25.0f, 25.0f,
                      0.1f, 200.0f) *
     glm::lookAtLH(lightPos, sceneCenter, up);
 

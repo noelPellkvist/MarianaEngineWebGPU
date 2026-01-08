@@ -18,7 +18,7 @@ struct UBO {
 
 struct ModelData {
   modelMatrix: mat4x4<f32>,
-  normalMatrix: mat4x4<f32>,
+  normalMatrix: mat3x3<f32>,
   entityID: u32,
 };
 

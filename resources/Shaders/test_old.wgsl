@@ -132,18 +132,23 @@ struct FragOut {
 @fragment
 fn fragmentMain(input: VertexOutput) -> FragOut {
     var n = textureSample(normalMap, textureSampler, input.uv).xyz * 2.0 - 1.0;
+    n = normalize(mix(vec3f(0.0, 0.0, 1.0), n, Material.normalMapStrength));
     let TBN = mat3x3<f32>(input.world_tangent, input.world_bitangent, input.world_normal);
     let N = normalize(TBN * n);
 
-    var baseColor = textureSample(albedo, textureSampler, input.uv).rgb * Material.baseColor.rgb;
+    let albedoSample = textureSample(albedo, textureSampler, input.uv);
+    var baseColor = albedoSample.rgb * Material.baseColor.rgb;
+    let alpha = albedoSample.a * Material.baseColor.a;
+    if (alpha < Material.alphaCutoff) {
+        discard;
+    }
 
     let mrSample = textureSample(metallicRoughness, textureSampler, input.uv);
-    let perceptualRoughness = clamp(mrSample.g, 0.04, 1.0);
-    let metallic = clamp(mrSample.b, 0.0, 1.0);
+    let perceptualRoughness = clamp(mrSample.g * Material.roughnessFactor, 0.04, 1.0);
+    let metallic = clamp(mrSample.b * Material.metallicFactor, 0.0, 1.0);
 
-    let aoStrength = 1.0;
     let ao = textureSample(ambientO, textureSampler, input.uv).r;
-    let aoTerm = mix(1.0, ao, aoStrength);
+    let aoTerm = mix(1.0, ao, Material.occlusionStrength);
 
     let L = normalize(-UniformBufferObject.lightDir);
     let V = normalize(camInfo.position - input.world_pos);
@@ -167,14 +172,43 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
     let kd = (1.0 - F) * (1.0 - metallic);
     let diffuse = kd * baseColor / 3.14159265;
 
-    let direct = (diffuse + spec) * NoL * 1.0;
+    let lightClip = UniformBufferObject.lightVP * vec4f(input.world_pos, 1.0);
+    let ndc = lightClip.xyz / max(lightClip.w, 1e-8);
+    let uv = vec2f(ndc.x, -ndc.y) * 0.5 + vec2f(0.5);
+
+    let biasMin = 0.0005;
+    let biasMax = 0.0040;
+    let bias = mix(biasMax, biasMin, NoL);
+    let normalBias = 0.002 * (1.0 - NoL);
+    let depthRef = ndc.z - (bias + normalBias);
+
+    let shadowRaw = textureSampleCompare(
+        shadowMap,
+        shadowSampler,
+        clamp(uv, vec2f(0.0), vec2f(1.0)),
+        clamp(depthRef, 0.0, 1.0)
+    );
+
+    let inXY =
+        step(-1.0, ndc.x) * step(ndc.x, 1.0) *
+        step(-1.0, ndc.y) * step(ndc.y, 1.0);
+    let inZ = step(0.0, ndc.z) * step(ndc.z, 1.0);
+    let inW = step(0.0, lightClip.w);
+    let inFrustum = inXY * inZ * inW;
+
+    let litMask = step(0.0, NoL);
+    let shadow =
+        (mix(1.0, shadowRaw, inFrustum) * litMask) +
+        (1.0 - litMask);
+
+    let direct = (diffuse + spec) * NoL * shadow;
 
     let ambient = 0.03 * aoTerm * baseColor;
 
     let exposure = 2.0;
 
     var emmisiveTexture = textureSample(emissiveTex, textureSampler, input.uv).rgb;
-    emmisiveTexture = pow(emmisiveTexture, vec3f(2.2));
+    emmisiveTexture = pow(emmisiveTexture, vec3f(2.2)) * Material.emissiveFactor;
 
     var colorLinear = (direct + ambient + emmisiveTexture) * exposure;
     

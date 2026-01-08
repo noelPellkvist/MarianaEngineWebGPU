@@ -343,6 +343,12 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
         Texture& metallicRoughness = mat.pbrMetallicRoughness.metallicRoughnessTexture.index == -1 ? GetFlatMetallicRoughnessTexture() : AssetManager::LoadedTextures[mat.pbrMetallicRoughness.metallicRoughnessTexture.index + preTextures];
         GLTFMaterialProperties props;
         props.baseColor = {1,1,1,1};
+        props.metallicFactor = mat.pbrMetallicRoughness.metallicFactor;
+        props.roughnessFactor = mat.pbrMetallicRoughness.roughnessFactor;
+        props.emissiveFactor = {mat.emissiveFactor[0], mat.emissiveFactor[1], mat.emissiveFactor[2]};
+        props.normalMapStrength = mat.normalTexture.scale;
+        props.occlusionStrength = mat.occlusionTexture.strength;
+        props.alphaCutoff = mat.alphaCutoff;
         Texture& emmisive = mat.emissiveTexture.index == -1 ? GetFlatEmissiveTexture() : AssetManager::LoadedTextures[mat.emissiveTexture.index + preTextures];
         Material2 newMat;
         newMat.InitFromShader(shader)
