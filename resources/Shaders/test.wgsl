@@ -248,14 +248,14 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
 
     // ----- Lighting -----
     let direct = (diffuse + spec) * NoL * shadow;
-    let ambient = 0.07 * aoTerm * baseColor;
+    let ambient = 0.1 * aoTerm * baseColor;
 
     // ----- Emissive -----
     var emissiveTexture = textureSample(emissiveTex, textureSampler, input.uv).rgb;
-    emissiveTexture = pow(emissiveTexture, vec3f(2.2)) * Material.emissiveFactor;
+    emissiveTexture = pow(emissiveTexture, vec3f(2.2)); // * Material.emissiveFactor;
 
     // ----- Exposure + tonemap -----
-    let exposure = 2.0;
+    let exposure = 1.5;
     var colorLinear = (direct + ambient + emissiveTexture) * exposure;
 
     colorLinear = tonemapACES(colorLinear);

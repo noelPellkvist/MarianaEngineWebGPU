@@ -3,6 +3,8 @@
 #include <Editor/EditorCameraController.hpp>
 #include <AssetManager.hpp>
 #include <Buffer.hpp>
+#include <ECS.hpp>
+#include <Prefab.hpp>
 
 #include "ImGuizmo.h"
 
@@ -125,7 +127,7 @@ TransformData transformBuffer{};
 UniformBufferLayout transformLayout2(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix, transformBuffer.entityID);
 Buffer transformBufferBuffer(transformLayout2);
 
-GLTF::GLTFMaterialProperties materialsBuffer;
+GLTFMaterialProperties materialsBuffer;
 UniformBufferLayout materialsLayout2(true, materialsBuffer, materialsBuffer.baseColor, materialsBuffer.metallicFactor, materialsBuffer.roughnessFactor,
     materialsBuffer.normalMapStrength, materialsBuffer.occlusionStrength,
     materialsBuffer.emissiveFactor, materialsBuffer.alphaCutoff);
@@ -158,10 +160,23 @@ Shader2 StandardPBRShader("StandardPBR");
 Shader2 StandardSkyboxShader("StandardSkybox");
 Shader2 ShadowMapShader("StandardShadowMap");
 
+
+
+
 EditorApp::EditorApp(const std::string& name) : Application(name), 
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
 shadowpass(false, true, {  }, 8192 , 8192 )
 {
+    ECS::RegisterComponent<ShadowCasterComponent>("ShadowCasterComponent");
+    ECS::RegisterComponent<RendererComponent>("RendererComponent");
+    ECS::RegisterComponent<LocalTRS>("LocalTRS");
+    ECS::RegisterComponent<WorldXform>("WorldXform");
+    ECS::RegisterComponent<TransformClock>("TransformClock");
+    ECS::RegisterComponent<XformCache>("XformCache");
+
+    scene.UpdateComponentRegistry();
+
+
     cam = new EditorCameraController(input);
     uboBuffer.Build();
     transformBufferBuffer.Build();
@@ -208,14 +223,20 @@ shadowpass(false, true, {  }, 8192 , 8192 )
     
 
     scene.Instantiate((std::string("Tree")).c_str()).Add<ShadowCasterComponent>({0,0}).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(5).SetPosition(0, 1.272f, 0).SetRotationEuler(0, 80, 0);
-    scene.Instantiate((std::string("Plane")).c_str()).Add<ShadowCasterComponent>({1,1}).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(5).SetPosition(0, -1, 0);
-    scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({1, 2, 2}).SetScaleUniform(20).SetPosition(0, 2, 0);
+    // scene.Instantiate((std::string("Helmet")).c_str()).Add<ShadowCasterComponent>({1,1}).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(5).SetPosition(0, -1, 0);
+    scene.Instantiate((std::string("Plane")).c_str()).Add<ShadowCasterComponent>({2,2}).Add<RendererComponent>({0, 2, 2}).SetScaleUniform(5).SetPosition(0, -1, 0);
+    scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({1, 3, 3}).SetScaleUniform(20).SetPosition(0, 2, 0);
+
+    Prefab p("AvocadoPrefab");
+    p.Root().Add<ShadowCasterComponent>({1,1}).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(5).SetPosition(0, -1, 0);
+    auto child = p.Instantiate("ChildAvocado");
+    child.SetParent(p.Root());
+    scene.Instantiate(p);
 
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
         transformBuffer.entityID = ent.RawId();
-        //StandardPBRShader.WriteToBuffer("ModelData", transformBuffer, renderComp.transformIndex);
         transformBufferBuffer.Write(transformBuffer, renderComp.transformIndex);
     });
 
@@ -247,6 +268,7 @@ void EditorApp::OnStart()
 
     
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Tree.glb", StandardPBRShader);
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", StandardPBRShader);
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Plane.glb", StandardPBRShader);
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", StandardPBRShader);
 
@@ -294,12 +316,11 @@ void EditorApp::OnStart()
                      0.1f, 200.0f) *
     glm::lookAtLH(lightPos, sceneCenter, up);
 
-    materialsBuffer.baseColor = glm::vec4(1,1,1,1);    
-    // StandardPBRShader.WriteToBuffer("UBO", ubo, 0);
-    // StandardPBRShader.WriteToBuffer("Material", materialsBuffer, 0);
+    
     uboBuffer.Write(ubo, 0);
-    materialsBufferBuffer.Write(materialsBuffer, 0);
-    materialsBufferBuffer.Write(materialsBuffer, 1);
+
+    for (int i = 0; i < AssetManager::LoadedMaterialProperties.size(); i++)
+        materialsBufferBuffer.Write(AssetManager::LoadedMaterialProperties[i], i);
 
     LoadFileTextures();
 
@@ -837,6 +858,13 @@ void EditorApp::DrawInspector(Entity& e)
             ImGui::EndTable();
         }
     }
+
+    ImGui::Separator();
+    ImGui::TextDisabled("Components");
+    scene.ForEachComponent(e, [&](const ComponentView& c){
+        const char* name = (c.name && *c.name) ? c.name : "<unnamed>";
+        ImGui::BulletText("%s", name);
+    });
     e.SetName(entityName);
 }
 

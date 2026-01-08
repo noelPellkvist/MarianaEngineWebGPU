@@ -26,6 +26,26 @@ struct WorldXform {
     };
 };
 
+struct XformCache { uint32_t local_v=~0u, parent_v=~0u, world_v=0; };
+struct TransformClock { uint32_t tick = 1; };
+
+struct ComponentView {
+    uint32_t id = 0;
+    const char* name = nullptr;
+    const void* data = nullptr;
+    std::size_t size = 0;
+    std::size_t align = 0;
+    bool isTag = false;
+};
+
+namespace ECS {
+    void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name = nullptr);
+
+    template<class T>
+    inline void RegisterComponent(const char* name = nullptr) {
+        RegisterComponent(typeid(T), sizeof(T), alignof(T), name);
+    }
+}
 
 class Scene;
 
@@ -101,14 +121,25 @@ public:
     Scene& operator=(Scene&&) noexcept;
 
     Entity Instantiate(const char* name = nullptr);
+    Entity Instantiate(const Prefab& prefab, const char* name = nullptr);
     void Destroy(Entity e);
     void Update(float dt);
+    void UpdateComponentRegistry();
 
     template<class Fn>
     void ForEachChild(Entity parent, Fn&& fn);
 
     template<class Fn>
+    void ForEachChild(Entity parent, Fn&& fn) const;
+
+    template<class Fn>
     void ForEachRoot(Fn&& fn);
+
+    template<class Fn>
+    void ForEachRoot(Fn&& fn) const;
+
+    template<class Fn>
+    void ForEachComponent(Entity e, Fn&& fn) const;
 
     template<typename... Components, typename Fn>
     System CreateSystem(Fn&& fn, bool cascade = false);
@@ -118,10 +149,12 @@ public:
 
 private:
     friend class Entity;
+    friend class Prefab;
 
     uint32_t _create(const char* name);
     void     _destroy(uint32_t eid);
     void     _update(float dt);
+    void     _applyRegistry();
     void     _setName(uint32_t eid, const char* name);
     const char* _getName(uint32_t eid) const;
     int _childCount(uint32_t parentId) const;
@@ -130,10 +163,15 @@ private:
     void*    _getMut(uint32_t id, const std::type_info& ti, std::size_t size, std::size_t align) const;
     void     _addSet(uint32_t id, const std::type_info& ti, const void* data, std::size_t size, std::size_t align);
     void     _remove(uint32_t id, const std::type_info& ti) const;
+    uint32_t _ensureComponentByName(const char* name, std::size_t size, std::size_t align);
+    void     _addById(uint32_t entityId, uint32_t compId, const void* data, std::size_t size, std::size_t align);
 
     void     _setParent(uint32_t id, uint32_t parentId);
     void     _forEachChildOpaque(uint32_t parentId, void(*cb)(void*, uint32_t, Scene*), void* ctx) const;
     void _forEachRootOpaque(void(*cb)(void*, uint32_t, Scene*), void* ctx) const;
+    void _forEachComponentOpaque(uint32_t id,
+                                 void(*cb)(void*, uint32_t, const char*, const void*, std::size_t, std::size_t, bool),
+                                 void* ctx) const;
 
     System _create_system(const std::vector<const std::type_info*>& compTypes,
                       const std::vector<std::size_t>& sizes,
@@ -170,6 +208,7 @@ private:
 inline Entity Scene::Instantiate(const char* name) { return Entity(this, _create(name)); }
 inline void   Scene::Destroy(Entity e) { _destroy(e.RawId()); }
 inline void   Scene::Update(float dt) { _update(dt); }
+inline void   Scene::UpdateComponentRegistry() { _applyRegistry(); }
 inline Entity& Entity::SetName(const char* name) { _scene->_setName(_id, name); return *this; }
 inline const char* Entity::GetName() const { return _scene->_getName(_id); }
 inline Entity& Entity::SetParent(Entity parent) { _scene->_setParent(_id, parent.RawId()); return *this; }
@@ -221,9 +260,33 @@ inline void Scene::ForEachChild(Entity parent, Fn&& fn) {
 }
 
 template<class Fn>
+inline void Scene::ForEachChild(Entity parent, Fn&& fn) const {
+    struct Ctx { Fn fn; Scene* self; };
+    Ctx ctx{ std::forward<Fn>(fn), const_cast<Scene*>(this) };
+    _forEachChildOpaque(parent.RawId(),
+        [](void* u, uint32_t childId, Scene* self){
+            auto& c = *static_cast<Ctx*>(u);
+            c.fn( Entity(self, childId) );
+        }, &ctx);
+}
+
+template<class Fn>
 inline void Scene::ForEachRoot(Fn&& fn) {
     struct Ctx { Fn fn; Scene* self; };
     Ctx ctx{ std::forward<Fn>(fn), this };
+    _forEachRootOpaque(
+        [](void* u, uint32_t id, Scene* self){
+            auto& c = *static_cast<Ctx*>(u);
+            c.fn( Entity(self, id) );
+        },
+        &ctx
+    );
+}
+
+template<class Fn>
+inline void Scene::ForEachRoot(Fn&& fn) const {
+    struct Ctx { Fn fn; Scene* self; };
+    Ctx ctx{ std::forward<Fn>(fn), const_cast<Scene*>(this) };
     _forEachRootOpaque(
         [](void* u, uint32_t id, Scene* self){
             auto& c = *static_cast<Ctx*>(u);
@@ -270,4 +333,22 @@ inline Entity Scene::Parent(Entity e) const {
 inline Entity Scene::FromId(uint32_t id) const
 {
     return id ? Entity(const_cast<Scene*>(this), id) : Entity{};
+}
+
+template<class Fn>
+inline void Scene::ForEachComponent(Entity e, Fn&& fn) const {
+    struct Ctx { Fn fn; };
+    Ctx ctx{ std::forward<Fn>(fn) };
+    _forEachComponentOpaque(e.RawId(),
+        [](void* u, uint32_t compId, const char* name, const void* data, std::size_t size, std::size_t align, bool isTag){
+            auto& c = *static_cast<Ctx*>(u);
+            ComponentView view{};
+            view.id = compId;
+            view.name = name;
+            view.data = data;
+            view.size = size;
+            view.align = align;
+            view.isTag = isTag;
+            c.fn(view);
+        }, &ctx);
 }

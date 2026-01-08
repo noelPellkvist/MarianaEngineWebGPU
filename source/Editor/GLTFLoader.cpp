@@ -349,6 +349,7 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
         props.normalMapStrength = mat.normalTexture.scale;
         props.occlusionStrength = mat.occlusionTexture.strength;
         props.alphaCutoff = mat.alphaCutoff;
+        AssetManager::LoadedMaterialProperties.push_back(props);
         Texture& emmisive = mat.emissiveTexture.index == -1 ? GetFlatEmissiveTexture() : AssetManager::LoadedTextures[mat.emissiveTexture.index + preTextures];
         Material2 newMat;
         newMat.InitFromShader(shader)
