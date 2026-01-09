@@ -21,7 +21,7 @@ void Buffer::Build()
     bufferDesc.mappedAtCreation = false;
     if(m_IsDynamic)
     {
-        bufferDesc.size = m_Layout.GetUniformStride() * 256;
+        bufferDesc.size = m_Layout.GetUniformStride() * 1024;
     }
     else
         bufferDesc.size = m_Size;

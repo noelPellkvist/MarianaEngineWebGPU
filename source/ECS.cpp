@@ -33,6 +33,7 @@ struct Scene::Impl {
     std::unordered_map<ecs_entity_t, CompInfo> comp_info;
 
     Scene* owner = nullptr;
+    uint32_t next_trs_id = 0;
 
     Impl(Scene* s) : ecs(), owner(s) {}
     Impl() : ecs(), owner(nullptr) {}
@@ -136,6 +137,7 @@ struct System::Impl {
 };
 
 static void run_query_and_call(ecs_world_t* world, ecs_query_t* q, System::Impl* impl, float delta) {
+    static alignas(std::max_align_t) unsigned char tag_dummy[sizeof(std::max_align_t)] = {};
     ecs_iter_t it = ecs_query_iter(world, q);
     while (ecs_query_next(&it)) {
         // for each matched entity in this batch:
@@ -146,6 +148,10 @@ static void run_query_and_call(ecs_world_t* world, ecs_query_t* q, System::Impl*
             std::vector<void*> comps(n, nullptr);
             bool ok = true;
             for (size_t j = 0; j < n; ++j) {
+                if (impl->sizes[j] == 0) {
+                    comps[j] = tag_dummy;
+                    continue;
+                }
                 void* base = nullptr;
                 if (it.ptrs && it.ptrs[j]) {
                     // compute per-entity address
@@ -248,6 +254,7 @@ uint32_t Scene::_create(const char* name) {
 
     LocalTRS   lt{};
     WorldXform wx{};
+    wx.id = _p->next_trs_id++;
     ecs_set_id(_p->ecs.c_ptr(), e.id(), idLocal, sizeof(LocalTRS),   &lt);
     ecs_set_id(_p->ecs.c_ptr(), e.id(), idWorld, sizeof(WorldXform), &wx);
 
@@ -283,9 +290,35 @@ void* Scene::_getMut(uint32_t id, const std::type_info& ti, std::size_t sz, std:
 }
 void Scene::_addSet(uint32_t id, const std::type_info& ti, const void* data, std::size_t sz, std::size_t align) {
     ecs_entity_t cid = _p->ensureComponent(ti, sz, align);
+    if (ti == typeid(WorldXform) && data && sz == sizeof(WorldXform)) {
+        WorldXform temp = *static_cast<const WorldXform*>(data);
+        const WorldXform* existing = static_cast<const WorldXform*>(
+            ecs_get_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid)
+        );
+        temp.id = existing ? existing->id : _p->next_trs_id++;
+        ecs_set_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid, sz, &temp);
+        return;
+    }
     ecs_set_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid, sz, data);
 }
 void Scene::_remove(uint32_t id, const std::type_info& ti) const {
+    auto it = _p->comp.find(std::type_index(ti));
+    if (it == _p->comp.end()) return;
+    ecs_remove_id(_p->ecs.c_ptr(), (ecs_entity_t)id, it->second);
+}
+
+void Scene::_addTag(uint32_t id, const std::type_info& ti) {
+    ecs_entity_t cid = _p->ensureComponent(ti, 0, 0);
+    ecs_add_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid);
+}
+
+bool Scene::_hasTag(uint32_t id, const std::type_info& ti) const {
+    auto it = _p->comp.find(std::type_index(ti));
+    if (it == _p->comp.end()) return false;
+    return ecs_has_id(_p->ecs.c_ptr(), (ecs_entity_t)id, it->second);
+}
+
+void Scene::_removeTag(uint32_t id, const std::type_info& ti) const {
     auto it = _p->comp.find(std::type_index(ti));
     if (it == _p->comp.end()) return;
     ecs_remove_id(_p->ecs.c_ptr(), (ecs_entity_t)id, it->second);
@@ -303,6 +336,16 @@ void Scene::_addById(uint32_t entityId, uint32_t compId, const void* data, std::
     ecs_entity_t c = (ecs_entity_t)compId;
     if (size == 0 || data == nullptr) {
         ecs_add_id(w, e, c);
+        return;
+    }
+    auto it = _p->comp.find(std::type_index(typeid(WorldXform)));
+    if (it != _p->comp.end() && (ecs_entity_t)it->second == c && size == sizeof(WorldXform)) {
+        WorldXform temp = *static_cast<const WorldXform*>(data);
+        const WorldXform* existing = static_cast<const WorldXform*>(
+            ecs_get_id(w, e, c)
+        );
+        temp.id = existing ? existing->id : _p->next_trs_id++;
+        ecs_set_id(w, e, c, size, &temp);
         return;
     }
     ecs_set_id(w, e, c, size, data);
@@ -440,6 +483,10 @@ for(size_t i = 0; i < term_count; ++i) {
     }
 
     simpl->comp_ids.push_back(cid);
+    if (auto info_it = _p->comp_info.find(cid); info_it != _p->comp_info.end()) {
+        simpl->sizes[i] = info_it->second.size;
+        simpl->aligns[i] = info_it->second.align;
+    }
 
     // Fill the term struct directly
     ecs_term_t& term = terms[i];
@@ -520,6 +567,30 @@ void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t a
     entry.name = resolvedName;
     entry.size = size;
     entry.align = align;
+    registry.push_back(entry);
+}
+
+void RegisterTag(const std::type_info& ti, const char* name) {
+    std::vector<RegisteredComponent>& registry = GlobalComponentRegistry();
+    std::type_index key(ti);
+    const char* resolvedName = (name && *name) ? name : ti.name();
+
+    for (auto& entry : registry) {
+        if (entry.type == key) {
+            if (name && *name) {
+                entry.name = resolvedName;
+            }
+            entry.size = 0;
+            entry.align = 0;
+            return;
+        }
+    }
+
+    RegisteredComponent entry{};
+    entry.type = key;
+    entry.name = resolvedName;
+    entry.size = 0;
+    entry.align = 0;
     registry.push_back(entry);
 }
 } // namespace ECS

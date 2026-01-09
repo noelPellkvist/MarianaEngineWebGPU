@@ -140,11 +140,7 @@ Buffer cameraBuffer(camLayout);
 GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0};
 
-struct ShadowCasterComponent
-{
-    uint32_t meshIndex{0};
-    uint32_t transformIndex{0}; 
-};
+
 
 struct SkyBoxSettings
 {
@@ -160,6 +156,8 @@ Shader2 StandardPBRShader("StandardPBR");
 Shader2 StandardSkyboxShader("StandardSkybox");
 Shader2 ShadowMapShader("StandardShadowMap");
 
+struct Skybox {};
+
 
 
 
@@ -167,12 +165,13 @@ EditorApp::EditorApp(const std::string& name) : Application(name),
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
 shadowpass(false, true, {  }, 8192 , 8192 )
 {
-    ECS::RegisterComponent<ShadowCasterComponent>("ShadowCasterComponent");
-    ECS::RegisterComponent<RendererComponent>("RendererComponent");
+    ECS::RegisterTag<ShadowCasterTag>("ShadowCasterTag");
     ECS::RegisterComponent<LocalTRS>("LocalTRS");
     ECS::RegisterComponent<WorldXform>("WorldXform");
     ECS::RegisterComponent<TransformClock>("TransformClock");
     ECS::RegisterComponent<XformCache>("XformCache");
+    ECS::RegisterComponent<MeshComponent>("MeshComponent");
+    ECS::RegisterTag<Skybox>("Skybox");
 
     scene.UpdateComponentRegistry();
 
@@ -220,24 +219,39 @@ shadowpass(false, true, {  }, 8192 , 8192 )
 
     StandardPBRShader.Build();
 
-    
+    Texture skyboxTex;
+    skyboxTex.LoadCubeTexture({
+        "/Textures/skybox/right.jpg",
+        "/Textures/skybox/left.jpg",
+        "/Textures/skybox/top.jpg",
+        "/Textures/skybox/bottom.jpg",
+        "/Textures/skybox/back.jpg",
+        "/Textures/skybox/front.jpg",
+    }, TextureFormat::RGBA8UnormSrgb);
+    AssetManager::LoadedTextures.push_back(skyboxTex);
 
-    scene.Instantiate((std::string("Tree")).c_str()).Add<ShadowCasterComponent>({0,0}).Add<RendererComponent>({0, 0, 0}).SetScaleUniform(5).SetPosition(0, 1.272f, 0).SetRotationEuler(0, 80, 0);
-    // scene.Instantiate((std::string("Helmet")).c_str()).Add<ShadowCasterComponent>({1,1}).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(5).SetPosition(0, -1, 0);
-    scene.Instantiate((std::string("Plane")).c_str()).Add<ShadowCasterComponent>({2,2}).Add<RendererComponent>({0, 2, 2}).SetScaleUniform(5).SetPosition(0, -1, 0);
-    scene.Instantiate((std::string("SkyBox")).c_str()).Add<RendererComponent>({1, 3, 3}).SetScaleUniform(20).SetPosition(0, 2, 0);
+    StandardSkyboxShader.Group(0)
+    .AddUniformBuffer("CameraInfo", 0, cameraBuffer)
+    .AddTexture("CubeMap", 1, TextureType_Cube)
+    .AddSampler("Sampler", 2);
 
-    Prefab p("AvocadoPrefab");
-    p.Root().Add<ShadowCasterComponent>({1,1}).Add<RendererComponent>({0, 1, 1}).SetScaleUniform(5).SetPosition(0, -1, 0);
-    auto child = p.Instantiate("ChildAvocado");
-    child.SetParent(p.Root());
-    scene.Instantiate(p);
+    StandardSkyboxShader.SetTexture("CubeMap", skyboxTex);
 
-    WriteTransformBufferSystem = scene.CreateSystem<WorldXform, RendererComponent>([&](Entity ent, WorldXform& form, RendererComponent& renderComp, float dt){
+    StandardSkyboxShader.SetVertexStructLayout(vertexLayout);
+    StandardSkyboxShader.SetWGSL(FileReader::LoadRawString("/Shaders/skybox.wgsl"));
+    StandardSkyboxShader.SetRenderpass(&renderpass);
+    StandardSkyboxShader.Build();
+
+    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", StandardPBRShader);
+    Prefab test = GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Rumba.glb", StandardPBRShader);
+    scene.Instantiate((std::string("SkyBox")).c_str()).Add<MeshComponent>({0}).AddTag<Skybox>().SetScaleUniform(20).SetPosition(0, 2, 0);
+    Entity spawnedTest = scene.Instantiate(test).SetScaleUniform(0.1f);
+
+    WriteTransformBufferSystem = scene.CreateSystem<WorldXform>([&](Entity ent, WorldXform& form, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
         transformBuffer.entityID = ent.RawId();
-        transformBufferBuffer.Write(transformBuffer, renderComp.transformIndex);
+        transformBufferBuffer.Write(transformBuffer, form.id);
     });
 
     scene.Update(0.f);
@@ -264,37 +278,8 @@ void EditorApp::OnStart()
     if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam)) {
         editorCam->SetPosition({-10.0f, 3.0f, -10.0f});
         editorCam->SetYawPitch(glm::half_pi<float>() / 2, -glm::half_pi<float>() / 5);
-    }
+    } 
 
-    
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Tree.glb", StandardPBRShader);
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", StandardPBRShader);
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Plane.glb", StandardPBRShader);
-    GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", StandardPBRShader);
-
-    Texture skyboxTex;
-    skyboxTex.LoadCubeTexture({
-        "/Textures/skybox/right.jpg",
-        "/Textures/skybox/left.jpg",
-        "/Textures/skybox/top.jpg",
-        "/Textures/skybox/bottom.jpg",
-        "/Textures/skybox/back.jpg",
-        "/Textures/skybox/front.jpg",
-    }, TextureFormat::RGBA8UnormSrgb);
-    AssetManager::LoadedTextures.push_back(skyboxTex);
-
-    StandardSkyboxShader.Group(0)
-    .AddUniformBuffer("CameraInfo", 0, cameraBuffer)
-    .AddTexture("CubeMap", 1, TextureType_Cube)
-    .AddSampler("Sampler", 2);
-
-    StandardSkyboxShader.SetTexture("CubeMap", skyboxTex);
-
-    StandardSkyboxShader.SetVertexStructLayout(vertexLayout);
-    StandardSkyboxShader.SetWGSL(FileReader::LoadRawString("/Shaders/skybox.wgsl"));
-    StandardSkyboxShader.SetRenderpass(&renderpass);
-    StandardSkyboxShader.Build();
-    
     renderer.PushRenderpass(&shadowpass);
     renderer.PushRenderpass(&renderpass);
 
@@ -324,15 +309,15 @@ void EditorApp::OnStart()
 
     LoadFileTextures();
 
-    renderpass.renderSystem = scene.CreateSystem<RendererComponent>([&](Entity ent, RendererComponent& rendererComp, float dt){
-        IMesh* mesh = AssetManager::LoadedMeshes[rendererComp.meshIndex].get();
+    renderpass.renderSystem = scene.CreateSystem<MeshComponent, WorldXform>([&](Entity ent, MeshComponent& meshComp, WorldXform& form, float dt){
+        IMesh* mesh = AssetManager::LoadedMeshes[meshComp.meshIndex].get();
 
-        if (rendererComp.shaderIndex == 0)
+        if (!ent.HasTag<Skybox>())
         {
 
             renderpass.SetShader2(StandardPBRShader);
             renderpass.SetMesh(mesh);
-            renderpass.SetBufferIndex("ModelData", rendererComp.transformIndex);
+            renderpass.SetBufferIndex("ModelData", form.id);
             
 
             for (Submesh& sm : mesh->submeshes)
@@ -354,12 +339,13 @@ void EditorApp::OnStart()
         }
     });
 
-    shadowpass.renderSystem = scene.CreateSystem<ShadowCasterComponent>([&](Entity ent, ShadowCasterComponent& shadowCasterComp, float dt){
+    shadowpass.renderSystem = scene.CreateSystem<MeshComponent, WorldXform, ShadowCasterTag>([&](Entity ent, MeshComponent& meshComp, WorldXform& form, ShadowCasterTag& tag, float dt){
+        (void)tag;
         shadowpass.SetShader2(ShadowMapShader);
-        IMesh* mesh = AssetManager::LoadedMeshes[shadowCasterComp.meshIndex].get();
+        IMesh* mesh = AssetManager::LoadedMeshes[meshComp.meshIndex].get();
         shadowpass.SetMesh(mesh);
-        shadowpass.SetBufferIndex("ModelData", shadowCasterComp.transformIndex);
-
+        shadowpass.SetBufferIndex("ModelData", form.id);
+        
         for (Submesh& sm : mesh->submeshes)
         {
           shadowpass.Draw(sm.indexCount, sm.startIndex);
@@ -468,20 +454,26 @@ void EditorApp::OnGUI()
 {
     if(selectedEntityID != -1)
     {
-        glm::mat4 model = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
-        DrawGizmo(model, cam->View(), cam->Projection());
+        glm::mat4 world = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
+
+        DrawGizmo(world, cam->View(), cam->Projection());
+
+        glm::mat4 local = world;
+        Entity parent = scene.Parent(selectedEntity);
+        if (parent.IsValid()) {
+            glm::mat4 parentWorld = glm::make_mat4(parent.Get<WorldXform>()->model);
+            local = glm::inverse(parentWorld) * world;
+        }
 
         glm::vec3 translation, rotation, scale;
 
         float matrix[16];
-        memcpy(matrix, glm::value_ptr(model), sizeof(matrix));
-
-        ImGuizmo::DecomposeMatrixToComponents(
-            matrix,
+        memcpy(matrix, glm::value_ptr(local), sizeof(matrix));
+        ImGuizmo::DecomposeMatrixToComponents(matrix,
             glm::value_ptr(translation),
             glm::value_ptr(rotation),
-            glm::value_ptr(scale)
-        );
+            glm::value_ptr(scale));
+
         selectedEntity.SetPosition(translation.x, translation.y, translation.z);
         selectedEntity.SetRotationEuler(rotation.x, rotation.y, rotation.z);
         selectedEntity.SetScale(scale.x, scale.y, scale.z);
@@ -512,13 +504,9 @@ void EditorApp::OnGUI()
     else
     {
         DrawInspector(selectedEntity);
-        if(selectedEntity.Has<RendererComponent>())
-        {
-            transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
-            transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
-            transformBuffer.entityID = selectedEntity.RawId();
-            // transformLayout.pack(transformBuffer, selectedEntity.Get<RendererComponent>()->transformIndex);
-        }
+        transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
+        transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
+        transformBuffer.entityID = selectedEntity.RawId();
     }
     ImGui::End();
 }
@@ -528,23 +516,15 @@ void EditorApp::SelectEntity(uint64_t id)
     if(ImGuizmo::IsOver() || ImGuizmo::IsUsing()) return;
     selectedEntityID = id;
     selectedEntity = scene.FromId(id);
-    //selectedEntity.Get<RendererComponent>()->shaderIndex = 1;
 }
 
 void EditorApp::DeselectEntity()
 {
     if(ImGuizmo::IsOver() || ImGuizmo::IsUsing()) return;
-    if(selectedEntityID != -1 && selectedEntity.Has<RendererComponent>())
-    {
-        selectedEntity.Get<RendererComponent>()->shaderIndex = 0;
-    }
     selectedEntityID = -1;
 }
 
 #pragma region GUI
-
-
-
 
 void EditorApp::DrawAssetsWindow()
 {

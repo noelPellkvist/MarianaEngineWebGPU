@@ -239,11 +239,11 @@ Shader2& Shader2::Build(bool shadow)
     for (size_t i{0}; i < m_BindGroups.size(); ++i)
     {
         if (i == m_MaterialIndex) continue;
-        
+
+        uint32_t dynamicBuffers = 0;
         for (size_t j = 0; j < m_BindGroups[i].GetResources().size(); ++j)
         {
             ShaderResource& res = m_BindGroups[i].GetResources()[j];
-            uint32_t dynamicBuffers = 0;
             if (std::holds_alternative<UniformBufferResource>(res))
             {
                 UniformBufferResource& ubr = std::get<UniformBufferResource>(res);

@@ -1,5 +1,6 @@
 #include <Prefab.hpp>
 #include <cassert>
+#include <cstring>
 
 Prefab::Prefab(const char* name) {
     _scene.UpdateComponentRegistry();
@@ -59,6 +60,7 @@ uint32_t Prefab::CloneEntityRecursive(const Scene& src, Scene& dst, uint32_t src
 
     src.ForEachComponent(srcEnt, [&](const ComponentView& c){
         if (!c.name || !*c.name) return;
+        if (std::strcmp(c.name, "WorldXform") == 0) return;
         uint32_t dstCompId = dst._ensureComponentByName(c.name, c.size, c.align);
         dst._addById(dstEnt.RawId(), dstCompId, c.data, c.size, c.align);
     });

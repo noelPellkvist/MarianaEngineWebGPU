@@ -14,6 +14,8 @@
 #include <Logger.hpp>
 #include <Material.hpp>
 #include <AssetManager.hpp>
+#include <Renderer.hpp>
+
 
 #pragma region BufferHelpers
 
@@ -298,13 +300,62 @@ std::shared_ptr<IMesh> LoadEntireMesh(const tinygltf::Model& model, tinygltf::Me
     return mesh;
 }
 
-void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
+void BuildEntityFromNode(Prefab& p, Entity e, tinygltf::Model& model, int nodeIndex, uint32_t preMeshes)
+{
+    tinygltf::Node& n = model.nodes[nodeIndex];
+    glm::vec3 translation(0.0f);
+    glm::quat   rotation(1.0f, 0.0f, 0.0f, 0.0f);
+    glm::vec3 scale(1.0f);
+
+    if (n.translation.size() == 3) {
+        translation = glm::vec3(
+            static_cast<float>(n.translation[0]),
+            static_cast<float>(n.translation[1]),
+            static_cast<float>(n.translation[2])
+        );
+    }
+
+    if (n.rotation.size() == 4) {
+        rotation = glm::quat(
+            static_cast<float>(n.rotation[3]), // w
+            static_cast<float>(n.rotation[0]), // x
+            static_cast<float>(n.rotation[1]), // y
+            static_cast<float>(n.rotation[2])  // z
+        );
+    }
+
+    if (n.scale.size() == 3) {
+        scale = glm::vec3(
+            static_cast<float>(n.scale[0]),
+            static_cast<float>(n.scale[1]),
+            static_cast<float>(n.scale[2])
+        );
+    }
+
+    e.SetPosition(translation.x, translation.y, translation.z);
+    glm::vec3 euler = glm::eulerAngles(rotation);
+    e.SetRotationEuler(glm::degrees(euler.x), glm::degrees(euler.y), glm::degrees(euler.z));
+    e.SetScale(scale.x, scale.y, scale.z);
+    e.SetName(n.name.c_str());
+
+    if (n.mesh >= 0)
+        e.Add<MeshComponent>({preMeshes + n.mesh}).AddTag<ShadowCasterTag>();
+        
+    for (int childIndex : n.children) {
+        Entity child = p.Instantiate(model.nodes[childIndex].name.c_str());
+        child.SetParent(e);
+        BuildEntityFromNode(p, child, model, childIndex, preMeshes);
+    }
+}
+
+Prefab GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
 {
     std::vector<Texture> res;
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
     std::string err;
     std::string warn;
+    Prefab badPrefab;
 
     bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, filename);
 
@@ -313,13 +364,25 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
     }
 
     if (!err.empty()) {
-      Logger::Error(err);
+      return std::move(badPrefab);
     }
 
     if (!ret) {
       Logger::Error("Failed to parse glTF");
-      return;
+      return std::move(badPrefab);
     }
+
+    if (model.scenes.empty()) {
+      Logger::Error("glTF has no scenes");
+      return std::move(badPrefab);
+    }
+
+    if (model.scenes[0].nodes.empty()) {
+      Logger::Error("glTF has no scenes");
+      return std::move(badPrefab);
+    }
+
+    Prefab prefab(model.scenes[0].name.c_str());
 
     size_t preTextures = AssetManager::LoadedTextures.size();
     size_t preMaterials = AssetManager::LoadedMaterials.size();
@@ -342,7 +405,12 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
         Texture& ambient = mat.occlusionTexture.index == -1 ? GetFlatAOTexture() : AssetManager::LoadedTextures[mat.occlusionTexture.index + preTextures];
         Texture& metallicRoughness = mat.pbrMetallicRoughness.metallicRoughnessTexture.index == -1 ? GetFlatMetallicRoughnessTexture() : AssetManager::LoadedTextures[mat.pbrMetallicRoughness.metallicRoughnessTexture.index + preTextures];
         GLTFMaterialProperties props;
-        props.baseColor = {1,1,1,1};
+        props.baseColor = mat.pbrMetallicRoughness.baseColorFactor.empty() ? glm::vec4(1,1,1,1) : glm::vec4(
+            mat.pbrMetallicRoughness.baseColorFactor[0],
+            mat.pbrMetallicRoughness.baseColorFactor[1],
+            mat.pbrMetallicRoughness.baseColorFactor[2],
+            mat.pbrMetallicRoughness.baseColorFactor[3]
+        );
         props.metallicFactor = mat.pbrMetallicRoughness.metallicFactor;
         props.roughnessFactor = mat.pbrMetallicRoughness.roughnessFactor;
         props.emissiveFactor = {mat.emissiveFactor[0], mat.emissiveFactor[1], mat.emissiveFactor[2]};
@@ -369,4 +437,8 @@ void GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
         newMesh->BuildMesh();
         AssetManager::LoadedMeshes.push_back(newMesh);
     }
+
+    BuildEntityFromNode(prefab, prefab.Root(), model, model.scenes[0].nodes[0], (uint32_t)preMeshes);
+
+    return std::move(prefab);
 }

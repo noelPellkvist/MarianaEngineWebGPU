@@ -5,6 +5,7 @@
 #include <Mesh.hpp>
 #include <Texture.hpp>
 #include <Shader.hpp>
+#include <Prefab.hpp>
 
 namespace GLTF
 {
@@ -33,7 +34,7 @@ struct Vertex {
 class GLTFLoader
 {
     public:
-        static void LoadGLTF(std::string filename, Shader2& shader);
+        static Prefab LoadGLTF(std::string filename, Shader2& shader);
 };
 
 } // namespace GLTF

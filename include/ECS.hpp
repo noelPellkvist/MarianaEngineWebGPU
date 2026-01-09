@@ -24,6 +24,7 @@ struct WorldXform {
     float normal[9] { 
         1,0,0, 0,1,0, 0,0,1
     };
+    uint32_t id = 0;
 };
 
 struct XformCache { uint32_t local_v=~0u, parent_v=~0u, world_v=0; };
@@ -40,10 +41,16 @@ struct ComponentView {
 
 namespace ECS {
     void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name = nullptr);
+    void RegisterTag(const std::type_info& ti, const char* name = nullptr);
 
     template<class T>
     inline void RegisterComponent(const char* name = nullptr) {
         RegisterComponent(typeid(T), sizeof(T), alignof(T), name);
+    }
+
+    template<class T>
+    inline void RegisterTag(const char* name = nullptr) {
+        RegisterTag(typeid(T), name);
     }
 }
 
@@ -94,10 +101,13 @@ public:
     Entity& SetScaleUniform(float s);
 
     template<class T> Entity&   Add(const T& value);
+    template<class T> Entity&   AddTag();
     template<class T> bool      Has() const;
+    template<class T> bool      HasTag() const;
     template<class T> T*        Get();
     template<class T> const T*  TryGet() const;
     template<class T> void      Remove();
+    template<class T> void      RemoveTag();
 
     uint32_t RawId() const { return _id; }
 
@@ -163,6 +173,9 @@ private:
     void*    _getMut(uint32_t id, const std::type_info& ti, std::size_t size, std::size_t align) const;
     void     _addSet(uint32_t id, const std::type_info& ti, const void* data, std::size_t size, std::size_t align);
     void     _remove(uint32_t id, const std::type_info& ti) const;
+    void     _addTag(uint32_t id, const std::type_info& ti);
+    bool     _hasTag(uint32_t id, const std::type_info& ti) const;
+    void     _removeTag(uint32_t id, const std::type_info& ti) const;
     uint32_t _ensureComponentByName(const char* name, std::size_t size, std::size_t align);
     void     _addById(uint32_t entityId, uint32_t compId, const void* data, std::size_t size, std::size_t align);
 
@@ -218,7 +231,12 @@ template<class T> inline Entity& Entity::Add(const T& value) {
     _scene->_addSet(_id, typeid(T), &value, sizeof(T), alignof(T));
     return *this;
 }
+template<class T> inline Entity& Entity::AddTag() {
+    _scene->_addTag(_id, typeid(T));
+    return *this;
+}
 template<class T> inline bool Entity::Has() const { return _scene->_has(_id, typeid(T)); }
+template<class T> inline bool Entity::HasTag() const { return _scene->_hasTag(_id, typeid(T)); }
 template<class T> inline T* Entity::Get() {
     return static_cast<T*>(_scene->_getMut(_id, typeid(T), sizeof(T), alignof(T)));
 }
@@ -228,6 +246,7 @@ template<class T> inline const T* Entity::TryGet() const {
         : nullptr;
 }
 template<class T> inline void Entity::Remove() { _scene->_remove(_id, typeid(T)); }
+template<class T> inline void Entity::RemoveTag() { _scene->_removeTag(_id, typeid(T)); }
 
 inline Entity& Entity::AddTransform() {
     if (!Has<LocalTRS>())   Add(LocalTRS{});
