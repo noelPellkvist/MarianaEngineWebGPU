@@ -15,6 +15,7 @@
 #include <Material.hpp>
 #include <AssetManager.hpp>
 #include <Renderer.hpp>
+#include <Animation.hpp>
 
 
 #pragma region BufferHelpers
@@ -119,6 +120,31 @@ std::vector<uint32_t> ReadAccessor<uint32_t>(const tinygltf::Model& model,
     return result;
 }
 
+template<>
+std::vector<float> ReadAccessor<float>(const tinygltf::Model& model,
+                                       const tinygltf::Accessor& accessor)
+{
+    if (accessor.type != TINYGLTF_TYPE_SCALAR) {
+        throw std::runtime_error("ReadAccessor<float> requires SCALAR accessor");
+    }
+
+    std::vector<float> result(accessor.count);
+
+    const auto& bufferView = model.bufferViews[accessor.bufferView];
+    const auto& buffer     = model.buffers[bufferView.buffer];
+
+    const size_t componentSize = tinygltf::GetComponentSizeInBytes(accessor.componentType);
+    const size_t stride = accessor.ByteStride(bufferView);
+    const size_t effectiveStride = stride ? stride : componentSize;
+    const uint8_t* dataPtr = buffer.data.data() + accessor.byteOffset + bufferView.byteOffset;
+
+    for (size_t i = 0; i < accessor.count; ++i) {
+        const void* elementPtr = dataPtr + i * effectiveStride;
+        result[i] = ConvertComponent(elementPtr, accessor.componentType, accessor.normalized);
+    }
+
+    return result;
+}
 
 void LoadVertices(const tinygltf::Model& model,
                   const tinygltf::Primitive& primitive,
@@ -337,6 +363,7 @@ void BuildEntityFromNode(Prefab& p, Entity e, tinygltf::Model& model, int nodeIn
     e.SetRotationEuler(glm::degrees(euler.x), glm::degrees(euler.y), glm::degrees(euler.z));
     e.SetScale(scale.x, scale.y, scale.z);
     e.SetName(n.name.c_str());
+    e.Add<NodeReference>({ (uint32_t)nodeIndex });
 
     if (n.mesh >= 0)
         e.Add<MeshComponent>({preMeshes + n.mesh}).AddTag<ShadowCasterTag>();
@@ -346,6 +373,180 @@ void BuildEntityFromNode(Prefab& p, Entity e, tinygltf::Model& model, int nodeIn
         child.SetParent(e);
         BuildEntityFromNode(p, child, model, childIndex, preMeshes);
     }
+}
+
+Animation LoadAnimation(const tinygltf::Model& model, const tinygltf::Animation& rawAnim)
+{
+    Animation animation(rawAnim.name.empty() ? "UnnamedAnimation" : rawAnim.name);
+
+    for (const tinygltf::AnimationChannel& rawChannel : rawAnim.channels)
+    {
+        AnimationChannel channel;
+
+        channel.targetNodeIndex = rawChannel.target_node;
+
+        if (rawChannel.target_path == "translation")
+        {
+            channel.type = AnimationChannelType::Translation;
+        }
+        else if (rawChannel.target_path == "rotation")
+        {
+            channel.type = AnimationChannelType::Rotation;
+        }
+        else if (rawChannel.target_path == "scale")
+        {
+            channel.type = AnimationChannelType::Scale;
+        }
+        else if (rawChannel.target_path == "weights")
+        {
+            channel.type = AnimationChannelType::Weights;
+        }
+
+        int samplerIndex = rawChannel.sampler;
+        if (samplerIndex < 0 || samplerIndex >= rawAnim.samplers.size())
+        {
+            throw std::runtime_error("Invalid sampler index in animation channel");
+        }
+
+        const tinygltf::AnimationSampler& rawSampler = rawAnim.samplers[samplerIndex];
+
+        const std::string& interp = rawSampler.interpolation;
+        if (interp == "LINEAR")
+        {
+            channel.interpolation = AnimationInterpolationType::Linear;
+        }
+        else if (interp == "STEP")
+        {
+            channel.interpolation = AnimationInterpolationType::Step;
+        }
+        else if (interp == "CUBICSPLINE")
+        {
+            channel.interpolation = AnimationInterpolationType::CubicSpline;
+        }
+        else
+        {
+            throw std::runtime_error("Unsupported interpolation type in animation sampler");
+        }
+
+        if (rawSampler.input < 0 || rawSampler.input >= model.accessors.size()) {
+            throw std::runtime_error("Invalid input accessor index in animation sampler");
+        }
+        if (rawSampler.output < 0 || rawSampler.output >= model.accessors.size()) {
+            throw std::runtime_error("Invalid output accessor index in animation sampler");
+        }
+
+        const tinygltf::Accessor& inputAccessor = model.accessors[rawSampler.input];
+        const tinygltf::Accessor& outputAccessor = model.accessors[rawSampler.output];
+
+        std::vector<float> keyframeTimes = ReadAccessor<float>(model, inputAccessor);
+        const size_t keyframeCount = keyframeTimes.size();
+        channel.keyFrames.resize(keyframeCount);
+
+        for (size_t i = 0; i < keyframeCount; ++i) {
+            channel.keyFrames[i].time = keyframeTimes[i];
+        }
+
+        if (channel.type == AnimationChannelType::Rotation) {
+            if (outputAccessor.type != TINYGLTF_TYPE_VEC4) {
+                throw std::runtime_error("Rotation output accessor must be VEC4");
+            }
+        } else if (channel.type == AnimationChannelType::Translation || channel.type == AnimationChannelType::Scale) {
+            if (outputAccessor.type != TINYGLTF_TYPE_VEC3) {
+                throw std::runtime_error("Translation/Scale output accessor must be VEC3");
+            }
+        } else if (channel.type == AnimationChannelType::Weights) {
+            if (outputAccessor.type != TINYGLTF_TYPE_SCALAR) {
+                throw std::runtime_error("Weights output accessor must be SCALAR");
+            }
+        }
+
+        if (channel.interpolation == AnimationInterpolationType::Linear ||
+            channel.interpolation == AnimationInterpolationType::Step)
+        {
+            if (channel.type == AnimationChannelType::Weights) {
+                std::vector<float> values = ReadAccessor<float>(model, outputAccessor);
+                if (keyframeCount == 0 || values.size() % keyframeCount != 0) {
+                    throw std::runtime_error("Weights output accessor size mismatch");
+                }
+                const size_t weightsPerFrame = values.size() / keyframeCount;
+                for (size_t i = 0; i < keyframeCount; ++i) {
+                    auto begin = values.begin() + i * weightsPerFrame;
+                    auto end = begin + weightsPerFrame;
+                    channel.keyFrames[i].data.assign(begin, end);
+                }
+            } else {
+                const size_t componentCount = tinygltf::GetNumComponentsInType(outputAccessor.type);
+                std::vector<glm::vec4> values = ReadAccessor<glm::vec4>(model, outputAccessor);
+                if (values.size() != keyframeCount) {
+                    throw std::runtime_error("Animation output accessor size mismatch");
+                }
+                for (size_t i = 0; i < keyframeCount; ++i) {
+                    channel.keyFrames[i].data.clear();
+                    channel.keyFrames[i].data.reserve(componentCount);
+                    for (size_t c = 0; c < componentCount; ++c) {
+                        channel.keyFrames[i].data.push_back(values[i][c]);
+                    }
+                }
+            }
+        }
+        else if (channel.interpolation == AnimationInterpolationType::CubicSpline)
+        {
+            if (channel.type == AnimationChannelType::Weights) {
+                std::vector<float> values = ReadAccessor<float>(model, outputAccessor);
+                if (keyframeCount == 0 || values.size() % (keyframeCount * 3) != 0) {
+                    throw std::runtime_error("Weights cubic spline output accessor size mismatch");
+                }
+                const size_t weightsPerFrame = values.size() / (keyframeCount * 3);
+                for (size_t i = 0; i < keyframeCount; ++i) {
+                    const size_t base = i * weightsPerFrame * 3;
+                    channel.keyFrames[i].inTangent.assign(
+                        values.begin() + base,
+                        values.begin() + base + weightsPerFrame
+                    );
+                    channel.keyFrames[i].data.assign(
+                        values.begin() + base + weightsPerFrame,
+                        values.begin() + base + weightsPerFrame * 2
+                    );
+                    channel.keyFrames[i].outTangent.assign(
+                        values.begin() + base + weightsPerFrame * 2,
+                        values.begin() + base + weightsPerFrame * 3
+                    );
+                }
+            } else {
+                const size_t componentCount = tinygltf::GetNumComponentsInType(outputAccessor.type);
+                std::vector<glm::vec4> values = ReadAccessor<glm::vec4>(model, outputAccessor);
+                if (values.size() != keyframeCount * 3) {
+                    throw std::runtime_error("Animation cubic spline output accessor size mismatch");
+                }
+                for (size_t i = 0; i < keyframeCount; ++i) {
+                    const glm::vec4 in = values[i * 3 + 0];
+                    const glm::vec4 val = values[i * 3 + 1];
+                    const glm::vec4 out = values[i * 3 + 2];
+
+                    channel.keyFrames[i].inTangent.clear();
+                    channel.keyFrames[i].data.clear();
+                    channel.keyFrames[i].outTangent.clear();
+                    channel.keyFrames[i].inTangent.reserve(componentCount);
+                    channel.keyFrames[i].data.reserve(componentCount);
+                    channel.keyFrames[i].outTangent.reserve(componentCount);
+
+                    for (size_t c = 0; c < componentCount; ++c) {
+                        channel.keyFrames[i].inTangent.push_back(in[c]);
+                        channel.keyFrames[i].data.push_back(val[c]);
+                        channel.keyFrames[i].outTangent.push_back(out[c]);
+                    }
+                }
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Unsupported interpolation type in animation sampler");
+        }
+
+        animation.AddChannel(channel);
+    }
+
+    return animation;
 }
 
 Prefab GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
@@ -436,6 +637,14 @@ Prefab GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
         auto newMesh = LoadEntireMesh(model, mesh, preMaterials);
         newMesh->BuildMesh();
         AssetManager::LoadedMeshes.push_back(newMesh);
+    }
+
+    if (model.animations.size() > 0)
+    {
+        for (tinygltf::Animation& anim : model.animations)
+        {
+            AssetManager::LoadedAnimations.push_back(LoadAnimation(model, anim));
+        }
     }
 
     BuildEntityFromNode(prefab, prefab.Root(), model, model.scenes[0].nodes[0], (uint32_t)preMeshes);

@@ -6,6 +6,7 @@
 #include <Texture.hpp>
 #include <Material.hpp>
 #include <Mesh.hpp>
+#include <Animation.hpp>
 #include <Logger.hpp>
 
 struct GLTFMaterialProperties
@@ -22,12 +23,18 @@ struct GLTFMaterialProperties
     
 };
 
+struct NodeReference
+{
+    uint32_t nodeIndex;
+};
+
 class AssetManager
 {
     public:
         static inline std::vector<Texture> LoadedTextures{};
         static inline std::vector<GLTFMaterialProperties> LoadedMaterialProperties{};
         static inline std::vector<Material2> LoadedMaterials{};
+        static inline std::vector<Animation> LoadedAnimations{};
         static inline std::vector<std::shared_ptr<IMesh>> LoadedMeshes{};
 
         AssetManager();

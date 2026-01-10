@@ -171,6 +171,7 @@ shadowpass(false, true, {  }, 8192 , 8192 )
     ECS::RegisterComponent<TransformClock>("TransformClock");
     ECS::RegisterComponent<XformCache>("XformCache");
     ECS::RegisterComponent<MeshComponent>("MeshComponent");
+    ECS::RegisterComponent<NodeReference>("NodeReference");
     ECS::RegisterTag<Skybox>("Skybox");
 
     scene.UpdateComponentRegistry();
