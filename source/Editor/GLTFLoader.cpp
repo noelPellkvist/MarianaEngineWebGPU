@@ -649,8 +649,17 @@ Prefab GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
     }
 
     
-
-    BuildEntityFromNode(prefab, prefab.Root(), model, model.scenes[0].nodes[0], (uint32_t)preMeshes);
+    if(model.scenes[0].nodes.size() == 1)
+        BuildEntityFromNode(prefab, prefab.Root(), model, model.scenes[0].nodes[0], (uint32_t)preMeshes);
+    else
+    {
+        for (int i : model.scenes[0].nodes)
+        {
+            Entity child = prefab.Instantiate(model.nodes[i].name.c_str());
+            child.SetParent(prefab.Root());
+            BuildEntityFromNode(prefab, child, model, i, preMeshes);
+        }
+    }
 
     return std::move(prefab);
 }

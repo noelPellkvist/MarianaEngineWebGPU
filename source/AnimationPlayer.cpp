@@ -171,10 +171,10 @@ void AnimationPlayer::UpdateEntity(Entity e, AnimationTargetEntity target)
     }
     if (target.rotationTargetChannel != -1)
     {
-        auto q = m_CurrentAnimation->GetChannel(target.rotationTargetChannel).keyFrames[i].data;
-        glm::quat quat(q[3], q[0], q[1], q[2]); 
-        glm::vec3 euler = glm::eulerAngles(quat);
-        e.SetRotationEuler(euler.x, euler.y, euler.z);
+        // auto q = m_CurrentAnimation->GetChannel(target.rotationTargetChannel).keyFrames[i].data;
+        // glm::quat quat(q[3], q[0], q[1], q[2]); 
+        // glm::vec3 euler = glm::eulerAngles(quat);
+        // e.SetRotationEuler(z);
     }
     if (target.scaleTargetCHannel != -1)
     {

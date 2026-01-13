@@ -248,7 +248,7 @@ shadowpass(false, true, {  }, 8192 , 8192 )
     StandardSkyboxShader.Build();
 
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", StandardPBRShader);
-    Prefab test = GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Test.glb", StandardPBRShader);
+    Prefab test = GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/BoxAnimated.glb", StandardPBRShader);
     scene.Instantiate((std::string("SkyBox")).c_str()).Add<MeshComponent>({0}).AddTag<Skybox>().SetScaleUniform(20).SetPosition(0, 2, 0);
     Entity spawnedTest = scene.Instantiate(test);
 
