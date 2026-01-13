@@ -19,4 +19,5 @@ struct AnimationPlayer
     void UpdateEntity(Entity e, AnimationTargetEntity target);
     void InternalSetup(Entity e);
     std::vector<float> GetCurrentDataVec(int currentIndex, int channelIndex);
+    std::vector<float> GetCurrentDataQuat(int currentIndex, int channelIndex);
 };

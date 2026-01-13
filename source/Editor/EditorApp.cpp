@@ -272,7 +272,7 @@ shadowpass(false, true, {  }, 8192 , 8192 )
                 return;
 
             AnimationTargetEntity& target = *node.Get<AnimationTargetEntity>();
-            player.UpdateEntity(e, target);
+            player.UpdateEntity(node, target);
         });
     });
 
