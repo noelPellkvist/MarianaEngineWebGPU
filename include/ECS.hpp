@@ -6,6 +6,7 @@
 #include <functional>
 #include <utility>
 #include <memory>
+#include <new>
 #include <cstddef>
 #include <string>
 #include <type_traits>
@@ -39,13 +40,86 @@ struct ComponentView {
     bool isTag = false;
 };
 
+
 namespace ECS {
+    struct ComponentLifecycle {
+        void (*ctor)(void* ptr, int32_t count);
+        void (*dtor)(void* ptr, int32_t count);
+        void (*copy)(void* dst, const void* src, int32_t count);
+        void (*move)(void* dst, void* src, int32_t count);
+        void (*copy_ctor)(void* dst, const void* src, int32_t count);
+        void (*move_ctor)(void* dst, void* src, int32_t count);
+    };
+
     void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name = nullptr);
+    void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle);
     void RegisterTag(const std::type_info& ti, const char* name = nullptr);
+
+    namespace detail {
+        template<class T>
+        inline void ComponentCtor(void* ptr, int32_t count) {
+            T* p = static_cast<T*>(ptr);
+            for (int32_t i = 0; i < count; ++i) {
+                new (&p[i]) T();
+            }
+        }
+        template<class T>
+        inline void ComponentDtor(void* ptr, int32_t count) {
+            T* p = static_cast<T*>(ptr);
+            for (int32_t i = 0; i < count; ++i) {
+                p[i].~T();
+            }
+        }
+        template<class T>
+        inline void ComponentCopy(void* dst, const void* src, int32_t count) {
+            T* d = static_cast<T*>(dst);
+            const T* s = static_cast<const T*>(src);
+            for (int32_t i = 0; i < count; ++i) {
+                d[i] = s[i];
+            }
+        }
+        template<class T>
+        inline void ComponentMove(void* dst, void* src, int32_t count) {
+            T* d = static_cast<T*>(dst);
+            T* s = static_cast<T*>(src);
+            for (int32_t i = 0; i < count; ++i) {
+                d[i] = std::move(s[i]);
+            }
+        }
+        template<class T>
+        inline void ComponentCopyCtor(void* dst, const void* src, int32_t count) {
+            T* d = static_cast<T*>(dst);
+            const T* s = static_cast<const T*>(src);
+            for (int32_t i = 0; i < count; ++i) {
+                new (&d[i]) T(s[i]);
+            }
+        }
+        template<class T>
+        inline void ComponentMoveCtor(void* dst, void* src, int32_t count) {
+            T* d = static_cast<T*>(dst);
+            T* s = static_cast<T*>(src);
+            for (int32_t i = 0; i < count; ++i) {
+                new (&d[i]) T(std::move(s[i]));
+            }
+        }
+    } // namespace detail
+
+    template<class T>
+    inline const ComponentLifecycle* GetComponentLifecycle() {
+        static const ComponentLifecycle lifecycle = {
+            &detail::ComponentCtor<T>,
+            &detail::ComponentDtor<T>,
+            &detail::ComponentCopy<T>,
+            &detail::ComponentMove<T>,
+            &detail::ComponentCopyCtor<T>,
+            &detail::ComponentMoveCtor<T>
+        };
+        return &lifecycle;
+    }
 
     template<class T>
     inline void RegisterComponent(const char* name = nullptr) {
-        RegisterComponent(typeid(T), sizeof(T), alignof(T), name);
+        RegisterComponent(typeid(T), sizeof(T), alignof(T), name, GetComponentLifecycle<T>());
     }
 
     template<class T>
@@ -101,6 +175,7 @@ public:
     Entity& SetScaleUniform(float s);
 
     template<class T> Entity&   Add(const T& value);
+    template<class T> Entity&   Add();
     template<class T> Entity&   AddTag();
     template<class T> bool      Has() const;
     template<class T> bool      HasTag() const;
@@ -110,6 +185,9 @@ public:
     template<class T> void      RemoveTag();
 
     uint32_t RawId() const { return _id; }
+
+    template<class Fn>
+    void ForEachChild(Fn&& fn);
 
 private:
     friend class Scene;
@@ -141,6 +219,12 @@ public:
 
     template<class Fn>
     void ForEachChild(Entity parent, Fn&& fn) const;
+
+    template<class Fn>
+    void ForEachDescendant(Entity root, Fn&& fn);
+
+    template<class Fn>
+    void ForEachDescendant(Entity root, Fn&& fn) const;
 
     template<class Fn>
     void ForEachRoot(Fn&& fn);
@@ -231,6 +315,9 @@ template<class T> inline Entity& Entity::Add(const T& value) {
     _scene->_addSet(_id, typeid(T), &value, sizeof(T), alignof(T));
     return *this;
 }
+template<class T> inline Entity& Entity::Add() {
+    return Add(T{});
+}
 template<class T> inline Entity& Entity::AddTag() {
     _scene->_addTag(_id, typeid(T));
     return *this;
@@ -266,6 +353,11 @@ inline Entity& Entity::SetScale(float sx, float sy, float sz) {
     t->scl[0]=sx; t->scl[1]=sy; t->scl[2]=sz; ++t->version; return *this;
 }
 inline Entity& Entity::SetScaleUniform(float s) { return SetScale(s,s,s); }
+
+template<class Fn>
+inline void Entity::ForEachChild(Fn&& fn) {
+    _scene->ForEachChild(*this, std::forward<Fn>(fn));
+}
 
 template<class Fn>
 inline void Scene::ForEachChild(Entity parent, Fn&& fn) {
@@ -313,6 +405,36 @@ inline void Scene::ForEachRoot(Fn&& fn) const {
         },
         &ctx
     );
+}
+
+
+
+template<class Fn>
+inline void Scene::ForEachDescendant(Entity root, Fn&& fn) {
+    auto walk = [&](auto&& self, Entity node) -> void {
+        fn(node);
+        node.ForEachChild([&](Entity child){
+            self(self, child);
+        });
+    };
+
+    root.ForEachChild([&](Entity child){
+        walk(walk, child);
+    });
+}
+
+template<class Fn>
+inline void Scene::ForEachDescendant(Entity root, Fn&& fn) const {
+    auto walk = [&](auto&& self, Entity node) -> void {
+        fn(node);
+        this->ForEachChild(node, [&](Entity child){
+            self(self, child);
+        });
+    };
+
+    this->ForEachChild(root, [&](Entity child){
+        walk(walk, child);
+    });
 }
 
 template<typename... Components, typename Fn>

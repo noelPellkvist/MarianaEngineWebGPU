@@ -23,9 +23,12 @@ struct GLTFMaterialProperties
     
 };
 
-struct NodeReference
+struct AnimationTargetEntity
 {
     uint32_t nodeIndex;
+    uint32_t translationTargetChannel;
+    uint32_t rotationTargetChannel;
+    uint32_t scaleTargetCHannel;
 };
 
 class AssetManager

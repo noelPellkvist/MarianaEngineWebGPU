@@ -31,16 +31,22 @@ public:
     size_t GetChannelCount() const { return channels.size(); }
     const AnimationChannel& GetChannel(size_t i) const { return channels[i]; }
 
+    void SetNodeCount(int nodes) { maxNodes = nodes; }
+    const int GetNodeCount() const { return maxNodes; }
+
     AnimationChannel& AddChannel(const AnimationChannel& channel)
     {
         channels.push_back(channel);
         return channels.back();
     }
 
+    const std::vector<AnimationChannel>& GetChannels() const { return channels; };
+
     Animation& Build();
 
 private:
     std::string name;
     float duration;
+    int maxNodes;
     std::vector<AnimationChannel> channels;
 };

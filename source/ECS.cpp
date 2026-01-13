@@ -14,6 +14,99 @@
 namespace {
 
 
+
+static const ECS::ComponentLifecycle* GetLifecycleFromTypeInfo(const ecs_type_info_t* ti) {
+    if (!ti) return nullptr;
+    return static_cast<const ECS::ComponentLifecycle*>(ti->hooks.ctx);
+}
+
+static void LifecycleCtor(void* ptr, int32_t count, const ecs_type_info_t* ti) {
+    if (const ECS::ComponentLifecycle* lc = GetLifecycleFromTypeInfo(ti)) {
+        if (lc->ctor) lc->ctor(ptr, count);
+    }
+}
+
+static void LifecycleDtor(void* ptr, int32_t count, const ecs_type_info_t* ti) {
+    if (const ECS::ComponentLifecycle* lc = GetLifecycleFromTypeInfo(ti)) {
+        if (lc->dtor) lc->dtor(ptr, count);
+    }
+}
+
+static void LifecycleCopy(void* dst, const void* src, int32_t count, const ecs_type_info_t* ti) {
+    if (const ECS::ComponentLifecycle* lc = GetLifecycleFromTypeInfo(ti)) {
+        if (lc->copy) lc->copy(dst, src, count);
+    }
+}
+
+static void LifecycleMove(void* dst, void* src, int32_t count, const ecs_type_info_t* ti) {
+    if (const ECS::ComponentLifecycle* lc = GetLifecycleFromTypeInfo(ti)) {
+        if (lc->move) lc->move(dst, src, count);
+    }
+}
+
+static void LifecycleCopyCtor(void* dst, const void* src, int32_t count, const ecs_type_info_t* ti) {
+    if (const ECS::ComponentLifecycle* lc = GetLifecycleFromTypeInfo(ti)) {
+        if (lc->copy_ctor) lc->copy_ctor(dst, src, count);
+    }
+}
+
+static void LifecycleMoveCtor(void* dst, void* src, int32_t count, const ecs_type_info_t* ti) {
+    if (const ECS::ComponentLifecycle* lc = GetLifecycleFromTypeInfo(ti)) {
+        if (lc->move_ctor) lc->move_ctor(dst, src, count);
+    }
+}
+
+static ecs_type_hooks_t MakeHooks(const ECS::ComponentLifecycle* lifecycle) {
+    ecs_type_hooks_t hooks{};
+    if (!lifecycle) return hooks;
+
+    hooks.ctor = &LifecycleCtor;
+    hooks.dtor = &LifecycleDtor;
+    hooks.copy = &LifecycleCopy;
+    hooks.move = &LifecycleMove;
+    hooks.copy_ctor = &LifecycleCopyCtor;
+    hooks.move_ctor = &LifecycleMoveCtor;
+
+    hooks.flags = ECS_TYPE_HOOK_CTOR |
+                  ECS_TYPE_HOOK_DTOR |
+                  ECS_TYPE_HOOK_COPY |
+                  ECS_TYPE_HOOK_MOVE |
+                  ECS_TYPE_HOOK_COPY_CTOR |
+                  ECS_TYPE_HOOK_MOVE_CTOR;
+
+    hooks.ctx = const_cast<ECS::ComponentLifecycle*>(lifecycle);
+    return hooks;
+}
+
+
+struct RegisteredComponent {
+    std::type_index type{typeid(void)};
+    std::string name;
+    std::size_t size = 0;
+    std::size_t align = 0;
+    const ECS::ComponentLifecycle* lifecycle = nullptr;
+};
+
+std::vector<RegisteredComponent>& GlobalComponentRegistry() {
+    static std::vector<RegisteredComponent> registry;
+    return registry;
+}
+
+const RegisteredComponent* FindRegisteredComponentByType(const std::type_index& type) {
+    for (const auto& entry : GlobalComponentRegistry()) {
+        if (entry.type == type) return &entry;
+    }
+    return nullptr;
+}
+
+const RegisteredComponent* FindRegisteredComponentByName(const char* name) {
+    if (!name || !*name) return nullptr;
+    for (const auto& entry : GlobalComponentRegistry()) {
+        if (entry.name == name) return &entry;
+    }
+    return nullptr;
+}
+
 static glm::mat4 make_local(const LocalTRS& t) {
     glm::mat4 M(1.f);
     M = glm::translate(M, {t.pos[0], t.pos[1], t.pos[2]});
@@ -39,7 +132,10 @@ struct Scene::Impl {
     Impl() : ecs(), owner(nullptr) {}
 
     // changed to accept a component name string (we no longer try to access std::type_info)
-    ecs_entity_t ensureComponentByName(const std::string& name, std::size_t sz, std::size_t align) {
+    ecs_entity_t ensureComponentByName(const std::string& name, std::size_t sz, std::size_t align, const ECS::ComponentLifecycle* lifecycle) {
+        ecs_entity_t existing = ecs_lookup(ecs.c_ptr(), name.c_str());
+        if (existing) return existing;
+
         // if we already have a mapping by name, return it
         // Note: we kept a comp map keyed by type_index in other code. For discoverability we also
         // allow ensureComponentByName to create a new entity for this name.
@@ -54,6 +150,9 @@ struct Scene::Impl {
         cd.entity = ent;
         cd.type.size = (ecs_size_t)sz;
         cd.type.alignment = (ecs_size_t)align;
+        if (lifecycle) {
+            cd.type.hooks = MakeHooks(lifecycle);
+        }
         ecs_entity_t cid = ecs_component_init(ecs.c_ptr(), &cd);
 
         comp_info[cid] = { sz, align };
@@ -64,8 +163,11 @@ struct Scene::Impl {
         auto key = std::type_index(ti);
         if (auto it = comp.find(key); it != comp.end()) return it->second;
 
-        // Use the type_info::name() as the component name (this is what prior code did).
-        const char* nm = ti.name();
+        const RegisteredComponent* reg = FindRegisteredComponentByType(key);
+        const char* nm = (reg && !reg->name.empty()) ? reg->name.c_str() : ti.name();
+        std::size_t use_size = reg ? reg->size : sz;
+        std::size_t use_align = reg ? reg->align : align;
+        const ECS::ComponentLifecycle* lifecycle = reg ? reg->lifecycle : nullptr;
 
         ecs_entity_desc_t ed{};
         ed.name = nm;
@@ -74,35 +176,24 @@ struct Scene::Impl {
 
         ecs_component_desc_t cd{};
         cd.entity = ent;
-        cd.type.size = (ecs_size_t)sz;
-        cd.type.alignment = (ecs_size_t)align;
+        cd.type.size = (ecs_size_t)use_size;
+        cd.type.alignment = (ecs_size_t)use_align;
+        if (lifecycle) {
+            cd.type.hooks = MakeHooks(lifecycle);
+        }
         ecs_entity_t cid = ecs_component_init(ecs.c_ptr(), &cd);
 
-        comp_info[cid] = { sz, align };
+        comp_info[cid] = { use_size, use_align };
         comp.emplace(key, cid);
         return cid;
     }
 };
 
-namespace {
-struct RegisteredComponent {
-    std::type_index type{typeid(void)};
-    std::string name;
-    std::size_t size = 0;
-    std::size_t align = 0;
-};
-
-std::vector<RegisteredComponent>& GlobalComponentRegistry() {
-    static std::vector<RegisteredComponent> registry;
-    return registry;
-}
-
 void ApplyGlobalRegistryToScene(Scene::Impl& impl) {
     for (const auto& entry : GlobalComponentRegistry()) {
-        ecs_entity_t cid = impl.ensureComponentByName(entry.name, entry.size, entry.align);
+        ecs_entity_t cid = impl.ensureComponentByName(entry.name, entry.size, entry.align, entry.lifecycle);
         impl.comp[entry.type] = cid;
     }
-}
 }
 
 struct System::Impl {
@@ -326,7 +417,8 @@ void Scene::_removeTag(uint32_t id, const std::type_info& ti) const {
 
 uint32_t Scene::_ensureComponentByName(const char* name, std::size_t size, std::size_t align) {
     const char* resolved = (name && *name) ? name : "UnnamedComponent";
-    ecs_entity_t cid = _p->ensureComponentByName(resolved, size, align);
+    const RegisteredComponent* reg = FindRegisteredComponentByName(resolved);
+    ecs_entity_t cid = _p->ensureComponentByName(resolved, size, align, reg ? reg->lifecycle : nullptr);
     return (uint32_t)cid;
 }
 
@@ -549,6 +641,10 @@ uint32_t Scene::_getParentId(uint32_t id) const {
 
 namespace ECS {
 void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name) {
+    RegisterComponent(ti, size, align, name, nullptr);
+}
+
+void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle) {
     std::vector<RegisteredComponent>& registry = GlobalComponentRegistry();
     std::type_index key(ti);
     const char* resolvedName = (name && *name) ? name : ti.name();
@@ -557,6 +653,9 @@ void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t a
         if (entry.type == key) {
             if (name && *name) {
                 entry.name = resolvedName;
+            }
+            if (lifecycle) {
+                entry.lifecycle = lifecycle;
             }
             return;
         }
@@ -567,6 +666,7 @@ void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t a
     entry.name = resolvedName;
     entry.size = size;
     entry.align = align;
+    entry.lifecycle = lifecycle;
     registry.push_back(entry);
 }
 
@@ -582,6 +682,7 @@ void RegisterTag(const std::type_info& ti, const char* name) {
             }
             entry.size = 0;
             entry.align = 0;
+            entry.lifecycle = nullptr;
             return;
         }
     }
@@ -591,6 +692,7 @@ void RegisterTag(const std::type_info& ti, const char* name) {
     entry.name = resolvedName;
     entry.size = 0;
     entry.align = 0;
+    entry.lifecycle = nullptr;
     registry.push_back(entry);
 }
 } // namespace ECS

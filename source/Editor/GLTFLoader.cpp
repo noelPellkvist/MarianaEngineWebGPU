@@ -16,6 +16,7 @@
 #include <AssetManager.hpp>
 #include <Renderer.hpp>
 #include <Animation.hpp>
+#include <AnimationPlayer.hpp>
 
 
 #pragma region BufferHelpers
@@ -363,7 +364,7 @@ void BuildEntityFromNode(Prefab& p, Entity e, tinygltf::Model& model, int nodeIn
     e.SetRotationEuler(glm::degrees(euler.x), glm::degrees(euler.y), glm::degrees(euler.z));
     e.SetScale(scale.x, scale.y, scale.z);
     e.SetName(n.name.c_str());
-    e.Add<NodeReference>({ (uint32_t)nodeIndex });
+    e.Add<AnimationTargetEntity>({ (uint32_t)nodeIndex });
 
     if (n.mesh >= 0)
         e.Add<MeshComponent>({preMeshes + n.mesh}).AddTag<ShadowCasterTag>();
@@ -542,10 +543,9 @@ Animation LoadAnimation(const tinygltf::Model& model, const tinygltf::Animation&
         {
             throw std::runtime_error("Unsupported interpolation type in animation sampler");
         }
-
         animation.AddChannel(channel);
     }
-
+    animation.SetNodeCount(model.nodes.size()); 
     return animation;
 }
 
@@ -645,7 +645,10 @@ Prefab GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
         {
             AssetManager::LoadedAnimations.push_back(LoadAnimation(model, anim));
         }
+        prefab.Add<AnimationPlayer>();
     }
+
+    
 
     BuildEntityFromNode(prefab, prefab.Root(), model, model.scenes[0].nodes[0], (uint32_t)preMeshes);
 

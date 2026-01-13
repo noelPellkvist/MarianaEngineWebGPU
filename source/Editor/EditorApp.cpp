@@ -5,6 +5,7 @@
 #include <Buffer.hpp>
 #include <ECS.hpp>
 #include <Prefab.hpp>
+#include <AnimationPlayer.hpp>
 
 #include "ImGuizmo.h"
 
@@ -56,6 +57,7 @@ static bool DragOrInputFloat(const char* id, float* v, float speed, const char* 
 
     return changed;
 }
+
 
 inline bool IsImageExtension(const std::string& ext) {
     if (ext.empty()) return false;
@@ -152,6 +154,7 @@ SkyBoxSettings skybox;
 #pragma endregion
 
 System WriteTransformBufferSystem;
+System AnimationSystem;
 Shader2 StandardPBRShader("StandardPBR");
 Shader2 StandardSkyboxShader("StandardSkybox");
 Shader2 ShadowMapShader("StandardShadowMap");
@@ -171,7 +174,8 @@ shadowpass(false, true, {  }, 8192 , 8192 )
     ECS::RegisterComponent<TransformClock>("TransformClock");
     ECS::RegisterComponent<XformCache>("XformCache");
     ECS::RegisterComponent<MeshComponent>("MeshComponent");
-    ECS::RegisterComponent<NodeReference>("NodeReference");
+    ECS::RegisterComponent<AnimationTargetEntity>("AnimationTargetEntity");
+    ECS::RegisterComponent<AnimationPlayer>("AnimationPlayer");
     ECS::RegisterTag<Skybox>("Skybox");
 
     scene.UpdateComponentRegistry();
@@ -244,15 +248,32 @@ shadowpass(false, true, {  }, 8192 , 8192 )
     StandardSkyboxShader.Build();
 
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", StandardPBRShader);
-    Prefab test = GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Rumba.glb", StandardPBRShader);
+    Prefab test = GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Test.glb", StandardPBRShader);
     scene.Instantiate((std::string("SkyBox")).c_str()).Add<MeshComponent>({0}).AddTag<Skybox>().SetScaleUniform(20).SetPosition(0, 2, 0);
-    Entity spawnedTest = scene.Instantiate(test).SetScaleUniform(0.1f);
+    Entity spawnedTest = scene.Instantiate(test);
+
+    AnimationPlayer& testPlayer = *spawnedTest.Get<AnimationPlayer>();
+    testPlayer.SetEntityRoot(spawnedTest);
+    testPlayer.SetAnimation(&AssetManager::LoadedAnimations[0]);
 
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform>([&](Entity ent, WorldXform& form, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
         transformBuffer.entityID = ent.RawId();
         transformBufferBuffer.Write(transformBuffer, form.id);
+    });
+
+    AnimationSystem = scene.CreateSystem<AnimationPlayer>([&](Entity e, AnimationPlayer& player, float dt) {
+        if (!player.m_CurrentAnimation)
+            return;
+        player.UpdateTime(dt);
+        scene.ForEachDescendant(e, [&](Entity node){
+            if (!node.Has<AnimationTargetEntity>())
+                return;
+
+            AnimationTargetEntity& target = *node.Get<AnimationTargetEntity>();
+            player.UpdateEntity(e, target);
+        });
     });
 
     scene.Update(0.f);
@@ -449,6 +470,7 @@ void EditorApp::OnUpdate(float deltaTime)
     cameraInfo = cam->GetCameraInfo();
     cameraBuffer.Write(cameraInfo, 0);
     scene.Update(deltaTime);
+    AnimationSystem.Run();
 }
 
 void EditorApp::OnGUI()

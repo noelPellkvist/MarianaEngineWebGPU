@@ -25,6 +25,7 @@ public:
 
     // Convenience: operate on the root entity.
     template<class T> Prefab& Add(const T& value);
+    template<class T> Prefab& Add();
     template<class T> bool    Has() const;
     template<class T> T*      Get();
     template<class T> void    Remove();
@@ -42,6 +43,11 @@ private:
 template<class T>
 inline Prefab& Prefab::Add(const T& value) {
     Root().Add<T>(value);
+    return *this;
+}
+template<class T>
+inline Prefab& Prefab::Add() {
+    Root().Add<T>();
     return *this;
 }
 
