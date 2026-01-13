@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+#include <string>
+
 
 enum class AnimationChannelType { Translation, Rotation, Scale, Weights };
 enum class AnimationInterpolationType { Step, Linear, CubicSpline };
@@ -30,6 +32,7 @@ public:
 
     size_t GetChannelCount() const { return channels.size(); }
     const AnimationChannel& GetChannel(size_t i) const { return channels[i]; }
+    AnimationChannel& GetChannel(size_t i) { return channels[i]; }
 
     void SetNodeCount(int nodes) { maxNodes = nodes; }
     const int GetNodeCount() const { return maxNodes; }
@@ -46,7 +49,7 @@ public:
 
 private:
     std::string name;
-    float duration;
+    float duration = 0;
     int maxNodes;
     std::vector<AnimationChannel> channels;
 };

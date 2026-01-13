@@ -546,7 +546,7 @@ Animation LoadAnimation(const tinygltf::Model& model, const tinygltf::Animation&
         animation.AddChannel(channel);
     }
     animation.SetNodeCount(model.nodes.size()); 
-    return animation;
+    return animation.Build();
 }
 
 Prefab GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
