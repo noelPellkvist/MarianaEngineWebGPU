@@ -228,7 +228,7 @@ struct System::Impl {
 };
 
 static void run_query_and_call(ecs_world_t* world, ecs_query_t* q, System::Impl* impl, float delta) {
-    static alignas(std::max_align_t) unsigned char tag_dummy[sizeof(std::max_align_t)] = {};
+    alignas(std::max_align_t) static unsigned char tag_dummy[sizeof(std::max_align_t)] = {};
     ecs_iter_t it = ecs_query_iter(world, q);
     while (ecs_query_next(&it)) {
         // for each matched entity in this batch:
