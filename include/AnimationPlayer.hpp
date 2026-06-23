@@ -12,6 +12,7 @@ struct AnimationPlayer
     Entity m_Root;
     struct Tmp { int translationId = -1; int rotationId = -1; int scaleId = -1; };
     std::vector<Tmp> nodesData;
+    
 
     void SetAnimation(Animation* animation);
     void SetEntityRoot(Entity root);

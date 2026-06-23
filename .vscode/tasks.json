@@ -2,14 +2,21 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build",
+            "label": "build Debug",
             "type": "shell",
-            "command": "cmake --build build -j4",
+            "command": "cmake --build build --config Debug --target app -j4",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": ["$msCompile"]
+        },
+        {
+            "label": "build Release",
+            "type": "shell",
+            "command": "cmake --build build --config Release --target app -j4",
+            "group": "build",
+            "problemMatcher": ["$msCompile"]
         }
     ]
 }

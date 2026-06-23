@@ -7,6 +7,8 @@ struct VertexInput {
     @location(3) texcoord0: vec2f,
     @location(4) texcoord1: vec2f,
     @location(5) color: vec4f,
+    @location(6) boneIndices: vec4u,
+    @location(7) boneWeights: vec4f,
 };
 
 struct VertexOutput {
@@ -50,6 +52,10 @@ struct CameraInfoData {
     exposure: f32,
 };
 
+struct BoneData {
+    boneMatrices: array<mat4x4<f32>, 128>,
+};
+
 // ===================== bindings unchanged =====================
 
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
@@ -58,6 +64,7 @@ struct CameraInfoData {
 @group(0) @binding(3) var<uniform> Material: MaterialProperties;
 @group(0) @binding(4) var shadowMap: texture_depth_2d;
 @group(0) @binding(5) var shadowSampler: sampler_comparison;
+@group(0) @binding(6) var<uniform> Bones: BoneData;
 
 @group(1) @binding(0) var albedo: texture_2d<f32>;
 @group(1) @binding(1) var normalMap: texture_2d<f32>;

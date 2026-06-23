@@ -1,10 +1,12 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <vector>
 #include <cstring>
 #include <stdexcept>
 #include <type_traits>
+#include <tuple>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <memory>
@@ -179,18 +181,20 @@ public:
         const std::byte* base = reinterpret_cast<const std::byte*>(&obj);
 
         for (const auto& e : table_) {
-            const std::byte* src = base + e.src_offset;
-            std::byte*       d   = buffer + e.dst_offset;
+            for (std::size_t i = 0; i < e.count; ++i) {
+                const std::byte* src = base + e.src_offset + i * e.src_stride;
+                std::byte*       d   = buffer + e.dst_offset + i * e.dst_stride;
 
-            if (!is_matrix(e.kind)) {
-                std::memcpy(d, src, e.copy_bytes);
-            } else {
-                const int C = mat_cols(e.kind);
-                const int R = mat_rows(e.kind);
-                const std::size_t src_col_bytes = 4 * R;   // float * rows
-                const std::size_t dst_stride     = 16;     // WGSL/std140 column stride
-                for (int c = 0; c < C; ++c) {
-                    std::memcpy(d + c * dst_stride, src + c * src_col_bytes, src_col_bytes);
+                if (!is_matrix(e.kind)) {
+                    std::memcpy(d, src, e.copy_bytes);
+                } else {
+                    const int C = mat_cols(e.kind);
+                    const int R = mat_rows(e.kind);
+                    const std::size_t src_col_bytes = 4 * R;   // float * rows
+                    const std::size_t dst_stride     = 16;     // WGSL/std140 column stride
+                    for (int c = 0; c < C; ++c) {
+                        std::memcpy(d + c * dst_stride, src + c * src_col_bytes, src_col_bytes);
+                    }
                 }
             }
         }
@@ -213,6 +217,9 @@ private:
         std::size_t src_offset;
         std::size_t copy_bytes; 
         Kind kind;
+        std::size_t count = 1;
+        std::size_t src_stride = 0;
+        std::size_t dst_stride = 0;
     };
     bool m_isDynamic{false};
     std::vector<Field> layout_;
@@ -220,6 +227,12 @@ private:
     std::vector<std::byte> m_Buffer;
     uint32_t uniformStride;
     std::size_t total_size_ = 0;
+
+    template<typename>
+    struct is_std_array : std::false_type {};
+
+    template<typename Elem, std::size_t N>
+    struct is_std_array<std::array<Elem, N>> : std::true_type {};
 
     template<typename U>
     static constexpr Kind deduce_kind(const U&) {
@@ -239,21 +252,54 @@ private:
         return static_cast<std::size_t>(d);
     }
 
-    template<typename T, typename U>
-    void add_one(const T& base, const U& field_ref, std::size_t& current_dst) {
-        const Kind k = deduce_kind(field_ref);
-        const std::size_t A = align_of(k);
+    template<typename T, typename U, typename Elem, std::size_t N>
+    void add_array_one(const T& base, const U& field_ref, std::size_t& current_dst) {
+        using DecElem = std::remove_cv_t<Elem>;
+        static_assert(!std::is_pointer_v<DecElem>, "Array elements must be values, not pointers.");
+
+        const Kind k = map_kind<DecElem>::value;
+        const std::size_t A = align_to(align_of(k), 16);
         const std::size_t S = size_of(k);
         const std::size_t C = raw_copy_bytes(k);
+        const std::size_t arrayStride = align_to(S, 16);
 
         current_dst = align_to(current_dst, A);
 
         const std::size_t src_off = offset_in_T(base, field_ref);
+        const std::size_t totalArraySize = arrayStride * N;
 
-        layout_.push_back(Field{ k, current_dst, S });
-        table_.push_back(Entry{ current_dst, src_off, C, k });
+        layout_.push_back(Field{ k, current_dst, totalArraySize });
+        table_.push_back(Entry{ current_dst, src_off, C, k, N, sizeof(DecElem), arrayStride });
 
-        current_dst += S;
+        current_dst += totalArraySize;
+    }
+
+    template<typename T, typename U>
+    void add_one(const T& base, const U& field_ref, std::size_t& current_dst) {
+        using FieldT = std::remove_cv_t<std::remove_reference_t<U>>;
+        if constexpr (is_std_array<FieldT>::value) {
+            using Elem = typename FieldT::value_type;
+            add_array_one<T, U, Elem, std::tuple_size_v<FieldT>>(base, field_ref, current_dst);
+        }
+        else if constexpr (std::is_array_v<FieldT>) {
+            using Elem = std::remove_extent_t<FieldT>;
+            add_array_one<T, U, Elem, std::extent_v<FieldT>>(base, field_ref, current_dst);
+        }
+        else {
+            const Kind k = deduce_kind(field_ref);
+            const std::size_t A = align_of(k);
+            const std::size_t S = size_of(k);
+            const std::size_t C = raw_copy_bytes(k);
+
+            current_dst = align_to(current_dst, A);
+
+            const std::size_t src_off = offset_in_T(base, field_ref);
+
+            layout_.push_back(Field{ k, current_dst, S });
+            table_.push_back(Entry{ current_dst, src_off, C, k, 1, 0, 0 });
+
+            current_dst += S;
+        }
     }
 
     template<typename T, typename U, typename... Rest>

@@ -10,6 +10,7 @@
 #include <ECS.hpp>
 #include <memory>
 #include <Texture.hpp>
+#include <Editor/Windows/EditorWindow.hpp>
 
 #include <unordered_map>
 
@@ -27,7 +28,7 @@ class EditorApp : public Application
         void OnShutdown() override;
 
     private:
-        std::unordered_map<std::string, Texture> AssetsTextures;
+        std::unordered_map<std::string, std::unique_ptr<EditorWindow>> EditorWindows;
         Renderer renderer;
         Scene scene;
         uint64_t selectedEntityID = -1;

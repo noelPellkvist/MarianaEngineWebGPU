@@ -158,6 +158,8 @@ void LoadVertices(const tinygltf::Model& model,
     std::vector<glm::vec2> texcoords0;
     std::vector<glm::vec2> texcoords1;
     std::vector<glm::vec4> colors0;
+    std::vector<glm::uvec4> boneIndices;
+    std::vector<glm::vec4> boneWeights;
 
     for (const auto& attr : primitive.attributes) {
         const std::string& attrName = attr.first;
@@ -190,6 +192,10 @@ void LoadVertices(const tinygltf::Model& model,
             }
             else
                 colors0 = ReadAccessor<glm::vec4>(model, accessor);
+        } else if (attrName == "JOINTS_0") {
+            boneIndices = ReadAccessor<glm::uvec4>(model, accessor);
+        } else if (attrName == "WEIGHTS_0") {
+            boneWeights = ReadAccessor<glm::vec4>(model, accessor);
         }
     }
 
@@ -220,6 +226,8 @@ void LoadVertices(const tinygltf::Model& model,
         v.texcoord0 = (i < texcoords0.size())? texcoords0[i]: glm::vec2(0.0f);
         v.texcoord1 = (i < texcoords1.size())? texcoords1[i]: glm::vec2(0.0f);
         v.color0    = (i < colors0.size())   ? colors0[i]   : glm::vec4(1.0f);
+        v.boneIndices = (i < boneIndices.size()) ? boneIndices[i] : glm::uvec4(0);
+        v.boneWeights = (i < boneWeights.size()) ? boneWeights[i] : glm::vec4(0.0f);
         outVertices[i] = v;
     }
 }

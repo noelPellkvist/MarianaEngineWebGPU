@@ -9,6 +9,63 @@
 #include <Animation.hpp>
 #include <Logger.hpp>
 
+enum class AssetType
+{
+    Unknown,
+    Texture,
+    Material,
+    Mesh,
+    Model,
+    Animation,
+    Shader,
+    Font
+};
+
+enum class AssetLoadState {
+    Discovered,     
+    MetadataReady,  
+    Queued,
+    LoadingCPU,     
+    CPUReady,       
+    UploadingGPU,
+    GPUReady,       
+    Failed,
+    Unloaded
+};
+
+struct AssetHandle
+{
+    uint64_t id = 0;
+};
+
+struct AssetStats {
+    uint64_t diskBytes = 0;
+    uint64_t cpuBytes = 0;
+    uint64_t gpuBytes = 0;
+    float progress = 0.0f; // 0..1
+};
+
+struct AssetRecord
+{
+    AssetHandle handle;
+    AssetType type = AssetType::Unknown;
+    AssetLoadState loadState = AssetLoadState::Discovered;
+
+    std::string filePath;
+    std::string name;
+    std::string error;
+
+    AssetStats stats;
+    uint32_t refCount = 0;
+
+    std::vector<AssetHandle> dependencies;
+
+    int textureIndex = -1;
+    int materialIndex = -1;
+    int meshIndex = -1;
+    int animationIndex = -1;
+};
+
 struct GLTFMaterialProperties
 {
     glm::vec4 baseColor{1,1,1,1};

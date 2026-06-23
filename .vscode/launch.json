@@ -10,7 +10,19 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "preLaunchTask": "build",
+            "preLaunchTask": "build Debug",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Release app.exe",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/Release/app.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "preLaunchTask": "build Release",
             "console": "integratedTerminal"
         }
     ]
