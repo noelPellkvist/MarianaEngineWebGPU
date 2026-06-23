@@ -111,10 +111,10 @@ void Renderpass::Draw(uint32_t indexCount, uint32_t startIndex)
 void Renderpass::SetBufferIndex(std::string name, uint32_t index)
 {
     assert(m_CurrentShader != nullptr);
-    assert(std::holds_alternative<UniformBufferResource>(*m_CurrentShader->m_BindGroupLayoutMap[name]));
-    const UniformBufferResource& ubr = std::get<UniformBufferResource>(*m_CurrentShader->m_BindGroupLayoutMap[name]);
-    assert(ubr.buffer.GetLayout().IsDynamic());
-    m_BindGroupOffsets[ubr.group][ubr.dynamicBufferOffsetIndex] = ubr.buffer.GetLayout().GetUniformStride() * index;
+    assert(std::holds_alternative<BufferResource>(*m_CurrentShader->m_BindGroupLayoutMap[name]));
+    const BufferResource& br = std::get<BufferResource>(*m_CurrentShader->m_BindGroupLayoutMap[name]);
+    assert(br.buffer->IsDynamic());
+    m_BindGroupOffsets[br.group][br.dynamicBufferOffsetIndex] = br.buffer->GetStride() * index;
 }
 
 void Renderpass::SetShader2(Shader2& shader)
@@ -154,3 +154,4 @@ void Renderpass::Start(void* encoder, bool surfaceTarget, void* surfaceView)
 }
 
 #pragma endregion
+

@@ -20,10 +20,10 @@ Material2& Material2::InitFromShader(Shader2& shader)
     m_Shader = &shader;
     for (ShaderResource& res : m_Bindgroup.resources)
     {
-        if (std::holds_alternative<UniformBufferResource>(res))
+        if (std::holds_alternative<BufferResource>(res))
         {
-            const UniformBufferResource& ubr = std::get<UniformBufferResource>(res);
-            m_ResourceMap[ubr.name] = &res;
+            const BufferResource& br = std::get<BufferResource>(res);
+            m_ResourceMap[br.name] = &res;
         }
         else if (std::holds_alternative<TextureResource>(res))
         {
@@ -60,3 +60,4 @@ Material2& Material2::Build()
     m_Shader->BuildBindgroupFromLayout(m_Bindgroup, m_Shader->m_MaterialIndex);
     return *this;
 }
+

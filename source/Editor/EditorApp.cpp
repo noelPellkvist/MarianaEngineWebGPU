@@ -104,23 +104,6 @@ inline std::string ToString(const uint64_t& v)
 
 #pragma region ShaderUniforms
 
-struct UBO {
-  glm::vec3 lightDir;
-  glm::mat4 lightVP;
-};
-
-
-struct TransformData {
-  glm::mat4x4 modelMatrix;
-  glm::mat3x3 normalMatrix;
-  uint32_t entityID{0};
-};
-
-struct BoneData
-{
-    std::array<glm::mat4x4, 128> boneMatrices;
-};
-
 UBO ubo{};
 UniformBufferLayout uboLayout2(false, ubo, ubo.lightDir, ubo.lightVP);
 Buffer uboBuffer(uboLayout2);
@@ -139,19 +122,13 @@ CameraInfo cameraInfo{};
 UniformBufferLayout camLayout(false, cameraInfo, cameraInfo.proj, cameraInfo.view, cameraInfo.viewProj, cameraInfo.invView, cameraInfo.invProj, cameraInfo.invViewProj, cameraInfo.pos, cameraInfo.exposure);
 Buffer cameraBuffer(camLayout);
 
-BoneData boneBuffer{};
-UniformBufferLayout boneLayout(true, boneBuffer, boneBuffer.boneMatrices);
+BoneData boneData{};
+StorageArrayLayout boneLayout(1024, boneData, boneData.model, boneData.normal);
 Buffer boneBufferBuffer(boneLayout);
+
 
 GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0, v.boneIndices, v.boneWeights};
-
-struct SkyBoxSettings
-{
-    float exposure{1.0f};
-    float rotation{0.0f};
-};
-SkyBoxSettings skybox;
 
 #pragma endregion
 
@@ -165,7 +142,8 @@ struct Skybox {};
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
 renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
-shadowpass(false, true, {  }, 8192 , 8192 )
+shadowpass(false, true, {  }, 8192 , 8192 ),
+standardPBRPipeline()
 {
     ECS::RegisterTag<ShadowCasterTag>("ShadowCasterTag");
     ECS::RegisterComponent<LocalTRS>("LocalTRS");
@@ -179,7 +157,6 @@ shadowpass(false, true, {  }, 8192 , 8192 )
 
     scene.UpdateComponentRegistry();
 
-
     cam = new EditorCameraController(input);
     uboBuffer.Build();
     transformBufferBuffer.Build();
@@ -191,8 +168,8 @@ shadowpass(false, true, {  }, 8192 , 8192 )
     shadowpass.Init();
 
     ShadowMapShader.Group(0)
-    .AddUniformBuffer("UBO", 0, uboBuffer)
-    .AddUniformBuffer("ModelData", 1, transformBufferBuffer);
+    .AddBuffer("UBO", 0, uboBuffer)
+    .AddBuffer("ModelData", 1, transformBufferBuffer);
 
     ShadowMapShader.SetVertexStructLayout(vertexLayout);
     ShadowMapShader.SetWGSL(FileReader::LoadRawString("/Shaders/shadow.wgsl"));
@@ -200,13 +177,13 @@ shadowpass(false, true, {  }, 8192 , 8192 )
     ShadowMapShader.Build(true);
 
     StandardPBRShader.Group(0)
-    .AddUniformBuffer("UBO", 0, uboBuffer)
-    .AddUniformBuffer("ModelData", 1, transformBufferBuffer)
-    .AddUniformBuffer("CameraInfo", 2, cameraBuffer)
-    .AddUniformBuffer("Material", 3, materialsBufferBuffer)
+    .AddBuffer("UBO", 0, uboBuffer)
+    .AddBuffer("ModelData", 1, transformBufferBuffer)
+    .AddBuffer("CameraInfo", 2, cameraBuffer)
+    .AddBuffer("Material", 3, materialsBufferBuffer)
     .AddTexture("ShadowMap", 4, TextureType_Depth)
     .AddSampler("ShadowSampler", 5, true)
-    .AddUniformBuffer("BoneData", 6, boneBufferBuffer);
+    .AddBuffer("BoneData", 6, boneBufferBuffer);
 
     StandardPBRShader.SetTexture("ShadowMap", shadowpass.GetDepthView());
 
@@ -225,6 +202,8 @@ shadowpass(false, true, {  }, 8192 , 8192 )
 
     StandardPBRShader.Build();
 
+    boneBufferBuffer.Write(boneData, 0);
+
     Texture skyboxTex;
     skyboxTex.LoadCubeTexture({
         "/Textures/skybox/right.jpg",
@@ -237,7 +216,7 @@ shadowpass(false, true, {  }, 8192 , 8192 )
     AssetManager::LoadedTextures.push_back(skyboxTex);
 
     StandardSkyboxShader.Group(0)
-    .AddUniformBuffer("CameraInfo", 0, cameraBuffer)
+    .AddBuffer("CameraInfo", 0, cameraBuffer)
     .AddTexture("CubeMap", 1, TextureType_Cube)
     .AddSampler("Sampler", 2);
 
@@ -757,3 +736,4 @@ void EditorApp::OnShutdown()
 {
     Logger::Info("Shutdown now");
 }
+

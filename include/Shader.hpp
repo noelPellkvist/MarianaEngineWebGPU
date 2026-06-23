@@ -11,6 +11,7 @@
 #include <Texture.hpp>
 #include <memory>
 #include <Buffer.hpp>
+#include <variant>
 
 enum CullMode
 {
@@ -44,21 +45,20 @@ struct ShaderProperties
 };
 
 enum class ShaderResourceType {
-    UniformBuffer,
+    Buffer,
     Texture,
     Sampler
 };
 
-struct UniformBufferResource {
+struct BufferResource {
     const char* name;
     uint32_t binding;
-    Buffer buffer;
-    uint32_t group;
+    Buffer* buffer = nullptr;
+    uint32_t group = 0;
     uint32_t dynamicBufferOffsetIndex = 0;
 
-    UniformBufferResource() = default;
-    UniformBufferResource(const char* name, uint32_t binding, Buffer& buffer);
-    ~UniformBufferResource();
+    BufferResource(const char* name, uint32_t binding, Buffer& buffer);
+    ~BufferResource();
 };
 
 struct TextureResource {
@@ -80,9 +80,9 @@ struct SamplerResource {
     SamplerResource(const char* name, uint32_t binding, bool isComparison = false);
     ~SamplerResource();
 };
-#include <variant>
+
 using ShaderResource = std::variant<
-    UniformBufferResource,
+    BufferResource,
     TextureResource,
     SamplerResource>;
 
@@ -104,7 +104,7 @@ public:
     BindGroup();
     ~BindGroup() = default;
 
-    BindGroup& AddUniformBuffer(const char* name, uint32_t binding, Buffer& buffer);
+    BindGroup& AddBuffer(const char* name, uint32_t binding, Buffer& buffer);
 
     BindGroup& AddTexture(const char* name, uint32_t binding, TextureType type);
 
@@ -175,3 +175,4 @@ private:
     void* GetBindGroup(uint32_t index);
     uint32_t GetGroupCount() const { return static_cast<uint32_t>(m_BindGroups.size()); }
 };
+

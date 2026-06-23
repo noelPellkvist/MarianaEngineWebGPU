@@ -64,7 +64,7 @@ struct BoneData {
 @group(0) @binding(3) var<uniform> Material: MaterialProperties;
 @group(0) @binding(4) var shadowMap: texture_depth_2d;
 @group(0) @binding(5) var shadowSampler: sampler_comparison;
-@group(0) @binding(6) var<uniform> Bones: BoneData;
+@group(0) @binding(6) var<storage, read_write> Bones: BoneData;
 
 @group(1) @binding(0) var albedo: texture_2d<f32>;
 @group(1) @binding(1) var normalMap: texture_2d<f32>;

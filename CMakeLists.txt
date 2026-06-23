@@ -32,6 +32,10 @@ file(GLOB_RECURSE APP_SOURCES
 
 add_executable(app ${APP_SOURCES})
 
+if(WIN32 AND NOT EMSCRIPTEN)
+  target_sources(app PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/app.rc")
+endif()
+
 target_compile_definitions(app PRIVATE
   RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources"
   FLECS_STATIC
@@ -112,3 +116,4 @@ else()
   target_link_libraries(imgui PUBLIC webgpu_dawn webgpu_glfw glfw)
   target_link_libraries(app PRIVATE webgpu_dawn webgpu_glfw glfw imgui)
 endif()
+

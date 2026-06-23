@@ -11,6 +11,7 @@
 #include <memory>
 #include <Texture.hpp>
 #include <Editor/Windows/EditorWindow.hpp>
+#include <StandardPBR.hpp>
 
 #include <unordered_map>
 
@@ -36,6 +37,8 @@ class EditorApp : public Application
         Entity skyboxEntity;
         Renderpass renderpass;
         Renderpass shadowpass;
+
+        StandardPBRPipeline standardPBRPipeline;
         
         void OnWindowResized(int w, int h);
 
