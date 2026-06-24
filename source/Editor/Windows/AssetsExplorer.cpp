@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <filesystem>
 #include <Logger.hpp>
+#include <algorithm>
 
 
 namespace fs = std::filesystem;
@@ -181,18 +182,44 @@ void AssetsExplorer::DrawAssetsWindow()
             // Invisible button to capture clicks/double-clicks
             ImGui::InvisibleButton("tile", ImVec2(cellW, cellH));
             bool clicked  = ImGui::IsItemClicked(ImGuiMouseButton_Left);
-            bool dblClick = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+            bool hovered  = ImGui::IsItemHovered();
+            bool dblClick = hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+            if (clicked) {
+                selectedPath = en.p.string();
+                selected = true;
+            }            if (!en.isDir) {
+                std::string extLower = en.p.extension().string();
+                std::transform(extLower.begin(), extLower.end(), extLower.begin(), ::tolower);
+                if (extLower == ".glb" && ImGui::BeginDragDropSource()) {
+                    const std::string dragPath = en.p.string();
+                    ImGui::SetDragDropPayload("MARIANA_ASSET_GLB", dragPath.c_str(), dragPath.size() + 1);
+
+                    const float previewW = 220.0f;
+                    const ImVec2 p0 = ImGui::GetCursorScreenPos();
+                    const ImVec2 p1 = ImVec2(p0.x + previewW, p0.y + 44.0f);
+                    ImDrawList* previewDl = ImGui::GetWindowDrawList();
+                    previewDl->AddRectFilled(p0, p1, ImGui::GetColorU32(ImGuiCol_Header, 0.55f), 6.0f);
+                    previewDl->AddRect(p0, p1, ImGui::GetColorU32(ImGuiCol_HeaderActive), 6.0f, 0, 2.0f);
+                    ImGui::Dummy(ImVec2(previewW, 44.0f));
+                    ImGui::SetCursorScreenPos(ImVec2(p0.x + 10.0f, p0.y + 7.0f));
+                    ImGui::TextUnformatted("Spawn prefab");
+                    ImGui::SetCursorScreenPos(ImVec2(p0.x + 10.0f, p0.y + 24.0f));
+                    ImGui::TextDisabled("%s", en.p.filename().string().c_str());
+                    ImGui::EndDragDropSource();
+                }
+            }
             ImVec2 rMin = ImGui::GetItemRectMin();
             ImVec2 rMax = ImGui::GetItemRectMax();
 
-            // Draw subtle border only (no opaque background)
             ImDrawList* dl = ImGui::GetWindowDrawList();
-            ImU32 borderCol = ImGui::GetColorU32(ImGuiCol_Border);
-            dl->AddRect(rMin, rMax, borderCol, 6.0f);
-
-            // faint selected overlay if selected
             if (selected) {
-                dl->AddRectFilled(rMin, rMax, ImGui::GetColorU32(ImGuiCol_Header, 0.08f), 6.0f);
+                dl->AddRectFilled(rMin, rMax, ImGui::GetColorU32(ImGuiCol_Header, 0.28f), 6.0f);
+                dl->AddRect(rMin, rMax, ImGui::GetColorU32(ImGuiCol_HeaderActive), 6.0f, 0, 2.0f);
+            } else {
+                if (hovered) {
+                    dl->AddRectFilled(rMin, rMax, ImGui::GetColorU32(ImGuiCol_HeaderHovered, 0.12f), 6.0f);
+                }
+                dl->AddRect(rMin, rMax, ImGui::GetColorU32(ImGuiCol_Border), 6.0f);
             }
 
             // Thumbnail area (we keep it visually empty so icon stands out)
@@ -272,6 +299,7 @@ void AssetsExplorer::DrawAssetsWindow()
                 }
             }
 
+
             // Label centered under thumbnail
             std::string name = en.p.filename().string();
             ImVec2 textSz = ImGui::CalcTextSize(name.c_str(), nullptr, true, cellW - padding*2.0f);
@@ -299,4 +327,7 @@ void AssetsExplorer::DrawAssetsWindow()
 
     ImGui::EndChild();
 }
+
+
+
 
