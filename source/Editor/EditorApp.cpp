@@ -11,6 +11,8 @@
 
 #include <Editor/Windows/Stats.hpp>
 #include <Editor/Windows/AssetsExplorer.hpp>
+#include <Editor/Windows/HierarchyWindow.hpp>
+#include <Editor/Windows/InspectorWindow.hpp>
 
 #include <sstream>
 #include <imgui.h>
@@ -21,50 +23,6 @@
 namespace fs = std::filesystem;
 
 #pragma region Helpers
-
-static bool DragOrInputFloat(const char* id, float* v, float speed, const char* fmt, float width)
-{
-    struct State { bool editing = false; };
-    static std::unordered_map<ImGuiID, State> s;
-
-    ImGuiID iid = ImGui::GetID(id);
-    State& st = s[iid];
-    bool changed = false;
-
-    ImGui::SetNextItemWidth(width);
-
-    if (!st.editing)
-    {
-        changed |= ImGui::DragFloat(id, v, speed, 0.0f, 0.0f, fmt);
-
-        // Click without dragging -> switch to text mode
-        if (ImGui::IsItemDeactivated() && !ImGui::IsItemDeactivatedAfterEdit())
-        {
-            st.editing = true;
-            ImGui::SetKeyboardFocusHere(0);
-        }
-    }
-    else
-    {
-        char buf[64];
-        std::snprintf(buf, sizeof(buf), fmt, static_cast<double>(*v));
-
-        bool submit = ImGui::InputText(id, buf, IM_ARRAYSIZE(buf),
-            ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
-
-        if (submit || ImGui::IsItemDeactivated())
-        {
-            *v = std::strtof(buf, nullptr);
-            st.editing = false;
-            changed = true;
-        }
-    }
-
-    return changed;
-}
-
-
-
 
 inline std::string ToString(const glm::vec3& v)
 {
@@ -286,6 +244,29 @@ void EditorApp::OnStart()
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
     EditorWindows["Assets"] = std::make_unique<AssetsExplorer>(gui);
+    auto inspector = std::make_unique<InspectorWindow>(gui);
+    inspectorWindow = inspector.get();
+    EditorWindows["Inspector"] = std::move(inspector);
+    EditorWindows["Hierarchy"] = std::make_unique<HierarchyWindow>(
+        gui,
+        scene,
+        selectedEntityID,
+        [this](uint64_t id) {
+            DeselectEntity();
+            SelectEntity(id);
+        },
+        [this](const fs::path& glbPath) {
+            try {
+                Prefab prefab = GLTF::GLTFLoader::LoadGLTF(glbPath.string(), StandardPBRShader);
+                Entity spawned = scene.Instantiate(prefab, glbPath.stem().string().c_str());
+                scene.Update(0.0f);
+                DeselectEntity();
+                SelectEntity(spawned.RawId());
+                Logger::Info("Spawned prefab from: " + glbPath.string());
+            } catch (...) {
+                Logger::Error("Failed to spawn prefab from dropped GLB: " + glbPath.string());
+            }
+        });
 
     if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam)) {
         editorCam->SetPosition({-10.0f, 3.0f, -10.0f});
@@ -421,9 +402,10 @@ void EditorApp::OnUpdate(float deltaTime)
 
 void EditorApp::OnGUI()
 {
-    if(selectedEntityID != -1)
+    if(selectedEntityID != static_cast<uint64_t>(-1) && selectedEntity.Has<WorldXform>())
     {
-        glm::mat4 world = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
+        WorldXform& form = *selectedEntity.Get<WorldXform>();
+        glm::mat4 world = glm::make_mat4(form.model);
 
         DrawGizmo(world, cam->View(), cam->Projection());
 
@@ -454,65 +436,12 @@ void EditorApp::OnGUI()
         window->Draw();
     }
 
-    ImGui::Begin("Hierachy");
-    const ImVec2 windowPos = ImGui::GetWindowPos();
-    const ImVec2 contentMin = ImGui::GetWindowContentRegionMin();
-    const ImVec2 contentMax = ImGui::GetWindowContentRegionMax();
-    const ImVec2 hierarchyMin(windowPos.x + contentMin.x, windowPos.y + contentMin.y);
-    const ImVec2 hierarchyMax(windowPos.x + contentMax.x, windowPos.y + contentMax.y);
-    const bool hierarchyHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
-    const ImGuiPayload* activePayload = ImGui::GetDragDropPayload();
-    const bool glbDragging = activePayload && activePayload->IsDataType("MARIANA_ASSET_GLB");
-
-    if (hierarchyHovered && glbDragging) {
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        const float pulse = 0.5f + 0.5f * sinf((float)ImGui::GetTime() * 8.0f);
-        dl->AddRectFilled(hierarchyMin, hierarchyMax, ImGui::GetColorU32(ImGuiCol_Header, 0.10f + 0.08f * pulse), 6.0f);
-        dl->AddRect(hierarchyMin, hierarchyMax, ImGui::GetColorU32(ImGuiCol_HeaderActive), 6.0f, 0, 2.0f + pulse);
-        const char* hint = "Drop GLB to spawn prefab";
-        ImVec2 hintSize = ImGui::CalcTextSize(hint);
-        ImVec2 hintPos = ImVec2(hierarchyMin.x + ((hierarchyMax.x - hierarchyMin.x) - hintSize.x) * 0.5f, hierarchyMin.y + 10.0f);
-        dl->AddText(hintPos, ImGui::GetColorU32(ImGuiCol_Text), hint);
-    }
-
-    if (ImGui::BeginDragDropTargetCustom(ImRect(hierarchyMin, hierarchyMax), ImGui::GetID("##hierarchy_glb_drop_target"))) {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MARIANA_ASSET_GLB")) {
-            const char* droppedPath = static_cast<const char*>(payload->Data);
-            if (droppedPath && *droppedPath) {
-                try {
-                    fs::path glbPath(droppedPath);
-                    Prefab prefab = GLTF::GLTFLoader::LoadGLTF(glbPath.string(), StandardPBRShader);
-                    Entity spawned = scene.Instantiate(prefab, glbPath.stem().string().c_str());
-                    scene.Update(0.0f);
-                    DeselectEntity();
-                    SelectEntity(spawned.RawId());
-                    Logger::Info("Spawned prefab from: " + glbPath.string());
-                } catch (...) {
-                    Logger::Error(std::string("Failed to spawn prefab from dropped GLB: ") + droppedPath);
-                }
-            }
-        }
-        ImGui::EndDragDropTarget();
-    }
-
-    scene.ForEachRoot([&](Entity e){
-        DrawEntityNode(e);
-    });
-    ImGui::End();
-
-    ImGui::Begin("Inspector"); 
-    if (selectedEntityID == -1)
+    if (selectedEntityID != static_cast<uint64_t>(-1) && selectedEntity.Has<WorldXform>())
     {
-        ImGui::Text("Select an entity to show it here");
-    }
-    else
-    {
-        DrawInspector(selectedEntity);
         transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
         transformBuffer.entityID = selectedEntity.RawId();
     }
-    ImGui::End();
 }
 
 void EditorApp::SelectEntity(uint64_t id)
@@ -520,138 +449,20 @@ void EditorApp::SelectEntity(uint64_t id)
     if(ImGuizmo::IsOver() || ImGuizmo::IsUsing()) return;
     selectedEntityID = id;
     selectedEntity = scene.FromId(id);
+    if (inspectorWindow)
+        inspectorWindow->SetInspectedEntity(scene, selectedEntity);
 }
 
 void EditorApp::DeselectEntity()
 {
     if(ImGuizmo::IsOver() || ImGuizmo::IsUsing()) return;
     selectedEntityID = -1;
+    if (inspectorWindow)
+        inspectorWindow->ClearInspectedEntity();
 }
 
 #pragma region GUI
 
-
-void EditorApp::DrawEntityNode(Entity& e)
-{
-    const char* name = e.GetName();
-    if (!name || !*name) name = "<error_name>";
-
-    ImGuiTreeNodeFlags flags = 
-        ImGuiTreeNodeFlags_OpenOnArrow | 
-        ImGuiTreeNodeFlags_OpenOnDoubleClick |
-        ImGuiTreeNodeFlags_SpanAvailWidth |
-        (e.HasChildren() ? 0 : ImGuiTreeNodeFlags_Leaf) |
-        (selectedEntityID == e.RawId() ? ImGuiTreeNodeFlags_Selected : 0);
-    ImGui::PushID((ImGuiID)(uintptr_t)e.RawId());
-    bool open = ImGui::TreeNodeEx("label", flags, "%s", name);
-
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Left)  && !ImGui::IsItemToggledOpen()) {
-        DeselectEntity();
-        SelectEntity(e.RawId());
-        
-    }
-
-    if (ImGui::BeginPopupContextItem("entity_ctx")) {
-        if (ImGui::MenuItem("Select")) selectedEntityID = e.RawId();
-        ImGui::EndPopup();
-    }
-
-    if (open)
-    {
-        scene.ForEachChild(e, [&](Entity c){
-            DrawEntityNode(c);
-        });
-        ImGui::TreePop();
-    }
-    ImGui::PopID();
-}
-
-void EditorApp::DrawInspector(Entity& e)
-{
-    ImGui::TextDisabled("Name");
-    ImGui::SameLine(0, 16);
-    ImGui::SetNextItemWidth(-1);
-
-    char entityName[128] = {};
-    strcpy(entityName, e.GetName());
-    ImGui::InputText("##entity_name", entityName, 128);
-
-    ImGui::Separator();
-    
-    const char* header = "⚙  Transform";
-    if (ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen))
-    {
-        LocalTRS L_TRS = *(e.Get<LocalTRS>());
-        float* pos   = L_TRS.pos;
-        float* rotDeg = L_TRS.rot_euler;
-        float* scl   = L_TRS.scl;
-
-        if (ImGui::BeginTable("##transform_table", 2, ImGuiTableFlags_SizingFixedFit|ImGuiTableFlags_NoBordersInBody))
-        {
-            ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthFixed, 90.0f);
-            ImGui::TableSetupColumn("values", ImGuiTableColumnFlags_WidthStretch);
-
-            auto DrawVec3Row = [](const char* label, float v[3], float resetX, float resetY, float resetZ, float speed = 0.1f)
-            {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted(label);
-                ImGui::TableSetColumnIndex(1);
-            
-                ImGui::PushID(label);
-                float line_h = ImGui::GetFrameHeight();
-                float btn_w  = line_h; // square reset buttons
-                float full_w = ImGui::GetContentRegionAvail().x;
-            
-                // three equal fields (account for 3 buttons + inner spacing)
-                float field_w = (full_w - btn_w*3.0f - ImGui::GetStyle().ItemInnerSpacing.x*6.0f) / 3.0f;
-            
-                // X
-                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(220, 80, 80, 255));
-                if (ImGui::Button("X", ImVec2(btn_w, line_h))) v[0] = resetX;
-                ImGui::SameLine();
-                DragOrInputFloat("##X", &v[0], speed, "%.3f", field_w);
-                ImGui::PopStyleColor();
-                ImGui::SameLine();
-            
-                // Y
-                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(110, 190, 110, 255));
-                if (ImGui::Button("Y", ImVec2(btn_w, line_h))) v[1] = resetY;
-                ImGui::SameLine();
-                DragOrInputFloat("##Y", &v[1], speed, "%.3f", field_w);
-                ImGui::PopStyleColor();
-                ImGui::SameLine();
-            
-                // Z
-                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 140, 220, 255));
-                if (ImGui::Button("Z", ImVec2(btn_w, line_h))) v[2] = resetZ;
-                ImGui::SameLine();
-                DragOrInputFloat("##Z", &v[2], speed, "%.3f", field_w);
-                ImGui::PopStyleColor();
-            
-                ImGui::PopID();
-            };
-
-
-            DrawVec3Row("Position", pos,    0.0f, 0.0f, 0.0f, 0.1f);
-            DrawVec3Row("Rotation", rotDeg, 0.0f, 0.0f, 0.0f, 0.5f);
-            DrawVec3Row("Scale",    scl,    1.0f, 1.0f, 1.0f, 0.05f);
-
-            e.SetPosition(pos[0], pos[1], pos[2]);
-            e.SetRotationEuler(rotDeg[0], rotDeg[1], rotDeg[2]);
-            e.SetScale(scl[0], scl[1], scl[2]);
-            ImGui::EndTable();
-        }
-    }
-
-    ImGui::Separator();
-    ImGui::TextDisabled("Components");
-    scene.ForEachComponent(e, [&](const ComponentView& c){
-        const char* name = (c.name && *c.name) ? c.name : "<unnamed>";
-        ImGui::BulletText("%s", name);
-    });
-    e.SetName(entityName);
-}
 
 void EditorApp::DrawMat4(const char* id, float m[16], bool editable, float speed, const char* fmt)
 {

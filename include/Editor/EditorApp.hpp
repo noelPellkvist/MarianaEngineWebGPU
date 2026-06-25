@@ -15,6 +15,8 @@
 
 #include <unordered_map>
 
+class InspectorWindow;
+
 class EditorApp : public Application
 {
     public:
@@ -30,6 +32,7 @@ class EditorApp : public Application
 
     private:
         std::unordered_map<std::string, std::unique_ptr<EditorWindow>> EditorWindows;
+        InspectorWindow* inspectorWindow = nullptr;
         Renderer renderer;
         Scene scene;
         uint64_t selectedEntityID = -1;
@@ -47,8 +50,6 @@ class EditorApp : public Application
         void SelectEntity(uint64_t id);
         void DeselectEntity();
 
-        void DrawEntityNode(Entity& e);
-        void DrawInspector(Entity& e);
         void DrawTopMenu();
         void DrawAssetsWindow();
         void DrawMat4(const char* id, float m[16], bool editable = true, float speed = 0.05f, const char* fmt = "%.3f");
