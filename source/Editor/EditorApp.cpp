@@ -20,6 +20,8 @@
 #include <filesystem>
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <glm/gtc/quaternion.hpp>
 namespace fs = std::filesystem;
 
 #pragma region Helpers
@@ -102,11 +104,12 @@ struct Skybox {};
 static ImGuizmo::OPERATION CurrentGizmoOperation = ImGuizmo::TRANSLATE;
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
-renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::R32Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
+renderpass(false, true, { TextureFormat::BGRA8Unorm, TextureFormat::RGBA16Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
 shadowpass(false, true, {  }, 8192 , 8192 ),
 standardPBRPipeline()
 {
     ECS::RegisterTag<ShadowCasterTag>("ShadowCasterTag");
+    ECS::RegisterComponent<NameComponent>("NameComponent");
     ECS::RegisterComponent<LocalTRS>("LocalTRS");
     ECS::RegisterComponent<WorldXform>("WorldXform");
     ECS::RegisterComponent<TransformClock>("TransformClock");
@@ -204,7 +207,7 @@ standardPBRPipeline()
     WriteTransformBufferSystem = scene.CreateSystem<WorldXform>([&](Entity ent, WorldXform& form, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
-        transformBuffer.entityID = ent.RawId();
+        transformBuffer.SetEntityID(ent.RawId());
         transformBufferBuffer.Write(transformBuffer, form.id);
     });
 
@@ -375,14 +378,25 @@ void EditorApp::OnUpdate(float deltaTime)
         renderpass.Recreate(m_Window.GetWidth(), m_Window.GetHeight());
     }
 
+    if (selectedEntityID != static_cast<uint64_t>(-1) &&
+        input.IsKeyPressed(Key::DELETE) &&
+        !ImGui::GetIO().WantTextInput &&
+        !ImGuizmo::IsUsing())
+    {
+        scene.Destroy(selectedEntity);
+        selectedEntity = Entity{};
+        selectedEntityID = static_cast<uint64_t>(-1);
+        if (inspectorWindow)
+            inspectorWindow->ClearInspectedEntity();
+    }
     
     double x, y;
     input.GetMousePosition(x, y);
-    static uint32_t sampledPixel = 0;
+    static uint64_t sampledPixel = UINT64_MAX;
     if(x > 0 && y > 0 && x < m_Window.GetWidth() && y < m_Window.GetHeight())
         sampledPixel = renderpass.GetRenderTarget(1).SamplePixel(x, y);
 
-    if(input.IsMouseButtonPressed(MouseButton::Left) && sampledPixel != 4294967295)
+    if(input.IsMouseButtonPressed(MouseButton::Left) && sampledPixel != UINT64_MAX)
     {
         DeselectEntity();
         SelectEntity((uint64_t)sampledPixel);
@@ -407,27 +421,32 @@ void EditorApp::OnGUI()
         WorldXform& form = *selectedEntity.Get<WorldXform>();
         glm::mat4 world = glm::make_mat4(form.model);
 
-        DrawGizmo(world, cam->View(), cam->Projection());
+        if (DrawGizmo(world, cam->View(), cam->Projection()))
+        {
+            glm::mat4 local = world;
+            Entity parent = scene.Parent(selectedEntity);
+            if (parent.IsValid()) {
+                glm::mat4 parentWorld = glm::make_mat4(parent.Get<WorldXform>()->model);
+                local = glm::inverse(parentWorld) * world;
+            }
 
-        glm::mat4 local = world;
-        Entity parent = scene.Parent(selectedEntity);
-        if (parent.IsValid()) {
-            glm::mat4 parentWorld = glm::make_mat4(parent.Get<WorldXform>()->model);
-            local = glm::inverse(parentWorld) * world;
+            glm::vec3 translation = glm::vec3(local[3]);
+            glm::vec3 scale(
+                glm::length(glm::vec3(local[0])),
+                glm::length(glm::vec3(local[1])),
+                glm::length(glm::vec3(local[2])));
+
+            glm::mat3 rotationMatrix(1.0f);
+            if (scale.x > 0.000001f) rotationMatrix[0] = glm::vec3(local[0]) / scale.x;
+            if (scale.y > 0.000001f) rotationMatrix[1] = glm::vec3(local[1]) / scale.y;
+            if (scale.z > 0.000001f) rotationMatrix[2] = glm::vec3(local[2]) / scale.z;
+
+            glm::quat rotation = glm::normalize(glm::quat_cast(rotationMatrix));
+
+            selectedEntity.SetPosition(translation.x, translation.y, translation.z);
+            selectedEntity.SetRotationQuat(rotation.x, rotation.y, rotation.z, rotation.w);
+            selectedEntity.SetScale(scale.x, scale.y, scale.z);
         }
-
-        glm::vec3 translation, rotation, scale;
-
-        float matrix[16];
-        memcpy(matrix, glm::value_ptr(local), sizeof(matrix));
-        ImGuizmo::DecomposeMatrixToComponents(matrix,
-            glm::value_ptr(translation),
-            glm::value_ptr(rotation),
-            glm::value_ptr(scale));
-
-        selectedEntity.SetPosition(translation.x, translation.y, translation.z);
-        selectedEntity.SetRotationEuler(rotation.x, rotation.y, rotation.z);
-        selectedEntity.SetScale(scale.x, scale.y, scale.z);
     }
 
     DrawTopMenu();
@@ -440,15 +459,19 @@ void EditorApp::OnGUI()
     {
         transformBuffer.modelMatrix = glm::make_mat4(selectedEntity.Get<WorldXform>()->model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
-        transformBuffer.entityID = selectedEntity.RawId();
+        transformBuffer.SetEntityID(selectedEntity.RawId());
     }
 }
 
 void EditorApp::SelectEntity(uint64_t id)
 {
     if(ImGuizmo::IsOver() || ImGuizmo::IsUsing()) return;
-    selectedEntityID = id;
-    selectedEntity = scene.FromId(id);
+    Entity entity = scene.FromId(id);
+    if (!entity.IsValid())
+        return;
+
+    selectedEntityID = entity.RawId();
+    selectedEntity = entity;
     if (inspectorWindow)
         inspectorWindow->SetInspectedEntity(scene, selectedEntity);
 }
@@ -588,13 +611,14 @@ bool EditorApp::DrawGizmo(glm::mat4& transform, const glm::mat4& view, const glm
     float matrix[16];
     memcpy(matrix, glm::value_ptr(transform), sizeof(matrix));
 
-    if (ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj),
-                             CurrentGizmoOperation, ImGuizmo::LOCAL, matrix))
+    bool manipulated = ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj),
+                                            CurrentGizmoOperation, ImGuizmo::LOCAL, matrix);
+    if (manipulated)
     {
         transform = glm::make_mat4(matrix);
     }
 
-    return ImGuizmo::IsUsing();
+    return manipulated;
 }
 
 

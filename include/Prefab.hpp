@@ -34,10 +34,10 @@ private:
     friend class Scene;
 
     Scene _scene;
-    uint32_t _rootId = 0;
+    uint64_t _rootId = 0;
 
     // Internal clone helpers
-    static uint32_t CloneEntityRecursive(const Scene& src, Scene& dst, uint32_t srcId, uint32_t dstParentId);
+    static uint64_t CloneEntityRecursive(const Scene& src, Scene& dst, uint64_t srcId, uint64_t dstParentId);
 };
 
 template<class T>

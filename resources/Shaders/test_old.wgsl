@@ -24,7 +24,7 @@ struct UBO {
 struct ModelData {
   modelMatrix: mat4x4<f32>,
   normalMatrix: mat4x4<f32>,
-  entityID: u32,
+  entityID: vec2u,
 };
 
 struct MaterialProperties {
@@ -126,8 +126,12 @@ fn tonemapACES(x: vec3f) -> vec3f {
 
 struct FragOut {
     @location(0) color: vec4f,
-    @location(1) pick_pic: u32
+    @location(1) pick_pic: vec4u
 };
+
+fn packEntityId(id: vec2u) -> vec4u {
+    return vec4u(id.x & 0xFFFFu, (id.x >> 16u) & 0xFFFFu, id.y & 0xFFFFu, (id.y >> 16u) & 0xFFFFu);
+}
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> FragOut {
@@ -218,6 +222,6 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
 
     var out : FragOut;
     out.color = vec4f(colorLinear, 1.0);
-    out.pick_pic = ModelDataObject.entityID;
+    out.pick_pic = packEntityId(ModelDataObject.entityID);
     return out;
 }

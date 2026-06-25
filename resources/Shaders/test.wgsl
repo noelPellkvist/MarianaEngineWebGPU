@@ -28,7 +28,7 @@ struct UBO {
 struct ModelData {
     modelMatrix: mat4x4<f32>,
     normalMatrix: mat3x3<f32>,
-    entityID: u32,
+    entityID: vec2u,
 };
 
 struct MaterialProperties {
@@ -75,10 +75,14 @@ struct BoneData {
 
 struct FragOut {
     @location(0) color: vec4f,
-    @location(1) pick_pic: u32
+    @location(1) pick_pic: vec4u
 };
 
 // ===================== helpers =====================
+
+fn packEntityId(id: vec2u) -> vec4u {
+    return vec4u(id.x & 0xFFFFu, (id.x >> 16u) & 0xFFFFu, id.y & 0xFFFFu, (id.y >> 16u) & 0xFFFFu);
+}
 
 fn saturate(x: f32) -> f32 { return clamp(x, 0.0, 1.0); }
 fn saturate3(v: vec3f) -> vec3f { return clamp(v, vec3f(0.0), vec3f(1.0)); }
@@ -271,6 +275,6 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
     var out: FragOut;
     out.color = vec4f(colorLinear, 1.0);
     //out.color = vec4f(input.world_normal * 0.5 + 0.5, 1.0);
-    out.pick_pic = ModelDataObject.entityID;
+    out.pick_pic = packEntityId(ModelDataObject.entityID);
     return out;
 }

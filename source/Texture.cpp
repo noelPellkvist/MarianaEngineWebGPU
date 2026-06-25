@@ -230,7 +230,7 @@ struct Texture::Impl
     wgpu::Texture m_Texture;
     wgpu::TextureView m_View;
     ReadbackSlot slots[2];
-    std::atomic<uint32_t> lastValue{0}; 
+    std::atomic<uint64_t> lastValue{~uint64_t{0}}; 
     bool         inited = false;
     int          dstIndex = 0;
 };
@@ -238,7 +238,7 @@ struct Texture::Impl
 static constexpr uint64_t kRowPitch   = 256;
 static constexpr uint64_t kCopySize   = kRowPitch; // one row
 static constexpr uint64_t kOffset     = 0;
-static constexpr uint64_t kBytesToRead = 4;
+static constexpr uint64_t kBytesToRead = 8;
 
 static wgpu::Buffer MakeReadbackBuffer() {
     wgpu::BufferDescriptor desc{};
@@ -386,7 +386,7 @@ void Texture::CreateTexture(int width, int height, TextureFormat format, bool MS
     m_Format = format;
 }
 
-uint32_t Texture::SamplePixel(int x, int y)
+uint64_t Texture::SamplePixel(int x, int y)
 {
     auto& impl = *_impl;
 
@@ -394,7 +394,7 @@ uint32_t Texture::SamplePixel(int x, int y)
         impl.slots[0].buffer = MakeReadbackBuffer();
         impl.slots[1].buffer = MakeReadbackBuffer();
         impl.inited = true;
-        impl.lastValue.store(0, std::memory_order_relaxed);
+        impl.lastValue.store(~uint64_t{0}, std::memory_order_relaxed);
     }
 
     ReadbackSlot& dst = impl.slots[impl.dstIndex];
@@ -437,8 +437,12 @@ uint32_t Texture::SamplePixel(int x, int y)
             if (status == wgpu::MapAsyncStatus::Success) {
                 const void* p = dstSlot->buffer.GetConstMappedRange(kOffset, kBytesToRead);
                 if (p) {
-                    uint32_t v = 0;
-                    std::memcpy(&v, p, sizeof(uint32_t));
+                    uint16_t lanes[4]{};
+                    std::memcpy(lanes, p, sizeof(lanes));
+                    uint64_t v = static_cast<uint64_t>(lanes[0]) |
+                                 (static_cast<uint64_t>(lanes[1]) << 16) |
+                                 (static_cast<uint64_t>(lanes[2]) << 32) |
+                                 (static_cast<uint64_t>(lanes[3]) << 48);
                     implPtr->lastValue.store(v, std::memory_order_relaxed);
                     dstSlot->mapped = true; // keep it mapped until reused as CopyDst
                 } else {
@@ -451,7 +455,7 @@ uint32_t Texture::SamplePixel(int x, int y)
         }
     );
 
-    uint32_t outValue = impl.lastValue.load(std::memory_order_relaxed);
+    uint64_t outValue = impl.lastValue.load(std::memory_order_relaxed);
 
     // Next call: flip roles.
     impl.dstIndex ^= 1;

@@ -73,7 +73,7 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 
 struct FragOut {
     @location(0) color: vec4f,
-    @location(1) pick_pic: u32
+    @location(1) pick_pic: vec4u
 };
 
 @fragment
@@ -84,6 +84,6 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
 
     var out: FragOut;
     out.color = vec4f(sky, 1.0);
-    out.pick_pic = 0xFFFFFFFFu;
+    out.pick_pic = vec4u(0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu);
     return out;
 }

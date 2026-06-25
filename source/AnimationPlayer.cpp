@@ -253,8 +253,7 @@ void AnimationPlayer::UpdateEntity(Entity e, AnimationTargetEntity target)
     {
         auto rot = GetCurrentDataQuat(prevKeyframes[target.rotationTargetChannel], target.rotationTargetChannel);
         glm::quat q(rot[3], rot[0], rot[1], rot[2]);
-        glm::vec3 euler = glm::degrees(glm::eulerAngles(q));
-        e.SetRotationEuler(euler.x, euler.y, euler.z);
+        e.SetRotationQuat(q.x, q.y, q.z, q.w);
     }
     if (target.scaleTargetCHannel != -1)
     {

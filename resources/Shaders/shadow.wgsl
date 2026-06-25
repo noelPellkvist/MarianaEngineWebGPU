@@ -19,7 +19,7 @@ struct UBO {
 struct ModelData {
   modelMatrix: mat4x4<f32>,
   normalMatrix: mat3x3<f32>,
-  entityID: u32,
+  entityID: vec2u,
 };
 
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <glm/glm.hpp>
 #include <AssetManager.hpp>
 #include <ICamera.hpp>
@@ -12,7 +13,11 @@ struct UBO {
 struct TransformData {
   glm::mat4x4 modelMatrix;
   glm::mat3x3 normalMatrix;
-  uint32_t entityID{0};
+  glm::uvec2 entityID{0, 0};
+  void SetEntityID(uint64_t id) {
+    entityID.x = static_cast<uint32_t>(id & 0xFFFFFFFFull);
+    entityID.y = static_cast<uint32_t>(id >> 32);
+  }
 };
 
 struct BoneData

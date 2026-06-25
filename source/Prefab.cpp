@@ -24,8 +24,8 @@ Prefab& Prefab::operator=(Prefab&& o) noexcept {
 }
 
 Prefab Prefab::FromEntity(const Scene& src, Entity root) {
+    if (!root.IsValid()) return Prefab();
     Prefab prefab(root.GetName());
-    if (!root.IsValid()) return prefab;
 
     prefab._scene.Destroy(prefab.Root());
     prefab._rootId = CloneEntityRecursive(src, prefab._scene, root.RawId(), 0);
@@ -49,23 +49,35 @@ Entity Prefab::Instantiate(const char* name) {
     return _scene.Instantiate(name);
 }
 
-uint32_t Prefab::CloneEntityRecursive(const Scene& src, Scene& dst, uint32_t srcId, uint32_t dstParentId) {
+uint64_t Prefab::CloneEntityRecursive(const Scene& src, Scene& dst, uint64_t srcId, uint64_t dstParentId) {
     Entity srcEnt = src.FromId(srcId);
+    if (!srcEnt.IsValid()) return 0;
+
     const char* name = srcEnt.GetName();
 
     Entity dstEnt = dst.Instantiate(name && *name ? name : nullptr);
+    if (!dstEnt.IsValid()) return 0;
+
     if (dstParentId) {
-        dstEnt.SetParent(dst.FromId(dstParentId));
+        Entity dstParent = dst.FromId(dstParentId);
+        if (dstParent.IsValid()) {
+            dstEnt.SetParent(dstParent);
+        }
     }
 
     src.ForEachComponent(srcEnt, [&](const ComponentView& c){
         if (!c.name || !*c.name) return;
         if (std::strcmp(c.name, "WorldXform") == 0) return;
-        uint32_t dstCompId = dst._ensureComponentByName(c.name, c.size, c.align);
+        if (std::strcmp(c.name, "_XformCache") == 0) return;
+        if (std::strcmp(c.name, "XformCache") == 0) return;
+        if (std::strcmp(c.name, "_TransformClock") == 0) return;
+        if (std::strcmp(c.name, "TransformClock") == 0) return;
+        uint64_t dstCompId = dst._ensureComponentByName(c.name, c.size, c.align);
         dst._addById(dstEnt.RawId(), dstCompId, c.data, c.size, c.align);
     });
 
     src.ForEachChild(srcEnt, [&](Entity child){
+        if (!child.IsValid()) return;
         CloneEntityRecursive(src, dst, child.RawId(), dstEnt.RawId());
     });
 

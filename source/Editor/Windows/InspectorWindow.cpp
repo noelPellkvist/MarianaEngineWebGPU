@@ -96,6 +96,9 @@ void InspectorWindow::DrawHiddenComponentsAndTags(Entity entity)
             return;
         }
 
+        if (std::strcmp(name, "NameComponent") == 0)
+            return;
+
         if (m_componentDrawers.find(name) == m_componentDrawers.end())
             hiddenComponents.emplace_back(name);
     });

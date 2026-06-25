@@ -128,7 +128,7 @@ class Texture
         void CreateTexture(int width, int height, TextureFormat format, bool MSSA = false, bool renderTarget = false, bool isDepthTexture = false);
         void UploadTexture(const uint8_t* pixels, size_t length, int width, int height);
         void LoadCubeTexture(const std::vector<std::string> paths, TextureFormat format);
-        uint32_t SamplePixel(int x, int y);
+        uint64_t SamplePixel(int x, int y);
 
         void* GetTexture();
         void* GetTextureView();

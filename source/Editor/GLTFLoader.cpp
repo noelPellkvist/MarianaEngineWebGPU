@@ -10,6 +10,7 @@
 #include <vector>
 #include <cstring>
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <Logger.hpp>
 #include <Material.hpp>
@@ -368,8 +369,7 @@ void BuildEntityFromNode(Prefab& p, Entity e, tinygltf::Model& model, int nodeIn
     }
 
     e.SetPosition(translation.x, translation.y, translation.z);
-    glm::vec3 euler = glm::eulerAngles(rotation);
-    e.SetRotationEuler(glm::degrees(euler.x), glm::degrees(euler.y), glm::degrees(euler.z));
+    e.SetRotationQuat(rotation.x, rotation.y, rotation.z, rotation.w);
     e.SetScale(scale.x, scale.y, scale.z);
     e.SetName(n.name.c_str());
     e.Add<AnimationTargetEntity>({ (uint32_t)nodeIndex });
