@@ -66,27 +66,10 @@ inline std::string ToString(const uint64_t& v)
 #pragma region ShaderUniforms
 
 UBO ubo{};
-UniformBufferLayout uboLayout2(false, ubo, ubo.lightDir, ubo.lightVP);
-Buffer uboBuffer(uboLayout2);
-
 TransformData transformBuffer{};
-UniformBufferLayout transformLayout2(true, transformBuffer, transformBuffer.modelMatrix, transformBuffer.normalMatrix, transformBuffer.entityID);
-Buffer transformBufferBuffer(transformLayout2);
-
 GLTFMaterialProperties materialsBuffer;
-UniformBufferLayout materialsLayout2(true, materialsBuffer, materialsBuffer.baseColor, materialsBuffer.metallicFactor, materialsBuffer.roughnessFactor,
-    materialsBuffer.normalMapStrength, materialsBuffer.occlusionStrength,
-    materialsBuffer.emissiveFactor, materialsBuffer.alphaCutoff);
-Buffer materialsBufferBuffer(materialsLayout2);
-
 CameraInfo cameraInfo{};
-UniformBufferLayout camLayout(false, cameraInfo, cameraInfo.proj, cameraInfo.view, cameraInfo.viewProj, cameraInfo.invView, cameraInfo.invProj, cameraInfo.invViewProj, cameraInfo.pos, cameraInfo.exposure);
-Buffer cameraBuffer(camLayout);
-
 BoneData boneData{};
-StorageArrayLayout boneLayout(1024, boneData, boneData.model, boneData.normal);
-Buffer boneBufferBuffer(boneLayout);
-
 
 GLTF::Vertex v{};
 VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0, v.boneIndices, v.boneWeights};
@@ -122,18 +105,13 @@ standardPBRPipeline()
     scene.UpdateComponentRegistry();
 
     cam = new EditorCameraController(input);
-    uboBuffer.Build();
-    transformBufferBuffer.Build();
-    materialsBufferBuffer.Build();
-    cameraBuffer.Build();
-    boneBufferBuffer.Build();
 
     renderpass.Init();
     shadowpass.Init();
 
     ShadowMapShader.Group(0)
-    .AddBuffer("UBO", 0, uboBuffer)
-    .AddBuffer("ModelData", 1, transformBufferBuffer);
+    .AddBuffer("UBO", 0, standardPBRPipeline.uboBuffer)
+    .AddBuffer("ModelData", 1, standardPBRPipeline.transformBuffer);
 
     ShadowMapShader.SetVertexStructLayout(vertexLayout);
     ShadowMapShader.SetWGSL(FileReader::LoadRawString("/Shaders/shadow.wgsl"));
@@ -141,13 +119,15 @@ standardPBRPipeline()
     ShadowMapShader.Build(true);
 
     StandardPBRShader.Group(0)
-    .AddBuffer("UBO", 0, uboBuffer)
-    .AddBuffer("ModelData", 1, transformBufferBuffer)
-    .AddBuffer("CameraInfo", 2, cameraBuffer)
-    .AddBuffer("Material", 3, materialsBufferBuffer)
-    .AddTexture("ShadowMap", 4, TextureType_Depth)
-    .AddSampler("ShadowSampler", 5, true)
-    .AddBuffer("BoneData", 6, boneBufferBuffer);
+    .AddBuffer("UBO", 0, standardPBRPipeline.uboBuffer)
+    .AddBuffer("CameraInfo", 1, standardPBRPipeline.cameraBuffer)
+    .AddBuffer("DrawInfo", 2, standardPBRPipeline.drawBuffer)
+    .AddBuffer("ModelData", 3, standardPBRPipeline.transformBuffer)
+    .AddBuffer("Material", 4, standardPBRPipeline.materialsBuffer)
+    .AddBuffer("BoneData", 5, standardPBRPipeline.boneBuffer)
+    .AddTexture("ShadowMap", 6, TextureType_Depth)
+    .AddSampler("ShadowSampler", 7, true);
+    
 
     StandardPBRShader.SetTexture("ShadowMap", shadowpass.GetDepthView());
 
@@ -166,7 +146,7 @@ standardPBRPipeline()
 
     StandardPBRShader.Build();
 
-    boneBufferBuffer.Write(boneData, 0);
+    standardPBRPipeline.boneBuffer.Write(boneData, 0);
 
     Texture skyboxTex;
     skyboxTex.LoadCubeTexture({
@@ -180,7 +160,7 @@ standardPBRPipeline()
     AssetManager::LoadedTextures.push_back(skyboxTex);
 
     StandardSkyboxShader.Group(0)
-    .AddBuffer("CameraInfo", 0, cameraBuffer)
+    .AddBuffer("CameraInfo", 0, standardPBRPipeline.cameraBuffer)
     .AddTexture("CubeMap", 1, TextureType_Cube)
     .AddSampler("Sampler", 2);
 
@@ -194,21 +174,22 @@ standardPBRPipeline()
     GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/SkyBox.glb", StandardPBRShader);
     scene.Instantiate((std::string("SkyBox")).c_str()).Add<MeshComponent>({0}).AddTag<Skybox>().SetScaleUniform(20).SetPosition(0, 2, 0);
 
-    Prefab test = GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Rumba.glb", StandardPBRShader);
-    Entity spawnedTest = scene.Instantiate(test);
+    // Prefab test = GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Rumba.glb", StandardPBRShader);
+    // Entity spawnedTest = scene.Instantiate(test);
 
-    Prefab avocado = GLTF::GLTFLoader::LoadGLTF(std::string(RESOURCE_DIR) + "/Models/Avocado.glb", StandardPBRShader);
-    scene.Instantiate(avocado);
+    // AnimationPlayer& testPlayer = *spawnedTest.Get<AnimationPlayer>();
+    // testPlayer.SetEntityRoot(spawnedTest);
+    // testPlayer.SetAnimation(&AssetManager::LoadedAnimations[0]);
 
-    AnimationPlayer& testPlayer = *spawnedTest.Get<AnimationPlayer>();
-    testPlayer.SetEntityRoot(spawnedTest);
-    testPlayer.SetAnimation(&AssetManager::LoadedAnimations[0]);
-
-    WriteTransformBufferSystem = scene.CreateSystem<WorldXform>([&](Entity ent, WorldXform& form, float dt){
+    WriteTransformBufferSystem = scene.CreateSystem<WorldXform, MeshComponent>([&](Entity ent, WorldXform& form, MeshComponent& mesh, float dt){
         transformBuffer.modelMatrix = glm::make_mat4(form.model);
         transformBuffer.normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformBuffer.modelMatrix)));
         transformBuffer.SetEntityID(ent.RawId());
-        transformBufferBuffer.Write(transformBuffer, form.id);
+        standardPBRPipeline.transformBuffer.Write(transformBuffer, form.id);
+        DrawData draw;
+        draw.transformIndex = form.id;
+        draw.materialIndex = ent.Has<MeshComponent>() ? mesh.meshIndex : 0;
+        standardPBRPipeline.drawBuffer.Write(draw, form.id);
     });
 
     AnimationSystem = scene.CreateSystem<AnimationPlayer>([&](Entity e, AnimationPlayer& player, float dt) {
@@ -297,11 +278,12 @@ void EditorApp::OnStart()
                      0.1f, 200.0f) *
     glm::lookAtLH(lightPos, sceneCenter, up);
 
-    
-    uboBuffer.Write(ubo, 0);
+    standardPBRPipeline.uboBuffer.Write(ubo, 0);
 
     for (int i = 0; i < AssetManager::LoadedMaterialProperties.size(); i++)
-        materialsBufferBuffer.Write(AssetManager::LoadedMaterialProperties[i], i);
+    {
+        standardPBRPipeline.materialsBuffer.Write(AssetManager::LoadedMaterialProperties[i], i);
+    }
 
     renderpass.renderSystem = scene.CreateSystem<MeshComponent, WorldXform>([&](Entity ent, MeshComponent& meshComp, WorldXform& form, float dt){
         IMesh* mesh = AssetManager::LoadedMeshes[meshComp.meshIndex].get();
@@ -311,14 +293,14 @@ void EditorApp::OnStart()
 
             renderpass.SetShader2(StandardPBRShader);
             renderpass.SetMesh(mesh);
-            renderpass.SetBufferIndex("ModelData", form.id);
+            //renderpass.SetBufferIndex("ModelData", form.id);
             
 
             for (Submesh& sm : mesh->submeshes)
             {
               renderpass.SetMaterial2(StandardPBRShader, AssetManager::LoadedMaterials[sm.materialIndex]);
-              renderpass.SetBufferIndex("Material", sm.materialIndex);
-              renderpass.Draw(sm.indexCount, sm.startIndex);
+              //renderpass.SetBufferIndex("Material", sm.materialIndex);
+              renderpass.Draw(sm.indexCount, sm.startIndex, form.id);
             }
         }
         else
@@ -328,7 +310,7 @@ void EditorApp::OnStart()
 
             for (Submesh& sm : mesh->submeshes)
             {
-              renderpass.Draw(sm.indexCount, sm.startIndex);
+              renderpass.Draw(sm.indexCount, sm.startIndex, form.id);
             }
         }
     });
@@ -338,11 +320,11 @@ void EditorApp::OnStart()
         shadowpass.SetShader2(ShadowMapShader);
         IMesh* mesh = AssetManager::LoadedMeshes[meshComp.meshIndex].get();
         shadowpass.SetMesh(mesh);
-        shadowpass.SetBufferIndex("ModelData", form.id);
+        //shadowpass.SetBufferIndex("ModelData", form.id);
         
         for (Submesh& sm : mesh->submeshes)
         {
-          shadowpass.Draw(sm.indexCount, sm.startIndex);
+          shadowpass.Draw(sm.indexCount, sm.startIndex, form.id);
         }
     });
     Logger::Info("OnStart done");
@@ -358,7 +340,9 @@ void EditorApp::OnUpdate(float deltaTime)
     {
         materialsCount = AssetManager::LoadedMaterialProperties.size();
         for (int i = 0; i < AssetManager::LoadedMaterialProperties.size(); i++)
-            materialsBufferBuffer.Write(AssetManager::LoadedMaterialProperties[i], i);
+        {
+            standardPBRPipeline.materialsBuffer.Write(AssetManager::LoadedMaterialProperties[i], i);
+        }
     }
     
     if (!ImGui::GetIO().WantTextInput)
@@ -406,10 +390,8 @@ void EditorApp::OnUpdate(float deltaTime)
     {
         DeselectEntity();
     }
-    // StandardPBRShader.WriteToBuffer("CameraInfo", cam->GetCameraInfo(), 0);
-    // StandardSkyboxShader.WriteToBuffer("CameraInfo", cam->GetCameraInfo(), 0);
     cameraInfo = cam->GetCameraInfo();
-    cameraBuffer.Write(cameraInfo, 0);
+    standardPBRPipeline.cameraBuffer.Write(cameraInfo, 0);
     scene.Update(deltaTime);
     AnimationSystem.Run();
 }
@@ -628,7 +610,7 @@ void EditorApp::OnRender()
 {
     float aspect = static_cast<float>(m_Window.GetWidth()) /
                static_cast<float>(m_Window.GetHeight());
-    
+    scene.Update(0.0f);
     WriteTransformBufferSystem.Run();
     renderer.Render(&gui);
 }

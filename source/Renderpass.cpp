@@ -95,7 +95,7 @@ void Renderpass::SetMesh(IMesh* mesh)
     _impl->pass.SetIndexBuffer(*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer()), mesh->IsUINT16() ? wgpu::IndexFormat::Uint16 :  wgpu::IndexFormat::Uint32, 0, (*static_cast<wgpu::Buffer*>(mesh->GetIndexBuffer())).GetSize());
 }
 
-void Renderpass::Draw(uint32_t indexCount, uint32_t startIndex)
+void Renderpass::Draw(uint32_t indexCount, uint32_t startIndex, uint32_t id)
 {
     assert(m_CurrentShader != nullptr);
     Shader2& shader = *m_CurrentShader;
@@ -105,7 +105,7 @@ void Renderpass::Draw(uint32_t indexCount, uint32_t startIndex)
         if (i == shader.m_MaterialIndex) continue;
         _impl->pass.SetBindGroup(i, *static_cast<wgpu::BindGroup*>(shader.GetBindGroup(i)), m_BindGroupOffsets[i].size(), m_BindGroupOffsets[i].data());
     }
-    _impl->pass.DrawIndexed(indexCount, 1, startIndex, 0, 0);
+    _impl->pass.DrawIndexed(indexCount, 1, startIndex, 0, id);
 }
 
 void Renderpass::SetBufferIndex(std::string name, uint32_t index)

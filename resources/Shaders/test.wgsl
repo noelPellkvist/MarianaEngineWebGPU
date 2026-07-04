@@ -18,6 +18,7 @@ struct VertexOutput {
     @location(2) world_bitangent: vec3f,
     @location(3) uv: vec2f,
     @location(4) world_pos: vec3f,
+    @location(5) @interpolate(flat) drawIndex: u32,
 };
 
 struct UBO {
@@ -53,18 +54,27 @@ struct CameraInfoData {
 };
 
 struct BoneData {
-    boneMatrices: array<mat4x4<f32>, 128>,
+    model: mat4x4<f32>,
+    normal: mat4x4<f32>,
 };
+
+struct DrawData
+{
+    transformIndex: u32,
+    materialIndex: u32,
+}
 
 // ===================== bindings unchanged =====================
 
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
-@group(0) @binding(1) var<uniform> ModelDataObject: ModelData;
-@group(0) @binding(2) var<uniform> camInfo: CameraInfoData;
-@group(0) @binding(3) var<uniform> Material: MaterialProperties;
-@group(0) @binding(4) var shadowMap: texture_depth_2d;
-@group(0) @binding(5) var shadowSampler: sampler_comparison;
-@group(0) @binding(6) var<storage, read_write> Bones: BoneData;
+@group(0) @binding(1) var<uniform> camInfo: CameraInfoData;
+@group(0) @binding(2) var<storage, read> DrawInfo: array<DrawData>;
+@group(0) @binding(3) var<storage, read> ModelDataObjectBuffer: array<ModelData>;
+@group(0) @binding(4) var<storage, read> MaterialBuffer: array<MaterialProperties>;
+@group(0) @binding(5) var<storage, read> Bones: array<BoneData>;
+@group(0) @binding(6) var shadowMap: texture_depth_2d;
+@group(0) @binding(7) var shadowSampler: sampler_comparison;
+
 
 @group(1) @binding(0) var albedo: texture_2d<f32>;
 @group(1) @binding(1) var normalMap: texture_2d<f32>;
@@ -128,8 +138,11 @@ fn safeNormalize(v: vec3f) -> vec3f {
 // ===================== vertex =====================
 
 @vertex
-fn vertexMain(input: VertexInput) -> VertexOutput {
+fn vertexMain(input: VertexInput, @builtin(instance_index) drawCallIndex: u32) -> VertexOutput {
     var output: VertexOutput;
+    output.drawIndex = drawCallIndex;
+    var drawData = DrawInfo[drawCallIndex];
+    var ModelDataObject = ModelDataObjectBuffer[drawData.transformIndex];
 
     let world_pos4 = ModelDataObject.modelMatrix * vec4f(input.position, 1.0);
     output.world_pos = world_pos4.xyz;
@@ -163,6 +176,7 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 fn fragmentMain(input: VertexOutput) -> FragOut {
     // ----- Normal (use geometric normal for this test; swap back later) -----
     let N = safeNormalize(input.world_normal);
+    var Material = MaterialBuffer[DrawInfo[input.drawIndex].materialIndex];
 
     // ----- Base color + alpha -----
     let albedoSample = textureSample(albedo, textureSampler, input.uv);
@@ -275,6 +289,6 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
     var out: FragOut;
     out.color = vec4f(colorLinear, 1.0);
     //out.color = vec4f(input.world_normal * 0.5 + 0.5, 1.0);
-    out.pick_pic = packEntityId(ModelDataObject.entityID);
+    out.pick_pic = packEntityId(ModelDataObjectBuffer[DrawInfo[input.drawIndex].transformIndex].entityID);
     return out;
 }

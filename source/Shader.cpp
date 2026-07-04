@@ -91,7 +91,7 @@ wgpu::BindGroupLayoutEntry BuildBufferLayoutEntry(uint32_t binding, BufferType t
 {
     wgpu::BindGroupLayoutEntry entry{};
     entry.binding = binding;
-    entry.visibility = type == BufferType::Uniform ? wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment : wgpu::ShaderStage::Fragment;
+    entry.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
     entry.buffer.type = type == BufferType::Uniform
         ? wgpu::BufferBindingType::Uniform
         : wgpu::BufferBindingType::ReadOnlyStorage;

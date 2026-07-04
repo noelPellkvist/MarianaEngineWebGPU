@@ -24,12 +24,13 @@ struct ModelData {
 
 @group(0) @binding(0) var<uniform> UniformBufferObject: UBO;
 
-@group(0) @binding(1) var<uniform> ModelDataObject: ModelData;
+@group(0) @binding(1) var<storage, read> ModelDataObjectBuffer: array<ModelData>;
 
 
 @vertex
 fn vertexMain(input: VertexInput) -> ShadowOut {
   var out : ShadowOut;
+  var ModelDataObject = ModelDataObjectBuffer[0];
   let worldPos = ModelDataObject.modelMatrix * vec4f(input.position, 1.0);
   out.position = UniformBufferObject.lightVP * worldPos;
   return out;

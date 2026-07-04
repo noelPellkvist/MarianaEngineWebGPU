@@ -33,7 +33,7 @@ class Renderpass
         bool HasDepthTexture() const { return m_HasDepthTexture; }
 
         void SetMesh(IMesh* shader);
-        void Draw(uint32_t indexCount, uint32_t startIndex);
+        void Draw(uint32_t indexCount, uint32_t startIndex, uint32_t id);
         void SetShader2(Shader2& shader);
         void SetMaterial2(Shader2& shader, Material2& material);
         void SetBufferIndex(std::string name, uint32_t index);

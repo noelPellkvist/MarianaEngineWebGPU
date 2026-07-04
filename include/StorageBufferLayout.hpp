@@ -1,6 +1,8 @@
 #pragma once
 
 #include <UniformLayout.hpp>
+#include <algorithm>
+#include <limits>
 
 // WGSL storage-space layout. This intentionally mirrors UniformBufferLayout's
 // public API, but uses storage-buffer alignment/stride rules.
@@ -223,8 +225,14 @@ public:
     template <typename T, typename... Ms>
     StorageArrayLayout(std::size_t count, const T& base, const Ms&... fields) {
         static_assert(sizeof...(Ms) > 0, "Provide at least one field for the array element.");
+        if (count == 0) {
+            throw std::invalid_argument("StorageArrayLayout: element count must be greater than zero");
+        }
         m_ElementCount = count;
         build_element_layout(base, fields...);
+        if (m_ElementStride > std::numeric_limits<std::size_t>::max() / m_ElementCount) {
+            throw std::overflow_error("StorageArrayLayout: total buffer size overflows size_t");
+        }
         total_size_ = m_ElementStride * m_ElementCount;
     }
 
@@ -284,6 +292,7 @@ private:
         std::size_t count = 1;
         std::size_t src_stride = 0;
         std::size_t dst_stride = 0;
+        std::size_t src_matrix_column_stride = 0;
     };
 
     std::vector<Entry> table_;
@@ -351,8 +360,7 @@ private:
             case Kind::mat3x2: case Kind::mat3x3: case Kind::mat3x4:
             case Kind::mat4x2: case Kind::mat4x3: case Kind::mat4x4: {
                 const int C = mat_cols(k);
-                const int R = mat_rows(k);
-                return storage_matrix_stride(k) * (C - 1) + storage_vector_size(R);
+                return storage_matrix_stride(k) * C;
             }
         }
         return 0;
@@ -392,7 +400,9 @@ private:
                     const std::size_t src_col_bytes = 4 * R;
                     const std::size_t dst_stride = storage_matrix_stride(e.kind);
                     for (int c = 0; c < C; ++c) {
-                        std::memcpy(d + c * dst_stride, src + c * src_col_bytes, src_col_bytes);
+                        std::memcpy(d + c * dst_stride,
+                                    src + c * e.src_matrix_column_stride,
+                                    src_col_bytes);
                     }
                 }
             }
@@ -403,6 +413,8 @@ private:
     void add_array_one(const T& base, const U& field_ref, std::size_t& current_dst) {
         using DecElem = std::remove_cv_t<Elem>;
         static_assert(!std::is_pointer_v<DecElem>, "Array elements must be values, not pointers.");
+        static_assert(!std::is_same_v<DecElem, bool>,
+                      "WGSL bool is not host-shareable; use uint32_t/u32 in storage buffers.");
 
         const Kind k = map_kind<DecElem>::value;
         const std::size_t A = storage_align_of(k);
@@ -412,7 +424,11 @@ private:
         current_dst = align_to(current_dst, A);
 
         const std::size_t src_off = offset_in_T(base, field_ref);
-        table_.push_back(Entry{ current_dst, src_off, C, k, N, sizeof(DecElem), arrayStride });
+        const std::size_t srcMatrixColumnStride = is_matrix(k)
+            ? sizeof(DecElem) / static_cast<std::size_t>(mat_cols(k))
+            : 0;
+        table_.push_back(Entry{ current_dst, src_off, C, k, N, sizeof(DecElem),
+                                arrayStride, srcMatrixColumnStride });
 
         current_dst += arrayStride * N;
     }
@@ -429,6 +445,8 @@ private:
             add_array_one<T, U, Elem, std::extent_v<FieldT>>(base, field_ref, current_dst);
         }
         else {
+            static_assert(!std::is_same_v<FieldT, bool>,
+                          "WGSL bool is not host-shareable; use uint32_t/u32 in storage buffers.");
             const Kind k = deduce_kind(field_ref);
             const std::size_t A = storage_align_of(k);
             const std::size_t S = storage_size_of(k);
@@ -437,7 +455,11 @@ private:
             current_dst = align_to(current_dst, A);
 
             const std::size_t src_off = offset_in_T(base, field_ref);
-            table_.push_back(Entry{ current_dst, src_off, C, k, 1, 0, 0 });
+            const std::size_t srcMatrixColumnStride = is_matrix(k)
+                ? sizeof(FieldT) / static_cast<std::size_t>(mat_cols(k))
+                : 0;
+            table_.push_back(Entry{ current_dst, src_off, C, k, 1, 0, 0,
+                                    srcMatrixColumnStride });
 
             current_dst += S;
         }
@@ -453,7 +475,12 @@ private:
     void build_element_layout(const T& base, const Ms&... fields) {
         std::size_t current_dst = 0;
         add_all(base, current_dst, fields...);
-        m_ElementStride = align_to(current_dst, 16);
+
+        std::size_t structAlignment = 1;
+        for (const Entry& entry : table_) {
+            structAlignment = std::max(structAlignment, storage_align_of(entry.kind));
+        }
+        m_ElementStride = align_to(current_dst, structAlignment);
     }
 };
 
