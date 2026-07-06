@@ -6,6 +6,9 @@
 #include <moved_later/tiny_gltf.h>
 
 #include <memory>
+#include <algorithm>
+#include <cctype>
+#include <filesystem>
 #include <stdexcept>
 #include <vector>
 #include <cstring>
@@ -566,7 +569,13 @@ Prefab GLTF::GLTFLoader::LoadGLTF(std::string filename, Shader2& shader)
     std::string warn;
     Prefab badPrefab;
 
-    bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, filename);
+    std::string extension = std::filesystem::path(filename).extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    const bool ret = extension == ".gltf"
+        ? loader.LoadASCIIFromFile(&model, &err, &warn, filename)
+        : loader.LoadBinaryFromFile(&model, &err, &warn, filename);
 
     if (!warn.empty()) {
       Logger::Warning(warn);

@@ -11,14 +11,14 @@ class HierarchyWindow final : public EditorWindow
 {
 public:
     using SelectEntityCallback = std::function<void(uint64_t)>;
-    using SpawnGlbCallback = std::function<void(const std::filesystem::path&)>;
+    using SpawnGltfCallback = std::function<void(const std::filesystem::path&)>;
 
     HierarchyWindow(
         GUI& gui,
         const Scene& scene,
         const uint64_t& selectedEntityID,
         SelectEntityCallback selectEntity,
-        SpawnGlbCallback spawnGlb);
+        SpawnGltfCallback spawnGltf);
 
     void Draw() override;
 
@@ -26,7 +26,7 @@ private:
     const Scene& m_scene;
     const uint64_t& m_selectedEntityID;
     SelectEntityCallback m_selectEntity;
-    SpawnGlbCallback m_spawnGlb;
+    SpawnGltfCallback m_spawnGltf;
 
     void DrawEntityNode(Entity e);
     void DrawDropTarget();

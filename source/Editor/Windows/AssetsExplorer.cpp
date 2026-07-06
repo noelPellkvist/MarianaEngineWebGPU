@@ -42,7 +42,7 @@ void AssetsExplorer::LoadFileTexture(const std::string& path)
     try 
     {
         Texture newTexture;
-        newTexture.LoadTexture(path, TextureFormat::RGBA8UnormSrgb);
+        newTexture.LoadTexture(path, TextureFormat::RGBA8UnormSrgb, 128, 128);
         AssetsTextures[path] = newTexture;
     }
     catch (...)
@@ -190,9 +190,9 @@ void AssetsExplorer::DrawAssetsWindow()
             }            if (!en.isDir) {
                 std::string extLower = en.p.extension().string();
                 std::transform(extLower.begin(), extLower.end(), extLower.begin(), ::tolower);
-                if (extLower == ".glb" && ImGui::BeginDragDropSource()) {
+                if ((extLower == ".glb" || extLower == ".gltf") && ImGui::BeginDragDropSource()) {
                     const std::string dragPath = en.p.string();
-                    ImGui::SetDragDropPayload("MARIANA_ASSET_GLB", dragPath.c_str(), dragPath.size() + 1);
+                    ImGui::SetDragDropPayload("MARIANA_ASSET_GLTF", dragPath.c_str(), dragPath.size() + 1);
 
                     const float previewW = 220.0f;
                     const ImVec2 p0 = ImGui::GetCursorScreenPos();

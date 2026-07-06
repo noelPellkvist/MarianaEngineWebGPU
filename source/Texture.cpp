@@ -273,6 +273,16 @@ void Texture::LoadTexture(const std::string& path, TextureFormat format)
     m_Format = format;
 }
 
+void Texture::LoadTexture(const std::string& path, TextureFormat format, int width, int height)
+{
+    int kWidth, kHeight;
+    std::vector<uint8_t> pixels = FileReader::LoadPixelsFromImage(path, kWidth, kHeight);
+    CreateTexture(width, height, format);
+    std::vector<uint8_t> rescaledPixels = RescaleTexture(pixels.data(), pixels.size(), kWidth, kHeight, width, height);
+    UploadTexture(rescaledPixels.data(), rescaledPixels.size(), width, height);
+    m_Format = format;
+}
+
 void Texture::CreateRenderTexture(TextureFormat format, int width, int height, bool MSSA)
 {
     CreateTexture(width, height, format, MSSA, true, false);
@@ -300,6 +310,64 @@ void Texture::UploadTexture(const uint8_t* pixels, size_t length, int width, int
 
     wgpu::Extent3D extent = {(unsigned int)width, (unsigned int)height, 1};
     device.GetQueue().WriteTexture(&destination, pixels, length, &source, &extent);
+}
+
+std::vector<uint8_t> Texture::RescaleTexture(const uint8_t* pixels, size_t length, int preWidth, int preHeight, int width, int height)
+{
+    constexpr size_t channels = 4;
+
+    if (pixels == nullptr || preWidth <= 0 || preHeight <= 0 || width <= 0 || height <= 0)
+        return {};
+
+    const size_t sourceWidth = static_cast<size_t>(preWidth);
+    const size_t sourceHeight = static_cast<size_t>(preHeight);
+    const size_t targetWidth = static_cast<size_t>(width);
+    const size_t targetHeight = static_cast<size_t>(height);
+
+    if (sourceWidth > length / channels ||
+        sourceHeight > length / (sourceWidth * channels) ||
+        targetWidth > static_cast<size_t>(-1) / channels ||
+        targetHeight > static_cast<size_t>(-1) / (targetWidth * channels))
+        return {};
+
+    const size_t requiredLength = sourceWidth * sourceHeight * channels;
+    if (length < requiredLength)
+        return {};
+
+    std::vector<uint8_t> result(targetWidth * targetHeight * channels);
+
+    for (size_t y = 0; y < targetHeight; ++y) {
+        const float sourceY = (static_cast<float>(y) + 0.5f) *
+                              static_cast<float>(sourceHeight) / static_cast<float>(targetHeight) - 0.5f;
+        const size_t y0 = sourceY > 0.0f ? static_cast<size_t>(sourceY) : 0;
+        const size_t y1 = y0 + 1 < sourceHeight ? y0 + 1 : y0;
+        const float fy = sourceY > 0.0f ? sourceY - static_cast<float>(y0) : 0.0f;
+
+        for (size_t x = 0; x < targetWidth; ++x) {
+            const float sourceX = (static_cast<float>(x) + 0.5f) *
+                                  static_cast<float>(sourceWidth) / static_cast<float>(targetWidth) - 0.5f;
+            const size_t x0 = sourceX > 0.0f ? static_cast<size_t>(sourceX) : 0;
+            const size_t x1 = x0 + 1 < sourceWidth ? x0 + 1 : x0;
+            const float fx = sourceX > 0.0f ? sourceX - static_cast<float>(x0) : 0.0f;
+
+            const size_t topLeft = (y0 * sourceWidth + x0) * channels;
+            const size_t topRight = (y0 * sourceWidth + x1) * channels;
+            const size_t bottomLeft = (y1 * sourceWidth + x0) * channels;
+            const size_t bottomRight = (y1 * sourceWidth + x1) * channels;
+            const size_t destination = (y * targetWidth + x) * channels;
+
+            for (size_t channel = 0; channel < channels; ++channel) {
+                const float top = pixels[topLeft + channel] * (1.0f - fx) +
+                                  pixels[topRight + channel] * fx;
+                const float bottom = pixels[bottomLeft + channel] * (1.0f - fx) +
+                                     pixels[bottomRight + channel] * fx;
+                result[destination + channel] = static_cast<uint8_t>(
+                    top * (1.0f - fy) + bottom * fy + 0.5f);
+            }
+        }
+    }
+
+    return result;
 }
 
 void Texture::LoadCubeTexture(const std::vector<std::string> paths, TextureFormat format)

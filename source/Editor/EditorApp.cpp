@@ -239,16 +239,16 @@ void EditorApp::OnStart()
             DeselectEntity();
             SelectEntity(id);
         },
-        [this](const fs::path& glbPath) {
+        [this](const fs::path& gltfPath) {
             try {
-                Prefab prefab = GLTF::GLTFLoader::LoadGLTF(glbPath.string(), StandardPBRShader);
-                Entity spawned = scene.Instantiate(prefab, glbPath.stem().string().c_str());
+                Prefab prefab = GLTF::GLTFLoader::LoadGLTF(gltfPath.string(), StandardPBRShader);
+                Entity spawned = scene.Instantiate(prefab, gltfPath.stem().string().c_str());
                 scene.Update(0.0f);
                 DeselectEntity();
                 SelectEntity(spawned.RawId());
-                Logger::Info("Spawned prefab from: " + glbPath.string());
+                Logger::Info("Spawned prefab from: " + gltfPath.string());
             } catch (...) {
-                Logger::Error("Failed to spawn prefab from dropped GLB: " + glbPath.string());
+                Logger::Error("Failed to spawn prefab from dropped glTF: " + gltfPath.string());
             }
         });
 
@@ -558,6 +558,15 @@ void EditorApp::DrawTopMenu()
             if (ImGui::MenuItem("Cut", "Ctrl+X")) {/* TODO */}
             if (ImGui::MenuItem("Copy", "Ctrl+C")) {/* TODO */}
             if (ImGui::MenuItem("Paste", "Ctrl+V")) {/* TODO */}
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Window"))
+        {
+            if (ImGui::MenuItem("Assets")) { EditorWindows["Assets"]->SetOpen(!EditorWindows["Assets"]->IsOpen()); }
+            if (ImGui::MenuItem("Hierarchy")) { EditorWindows["Hierarchy"]->SetOpen(!EditorWindows["Hierarchy"]->IsOpen()); }
+            if (ImGui::MenuItem("Inspector")) { EditorWindows["Inspector"]->SetOpen(!EditorWindows["Inspector"]->IsOpen()); }
+            if (ImGui::MenuItem("Stats")) { EditorWindows["Stats"]->SetOpen(!EditorWindows["Stats"]->IsOpen()); }
             ImGui::EndMenu();
         }
 

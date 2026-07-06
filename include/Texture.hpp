@@ -123,10 +123,12 @@ class Texture
         ~Texture();
 
         void LoadTexture(const std::string& path, TextureFormat format);
+        void LoadTexture(const std::string& path, TextureFormat format, int width, int height);
         void CreateRenderTexture(TextureFormat format, int width, int height, bool MSSA);
         void CreateDepthTexture(TextureFormat format, int width, int height, bool MSSA);
         void CreateTexture(int width, int height, TextureFormat format, bool MSSA = false, bool renderTarget = false, bool isDepthTexture = false);
         void UploadTexture(const uint8_t* pixels, size_t length, int width, int height);
+        std::vector<uint8_t> RescaleTexture(const uint8_t* pixels, size_t length, int preWidth, int preHeight, int width, int height);
         void LoadCubeTexture(const std::vector<std::string> paths, TextureFormat format);
         uint64_t SamplePixel(int x, int y);
 
