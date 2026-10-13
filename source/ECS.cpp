@@ -126,11 +126,43 @@ struct Scene::Impl {
     };
     std::unordered_map<ecs_entity_t, CompInfo> comp_info;
 
+    // Component id per ECS::detail::TypeSlot, filled lazily from `comp`. Lets the typed Entity
+    // API skip hashing std::type_info on every access.
+    std::vector<ecs_entity_t> slot_ids;
+
+    // Cached query for entities without a parent, built on first use (freed with the world).
+    ecs_query_t* root_query = nullptr;
+
     Scene* owner = nullptr;
     uint32_t next_trs_id = 0;
 
     Impl(Scene* s) : ecs(), owner(s) {}
     Impl() : ecs(), owner(nullptr) {}
+
+    ecs_entity_t cachedSlot(uint32_t slot) const {
+        return slot < slot_ids.size() ? slot_ids[slot] : 0;
+    }
+
+    void cacheSlot(uint32_t slot, ecs_entity_t cid) {
+        if (slot >= slot_ids.size()) slot_ids.resize(slot + 1, 0);
+        slot_ids[slot] = cid;
+    }
+
+    // Existing component id for a type, or 0 if the scene has never seen it.
+    ecs_entity_t findComponent(uint32_t slot, const std::type_info& ti) {
+        if (ecs_entity_t cid = cachedSlot(slot)) return cid;
+        auto it = comp.find(std::type_index(ti));
+        if (it == comp.end()) return 0;
+        cacheSlot(slot, it->second);
+        return it->second;
+    }
+
+    ecs_entity_t ensureComponent(uint32_t slot, const std::type_info& ti, std::size_t sz, std::size_t align) {
+        if (ecs_entity_t cid = cachedSlot(slot)) return cid;
+        ecs_entity_t cid = ensureComponent(ti, sz, align);
+        cacheSlot(slot, cid);
+        return cid;
+    }
 
     // changed to accept a component name string (we no longer try to access std::type_info)
     ecs_entity_t ensureComponentByName(const std::string& name, std::size_t sz, std::size_t align, const ECS::ComponentLifecycle* lifecycle) {
@@ -195,6 +227,8 @@ void ApplyGlobalRegistryToScene(Scene::Impl& impl) {
         ecs_entity_t cid = impl.ensureComponentByName(entry.name, entry.size, entry.align, entry.lifecycle);
         impl.comp[entry.type] = cid;
     }
+    // Type -> id mappings may have changed.
+    impl.slot_ids.clear();
 }
 
 struct System::Impl {
@@ -230,37 +264,32 @@ struct System::Impl {
 
 static void run_query_and_call(ecs_world_t* world, ecs_query_t* q, System::Impl* impl, float delta) {
     alignas(std::max_align_t) static unsigned char tag_dummy[sizeof(std::max_align_t)] = {};
+    const size_t n = impl->comp_ids.size();
+
+    // Field arrays are resolved once per matched table, then advanced per entity.
+    char*  bases[FLECS_TERM_COUNT_MAX];
+    size_t strides[FLECS_TERM_COUNT_MAX];
+    void*  comps[FLECS_TERM_COUNT_MAX];
+
     ecs_iter_t it = ecs_query_iter(world, q);
     while (ecs_query_next(&it)) {
-        // for each matched entity in this batch:
-        for (int i = 0; i < it.count; ++i) {
-            ecs_entity_t e = it.entities[i];
-            if (!ecs_is_alive(world, e)) continue;
-            // Build comps array
-            size_t n = impl->comp_ids.size();
-            std::vector<void*> comps(n, nullptr);
-            bool ok = true;
-            for (size_t j = 0; j < n; ++j) {
-                if (impl->sizes[j] == 0) {
-                    comps[j] = tag_dummy;
-                    continue;
-                }
-                void* base = nullptr;
-                if (it.ptrs && it.ptrs[j]) {
-                    // compute per-entity address
-                    size_t stride = (it.sizes && it.sizes[j] ? (size_t)it.sizes[j] : impl->sizes[j]);
-                    base = static_cast<char*>(it.ptrs[j]) + (size_t)i * stride;
-                } else {
-                    // fallback: get pointer via ecs_get_id
-                    base = ecs_get_mut_id(world, e, impl->comp_ids[j]);
-                    if (!base) { ok = false; break; }
-                }
-                comps[j] = base;
+        for (size_t j = 0; j < n; ++j) {
+            const size_t size = (size_t)ecs_field_size(&it, (int8_t)j);
+            if (size == 0) {
+                // Tags have no data.
+                bases[j] = reinterpret_cast<char*>(tag_dummy);
+                strides[j] = 0;
+                continue;
             }
-            if (!ok) continue;
+            bases[j] = static_cast<char*>(ecs_field_w_size(&it, size, (int8_t)j));
+            strides[j] = ecs_field_is_self(&it, (int8_t)j) ? size : 0;
+        }
 
-            // call callback with comps.data()
-            impl->cb(impl->ctx_ptr, (uint64_t)e, comps.data(), delta);
+        for (int i = 0; i < it.count; ++i) {
+            for (size_t j = 0; j < n; ++j) {
+                comps[j] = bases[j] + strides[j] * (size_t)i;
+            }
+            impl->cb(impl->ctx_ptr, (uint64_t)it.entities[i], comps, delta);
         }
     }
 }
@@ -283,41 +312,25 @@ Scene::Scene() : _p(new Impl) {
     _p->comp_info[idClock] = { sizeof(TransformClock), alignof(TransformClock) };
     _p->ecs.set<TransformClock>({1});
 
-        // Only two typed terms; process parents before children
-    _p->ecs.system<LocalTRS, WorldXform>()
-      .term().cascade(flecs::ChildOf)
-      .each([this](flecs::entity e, LocalTRS& local, WorldXform& world)
+    // Parents are processed before children (cascade), and the parent's WorldXform/XformCache
+    // come straight from the query (null for roots) instead of per-entity lookups.
+    _p->ecs.system<LocalTRS, WorldXform, XformCache, const WorldXform*, const XformCache*>()
+      .term_at(3).cascade(flecs::ChildOf)
+      .term_at(4).up(flecs::ChildOf)
+      .each([](flecs::entity e, LocalTRS& local, WorldXform& world, XformCache& cache,
+               const WorldXform* parent_world, const XformCache* parent_cache)
     {
-        if (!ecs_is_alive(_p->ecs.c_ptr(), e.id())) return;
-
-        // Ensure we have a cache and take it by reference
-        if (!e.has<XformCache>()) { e.set<XformCache>({}); }
-        XformCache& cache = e.get_mut<XformCache>();
-
-        // Read parent's world version (if any), and get pointer to parent's WorldXform via C API
-        uint32_t parent_ver = 0;
-        const WorldXform* parent_world = nullptr;
-        if (flecs::entity p = e.target(flecs::ChildOf)) {
-            // v4: get<T>() → const T& (not T*)
-            if (p.has<XformCache>()) {
-                const XformCache& pc = p.get<XformCache>();
-                parent_ver = pc.world_v;
-            }
-        
-            // Keep using C API for parent's WorldXform pointer
-            auto wptr  = _p->ecs.c_ptr();
-            auto wx_id = _p->comp.at(std::type_index(typeid(WorldXform)));
-            parent_world = static_cast<const WorldXform*>(ecs_get_id(wptr, p.id(), wx_id));
-        }
+        const uint32_t parent_ver = parent_cache ? parent_cache->world_v : 0;
 
         // Skip if nothing changed
         if (cache.local_v == local.version && cache.parent_v == parent_ver) return;
 
-        // Build local, then compose with parent if present
-        glm::mat4 T(1.f);
-        T = glm::translate(T, {local.pos[0], local.pos[1], local.pos[2]});
-        T *= glm::mat4_cast(glm::quat(local.rot_quat[3], local.rot_quat[0], local.rot_quat[1], local.rot_quat[2]));
-        T = glm::scale(T, {local.scl[0], local.scl[1], local.scl[2]});
+        // Build local (T * R * S written out directly), then compose with parent if present
+        glm::mat4 T = glm::mat4_cast(glm::quat(local.rot_quat[3], local.rot_quat[0], local.rot_quat[1], local.rot_quat[2]));
+        T[0] *= local.scl[0];
+        T[1] *= local.scl[1];
+        T[2] *= local.scl[2];
+        T[3] = glm::vec4(local.pos[0], local.pos[1], local.pos[2], 1.f);
 
         glm::mat4 M = T;
         if (parent_world) {
@@ -329,8 +342,9 @@ Scene::Scene() : _p(new Impl) {
         std::memcpy(world.model,  glm::value_ptr(M), sizeof(float) * 16);
         glm::mat3 N = glm::mat3(glm::transpose(glm::inverse(glm::mat3(M))));
         std::memcpy(world.normal, glm::value_ptr(N), sizeof(float) * 9);
+        ++world.version;
 
-        auto& clk = _p->ecs.get_mut<TransformClock>();
+        auto& clk = e.world().get_mut<TransformClock>();
         cache.world_v = clk.tick++;
         cache.local_v = local.version;
         cache.parent_v = parent_ver;
@@ -345,9 +359,9 @@ Scene& Scene::operator=(Scene&& o) noexcept { if (this!=&o){ delete _p; _p=o._p;
 
 uint64_t Scene::_create(const char* name) {
     auto e = _p->ecs.entity();
-    auto idName = _p->ensureComponent(typeid(NameComponent), sizeof(NameComponent), alignof(NameComponent));
-    auto idLocal = _p->ensureComponent(typeid(LocalTRS),   sizeof(LocalTRS),   alignof(LocalTRS));
-    auto idWorld = _p->ensureComponent(typeid(WorldXform), sizeof(WorldXform), alignof(WorldXform));
+    auto idName = _p->ensureComponent(ECS::detail::TypeSlot<NameComponent>(), typeid(NameComponent), sizeof(NameComponent), alignof(NameComponent));
+    auto idLocal = _p->ensureComponent(ECS::detail::TypeSlot<LocalTRS>(), typeid(LocalTRS),   sizeof(LocalTRS),   alignof(LocalTRS));
+    auto idWorld = _p->ensureComponent(ECS::detail::TypeSlot<WorldXform>(), typeid(WorldXform), sizeof(WorldXform), alignof(WorldXform));
 
     NameComponent nc{ (name && *name) ? name : "Entity" };
     LocalTRS   lt{};
@@ -403,32 +417,38 @@ uint64_t Scene::_getAliveId(uint64_t id) const {
 }
 void Scene::_setName(uint64_t id, const char* name) {
     if (!_isAlive(id)) return;
-    ecs_entity_t cid = _p->ensureComponent(typeid(NameComponent), sizeof(NameComponent), alignof(NameComponent));
+    ecs_entity_t cid = _p->ensureComponent(ECS::detail::TypeSlot<NameComponent>(), typeid(NameComponent), sizeof(NameComponent), alignof(NameComponent));
+    NameComponent* current = static_cast<NameComponent*>(ecs_get_mut_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid));
+    if (current && current->name == (name ? name : "")) return;
     NameComponent nc{ name ? name : "" };
     ecs_set_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid, sizeof(NameComponent), &nc);
 }
 const char* Scene::_getName(uint64_t eid) const {
     if (!_isAlive(eid)) return "";
-    auto it = _p->comp.find(std::type_index(typeid(NameComponent)));
-    if (it == _p->comp.end()) return "";
-    const NameComponent* name = static_cast<const NameComponent*>(ecs_get_id(_p->ecs.c_ptr(), (ecs_entity_t)eid, it->second));
+    ecs_entity_t cid = _p->findComponent(ECS::detail::TypeSlot<NameComponent>(), typeid(NameComponent));
+    if (!cid) return "";
+    const NameComponent* name = static_cast<const NameComponent*>(ecs_get_id(_p->ecs.c_ptr(), (ecs_entity_t)eid, cid));
     return name ? name->name.c_str() : "";
 }
 
-bool Scene::_has(uint64_t id, const std::type_info& ti) const {
+bool Scene::_has(uint64_t id, uint32_t slot, const std::type_info& ti) const {
     if (!_isAlive(id)) return false;
-    auto it = _p->comp.find(std::type_index(ti));
-    if (it == _p->comp.end()) return false;
-    return ecs_has_id(_p->ecs.c_ptr(), (ecs_entity_t)id, it->second);
+    ecs_entity_t cid = _p->findComponent(slot, ti);
+    return cid && ecs_has_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid);
 }
-void* Scene::_getMut(uint64_t id, const std::type_info& ti, std::size_t sz, std::size_t align) const {
+void* Scene::_getMut(uint64_t id, uint32_t slot, const std::type_info& ti, std::size_t sz, std::size_t align) const {
     if (!_isAlive(id)) return nullptr;
-    ecs_entity_t cid = _p->ensureComponent(ti, sz, align);
+    ecs_entity_t cid = _p->ensureComponent(slot, ti, sz, align);
     return ecs_get_mut_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid);
 }
-void Scene::_addSet(uint64_t id, const std::type_info& ti, const void* data, std::size_t sz, std::size_t align) {
+const void* Scene::_tryGet(uint64_t id, uint32_t slot, const std::type_info& ti) const {
+    if (!_isAlive(id)) return nullptr;
+    ecs_entity_t cid = _p->findComponent(slot, ti);
+    return cid ? ecs_get_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid) : nullptr;
+}
+void Scene::_addSet(uint64_t id, uint32_t slot, const std::type_info& ti, const void* data, std::size_t sz, std::size_t align) {
     if (!_isAlive(id)) return;
-    ecs_entity_t cid = _p->ensureComponent(ti, sz, align);
+    ecs_entity_t cid = _p->ensureComponent(slot, ti, sz, align);
     if (ti == typeid(WorldXform) && data && sz == sizeof(WorldXform)) {
         WorldXform temp = *static_cast<const WorldXform*>(data);
         const WorldXform* existing = static_cast<const WorldXform*>(
@@ -440,31 +460,25 @@ void Scene::_addSet(uint64_t id, const std::type_info& ti, const void* data, std
     }
     ecs_set_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid, sz, data);
 }
-void Scene::_remove(uint64_t id, const std::type_info& ti) const {
+void Scene::_remove(uint64_t id, uint32_t slot, const std::type_info& ti) const {
     if (!_isAlive(id)) return;
-    auto it = _p->comp.find(std::type_index(ti));
-    if (it == _p->comp.end()) return;
-    ecs_remove_id(_p->ecs.c_ptr(), (ecs_entity_t)id, it->second);
+    ecs_entity_t cid = _p->findComponent(slot, ti);
+    if (!cid) return;
+    ecs_remove_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid);
 }
 
-void Scene::_addTag(uint64_t id, const std::type_info& ti) {
+void Scene::_addTag(uint64_t id, uint32_t slot, const std::type_info& ti) {
     if (!_isAlive(id)) return;
-    ecs_entity_t cid = _p->ensureComponent(ti, 0, 0);
+    ecs_entity_t cid = _p->ensureComponent(slot, ti, 0, 0);
     ecs_add_id(_p->ecs.c_ptr(), (ecs_entity_t)id, cid);
 }
 
-bool Scene::_hasTag(uint64_t id, const std::type_info& ti) const {
-    if (!_isAlive(id)) return false;
-    auto it = _p->comp.find(std::type_index(ti));
-    if (it == _p->comp.end()) return false;
-    return ecs_has_id(_p->ecs.c_ptr(), (ecs_entity_t)id, it->second);
+bool Scene::_hasTag(uint64_t id, uint32_t slot, const std::type_info& ti) const {
+    return _has(id, slot, ti);
 }
 
-void Scene::_removeTag(uint64_t id, const std::type_info& ti) const {
-    if (!_isAlive(id)) return;
-    auto it = _p->comp.find(std::type_index(ti));
-    if (it == _p->comp.end()) return;
-    ecs_remove_id(_p->ecs.c_ptr(), (ecs_entity_t)id, it->second);
+void Scene::_removeTag(uint64_t id, uint32_t slot, const std::type_info& ti) const {
+    _remove(id, slot, ti);
 }
 
 uint64_t Scene::_ensureComponentByName(const char* name, std::size_t size, std::size_t align) {
@@ -520,13 +534,22 @@ void Scene::_forEachChildOpaque(uint64_t parentId, void(*cb)(void*, uint64_t, Sc
 void Scene::_forEachRootOpaque(void(*cb)(void*, uint64_t, Scene*), void* ctx) const {
     ecs_world_t* w = _p->ecs.c_ptr();
 
-    auto q = _p->ecs.query_builder<LocalTRS>().build();
-    q.each([&](flecs::entity e, LocalTRS&) {
-        if (!ecs_is_alive(w, e.id())) return;
-        if (!ecs_get_target(w, e.id(), EcsChildOf, 0)) {
-            cb(ctx, (uint64_t)e.id(), const_cast<Scene*>(this));
+    if (!_p->root_query) {
+        // Entities with a transform and no parent. Cached, so it isn't rebuilt every call.
+        ecs_query_desc_t qd{};
+        qd.terms[0].id = _p->ecs.component<LocalTRS>().id();
+        qd.terms[1].id = ecs_pair(EcsChildOf, EcsWildcard);
+        qd.terms[1].oper = EcsNot;
+        qd.cache_kind = EcsQueryCacheAuto;
+        _p->root_query = ecs_query_init(w, &qd);
+    }
+
+    ecs_iter_t it = ecs_query_iter(w, _p->root_query);
+    while (ecs_query_next(&it)) {
+        for (int i = 0; i < it.count; ++i) {
+            cb(ctx, (uint64_t)it.entities[i], const_cast<Scene*>(this));
         }
-    });
+    }
 }
 
 void Scene::_forEachComponentOpaque(uint64_t id,
@@ -651,7 +674,7 @@ for(size_t i = 0; i < term_count; ++i) {
     // Build query using textual expression composed from actual registered names
 ecs_query_desc_t qd{};
 qd.expr = NULL; // no textual expression
-qd.cache_kind = EcsQueryCacheNone; // default caching
+qd.cache_kind = EcsQueryCacheAuto; // systems run every frame, so keep the matched tables cached
 qd.flags = 0;
 
 // Copy the fixed array into qd.terms
@@ -703,6 +726,13 @@ uint64_t Scene::_getParentId(uint64_t id) const {
 }
 
 namespace ECS {
+namespace detail {
+uint32_t NextTypeSlot() {
+    static uint32_t next = 0;
+    return next++;
+}
+} // namespace detail
+
 void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name) {
     RegisterComponent(ti, size, align, name, nullptr);
 }

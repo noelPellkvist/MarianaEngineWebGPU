@@ -74,7 +74,7 @@ static inline std::size_t size_of(Kind k) {
     switch (k) {
         case Kind::f32: case Kind::i32: case Kind::u32: case Kind::b32: return 4;
         case Kind::vec2: return 8;
-        case Kind::vec3: [[fallthrough]];
+        case Kind::vec3: return 12; // aligned to 16, but a following scalar packs into the last 4 bytes
         case Kind::vec4: return 16;
         case Kind::mat2x2: return 2 * 16;
         case Kind::mat2x3: return 2 * 16;

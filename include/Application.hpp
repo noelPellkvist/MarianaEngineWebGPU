@@ -7,6 +7,7 @@
 
 #include <GUI.hpp>
 #include <IInput.hpp>
+#include <AssetsSystem/AssetManager.hpp>
 
 class Application
 {
@@ -30,6 +31,9 @@ class Application
         IInput input;
         ICamera* cam;
         GUI gui;
+        // Declared in the base class so it outlives everything a derived app owns (scenes,
+        // components) that may still hold asset handles.
+        AssetManager2 assets;
 
     private:
         bool m_Running;

@@ -50,6 +50,6 @@ public:
 private:
     std::string name;
     float duration = 0;
-    int maxNodes;
+    int maxNodes = 0;
     std::vector<AnimationChannel> channels;
 };

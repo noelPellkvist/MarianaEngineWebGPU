@@ -158,7 +158,7 @@ void GUI::InitGui(Window& window)
     info.Device = device.Get();
     info.NumFramesInFlight = 3;
     info.RenderTargetFormat = static_cast<WGPUTextureFormat>(windowFormat);
-    info.DepthStencilFormat = WGPUTextureFormat_Depth24Plus;
+    info.DepthStencilFormat = WGPUTextureFormat_Undefined; // UI pass has no depth attachment
     info.PipelineMultisampleState.count = 1;
     if(ImGui_ImplWGPU_Init(&info))
     {

@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include <FileReader.hpp>
+#include <Logger.hpp>
 #include <fstream>
 #include <sstream>
 #include <filesystem>
@@ -10,16 +11,15 @@
 std::string FileReader::LoadRawString(const std::string& path)
 {
     std::filesystem::path realPath = std::string(RESOURCE_DIR) + path;
-    std::ifstream file(realPath);
+    std::ifstream file(realPath, std::ios::binary);
     if (!file.is_open()) {
-        return nullptr;
+        const std::string message = "Failed to open file: " + realPath.string();
+        Logger::Error(message);
+        throw std::runtime_error(message);
     }
-    file.seekg(0, std::ios::end);
-    size_t size = file.tellg();
-    std::string Source(size, ' ');
-    file.seekg(0);
-    file.read(Source.data(), size);
-    return Source;
+    std::ostringstream contents;
+    contents << file.rdbuf();
+    return contents.str();
 }
 
 std::vector<uint8_t> FileReader::LoadPixelsFromImage(const std::string& path, int& width, int& height)

@@ -76,14 +76,31 @@ struct FragOut {
     @location(1) pick_pic: vec4u
 };
 
+// Inverse of the ACES fit used in composite.wgsl, for y in [0, 1).
+fn inverseTonemapACES(y: vec3f) -> vec3f {
+    let a = 2.51;
+    let b = 0.03;
+    let c = 2.43;
+    let d = 0.59;
+    let e = 0.14;
+    let v = clamp(y, vec3f(0.0), vec3f(0.999));
+    let qa = a - c * v;
+    let qb = b - d * v;
+    return (-qb + sqrt(qb * qb + 4.0 * qa * e * v)) / (2.0 * qa);
+}
+
 @fragment
 fn fragmentMain(input: VertexOutput) -> FragOut {
     let dir = normalize(input.world_pos);
 
-    let sky = textureSample(albedo, textureSampler, dir).rgb;
+    // The cubemap is sRGB, so sampling returns linear color. Level 0: the mips are only for blurry
+    // reflections (test.wgsl).
+    let sky = textureSampleLevel(albedo, textureSampler, dir, 0.0).rgb;
 
+    // The cubemap is a display-ready photo, not HDR radiance: undo the composite's exposure and
+    // tonemap in advance so it reaches the screen exactly as authored. Alpha 0 keeps it out of bloom.
     var out: FragOut;
-    out.color = vec4f(sky, 1.0);
+    out.color = vec4f(inverseTonemapACES(sky) / max(camInfo.exposure, 1e-4), 0.0);
     out.pick_pic = vec4u(0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu);
     return out;
 }

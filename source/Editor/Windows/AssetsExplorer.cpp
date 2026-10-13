@@ -22,7 +22,7 @@ inline bool IsImageExtension(const std::string& ext) {
 AssetsExplorer::AssetsExplorer(GUI& gui)
     : EditorWindow("Assets", gui, true)
 {
-    LoadFileTextures();
+    // Thumbnails are loaded lazily as their folder is shown, not all at startup.
 }
 
 void AssetsExplorer::Draw()
@@ -37,69 +37,62 @@ void AssetsExplorer::Draw()
     ImGui::End();
 }
 
-void AssetsExplorer::LoadFileTexture(const std::string& path)
+bool AssetsExplorer::LoadFileTexture(const std::string& path)
 {
-    try 
+    try
     {
         Texture newTexture;
-        newTexture.LoadTexture(path, TextureFormat::RGBA8UnormSrgb, 128, 128);
+        // UNORM on purpose: ImGui draws in sRGB space, so thumbnails must not be decoded to linear.
+        newTexture.LoadTexture(path, TextureFormat::RGBA8Unorm, 128, 128);
         AssetsTextures[path] = newTexture;
+        return true;
     }
     catch (...)
     {
         Logger::Error("Failed to load image from this path: " + path);
+        return false;
     }
 }
 
-void AssetsExplorer::LoadFileTextures()
+void AssetsExplorer::ScanDirectory(const fs::path& dir, const fs::path& root)
 {
-#ifdef RESOURCE_DIR
-    fs::path root = fs::path(RESOURCE_DIR);
-#else
-    fs::path root = fs::current_path();
-#endif
-
-    if (!fs::exists(root) || !fs::is_directory(root)) {
-        Logger::Error("RESOURCE_DIR not found or not a directory: " + root.string());
-        return;
-    }
+    m_entries.clear();
+    m_entriesDir = dir;
+    m_lastScan = ImGui::GetTime();
 
     std::error_code ec;
-    for (fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied, ec);
-         it != fs::recursive_directory_iterator();
-         it.increment(ec))
-    {
-        if (ec) {
-            Logger::Error("Iterator error: " + ec.message());
-            continue;
+    m_entriesRelative = fs::relative(dir, root, ec);
+    if (ec) m_entriesRelative.clear();
+
+    try {
+        for (auto &e : fs::directory_iterator(dir))
+        {
+            Entry entry;
+            entry.path = e.path();
+            entry.pathString = entry.path.string();
+            entry.name = entry.path.filename().string();
+            entry.isDir = e.is_directory();
+            if (!entry.isDir)
+            {
+                entry.extension = entry.path.extension().string();
+                std::transform(entry.extension.begin(), entry.extension.end(), entry.extension.begin(), ::tolower);
+                entry.isImage = IsImageExtension(entry.extension);
+                entry.isGltf = entry.extension == ".glb" || entry.extension == ".gltf";
+
+                // Local key relative to RESOURCE_DIR in form "/sub/dir/file.ext" (thumbnail lookup)
+                std::error_code rel_ec;
+                fs::path rel = fs::relative(entry.path, root, rel_ec);
+                entry.localKey = "/" + (rel_ec ? entry.path.filename() : rel).generic_string();
+            }
+            m_entries.push_back(std::move(entry));
         }
+    } catch(...) {}
 
-        const fs::directory_entry& entry = *it;
-        if (!entry.is_regular_file(ec)) continue;
-
-        fs::path p = entry.path();
-        if (!IsImageExtension(p.extension().string())) continue;
-
-        // make relative to RESOURCE_DIR
-        std::error_code rel_ec;
-        fs::path rel = fs::relative(p, root, rel_ec);
-        if (rel_ec) {
-            Logger::Error("Could not make relative path for: " + p.string());
-            continue;
-        }
-
-        // turn into "/subdir/file.png"
-        std::string localPath = "/" + rel.generic_string();
-
-        try {
-            LoadFileTexture(localPath); // your existing function
-        }
-        catch (...) {
-            Logger::Error("Failed to load image from: " + localPath);
-        }
-    }
+    std::sort(m_entries.begin(), m_entries.end(), [](const Entry& a, const Entry& b){
+        if (a.isDir != b.isDir) return a.isDir > b.isDir;
+        return a.name < b.name;
+    });
 }
-
 
 void AssetsExplorer::DrawAssetsWindow()
 {
@@ -110,7 +103,13 @@ void AssetsExplorer::DrawAssetsWindow()
 
     static fs::path current = fs::exists(kRoot) ? fs::absolute(kRoot) : fs::current_path();
     static std::string selectedPath;
-    if (!fs::exists(current) || !fs::is_directory(current)) current = kRoot;
+
+    // Re-list the folder when navigating, otherwise about once a second (not every frame).
+    if (current != m_entriesDir || ImGui::GetTime() - m_lastScan > 1.0)
+    {
+        if (!fs::exists(current) || !fs::is_directory(current)) current = kRoot;
+        ScanDirectory(current, kRoot);
+    }
 
     // --- breadcrumbs (slim) ---
     const float crumbH = ImGui::GetFrameHeight();
@@ -124,11 +123,8 @@ void AssetsExplorer::DrawAssetsWindow()
     std::string rootLabel = kRoot.filename().empty() ? kRoot.string() : kRoot.filename().string();
     if (ImGui::SmallButton(rootLabel.c_str())) { current = kRoot; selectedPath.clear(); }
 
-    fs::path rel;
-    try { rel = fs::relative(current, kRoot); } catch(...) { rel.clear(); }
-
     fs::path accum = kRoot;
-    for (const fs::path& part : rel) {
+    for (const fs::path& part : m_entriesRelative) {
         if (part.empty() || part == ".") continue;
         ImGui::SameLine(); ImGui::TextUnformatted("\uf054"); ImGui::SameLine();
         std::string seg = part.string();
@@ -140,17 +136,8 @@ void AssetsExplorer::DrawAssetsWindow()
 
     ImGui::Separator();
 
-    // Collect entries
-    struct Entry { fs::path p; bool isDir; };
-    std::vector<Entry> items;
-    try {
-        for (auto &e : fs::directory_iterator(current)) items.push_back({ e.path(), e.is_directory() });
-    } catch(...) {}
-
-    std::sort(items.begin(), items.end(), [](const Entry& a, const Entry& b){
-        if (a.isDir != b.isDir) return a.isDir > b.isDir;
-        return a.p.filename().string() < b.p.filename().string();
-    });
+    const std::vector<Entry>& items = m_entries;
+    int thumbnailsLoaded = 0;
 
     // Attempt to find the icon font (assumes you added it after main font)
     static ImFont* s_iconFont = nullptr;
@@ -177,7 +164,7 @@ void AssetsExplorer::DrawAssetsWindow()
             const Entry& en = items[i];
             ImGui::PushID((int)i);
 
-            bool selected = (!selectedPath.empty() && selectedPath == en.p.string());
+            bool selected = (!selectedPath.empty() && selectedPath == en.pathString);
 
             // Invisible button to capture clicks/double-clicks
             ImGui::InvisibleButton("tile", ImVec2(cellW, cellH));
@@ -185,13 +172,11 @@ void AssetsExplorer::DrawAssetsWindow()
             bool hovered  = ImGui::IsItemHovered();
             bool dblClick = hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
             if (clicked) {
-                selectedPath = en.p.string();
+                selectedPath = en.pathString;
                 selected = true;
             }            if (!en.isDir) {
-                std::string extLower = en.p.extension().string();
-                std::transform(extLower.begin(), extLower.end(), extLower.begin(), ::tolower);
-                if ((extLower == ".glb" || extLower == ".gltf") && ImGui::BeginDragDropSource()) {
-                    const std::string dragPath = en.p.string();
+                if (en.isGltf && ImGui::BeginDragDropSource()) {
+                    const std::string& dragPath = en.pathString;
                     ImGui::SetDragDropPayload("MARIANA_ASSET_GLTF", dragPath.c_str(), dragPath.size() + 1);
 
                     const float previewW = 220.0f;
@@ -204,7 +189,7 @@ void AssetsExplorer::DrawAssetsWindow()
                     ImGui::SetCursorScreenPos(ImVec2(p0.x + 10.0f, p0.y + 7.0f));
                     ImGui::TextUnformatted("Spawn prefab");
                     ImGui::SetCursorScreenPos(ImVec2(p0.x + 10.0f, p0.y + 24.0f));
-                    ImGui::TextDisabled("%s", en.p.filename().string().c_str());
+                    ImGui::TextDisabled("%s", en.name.c_str());
                     ImGui::EndDragDropSource();
                 }
             }
@@ -259,15 +244,15 @@ void AssetsExplorer::DrawAssetsWindow()
             {
                 // --- file: attempt to draw texture thumbnail ---
                 try {
-                    // Compute local path relative to RESOURCE_DIR in form "/sub/dir/file.ext"
-                    std::error_code rel_ec;
-                    fs::path rel = fs::relative(en.p, kRoot, rel_ec);
-                    std::string localKey;
-                    if (!rel_ec) {
-                        localKey = "/" + rel.generic_string(); // forward slashes, leading slash
-                    } else {
-                        // fallback: use filename only (no leading dirs)
-                        localKey = "/" + en.p.filename().generic_string();
+                    const std::string& localKey = en.localKey;
+
+                    // Load the thumbnail the first time it's shown, at most one per frame so
+                    // opening a big folder doesn't stall.
+                    if (en.isImage && thumbnailsLoaded == 0 &&
+                        !AssetsTextures.contains(localKey) && !m_failedThumbnails.contains(localKey)) {
+                        ++thumbnailsLoaded;
+                        if (!LoadFileTexture(localKey))
+                            m_failedThumbnails.insert(localKey);
                     }
 
                     // Look up in AssetsTextures (assumes EditorApp::AssetsTextures exists)
@@ -285,7 +270,7 @@ void AssetsExplorer::DrawAssetsWindow()
                     } else {
                         // optional: draw a small file-type glyph or placeholder if texture missing
                         // Example: draw file-extension text faintly centered
-                        std::string ext = en.p.has_extension() ? en.p.extension().string() : "";
+                        const std::string& ext = en.extension;
                         if (!ext.empty()) {
                             ImVec2 extSz = ImGui::CalcTextSize(ext.c_str());
                             float x = thumbMin.x + ((thumbMax.x - thumbMin.x) - extSz.x) * 0.5f;
@@ -301,7 +286,7 @@ void AssetsExplorer::DrawAssetsWindow()
 
 
             // Label centered under thumbnail
-            std::string name = en.p.filename().string();
+            const std::string& name = en.name;
             ImVec2 textSz = ImGui::CalcTextSize(name.c_str(), nullptr, true, cellW - padding*2.0f);
             float textX = rMin.x + (cellW - textSz.x) * 0.5f;
             float textY = thumbMax.y + (labelH - textSz.y) * 0.5f;
@@ -311,9 +296,9 @@ void AssetsExplorer::DrawAssetsWindow()
             ImGui::PopTextWrapPos();
 
             // Click behavior
-            if (clicked) selectedPath = en.p.string();
+            if (clicked) selectedPath = en.pathString;
             if (dblClick) {
-                if (en.isDir) { current = en.p; selectedPath.clear(); }
+                if (en.isDir) { current = en.path; selectedPath.clear(); }
                 else {
                     // file open callback can go here
                 }

@@ -48,6 +48,10 @@ class ICamera
         const glm::mat4& View() const { return _view; }
         const glm::mat4& Projection() const { return _proj; }
         glm::vec3 Position()   const { return _pos; }
+        float NearClip()    const { return nearClip; }
+        float FarClip()     const { return farClip; }
+        float FieldOfView() const { return fov; } // vertical, degrees
+        float Aspect()      const { return aspect; }
 
     protected:
         IInput& _input;

@@ -44,6 +44,28 @@ struct ShaderProperties
     CompareOp compareOp;
 };
 
+// Repeat: wrapping, linear magnification (material textures). Comparison: shadow-map compare.
+// LinearClamp: linear everywhere (mips too), clamped at the edges (post-processing, sky cubemap).
+enum SamplerType
+{
+    SamplerType_Repeat,
+    SamplerType_Comparison,
+    SamplerType_LinearClamp
+};
+
+// Per-material sampler state (glTF texture samplers), overriding what the sampler's type gives.
+enum class SamplerAddress { Repeat, MirrorRepeat, ClampToEdge };
+enum class SamplerFilter { Nearest, Linear };
+struct SamplerSettings
+{
+    SamplerAddress addressU = SamplerAddress::Repeat;
+    SamplerAddress addressV = SamplerAddress::Repeat;
+    SamplerFilter magFilter = SamplerFilter::Linear;
+    SamplerFilter minFilter = SamplerFilter::Linear;
+    SamplerFilter mipmapFilter = SamplerFilter::Linear;
+    bool mipmaps = true; // false: only the full-size level is sampled
+};
+
 enum class ShaderResourceType {
     Buffer,
     Texture,
@@ -72,12 +94,14 @@ struct TextureResource {
 struct SamplerResource {
     const char* name;
     uint32_t binding;
-    bool isComparison = false;
+    SamplerType type = SamplerType_Repeat;
+    bool hasSettings = false; // set by Material2::SetSampler
+    SamplerSettings settings;
     struct Impl;
     std::shared_ptr<Impl> _impl;
 
     SamplerResource() = default;
-    SamplerResource(const char* name, uint32_t binding, bool isComparison = false);
+    SamplerResource(const char* name, uint32_t binding, SamplerType type = SamplerType_Repeat);
     ~SamplerResource();
 };
 
@@ -108,7 +132,7 @@ public:
 
     BindGroup& AddTexture(const char* name, uint32_t binding, TextureType type);
 
-    BindGroup& AddSampler(const char* name, uint32_t binding, bool isComparison = false);
+    BindGroup& AddSampler(const char* name, uint32_t binding, SamplerType type = SamplerType_Repeat);
 
     std::vector<ShaderResource>& GetResources() { return resources; }
 
@@ -150,9 +174,16 @@ public:
     }
 
     Shader2& SetMaterialGroup(uint32_t index) { m_MaterialIndex = index; return *this; }
-    Shader2& SetVertexStructLayout(VertexBufferLayout vbl) { m_VertexLayout = vbl; return *this; }
+    // Without a vertex layout the pipeline takes no vertex buffers (fullscreen passes build their
+    // triangle from vertex_index), and a renderpass without depth gets no depth state.
+    Shader2& SetVertexStructLayout(VertexBufferLayout vbl) { m_VertexLayout = vbl; m_HasVertexLayout = true; return *this; }
     Shader2& SetWGSL(std::string src) { m_ShaderSource = src; return *this; }
     Shader2& SetRenderpass(Renderpass* pass) { m_Renderpass = pass; return *this; }
+    // Also builds the other ShaderVariant pipelines. They share the layout, so bound groups stay valid.
+    Shader2& SetDrawVariants(bool enabled) { m_DrawVariants = enabled; return *this; }
+    // Passes without color outputs normally skip the fragment stage; keep it for shaders that
+    // discard (alpha-tested shadows).
+    Shader2& SetDepthOnlyFragment(bool enabled) { m_DepthOnlyFragment = enabled; return *this; }
     Shader2& Build(bool shadow = false);
 
 private:
@@ -161,6 +192,9 @@ private:
     std::string m_ShaderSource;
     std::vector<BindGroup> m_BindGroups;
     VertexBufferLayout m_VertexLayout;
+    bool m_HasVertexLayout = false;
+    bool m_DrawVariants = false;
+    bool m_DepthOnlyFragment = false;
     uint32_t m_MaterialIndex = 5;
     struct Impl;
     std::shared_ptr<Impl> _impl;
@@ -171,7 +205,7 @@ private:
     void BuildBindgroups();
     void BuildBindgroupFromLayout(BindGroup& bg, int i);
     
-    void* GetPipeline();
+    void* GetPipeline(ShaderVariant variant = ShaderVariant::Default);
     void* GetBindGroup(uint32_t index);
     uint32_t GetGroupCount() const { return static_cast<uint32_t>(m_BindGroups.size()); }
 };

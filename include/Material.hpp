@@ -24,6 +24,8 @@ class Material2
         Material2& Build();
 
         Material2& SetTexture(std::string name, Texture& texture);
+        // Overrides the sampler's type defaults for this material only.
+        Material2& SetSampler(std::string name, const SamplerSettings& settings);
 
     private:
         BindGroup m_Bindgroup;

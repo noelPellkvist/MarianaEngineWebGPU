@@ -119,12 +119,13 @@ void Window::GetSurface()
     wgpu::SurfaceCapabilities capabilities;
     surface.GetCapabilities(adapter, &capabilities);
     
-    // Pick an sRGB format if available
+    // Pick a plain UNORM format: the scene shaders encode their output to sRGB themselves and
+    // ImGui's colors are already sRGB, so an sRGB swapchain would encode everything twice.
     windowFormat = wgpu::TextureFormat::Undefined;
     for (uint32_t i = 0; i < capabilities.formatCount; ++i) {
         auto fmt = capabilities.formats[i];
-        if (fmt == wgpu::TextureFormat::BGRA8UnormSrgb ||
-            fmt == wgpu::TextureFormat::RGBA8UnormSrgb) {
+        if (fmt == wgpu::TextureFormat::BGRA8Unorm ||
+            fmt == wgpu::TextureFormat::RGBA8Unorm) {
             windowFormat = fmt;
             break;
         }

@@ -126,11 +126,22 @@ class Texture
         void LoadTexture(const std::string& path, TextureFormat format, int width, int height);
         void CreateRenderTexture(TextureFormat format, int width, int height, bool MSSA);
         void CreateDepthTexture(TextureFormat format, int width, int height, bool MSSA);
-        void CreateTexture(int width, int height, TextureFormat format, bool MSSA = false, bool renderTarget = false, bool isDepthTexture = false);
-        void UploadTexture(const uint8_t* pixels, size_t length, int width, int height);
+        void CreateTexture(int width, int height, TextureFormat format, bool MSSA = false, bool renderTarget = false, bool isDepthTexture = false, uint32_t mipLevels = 1);
+        void UploadTexture(const uint8_t* pixels, size_t length, int width, int height, uint32_t mipLevel = 0, uint32_t layer = 0);
+        // Uploads RGBA8 `pixels` as mip 0 and box-filters the rest of the chain down to 1x1.
+        // The texture must have been created with MipLevelCount(width, height) levels.
+        void UploadTextureWithMips(const uint8_t* pixels, size_t length, int width, int height, uint32_t layer = 0);
+        static uint32_t MipLevelCount(int width, int height);
         std::vector<uint8_t> RescaleTexture(const uint8_t* pixels, size_t length, int preWidth, int preHeight, int width, int height);
         void LoadCubeTexture(const std::vector<std::string> paths, TextureFormat format);
-        uint64_t SamplePixel(int x, int y);
+        // Six square RGBA8 faces in cube order (+X, -X, +Y, -Y, +Z, -Z), each with a box-filtered
+        // mip chain (rough reflections sample the blurrier levels).
+        void CreateCubeTexture(const std::vector<std::vector<uint8_t>>& faces, int size, TextureFormat format);
+
+        // Asynchronously reads one 64-bit texel (RGBA16Uint) back to the CPU. Only one request
+        // is in flight at a time; poll TryGetPixelReadback until it returns true.
+        void RequestPixelReadback(int x, int y);
+        bool TryGetPixelReadback(uint64_t& value);
 
         void* GetTexture();
         void* GetTextureView();

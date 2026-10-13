@@ -1,4 +1,6 @@
 #pragma once
+#include <filesystem>
+#include <memory>
 #include <string>
 #include <glm/glm.hpp>
 
@@ -6,6 +8,7 @@
 #include <Texture.hpp>
 #include <Shader.hpp>
 #include <Prefab.hpp>
+#include <AssetsSystem/AssetManager.hpp>
 
 namespace GLTF
 {
@@ -38,7 +41,13 @@ struct Vertex {
 class GLTFLoader
 {
     public:
-        static Prefab LoadGLTF(std::string filename, Shader2& shader);
+        // Parses a .gltf/.glb file into a prefab. Its textures, materials, meshes and animations
+        // are registered with `assets` under "<file>#<kind>/<index>" keys, so loading the file
+        // again reuses whichever of them are still loaded. Returns nullptr on failure.
+        static std::shared_ptr<Prefab> LoadGLTF(AssetManager2& assets, const std::filesystem::path& file, Shader2& shader);
+
+        // Makes AssetManager2::Load<Prefab>() handle .gltf and .glb files.
+        static void RegisterLoader(AssetManager2& assets, Shader2& shader);
 };
 
 } // namespace GLTF

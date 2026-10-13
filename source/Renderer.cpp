@@ -5,7 +5,6 @@
 #include <Mesh.hpp>
 #include <Shader.hpp>
 #include <GUI.hpp>
-#include <AssetManager.hpp>
 #include <webgpu/webgpu_cpp.h>
 
 Renderer::Renderer()
@@ -46,32 +45,22 @@ void Renderer::Render(GUI* gui)
     for(auto& renderPass : m_Renderpasses)
     {
       bool surfaceTarget = &renderPass == &m_Renderpasses.back();
+      if (!surfaceTarget && !renderPass->IsEnabled())
+        continue;
 
-      std::vector<wgpu::RenderPassColorAttachment> attachments(renderPass->NumberOfOutputs());
-      for (uint8_t i = 0; i < renderPass->NumberOfOutputs(); i++)
-      {
-        attachments[i] = {
-        .view = (i == 0 && surfaceTarget) ? resolveTarget : *static_cast<wgpu::TextureView*>(renderPass->GetRenderTarget(i).GetTextureView()),
-        .loadOp = wgpu::LoadOp::Clear,
-        .storeOp = wgpu::StoreOp::Store};
-      }
-      wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = attachments.size(),
-                                          .colorAttachments = attachments.size() == 0 ? nullptr : attachments.data(),
-                                          .depthStencilAttachment = renderPass->HasDepthTexture() ? static_cast<wgpu::RenderPassDepthStencilAttachment*>(renderPass->GetDepthStencilAttachment()) : nullptr};
-
-      
       renderPass->Start(static_cast<void*>(&encoder), surfaceTarget, static_cast<void*>(&resolveTarget));
-      
 
+      // ImGui draws without depth, so its pass doesn't touch (or clear) a depth buffer.
       if(gui != nullptr && surfaceTarget && renderPass->NumberOfOutputs() > 0)
       {
-        RenderGUI(resolveTarget, 
+        RenderGUI(resolveTarget,
                   resolveTarget,
-                  renderPass->HasDepthTexture() ? static_cast<wgpu::RenderPassDepthStencilAttachment*>(renderPass->GetDepthStencilAttachment()) : nullptr,
+                  nullptr,
                   encoder,
                   *gui);
       }
     }
+
     wgpu::CommandBuffer commands = encoder.Finish();
     device.GetQueue().Submit(1, &commands);
 }

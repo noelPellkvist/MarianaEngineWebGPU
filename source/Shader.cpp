@@ -3,6 +3,7 @@
 #include "Init.hpp"
 #include <webgpu/webgpu_cpp.h>
 #include <Buffer.hpp>
+#include <array>
 
 struct SamplerResource::Impl
 {
@@ -16,7 +17,7 @@ struct BindGroup::Impl
 
 struct Shader2::Impl
 {
-    wgpu::RenderPipeline m_Pipeline;
+    std::array<wgpu::RenderPipeline, static_cast<size_t>(ShaderVariant::Count)> m_Pipelines;
     wgpu::PipelineLayout m_Layout;
 
     std::vector<wgpu::BindGroupLayout> m_BindgroupLayouts;
@@ -30,10 +31,10 @@ BufferResource::BufferResource(const char* name, uint32_t binding, Buffer& buffe
 
 TextureResource::~TextureResource() = default;
 SamplerResource::~SamplerResource() = default;
-SamplerResource::SamplerResource(const char* name, uint32_t binding, bool isComparison)
+SamplerResource::SamplerResource(const char* name, uint32_t binding, SamplerType type)
     : name(name),
       binding(binding),
-        isComparison(isComparison),
+        type(type),
       _impl(std::make_shared<Impl>()) {}
 
 BindGroup::BindGroup() : _impl(std::make_shared<Impl>()) {}
@@ -50,8 +51,8 @@ BindGroup& BindGroup::AddTexture(const char* name, uint32_t binding, TextureType
     return *this;
 }
 
-BindGroup& BindGroup::AddSampler(const char* name, uint32_t binding, bool isComparison) {
-    resources.emplace_back(SamplerResource{ name, binding, isComparison });
+BindGroup& BindGroup::AddSampler(const char* name, uint32_t binding, SamplerType type) {
+    resources.emplace_back(SamplerResource{ name, binding, type });
     return *this;
 }
 
@@ -78,12 +79,12 @@ wgpu::BindGroupLayoutEntry BuildTextureLayoutEntry(uint32_t binding, TextureType
     return entry;
 }
 
-wgpu::BindGroupLayoutEntry BuildSamplerLayoutEntry(uint32_t binding, bool isComparison)
+wgpu::BindGroupLayoutEntry BuildSamplerLayoutEntry(uint32_t binding, SamplerType type)
 {
     wgpu::BindGroupLayoutEntry entry{};
     entry.binding = binding;
     entry.visibility = wgpu::ShaderStage::Fragment;
-    entry.sampler.type = isComparison ? wgpu::SamplerBindingType::Comparison : wgpu::SamplerBindingType::Filtering;
+    entry.sampler.type = type == SamplerType_Comparison ? wgpu::SamplerBindingType::Comparison : wgpu::SamplerBindingType::Filtering;
     return entry;
 }
 
@@ -129,7 +130,7 @@ void Shader2::BuildBindgroupLayouts()
             }
             else if (std::holds_alternative<SamplerResource>(res))
             {
-                layoutEntries.push_back(BuildSamplerLayoutEntry(std::get<SamplerResource>(res).binding, std::get<SamplerResource>(res).isComparison));
+                layoutEntries.push_back(BuildSamplerLayoutEntry(std::get<SamplerResource>(res).binding, std::get<SamplerResource>(res).type));
             }
         }
         wgpu::BindGroupLayoutDescriptor bindgroupLayoutDesc{};
@@ -187,7 +188,29 @@ void Shader2::BuildBindgroupFromLayout(BindGroup& bg, int i)
             const SamplerResource& sr = std::get<SamplerResource>(res);
             wgpu::BindGroupEntry entry;
             wgpu::SamplerDescriptor samplerDesc{};
-            if (sr.isComparison)
+            if (sr.hasSettings)
+            {
+                auto address = [](SamplerAddress a) {
+                    return a == SamplerAddress::ClampToEdge ? wgpu::AddressMode::ClampToEdge
+                         : a == SamplerAddress::MirrorRepeat ? wgpu::AddressMode::MirrorRepeat : wgpu::AddressMode::Repeat;
+                };
+                auto filter = [](SamplerFilter f) { return f == SamplerFilter::Nearest ? wgpu::FilterMode::Nearest : wgpu::FilterMode::Linear; };
+                samplerDesc.addressModeU = address(sr.settings.addressU);
+                samplerDesc.addressModeV = address(sr.settings.addressV);
+                samplerDesc.addressModeW = wgpu::AddressMode::Repeat;
+                samplerDesc.magFilter = filter(sr.settings.magFilter);
+                samplerDesc.minFilter = filter(sr.settings.minFilter);
+                samplerDesc.mipmapFilter = sr.settings.mipmapFilter == SamplerFilter::Nearest ? wgpu::MipmapFilterMode::Nearest : wgpu::MipmapFilterMode::Linear;
+                samplerDesc.lodMinClamp = 0.0f;
+                samplerDesc.lodMaxClamp = sr.settings.mipmaps ? 1000.0f : 0.0f;
+                samplerDesc.maxAnisotropy = 1;
+                sr._impl->m_Sampler = device.CreateSampler(&samplerDesc);
+                entry.binding = sr.binding;
+                entry.sampler = sr._impl->m_Sampler;
+                bindgroupEntries.push_back(entry);
+                continue;
+            }
+            if (sr.type != SamplerType_Repeat)
             {
                 samplerDesc.addressModeU = wgpu::AddressMode::ClampToEdge;
                 samplerDesc.addressModeV = wgpu::AddressMode::ClampToEdge;
@@ -209,7 +232,7 @@ void Shader2::BuildBindgroupFromLayout(BindGroup& bg, int i)
             samplerDesc.mipmapFilter = wgpu::MipmapFilterMode::Linear;
             samplerDesc.lodMinClamp = 0.0f;
             samplerDesc.lodMaxClamp = 1000.0f;
-            samplerDesc.compare = sr.isComparison ? wgpu::CompareFunction::LessEqual : wgpu::CompareFunction::Undefined;
+            samplerDesc.compare = sr.type == SamplerType_Comparison ? wgpu::CompareFunction::LessEqual : wgpu::CompareFunction::Undefined;
             samplerDesc.maxAnisotropy = 1;
             sr._impl->m_Sampler = device.CreateSampler(&samplerDesc);
             entry.binding = sr.binding;
@@ -312,6 +335,13 @@ Shader2& Shader2::Build(bool shadow)
     depthStencilState.format = wgpu::TextureFormat::Depth24Plus;
     depthStencilState.stencilReadMask = 0;
     depthStencilState.stencilWriteMask = 0;
+    if (shadow)
+    {
+        // Pushes shadow-map depth back more on steep slopes, so surfaces don't shadow themselves (acne).
+        depthStencilState.depthBias = 2;
+        depthStencilState.depthBiasSlopeScale = 2.0f;
+        depthStencilState.depthBiasClamp = 0.0f;
+    }
 
     wgpu::PipelineLayoutDescriptor  layoutDesc = {};
     layoutDesc.bindGroupLayoutCount = _impl->m_BindgroupLayouts.size();
@@ -322,30 +352,46 @@ Shader2& Shader2::Build(bool shadow)
                                         .vertex = {
                                           .module = shaderModule,
                                           .entryPoint = wgpu::StringView("vertexMain"),
-                                          .bufferCount = 1,
-                                          .buffers = static_cast<const wgpu::VertexBufferLayout*>(m_VertexLayout.GetBackendLayout())
+                                          .bufferCount = m_HasVertexLayout ? 1u : 0u,
+                                          .buffers = m_HasVertexLayout ? static_cast<const wgpu::VertexBufferLayout*>(m_VertexLayout.GetBackendLayout()) : nullptr
                                         },
                                         .primitive = {
                                           .stripIndexFormat = wgpu::IndexFormat::Undefined,
                                           .frontFace = wgpu::FrontFace::CW,
-                                          .cullMode = shadow ? wgpu::CullMode::None : wgpu::CullMode::Back
+                                          // No culling for shadows or fullscreen triangles (their winding doesn't matter).
+                                          .cullMode = (shadow || !m_HasVertexLayout) ? wgpu::CullMode::None : wgpu::CullMode::Back
                                         },
-                                     .depthStencil = &depthStencilState,
+                                     .depthStencil = m_Renderpass->HasDepthTexture() ? &depthStencilState : nullptr,
                                      .multisample = {
                                         .count = 1,
                                         .mask = ~0u,
                                         .alphaToCoverageEnabled = false
                                      },
-                                     .fragment = outputFormats.size() == 0 ? nullptr : &fragmentState};
+                                     .fragment = (outputFormats.size() == 0 && !m_DepthOnlyFragment) ? nullptr : &fragmentState};
     
-    _impl->m_Pipeline = device.CreateRenderPipeline(&descriptor);
+    _impl->m_Pipelines = {};
+    _impl->m_Pipelines[static_cast<size_t>(ShaderVariant::Default)] = device.CreateRenderPipeline(&descriptor);
+
+    if (m_DrawVariants)
+    {
+        auto build = [&](ShaderVariant variant, wgpu::PrimitiveTopology topology, wgpu::CullMode cullMode) {
+            descriptor.primitive.topology = topology;
+            descriptor.primitive.cullMode = cullMode;
+            _impl->m_Pipelines[static_cast<size_t>(variant)] = device.CreateRenderPipeline(&descriptor);
+        };
+        build(ShaderVariant::DoubleSided, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::None);
+        build(ShaderVariant::Mirrored, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::Front);
+        build(ShaderVariant::Lines, wgpu::PrimitiveTopology::LineList, wgpu::CullMode::None);
+        build(ShaderVariant::Points, wgpu::PrimitiveTopology::PointList, wgpu::CullMode::None);
+    }
     
     return *this;
 }
 
-void* Shader2::GetPipeline()
+void* Shader2::GetPipeline(ShaderVariant variant)
 {
-    return &_impl->m_Pipeline;
+    wgpu::RenderPipeline& pipeline = _impl->m_Pipelines[static_cast<size_t>(variant)];
+    return pipeline ? &pipeline : &_impl->m_Pipelines[static_cast<size_t>(ShaderVariant::Default)];
 }
 void* Shader2::GetBindGroup(uint32_t index)
 {

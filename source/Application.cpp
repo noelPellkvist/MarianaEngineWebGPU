@@ -9,6 +9,8 @@ Application::Application(const std::string& name)
     : m_Name(name), m_Running(false), m_Window(1366, 768, name, "/logo.png"), input(m_Window.GetWindow())
 {
     Init();
+    // Configure the surface now so derived apps can build pipelines for the window's format.
+    m_Window.GetSurface();
     Logger::Info("Application Created: " + m_Name);
 }
 
@@ -44,8 +46,6 @@ void Application::Start()
 
 void Application::Initalize()
 {
-    
-    m_Window.GetSurface();
 }
 
 void Application::MainLoop()

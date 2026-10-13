@@ -3,13 +3,7 @@
 #include <AnimationPlayer.hpp>
 #include <imgui.h>
 
-namespace
-{
-    const char* BoolText(bool value)
-    {
-        return value ? "Yes" : "No";
-    }
-}
+#include <string>
 
 namespace InspectorComponents
 {
@@ -21,32 +15,44 @@ namespace InspectorComponents
         AnimationPlayer& player = *entity.Get<AnimationPlayer>();
         if (ImGui::CollapsingHeader("Animation Player", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::TextDisabled("Current Animation");
-            ImGui::SameLine(0, 16);
-            if (player.m_CurrentAnimation)
-                ImGui::TextUnformatted(player.m_CurrentAnimation->GetName().c_str());
-            else
-                ImGui::TextDisabled("None");
+            std::shared_ptr<Animation> clip = player.GetCurrentClip();
 
-            ImGui::TextDisabled("Time");
-            ImGui::SameLine(0, 16);
-            ImGui::Text("%.3f", player.m_Time);
+            ImGui::PushID("AnimationPlayer");
+            if (ImGui::BeginCombo("Clip", clip ? clip->GetName().c_str() : "None"))
+            {
+                for (int i = 0; i < static_cast<int>(player.clips.size()); ++i)
+                {
+                    std::shared_ptr<Animation> option = player.clips[i].Get();
+                    const std::string label = option ? option->GetName() : "<unloaded>";
+
+                    ImGui::PushID(i);
+                    if (ImGui::Selectable(label.c_str(), i == player.currentClip))
+                        player.Play(i);
+                    ImGui::PopID();
+                }
+                ImGui::EndCombo();
+            }
+
+            ImGui::Checkbox("Playing", &player.playing);
+            ImGui::SameLine();
+            ImGui::Checkbox("Loop", &player.loop);
+            ImGui::DragFloat("Speed", &player.speed, 0.01f, -10.0f, 10.0f, "%.2f");
+
+            const float duration = clip ? clip->GetDuration() : 0.0f;
+            ImGui::SliderFloat("Time", &player.time, 0.0f, duration, "%.3f");
+            ImGui::PopID();
 
             ImGui::TextDisabled("Duration");
             ImGui::SameLine(0, 16);
-            ImGui::Text("%.3f", player.m_CurrentAnimation ? player.m_CurrentAnimation->GetDuration() : 0.0f);
+            ImGui::Text("%.3f", duration);
 
             ImGui::TextDisabled("Channels");
             ImGui::SameLine(0, 16);
-            ImGui::Text("%zu", player.m_CurrentAnimation ? player.m_CurrentAnimation->GetChannelCount() : 0);
+            ImGui::Text("%zu", clip ? clip->GetChannelCount() : 0);
 
             ImGui::TextDisabled("Node Count");
             ImGui::SameLine(0, 16);
-            ImGui::Text("%d", player.m_CurrentAnimation ? player.m_CurrentAnimation->GetNodeCount() : 0);
-
-            ImGui::TextDisabled("Root Valid");
-            ImGui::SameLine(0, 16);
-            ImGui::TextUnformatted(BoolText(player.m_Root.IsValid()));
+            ImGui::Text("%d", clip ? clip->GetNodeCount() : 0);
         }
     }
 }

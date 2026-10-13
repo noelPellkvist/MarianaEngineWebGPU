@@ -50,6 +50,18 @@ Material2& Material2::InitFromShader(Shader2& shader)
     return *this;
  }
 
+Material2& Material2::SetSampler(std::string name, const SamplerSettings& settings)
+{
+    auto it = m_ResourceMap.find(name);
+    if (it != m_ResourceMap.end() && std::holds_alternative<SamplerResource>(*it->second))
+    {
+        SamplerResource& sr = std::get<SamplerResource>(*it->second);
+        sr.hasSettings = true;
+        sr.settings = settings;
+    }
+    return *this;
+}
+
 void* Material2::GetBindGroup()
 {
     return m_Bindgroup.GetBindGroup();

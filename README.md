@@ -7,7 +7,7 @@
 **A small, fast, no-nonsense game engine targeting native and the web via WebGPU (Google Dawn).**  
 _If it runs in your browser and on your PC with the same codebase, that’s not magic—that’s just good engineering._
 
-[![CI](https://github.com/noelpellkvist/MarianaEngineWebGPU/actions/workflows/ci.yml/badge.svg)](https://github.com/noelpellkvist/MarianaEngineWebGPU/actions/workflows/ci.yml)
+[![CI](https://github.com/noelpellkvist/MarianaEngineWebGPU/actions/workflows/pages.yml/badge.svg)](https://github.com/noelpellkvist/MarianaEngineWebGPU/actions/workflows/pages.yml)
 [![GitHub Pages](https://img.shields.io/badge/Live%20Demo-gh%20pages-2ea44f)](https://noelpellkvist.github.io/MarianaEngineWebGPU/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)

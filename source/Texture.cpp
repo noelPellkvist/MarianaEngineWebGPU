@@ -2,6 +2,7 @@
 #include <FileReader.hpp>
 #include "Init.hpp"
 #include <webgpu/webgpu_cpp.h>
+#include <algorithm>
 
 [[nodiscard]] wgpu::TextureFormat ToNative(TextureFormat f) noexcept {
     switch (f) {
@@ -220,19 +221,17 @@
     }
 }
 
-struct ReadbackSlot {
-    wgpu::Buffer buffer;
-    bool         mapped = false;
-};
+enum ReadbackState : int { ReadbackIdle, ReadbackPending, ReadbackReady };
 
 struct Texture::Impl
 {
     wgpu::Texture m_Texture;
     wgpu::TextureView m_View;
-    ReadbackSlot slots[2];
-    std::atomic<uint64_t> lastValue{~uint64_t{0}}; 
-    bool         inited = false;
-    int          dstIndex = 0;
+
+    // Pixel readback (picking). The map callback may run on another thread, hence the atomics.
+    wgpu::Buffer readbackBuffer;
+    std::atomic<int> readbackState{ReadbackIdle};
+    std::atomic<uint64_t> readbackValue{~uint64_t{0}};
 };
 
 static constexpr uint64_t kRowPitch   = 256;
@@ -295,12 +294,12 @@ void Texture::CreateDepthTexture(TextureFormat format, int width, int height, bo
     m_Format = format;
 }
 
-void Texture::UploadTexture(const uint8_t* pixels, size_t length, int width, int height)
+void Texture::UploadTexture(const uint8_t* pixels, size_t length, int width, int height, uint32_t mipLevel, uint32_t layer)
 {
     wgpu::TexelCopyTextureInfo destination;
     destination.texture = _impl->m_Texture;
-    destination.mipLevel = 0;
-    destination.origin = {0, 0, 0};
+    destination.mipLevel = mipLevel;
+    destination.origin = {0, 0, layer};
     destination.aspect = wgpu::TextureAspect::All;
 
     wgpu::TexelCopyBufferLayout source;
@@ -310,6 +309,56 @@ void Texture::UploadTexture(const uint8_t* pixels, size_t length, int width, int
 
     wgpu::Extent3D extent = {(unsigned int)width, (unsigned int)height, 1};
     device.GetQueue().WriteTexture(&destination, pixels, length, &source, &extent);
+}
+
+uint32_t Texture::MipLevelCount(int width, int height)
+{
+    uint32_t levels = 1;
+    for (int size = std::max(width, height); size > 1; size /= 2)
+        ++levels;
+    return levels;
+}
+
+void Texture::UploadTextureWithMips(const uint8_t* pixels, size_t length, int width, int height, uint32_t layer)
+{
+    UploadTexture(pixels, length, width, height, 0, layer);
+
+    // Each level is a 2x2 box filter of the previous one (odd edges reuse the last texel).
+    std::vector<uint8_t> previous;
+    std::vector<uint8_t> current;
+    const uint8_t* source = pixels;
+    int sourceWidth = width;
+    int sourceHeight = height;
+    const uint32_t levels = MipLevelCount(width, height);
+
+    for (uint32_t level = 1; level < levels; ++level)
+    {
+        const int levelWidth = std::max(1, sourceWidth / 2);
+        const int levelHeight = std::max(1, sourceHeight / 2);
+        current.resize(static_cast<size_t>(levelWidth) * levelHeight * 4);
+
+        for (int y = 0; y < levelHeight; ++y)
+        {
+            const uint8_t* row0 = source + static_cast<size_t>(std::min(y * 2, sourceHeight - 1)) * sourceWidth * 4;
+            const uint8_t* row1 = source + static_cast<size_t>(std::min(y * 2 + 1, sourceHeight - 1)) * sourceWidth * 4;
+            uint8_t* dst = current.data() + static_cast<size_t>(y) * levelWidth * 4;
+
+            for (int x = 0; x < levelWidth; ++x)
+            {
+                const int x0 = std::min(x * 2, sourceWidth - 1) * 4;
+                const int x1 = std::min(x * 2 + 1, sourceWidth - 1) * 4;
+                for (int c = 0; c < 4; ++c)
+                    dst[x * 4 + c] = static_cast<uint8_t>((row0[x0 + c] + row0[x1 + c] + row1[x0 + c] + row1[x1 + c] + 2) / 4);
+            }
+        }
+
+        UploadTexture(current.data(), current.size(), levelWidth, levelHeight, level, layer);
+
+        previous.swap(current);
+        source = previous.data();
+        sourceWidth = levelWidth;
+        sourceHeight = levelHeight;
+    }
 }
 
 std::vector<uint8_t> Texture::RescaleTexture(const uint8_t* pixels, size_t length, int preWidth, int preHeight, int width, int height)
@@ -386,33 +435,30 @@ void Texture::LoadCubeTexture(const std::vector<std::string> paths, TextureForma
         assert(height == k_height && "Texture dimensions must match.");
     }
 
+    CreateCubeTexture(facePixels, k_width, format);
+}
+
+void Texture::CreateCubeTexture(const std::vector<std::vector<uint8_t>>& faces, int size, TextureFormat format)
+{
+    assert(faces.size() == 6 && "Cube texture requires 6 faces.");
+    m_Width = m_Height = size;
+    m_Format = format;
+    const uint32_t levels = MipLevelCount(size, size);
+
     wgpu::TextureFormat textureFormat = ToNative(format);
     wgpu::TextureDescriptor textureDesc;
     textureDesc.dimension = wgpu::TextureDimension::e2D;
     textureDesc.format = textureFormat;
-    textureDesc.mipLevelCount = 1;
+    textureDesc.mipLevelCount = levels;
     textureDesc.sampleCount = 1;
-    textureDesc.size = {static_cast<unsigned int>(width), static_cast<unsigned int>(height), 6};
+    textureDesc.size = {static_cast<unsigned int>(size), static_cast<unsigned int>(size), 6};
     textureDesc.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
     textureDesc.viewFormatCount = 1;
     textureDesc.viewFormats = &textureFormat;
     _impl->m_Texture = device.CreateTexture(&textureDesc);
 
-    for (size_t i = 0; i < facePixels.size(); ++i) {
-        wgpu::TexelCopyTextureInfo destination;
-        destination.texture = _impl->m_Texture;
-        destination.mipLevel = 0;
-        destination.origin = {0, 0, static_cast<uint32_t>(i)};
-        destination.aspect = wgpu::TextureAspect::All;
-
-        wgpu::TexelCopyBufferLayout source;
-        source.offset = 0;
-        source.bytesPerRow = 4 * width;
-        source.rowsPerImage = height;
-
-        wgpu::Extent3D size = {static_cast<unsigned int>(width), static_cast<unsigned int>(height), 1};
-        device.GetQueue().WriteTexture(&destination, facePixels[i].data(), facePixels[i].size(), &source, &size);
-    }
+    for (size_t i = 0; i < faces.size(); ++i)
+        UploadTextureWithMips(faces[i].data(), faces[i].size(), size, size, static_cast<uint32_t>(i));
     
 
     wgpu::TextureViewDescriptor textureViewDesc;
@@ -420,13 +466,13 @@ void Texture::LoadCubeTexture(const std::vector<std::string> paths, TextureForma
     textureViewDesc.baseArrayLayer = 0;
     textureViewDesc.arrayLayerCount = 6;
     textureViewDesc.baseMipLevel = 0;
-    textureViewDesc.mipLevelCount = 1;
+    textureViewDesc.mipLevelCount = levels;
     textureViewDesc.dimension = wgpu::TextureViewDimension::Cube;
     textureViewDesc.format = textureFormat;
     _impl->m_View = _impl->m_Texture.CreateView(&textureViewDesc);
 }
 
-void Texture::CreateTexture(int width, int height, TextureFormat format, bool MSSA, bool renderTarget, bool isDepthTexture)
+void Texture::CreateTexture(int width, int height, TextureFormat format, bool MSSA, bool renderTarget, bool isDepthTexture, uint32_t mipLevels)
 {
     m_Width = width;
     m_Height = height;
@@ -434,7 +480,7 @@ void Texture::CreateTexture(int width, int height, TextureFormat format, bool MS
     wgpu::TextureDescriptor textureDesc{};
     textureDesc.dimension = wgpu::TextureDimension::e2D;
     textureDesc.size = {(unsigned int)width, (unsigned int)height, 1};
-    textureDesc.mipLevelCount = 1;
+    textureDesc.mipLevelCount = std::max(1u, mipLevels);
     textureDesc.sampleCount = MSSA ? 4 : 1;
     textureDesc.format = ToNative(format);
     textureDesc.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc | (renderTarget ? wgpu::TextureUsage::RenderAttachment : wgpu::TextureUsage::CopyDst);
@@ -447,34 +493,23 @@ void Texture::CreateTexture(int width, int height, TextureFormat format, bool MS
     textureViewDesc.baseArrayLayer = 0;
     textureViewDesc.arrayLayerCount = 1;
     textureViewDesc.baseMipLevel = 0;
-    textureViewDesc.mipLevelCount = 1;
+    textureViewDesc.mipLevelCount = textureDesc.mipLevelCount;
     textureViewDesc.dimension = wgpu::TextureViewDimension::e2D;
     textureViewDesc.format = textureDesc.format;
     _impl->m_View = _impl->m_Texture.CreateView(&textureViewDesc);
     m_Format = format;
 }
 
-uint64_t Texture::SamplePixel(int x, int y)
+void Texture::RequestPixelReadback(int x, int y)
 {
     auto& impl = *_impl;
+    if (impl.readbackState.load() != ReadbackIdle)
+        return;
 
-    if (!impl.inited) {
-        impl.slots[0].buffer = MakeReadbackBuffer();
-        impl.slots[1].buffer = MakeReadbackBuffer();
-        impl.inited = true;
-        impl.lastValue.store(~uint64_t{0}, std::memory_order_relaxed);
-    }
+    if (!impl.readbackBuffer)
+        impl.readbackBuffer = MakeReadbackBuffer();
 
-    ReadbackSlot& dst = impl.slots[impl.dstIndex];
-    ReadbackSlot& src = impl.slots[impl.dstIndex ^ 1]; // the other one (likely mapped)
-
-    // Ensure the destination buffer is unmapped before using as CopyDst.
-    if (dst.mapped) {
-        dst.buffer.Unmap();
-        dst.mapped = false;
-    }
-
-    // Encode a 1x1 copy from (x,y) into dst.
+    // Encode a 1x1 copy from (x,y) into the readback buffer.
     wgpu::TexelCopyTextureInfo srcTex{};
     srcTex.texture  = impl.m_Texture;
     srcTex.mipLevel = 0;
@@ -482,7 +517,7 @@ uint64_t Texture::SamplePixel(int x, int y)
     srcTex.aspect   = wgpu::TextureAspect::All;
 
     wgpu::TexelCopyBufferInfo dstBuf{};
-    dstBuf.buffer = dst.buffer;
+    dstBuf.buffer = impl.readbackBuffer;
     dstBuf.layout.offset        = kOffset;
     dstBuf.layout.bytesPerRow   = static_cast<uint32_t>(kRowPitch);
     dstBuf.layout.rowsPerImage  = 1;
@@ -494,39 +529,46 @@ uint64_t Texture::SamplePixel(int x, int y)
     wgpu::CommandBuffer cb = enc.Finish();
     device.GetQueue().Submit(1, &cb);
 
-    ReadbackSlot* dstSlot = &dst;
-    Impl* implPtr = &impl;
-    (void)dstSlot->buffer.MapAsync(
+    impl.readbackState.store(ReadbackPending);
+
+    // Keep the Impl alive until the callback runs, even if this Texture is replaced (resize).
+    std::shared_ptr<Impl> keepAlive = _impl;
+    (void)impl.readbackBuffer.MapAsync(
         wgpu::MapMode::Read,
         kOffset,
         kCopySize,
-        wgpu::CallbackMode::AllowSpontaneous,    // <-- new required arg
-        [implPtr, dstSlot](wgpu::MapAsyncStatus status, wgpu::StringView /*message*/) {
-            if (status == wgpu::MapAsyncStatus::Success) {
-                const void* p = dstSlot->buffer.GetConstMappedRange(kOffset, kBytesToRead);
-                if (p) {
-                    uint16_t lanes[4]{};
-                    std::memcpy(lanes, p, sizeof(lanes));
-                    uint64_t v = static_cast<uint64_t>(lanes[0]) |
-                                 (static_cast<uint64_t>(lanes[1]) << 16) |
-                                 (static_cast<uint64_t>(lanes[2]) << 32) |
-                                 (static_cast<uint64_t>(lanes[3]) << 48);
-                    implPtr->lastValue.store(v, std::memory_order_relaxed);
-                    dstSlot->mapped = true; // keep it mapped until reused as CopyDst
-                } else {
-                    dstSlot->mapped = false;
-                }
-            } else {
-                // mapping failed; keep prior lastValue
-                dstSlot->mapped = false;
+        wgpu::CallbackMode::AllowSpontaneous,
+        [keepAlive](wgpu::MapAsyncStatus status, wgpu::StringView /*message*/) {
+            Impl& impl = *keepAlive;
+            if (status != wgpu::MapAsyncStatus::Success) {
+                impl.readbackState.store(ReadbackIdle);
+                return;
             }
+
+            const void* p = impl.readbackBuffer.GetConstMappedRange(kOffset, kBytesToRead);
+            uint64_t v = ~uint64_t{0};
+            if (p) {
+                uint16_t lanes[4]{};
+                std::memcpy(lanes, p, sizeof(lanes));
+                v = static_cast<uint64_t>(lanes[0]) |
+                    (static_cast<uint64_t>(lanes[1]) << 16) |
+                    (static_cast<uint64_t>(lanes[2]) << 32) |
+                    (static_cast<uint64_t>(lanes[3]) << 48);
+            }
+            impl.readbackValue.store(v);
+            impl.readbackState.store(ReadbackReady); // unmapped by TryGetPixelReadback
         }
     );
+}
 
-    uint64_t outValue = impl.lastValue.load(std::memory_order_relaxed);
+bool Texture::TryGetPixelReadback(uint64_t& value)
+{
+    auto& impl = *_impl;
+    if (impl.readbackState.load() != ReadbackReady)
+        return false;
 
-    // Next call: flip roles.
-    impl.dstIndex ^= 1;
-
-    return outValue;
+    value = impl.readbackValue.load();
+    impl.readbackBuffer.Unmap();
+    impl.readbackState.store(ReadbackIdle);
+    return true;
 }

@@ -27,10 +27,11 @@ struct WorldXform {
     float model[16] { 
         1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1
     };
-    float normal[9] { 
+    float normal[9] {
         1,0,0, 0,1,0, 0,0,1
     };
     uint32_t id = 0;
+    uint32_t version = 0; // bumped whenever model/normal are recomputed
 };
 
 struct XformCache { uint32_t local_v=~0u, parent_v=~0u, world_v=0; };
@@ -61,6 +62,16 @@ namespace ECS {
     void RegisterTag(const std::type_info& ti, const char* name = nullptr);
 
     namespace detail {
+        uint32_t NextTypeSlot();
+
+        // Small dense index per component type, so scenes can cache component ids in an array
+        // instead of hashing std::type_info (which walks the type name on MSVC) on every access.
+        template<class T>
+        inline uint32_t TypeSlot() {
+            static const uint32_t slot = NextTypeSlot();
+            return slot;
+        }
+
         template<class T>
         inline void ComponentCtor(void* ptr, int32_t count) {
             T* p = static_cast<T*>(ptr);
@@ -261,13 +272,14 @@ private:
     const char* _getName(uint64_t eid) const;
     int _childCount(uint64_t parentId) const;
 
-    bool     _has(uint64_t id, const std::type_info& ti) const;
-    void*    _getMut(uint64_t id, const std::type_info& ti, std::size_t size, std::size_t align) const;
-    void     _addSet(uint64_t id, const std::type_info& ti, const void* data, std::size_t size, std::size_t align);
-    void     _remove(uint64_t id, const std::type_info& ti) const;
-    void     _addTag(uint64_t id, const std::type_info& ti);
-    bool     _hasTag(uint64_t id, const std::type_info& ti) const;
-    void     _removeTag(uint64_t id, const std::type_info& ti) const;
+    bool        _has(uint64_t id, uint32_t slot, const std::type_info& ti) const;
+    void*       _getMut(uint64_t id, uint32_t slot, const std::type_info& ti, std::size_t size, std::size_t align) const;
+    const void* _tryGet(uint64_t id, uint32_t slot, const std::type_info& ti) const;
+    void        _addSet(uint64_t id, uint32_t slot, const std::type_info& ti, const void* data, std::size_t size, std::size_t align);
+    void        _remove(uint64_t id, uint32_t slot, const std::type_info& ti) const;
+    void        _addTag(uint64_t id, uint32_t slot, const std::type_info& ti);
+    bool        _hasTag(uint64_t id, uint32_t slot, const std::type_info& ti) const;
+    void        _removeTag(uint64_t id, uint32_t slot, const std::type_info& ti) const;
     uint64_t _ensureComponentByName(const char* name, std::size_t size, std::size_t align);
     void     _addById(uint64_t entityId, uint64_t compId, const void* data, std::size_t size, std::size_t align);
 
@@ -321,28 +333,26 @@ inline Entity& Entity::SetParent(Entity parent) { _scene->_setParent(_id, parent
 inline int Entity::GetChildCount() const { return _scene->_childCount(_id); }
 
 template<class T> inline Entity& Entity::Add(const T& value) {
-    _scene->_addSet(_id, typeid(T), &value, sizeof(T), alignof(T));
+    _scene->_addSet(_id, ECS::detail::TypeSlot<T>(), typeid(T), &value, sizeof(T), alignof(T));
     return *this;
 }
 template<class T> inline Entity& Entity::Add() {
     return Add(T{});
 }
 template<class T> inline Entity& Entity::AddTag() {
-    _scene->_addTag(_id, typeid(T));
+    _scene->_addTag(_id, ECS::detail::TypeSlot<T>(), typeid(T));
     return *this;
 }
-template<class T> inline bool Entity::Has() const { return _scene->_has(_id, typeid(T)); }
-template<class T> inline bool Entity::HasTag() const { return _scene->_hasTag(_id, typeid(T)); }
+template<class T> inline bool Entity::Has() const { return _scene->_has(_id, ECS::detail::TypeSlot<T>(), typeid(T)); }
+template<class T> inline bool Entity::HasTag() const { return _scene->_hasTag(_id, ECS::detail::TypeSlot<T>(), typeid(T)); }
 template<class T> inline T* Entity::Get() {
-    return static_cast<T*>(_scene->_getMut(_id, typeid(T), sizeof(T), alignof(T)));
+    return static_cast<T*>(_scene->_getMut(_id, ECS::detail::TypeSlot<T>(), typeid(T), sizeof(T), alignof(T)));
 }
 template<class T> inline const T* Entity::TryGet() const {
-    return _scene->_has(_id, typeid(T))
-        ? static_cast<const T*>( const_cast<Scene*>(_scene)->_getMut(_id, typeid(T), sizeof(T), alignof(T)) )
-        : nullptr;
+    return static_cast<const T*>(_scene->_tryGet(_id, ECS::detail::TypeSlot<T>(), typeid(T)));
 }
-template<class T> inline void Entity::Remove() { _scene->_remove(_id, typeid(T)); }
-template<class T> inline void Entity::RemoveTag() { _scene->_removeTag(_id, typeid(T)); }
+template<class T> inline void Entity::Remove() { _scene->_remove(_id, ECS::detail::TypeSlot<T>(), typeid(T)); }
+template<class T> inline void Entity::RemoveTag() { _scene->_removeTag(_id, ECS::detail::TypeSlot<T>(), typeid(T)); }
 
 inline Entity& Entity::AddTransform() {
     if (!Has<LocalTRS>())   Add(LocalTRS{});
@@ -351,6 +361,7 @@ inline Entity& Entity::AddTransform() {
 }
 inline Entity& Entity::SetPosition(float x, float y, float z) {
     auto* t = Get<LocalTRS>(); if (!t) { Add(LocalTRS{}); t = Get<LocalTRS>(); }
+    if (t->pos[0] == x && t->pos[1] == y && t->pos[2] == z) return *this;
     t->pos[0]=x; t->pos[1]=y; t->pos[2]=z; ++t->version; return *this;
 }
 inline Entity& Entity::SetRotationEuler(float rx, float ry, float rz) {
@@ -371,16 +382,18 @@ inline Entity& Entity::SetRotationEuler(float rx, float ry, float rz) {
 inline Entity& Entity::SetRotationQuat(float x, float y, float z, float w) {
     auto* t = Get<LocalTRS>(); if (!t) { Add(LocalTRS{}); t = Get<LocalTRS>(); }
     const float lenSq = x*x + y*y + z*z + w*w;
+    float q[4] = { 0.f, 0.f, 0.f, 1.f };
     if (lenSq > 0.0f) {
         const float invLen = 1.0f / std::sqrt(lenSq);
-        t->rot_quat[0]=x * invLen; t->rot_quat[1]=y * invLen; t->rot_quat[2]=z * invLen; t->rot_quat[3]=w * invLen;
-    } else {
-        t->rot_quat[0]=0.f; t->rot_quat[1]=0.f; t->rot_quat[2]=0.f; t->rot_quat[3]=1.f;
+        q[0] = x * invLen; q[1] = y * invLen; q[2] = z * invLen; q[3] = w * invLen;
     }
+    if (t->rot_quat[0] == q[0] && t->rot_quat[1] == q[1] && t->rot_quat[2] == q[2] && t->rot_quat[3] == q[3]) return *this;
+    t->rot_quat[0]=q[0]; t->rot_quat[1]=q[1]; t->rot_quat[2]=q[2]; t->rot_quat[3]=q[3];
     ++t->version; return *this;
 }
 inline Entity& Entity::SetScale(float sx, float sy, float sz) {
     auto* t = Get<LocalTRS>(); if (!t) { Add(LocalTRS{}); t = Get<LocalTRS>(); }
+    if (t->scl[0] == sx && t->scl[1] == sy && t->scl[2] == sz) return *this;
     t->scl[0]=sx; t->scl[1]=sy; t->scl[2]=sz; ++t->version; return *this;
 }
 inline Entity& Entity::SetScaleUniform(float s) { return SetScale(s,s,s); }

@@ -64,8 +64,8 @@ void InspectorWindow::DrawEntityInspector()
     if (currentName)
         std::strncpy(entityName, currentName, sizeof(entityName) - 1);
 
-    ImGui::InputText("##entity_name", entityName, sizeof(entityName));
-    m_entity.SetName(entityName);
+    if (ImGui::InputText("##entity_name", entityName, sizeof(entityName)))
+        m_entity.SetName(entityName);
 
     ImGui::Separator();
 
