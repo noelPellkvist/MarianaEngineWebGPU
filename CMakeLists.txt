@@ -75,3 +75,4 @@ include(cmake/MarianaWeb.cmake)
 # The engine library, then the apps built on it. The engine never depends on an app.
 add_subdirectory(engine)
 add_subdirectory(editor)
+add_subdirectory(runtime)

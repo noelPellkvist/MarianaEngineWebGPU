@@ -2,18 +2,21 @@
 # ASYNCIFY (the engine waits on WebGPU synchronously) and the preloaded resource folders: the
 # engine's, plus the app's own (PRELOAD). They keep their absolute paths, which FileSystem's roots use.
 #
-#   mariana_web_app(<target> OUTPUT_NAME <name> SHELL <html file> PRELOAD <dir>...)
+#   mariana_web_app(<target> OUTPUT_NAME <name> [SHELL <html file>] PRELOAD <dir>...)
+# Without SHELL the page is Emscripten's default one.
 function(mariana_web_app target)
   cmake_parse_arguments(PARSE_ARGV 1 ARG "" "OUTPUT_NAME;SHELL" "PRELOAD")
 
   set_target_properties(${target} PROPERTIES
     OUTPUT_NAME "${ARG_OUTPUT_NAME}"
     SUFFIX ".html"
-    LINK_DEPENDS "${ARG_SHELL}"
   )
+  if(ARG_SHELL)
+    set_target_properties(${target} PROPERTIES LINK_DEPENDS "${ARG_SHELL}")
+    target_link_options(${target} PRIVATE "SHELL:--shell-file ${ARG_SHELL}")
+  endif()
 
   target_link_options(${target} PRIVATE
-    "SHELL:--shell-file ${ARG_SHELL}"
     "SHELL:-sALLOW_MEMORY_GROWTH=1"
     "SHELL:-sINITIAL_MEMORY=256MB"
     "SHELL:-sSTACK_SIZE=262144"

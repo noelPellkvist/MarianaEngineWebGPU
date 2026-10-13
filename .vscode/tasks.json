@@ -17,6 +17,13 @@
             "command": "cmake --build build --config Release --target MarianaEditor -j4",
             "group": "build",
             "problemMatcher": ["$msCompile"]
+        },
+        {
+            "label": "build Player Debug",
+            "type": "shell",
+            "command": "cmake --build build --config Debug --target MarianaPlayer -j4",
+            "group": "build",
+            "problemMatcher": ["$msCompile"]
         }
     ]
 }

@@ -24,6 +24,18 @@
             "environment": [],
             "preLaunchTask": "build Release",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug MarianaPlayer",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/Debug/MarianaPlayer.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "preLaunchTask": "build Player Debug",
+            "console": "integratedTerminal"
         }
     ]
 }
