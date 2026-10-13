@@ -187,6 +187,9 @@ public:
     Shader2& Build(bool shadow = false);
     // Recreates the shader's own bind groups, e.g. after textures it reads were recreated at a new size.
     void RebuildBindGroups() { BuildBindgroups(); }
+    // Points a texture binding of the shader's own groups at another texture after Build (e.g. a
+    // render graph texture that now resolves to a fallback); call RebuildBindGroups afterwards.
+    void BindTexture(const std::string& name, Texture& texture);
 
 private:
     std::string m_Name;

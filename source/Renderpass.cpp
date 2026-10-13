@@ -177,24 +177,58 @@ void Renderpass::SetMaterial2(Shader2& shader, Material2& material)
     _impl->pass.SetBindGroup(shader.m_MaterialIndex, *static_cast<wgpu::BindGroup*>(bindGroup), 0, nullptr);
 }
 
-void Renderpass::Start(void* encoder, bool surfaceTarget, void* surfaceView)
+void Renderpass::SetTargets(std::vector<Texture*> colors, std::vector<Texture*> resolves, Texture* depth, uint32_t width, uint32_t height)
 {
+    m_External = true;
+    m_ColorTargets = std::move(colors);
+    m_ResolveTargets = std::move(resolves);
+    m_DepthTarget = depth;
+    m_Width = width;
+    m_Height = height;
+}
+
+void Renderpass::SetLoadOps(std::vector<bool> loadColor, bool loadDepth)
+{
+    m_LoadColor = std::move(loadColor);
+    m_LoadDepth = loadDepth;
+}
+
+void Renderpass::Start(void* encoder, void* backbuffer)
+{
+    auto viewOf = [](Texture* texture) { return *static_cast<wgpu::TextureView*>(texture->GetTextureView()); };
+
     std::vector<wgpu::RenderPassColorAttachment> attachments(NumberOfOutputs());
     for (uint8_t i = 0; i < NumberOfOutputs(); i++)
     {
+      Texture* target = m_External ? m_ColorTargets[i] : &m_RenderTargets[i];
+      Texture* resolve = m_External ? (i < m_ResolveTargets.size() ? m_ResolveTargets[i] : nullptr)
+                                    : (m_MSSA ? &m_RenderTargetsResolve[i] : nullptr);
+      const bool load = i < m_LoadColor.size() && m_LoadColor[i];
       // MSAA targets resolve into the single-sample ones (which later passes read); the samples
       // themselves aren't kept.
-      const bool resolve = m_MSSA && !(i == 0 && surfaceTarget);
       attachments[i] = {
-      .view = (i == 0 && surfaceTarget) ? *static_cast<wgpu::TextureView*>(surfaceView) : *static_cast<wgpu::TextureView*>(GetRenderTarget(i).GetTextureView()),
-      .resolveTarget = resolve ? *static_cast<wgpu::TextureView*>(GetRenderResloveTarget(i).GetTextureView()) : wgpu::TextureView(),
-      .loadOp = wgpu::LoadOp::Clear,
+      .view = target ? viewOf(target) : *static_cast<wgpu::TextureView*>(backbuffer),
+      .resolveTarget = resolve ? viewOf(resolve) : wgpu::TextureView(),
+      .loadOp = load ? wgpu::LoadOp::Load : wgpu::LoadOp::Clear,
       .storeOp = resolve ? wgpu::StoreOp::Discard : wgpu::StoreOp::Store};
+    }
+
+    wgpu::RenderPassDepthStencilAttachment depthAttachment{};
+    if (HasDepthTexture())
+    {
+        depthAttachment.view = viewOf(m_External ? m_DepthTarget : &m_DepthTexture);
+        depthAttachment.depthClearValue = 1.0f;
+        depthAttachment.depthLoadOp = m_LoadDepth ? wgpu::LoadOp::Load : wgpu::LoadOp::Clear;
+        depthAttachment.depthStoreOp = wgpu::StoreOp::Store;
+        depthAttachment.depthReadOnly = false;
+        depthAttachment.stencilLoadOp = wgpu::LoadOp::Undefined;
+        depthAttachment.stencilStoreOp = wgpu::StoreOp::Undefined;
+        depthAttachment.stencilReadOnly = true;
     }
 
     wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = attachments.size(),
                                           .colorAttachments = attachments.size() == 0 ? nullptr : attachments.data(),
-                                          .depthStencilAttachment = HasDepthTexture() ? static_cast<wgpu::RenderPassDepthStencilAttachment*>(GetDepthStencilAttachment()) : nullptr};
+                                          .depthStencilAttachment = HasDepthTexture() ? &depthAttachment : nullptr};
     wgpu::CommandEncoder R_encoder = *(static_cast<wgpu::CommandEncoder*>(encoder));
     _impl->pass = R_encoder.BeginRenderPass(&renderpassDesc);
 

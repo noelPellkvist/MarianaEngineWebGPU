@@ -1,5 +1,6 @@
 #pragma once
 #include <Renderpass.hpp>
+#include <Rendering/RenderGraph.hpp>
 #include <ECS.hpp>
 #include <AssetsSystem/AssetManager.hpp>
 #include <memory>
@@ -20,17 +21,16 @@ struct MeshComponent {
 
 struct ShadowCasterTag {};
 
+// Draws a frame: executes the render graph (whatever writes "Backbuffer" ends up on screen), then
+// the UI on top of it.
 class Renderer
 {
     public:
         Renderer();
         ~Renderer();
 
-        void PushRenderpass(Renderpass* renderpass) { m_Renderpasses.push_back(renderpass); }
+        // Set its backbuffer format before adding passes that render to the screen.
+        RenderGraph graph;
 
         void Render(GUI* gui);
-
-    private:
-        std::vector<Renderpass*> m_Renderpasses;
-        
 };

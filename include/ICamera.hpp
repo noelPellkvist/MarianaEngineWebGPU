@@ -52,6 +52,9 @@ class ICamera
         float FarClip()     const { return farClip; }
         float FieldOfView() const { return fov; } // vertical, degrees
         float Aspect()      const { return aspect; }
+        // Scales the scene's light before tonemapping (photographic exposure).
+        float Exposure()    const { return exposure; }
+        void SetExposure(float value) { exposure = value; }
 
     protected:
         IInput& _input;

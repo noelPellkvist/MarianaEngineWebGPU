@@ -12,15 +12,24 @@ enum class BufferType
     Storage
 };
 
+// A buffer whose contents are packed by its user (e.g. effect parameters from a file); written
+// with WriteRawBytes.
+struct RawBufferLayout
+{
+    uint64_t size = 16;
+    BufferType type = BufferType::Uniform;
+};
+
 class Buffer
 {
     friend class Shader2;
 public:
-    using BufferLayout = std::variant<UniformBufferLayout, StorageBufferLayout, StorageArrayLayout>;
+    using BufferLayout = std::variant<UniformBufferLayout, StorageBufferLayout, StorageArrayLayout, RawBufferLayout>;
 
     Buffer(UniformBufferLayout layout);
     Buffer(StorageBufferLayout layout);
     Buffer(StorageArrayLayout layout);
+    Buffer(RawBufferLayout layout);
     ~Buffer() = default;
 
     void Build();

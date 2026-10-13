@@ -17,18 +17,18 @@ Renderer::~Renderer()
   
 }
 
-void RenderGUI(wgpu::TextureView& view, wgpu::TextureView& resolve, wgpu::RenderPassDepthStencilAttachment* depth, wgpu::CommandEncoder& encoder, GUI& gui)
+// ImGui draws on top of the frame, without depth.
+void RenderGUI(wgpu::TextureView& view, wgpu::CommandEncoder& encoder, GUI& gui)
 {
   wgpu::RenderPassColorAttachment attachment{
     .view = view,
-    //.resolveTarget = resolve,
     .loadOp = wgpu::LoadOp::Load,
     .storeOp = wgpu::StoreOp::Store
   };
 
   wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = 1,
                                         .colorAttachments = &attachment,
-                                        .depthStencilAttachment = depth};
+                                        .depthStencilAttachment = nullptr};
 
   auto pass = encoder.BeginRenderPass(&renderpassDesc);
   gui.PostUpdateGUI(&pass);
@@ -39,27 +39,12 @@ void Renderer::Render(GUI* gui)
 {
     wgpu::SurfaceTexture surfaceTexture;
     surface.GetCurrentTexture(&surfaceTexture);
-    wgpu::TextureView resolveTarget = surfaceTexture.texture.CreateView();
+    wgpu::TextureView backbuffer = surfaceTexture.texture.CreateView();
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
 
-    for(auto& renderPass : m_Renderpasses)
-    {
-      bool surfaceTarget = &renderPass == &m_Renderpasses.back();
-      if (!surfaceTarget && !renderPass->IsEnabled())
-        continue;
-
-      renderPass->Start(static_cast<void*>(&encoder), surfaceTarget, static_cast<void*>(&resolveTarget));
-
-      // ImGui draws without depth, so its pass doesn't touch (or clear) a depth buffer.
-      if(gui != nullptr && surfaceTarget && renderPass->NumberOfOutputs() > 0)
-      {
-        RenderGUI(resolveTarget,
-                  resolveTarget,
-                  nullptr,
-                  encoder,
-                  *gui);
-      }
-    }
+    graph.Execute(static_cast<void*>(&encoder), static_cast<void*>(&backbuffer));
+    if (gui != nullptr)
+      RenderGUI(backbuffer, encoder, *gui);
 
     wgpu::CommandBuffer commands = encoder.Finish();
     device.GetQueue().Submit(1, &commands);

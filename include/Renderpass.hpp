@@ -39,10 +39,15 @@ class Renderpass
         bool IsEnabled() const { return m_Enabled; }
 
         void Recreate(uint32_t width, uint32_t height);
+        // Render graph passes: render into textures owned elsewhere instead of the pass's own
+        // (a nullptr color target is the backbuffer). `resolves` are MSAA resolve targets.
+        void SetTargets(std::vector<Texture*> colors, std::vector<Texture*> resolves, Texture* depth, uint32_t width, uint32_t height);
+        // Per color attachment, and for depth: keep what an earlier pass rendered instead of clearing.
+        void SetLoadOps(std::vector<bool> loadColor, bool loadDepth);
         uint8_t NumberOfOutputs() { return m_OutputFormats.size(); }
-        Texture& GetRenderTarget(uint8_t index) { return m_RenderTargets[index]; }
-        Texture& GetRenderResloveTarget(uint8_t index) { return m_RenderTargetsResolve[index]; }
-        Texture& GetDepthView() { return m_DepthTexture; }
+        Texture& GetRenderTarget(uint8_t index) { return m_External ? *m_ColorTargets[index] : m_RenderTargets[index]; }
+        Texture& GetRenderResloveTarget(uint8_t index) { return m_External ? *m_ResolveTargets[index] : m_RenderTargetsResolve[index]; }
+        Texture& GetDepthView() { return m_External ? *m_DepthTarget : m_DepthTexture; }
         const std::vector<TextureFormat>& GetOutputFormats() const { return m_OutputFormats; }
         void* GetDepthStencilAttachment();
         bool HasDepthTexture() const { return m_HasDepthTexture; }
@@ -64,6 +69,7 @@ class Renderpass
 
     private:
         friend class Renderer;
+        friend class RenderGraph;
         std::vector<std::vector<uint32_t>> m_BindGroupOffsets;
         Shader2* m_CurrentShader = nullptr;
         ShaderVariant m_CurrentVariant = ShaderVariant::Default;
@@ -90,5 +96,13 @@ class Renderpass
         void CreateDepthStencilAttachment();
         void BindShaderGroups();
 
-        void Start(void* encoder, bool surfaceTarget, void* resolveTarget);
+        // Records the pass. `backbuffer` (a wgpu::TextureView*) stands in for nullptr color targets.
+        void Start(void* encoder, void* backbuffer);
+
+        bool m_External = false;
+        std::vector<Texture*> m_ColorTargets;
+        std::vector<Texture*> m_ResolveTargets;
+        Texture* m_DepthTarget = nullptr;
+        std::vector<bool> m_LoadColor;
+        bool m_LoadDepth = false;
 };

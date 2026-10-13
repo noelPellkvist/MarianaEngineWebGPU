@@ -397,6 +397,13 @@ Shader2& Shader2::Build(bool shadow)
     return *this;
 }
 
+void Shader2::BindTexture(const std::string& name, Texture& texture)
+{
+    auto it = m_BindGroupLayoutMap.find(name);
+    if (it != m_BindGroupLayoutMap.end() && std::holds_alternative<TextureResource>(*it->second))
+        std::get<TextureResource>(*it->second).texture = &texture;
+}
+
 void* Shader2::GetPipeline(ShaderVariant variant)
 {
     // Alpha to coverage only exists in MSAA passes; elsewhere the plain variant does the same.

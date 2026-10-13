@@ -1,0 +1,15 @@
+{
+  "name": "Tonemap (ACES)",
+  "stage": "PostProcess",
+  "final": true,
+  "passes": [
+    {
+      "name": "Tonemap",
+      "shader": "/Shaders/Effects/tonemap.wgsl",
+      "inputs": {
+        "scene": "Input"
+      },
+      "output": "Output"
+    }
+  ]
+}

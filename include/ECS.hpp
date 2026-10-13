@@ -361,6 +361,7 @@ inline Entity& Entity::AddTransform() {
 }
 inline Entity& Entity::SetPosition(float x, float y, float z) {
     auto* t = Get<LocalTRS>(); if (!t) { Add(LocalTRS{}); t = Get<LocalTRS>(); }
+    if (!t) return *this; // invalid entity
     if (t->pos[0] == x && t->pos[1] == y && t->pos[2] == z) return *this;
     t->pos[0]=x; t->pos[1]=y; t->pos[2]=z; ++t->version; return *this;
 }
@@ -381,6 +382,7 @@ inline Entity& Entity::SetRotationEuler(float rx, float ry, float rz) {
 }
 inline Entity& Entity::SetRotationQuat(float x, float y, float z, float w) {
     auto* t = Get<LocalTRS>(); if (!t) { Add(LocalTRS{}); t = Get<LocalTRS>(); }
+    if (!t) return *this; // invalid entity
     const float lenSq = x*x + y*y + z*z + w*w;
     float q[4] = { 0.f, 0.f, 0.f, 1.f };
     if (lenSq > 0.0f) {
@@ -393,6 +395,7 @@ inline Entity& Entity::SetRotationQuat(float x, float y, float z, float w) {
 }
 inline Entity& Entity::SetScale(float sx, float sy, float sz) {
     auto* t = Get<LocalTRS>(); if (!t) { Add(LocalTRS{}); t = Get<LocalTRS>(); }
+    if (!t) return *this; // invalid entity
     if (t->scl[0] == sx && t->scl[1] == sy && t->scl[2] == sz) return *this;
     t->scl[0]=sx; t->scl[1]=sy; t->scl[2]=sz; ++t->version; return *this;
 }

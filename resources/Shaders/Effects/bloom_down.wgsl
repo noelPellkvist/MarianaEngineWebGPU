@@ -1,31 +1,6 @@
-// Bloom downsample: one level of the chain, half the size of its source.
-// 13-tap filter from "Next Generation Post Processing in Call of Duty: Advanced Warfare" (Jimenez 2014).
-
-// Per-pass constants (one dynamic-offset slot per pass).
-struct PostParams {
-    texel: vec4f,    // xy: 1 / source size, z: filter radius in source texels, w: 1 on the first downsample
-    settings: vec4f, // first downsample: x threshold, y knee. Composite: x exposure, y bloom intensity, z 1 / level count
-};
-
-@group(0) @binding(0) var<uniform> Params: PostParams;
-@group(0) @binding(1) var linearSampler: sampler;
-
-@group(1) @binding(0) var source: texture_2d<f32>;
-
-struct VertexOutput {
-    @builtin(position) position: vec4f,
-    @location(0) uv: vec2f,
-};
-
-// One triangle that covers the whole target.
-@vertex
-fn vertexMain(@builtin(vertex_index) index: u32) -> VertexOutput {
-    let p = vec2f(f32((index << 1u) & 2u), f32(index & 2u));
-    var out: VertexOutput;
-    out.position = vec4f(p * 2.0 - 1.0, 0.0, 1.0);
-    out.uv = vec2f(p.x, 1.0 - p.y);
-    return out;
-}
+// Bloom downsample: one level of the chain, half the size of its input. 13-tap filter from
+// "Next Generation Post Processing in Call of Duty: Advanced Warfare" (Jimenez 2014).
+// Input: source. passInfo.constants.x = 1 on the first level (Karis average + threshold).
 
 fn luminance(c: vec3f) -> f32 {
     return dot(c, vec3f(0.2126, 0.7152, 0.0722));
@@ -33,7 +8,7 @@ fn luminance(c: vec3f) -> f32 {
 
 fn tap(uv: vec2f) -> vec3f {
     // Alpha masks what may bloom (the skybox writes 0; bloom levels write 1).
-    let s = textureSampleLevel(source, linearSampler, uv, 0.0);
+    let s = textureSampleLevel(source, linearClamp, uv, 0.0);
     let c = s.rgb * s.a;
     // A NaN or infinity from the scene would otherwise smear across the whole bloom.
     return select(vec3f(0.0), min(c, vec3f(65000.0)), c == c);
@@ -46,8 +21,8 @@ fn karis(c: vec3f) -> f32 {
 
 // Soft-knee threshold: keeps only light brighter than `threshold`, fading in over `knee` so there's no hard edge.
 fn prefilter(c: vec3f) -> vec3f {
-    let threshold = Params.settings.x;
-    let knee = max(Params.settings.y, 1e-4);
+    let threshold = params.threshold;
+    let knee = max(params.knee, 1e-4);
     let brightness = max(c.r, max(c.g, c.b));
     var soft = clamp(brightness - threshold + knee, 0.0, 2.0 * knee);
     soft = soft * soft / (4.0 * knee);
@@ -55,8 +30,8 @@ fn prefilter(c: vec3f) -> vec3f {
 }
 
 @fragment
-fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-    let t = Params.texel.xy;
+fn fragmentMain(input: FullscreenInput) -> @location(0) vec4f {
+    let t = 1.0 / vec2f(textureDimensions(source));
     let uv = input.uv;
 
     let a = tap(uv + t * vec2f(-2.0,  2.0));
@@ -73,7 +48,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let l = tap(uv + t * vec2f(-1.0, -1.0));
     let m = tap(uv + t * vec2f( 1.0, -1.0));
 
-    if (Params.texel.w > 0.5) {
+    if (passInfo.constants.x > 0.5) {
         // First level: Karis-average the five overlapping 2x2 groups, which stops single bright
         // pixels (speculars) from flickering into large blobs, then keep only what's over the threshold.
         let g0 = (a + b + d + e) * 0.25;

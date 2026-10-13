@@ -1,0 +1,15 @@
+{
+  "name": "Present",
+  "stage": "PostProcess",
+  "final": true,
+  "passes": [
+    {
+      "name": "Present",
+      "shader": "/Shaders/Effects/present.wgsl",
+      "inputs": {
+        "scene": "Input"
+      },
+      "output": "Output"
+    }
+  ]
+}

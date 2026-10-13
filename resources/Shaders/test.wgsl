@@ -31,7 +31,7 @@ struct UBO {
     cascadeTexel: vec4f,  // world size of one shadow texel in each cascade
     sunColor: vec4f,      // rgb = color * intensity
     skySH: array<vec4f, 9>, // diffuse sky light (SkyLight.hpp)
-    skyParams: vec4f,     // x = sky diffuse intensity, y = sky reflection intensity, z = 1 when AO is on
+    skyParams: vec4f,     // x = sky diffuse intensity, y = sky reflection intensity
 };
 
 struct ModelData {
@@ -88,7 +88,7 @@ struct DrawData
 @group(0) @binding(10) var shadowSampler: sampler_comparison;
 @group(0) @binding(11) var skyCube: texture_cube<f32>;
 @group(0) @binding(12) var skySampler: sampler;
-@group(0) @binding(13) var aoTexture: texture_2d<f32>; // GTAO result, screen sized (gtao.wgsl)
+@group(0) @binding(13) var aoTexture: texture_2d<f32>; // the AmbientOcclusion graph texture (1x1 white when no effect writes it)
 
 
 @group(1) @binding(0) var albedo: texture_2d<f32>;
@@ -414,10 +414,8 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
     let skySpecular = skyReflection(reflect(-V, N), perceptualRoughness) * envSpecular * UniformBufferObject.skyParams.y;
     // Screen-space AO (from the prepass) and the material's own: the darker wins, so baked crevices
     // aren't darkened twice. It only affects sky light, never the sun.
-    var visibility = aoTerm;
-    if (UniformBufferObject.skyParams.z > 0.5) {
-        visibility = min(visibility, textureLoad(aoTexture, vec2i(input.position.xy), 0).r);
-    }
+    let aoPixel = min(vec2u(input.position.xy), textureDimensions(aoTexture) - 1u);
+    let visibility = min(aoTerm, textureLoad(aoTexture, aoPixel, 0).r);
     let ambient = skyDiffuse * multiBounceAO(visibility, baseColor) + skySpecular * specularOcclusion(NoV, visibility, perceptualRoughness);
 
     // ----- Emissive -----

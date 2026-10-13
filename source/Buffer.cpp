@@ -28,11 +28,21 @@ Buffer::Buffer(StorageArrayLayout layout)
     m_IsDynamic = layout.IsDynamic();
 }
 
+Buffer::Buffer(RawBufferLayout layout)
+    : _impl(std::make_shared<Impl>()), m_Layout(layout), m_Type(layout.type)
+{
+    m_Size = (layout.size + 15) / 16 * 16;
+    m_IsDynamic = false;
+}
+
 uint64_t Buffer::GetStride() const
 {
-    return std::visit([](const auto& layout) -> uint64_t {
-        if constexpr (std::is_same_v<std::decay_t<decltype(layout)>, UniformBufferLayout>) {
+    return std::visit([this](const auto& layout) -> uint64_t {
+        using LayoutT = std::decay_t<decltype(layout)>;
+        if constexpr (std::is_same_v<LayoutT, UniformBufferLayout>) {
             return layout.GetUniformStride();
+        } else if constexpr (std::is_same_v<LayoutT, RawBufferLayout>) {
+            return m_Size;
         } else {
             return layout.GetStorageStride();
         }

@@ -3,28 +3,7 @@
 // through the view direction are searched for their highest horizon in the prepass depth, and the
 // part of the hemisphere above both horizons is integrated against the normal (cosine weighted).
 // Writes the visible fraction (1 = unoccluded). Noisy by design: gtao_blur.wgsl averages it.
-
-struct CameraInfoData {
-    projection: mat4x4<f32>,
-    view: mat4x4<f32>,
-    viewProj: mat4x4<f32>,
-    invView: mat4x4<f32>,
-    invProj: mat4x4<f32>,
-    invViewProj: mat4x4<f32>,
-    position: vec3<f32>,
-    exposure: f32,
-};
-
-struct AOParams {
-    settings: vec4f, // x: radius in world units, y: power
-    screen: vec4f,   // xy: size in pixels, zw: 1 / size
-};
-
-@group(0) @binding(0) var<uniform> camInfo: CameraInfoData;
-@group(0) @binding(1) var<uniform> params: AOParams;
-
-@group(1) @binding(0) var depthTex: texture_depth_2d;
-@group(1) @binding(1) var normalTex: texture_2d<f32>;
+// Inputs: depth (SceneDepth), normals (SceneNormals, view space * 0.5 + 0.5).
 
 const PI: f32 = 3.14159265;
 const HALF_PI: f32 = 1.57079633;
@@ -32,25 +11,12 @@ const SLICES: u32 = 3u;
 const STEPS: u32 = 4u;              // per side of each slice
 const MAX_SCREEN_RADIUS: f32 = 200.0; // pixels; keeps close-ups from sampling all over the screen
 
-struct VertexOutput {
-    @builtin(position) position: vec4f,
-};
-
-// One triangle that covers the whole target.
-@vertex
-fn vertexMain(@builtin(vertex_index) index: u32) -> VertexOutput {
-    let p = vec2f(f32((index << 1u) & 2u), f32(index & 2u));
-    var out: VertexOutput;
-    out.position = vec4f(p * 2.0 - 1.0, 0.0, 1.0);
-    return out;
-}
-
 // View-space position at a pixel (LH, +z into the screen).
 fn viewPosition(pixel: vec2i) -> vec3f {
-    let p = clamp(pixel, vec2i(0), vec2i(params.screen.xy) - 1);
-    let depth = textureLoad(depthTex, p, 0);
-    let uv = (vec2f(p) + 0.5) * params.screen.zw;
-    let view = camInfo.invProj * vec4f(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, depth, 1.0);
+    let p = clamp(pixel, vec2i(0), vec2i(passInfo.outputSize.xy) - 1);
+    let z = textureLoad(depth, p, 0);
+    let uv = (vec2f(p) + 0.5) * passInfo.outputSize.zw;
+    let view = camera.invProj * vec4f(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, z, 1.0);
     return view.xyz / view.w;
 }
 
@@ -63,12 +29,12 @@ fn tileNoise(pixel: vec2i) -> vec2f {
 }
 
 @fragment
-fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+fn fragmentMain(input: FullscreenInput) -> @location(0) vec4f {
     let pixel = vec2i(input.position.xy);
-    if (textureLoad(depthTex, pixel, 0) >= 1.0) {
+    if (textureLoad(depth, pixel, 0) >= 1.0) {
         return vec4f(1.0); // sky
     }
-    var N = textureLoad(normalTex, pixel, 0).xyz * 2.0 - 1.0;
+    var N = textureLoad(normals, pixel, 0).xyz * 2.0 - 1.0;
     if (dot(N, N) < 0.25) {
         return vec4f(1.0); // points and lines without normals
     }
@@ -78,8 +44,8 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let V = normalize(-P);
 
     // The radius in pixels at this depth (projection[1][1] = 1 / tan(fov / 2)).
-    let radius = params.settings.x;
-    let screenRadius = min(radius * camInfo.projection[1][1] * 0.5 * params.screen.y / P.z, MAX_SCREEN_RADIUS);
+    let radius = params.radius;
+    let screenRadius = min(radius * camera.projection[1][1] * 0.5 * passInfo.outputSize.y / P.z, MAX_SCREEN_RADIUS);
     if (screenRadius < 1.0) {
         return vec4f(1.0); // the whole radius fits in a pixel
     }
@@ -138,6 +104,6 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
         visibility += mix(projectedLength, 1.0, 0.05) * (arc0 + arc1);
     }
 
-    visibility = pow(saturate(visibility / f32(SLICES)), params.settings.y);
+    visibility = pow(saturate(visibility / f32(SLICES)), params.power);
     return vec4f(max(visibility, 0.03), 0.0, 0.0, 1.0);
 }

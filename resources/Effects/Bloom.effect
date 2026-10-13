@@ -1,0 +1,192 @@
+{
+  "name": "Bloom",
+  "stage": "PostProcess",
+  "parameters": {
+    "intensity": {
+      "type": "float",
+      "default": 1.0,
+      "min": 0.0,
+      "max": 4.0
+    },
+    "threshold": {
+      "type": "float",
+      "default": 1.0,
+      "min": 0.0,
+      "max": 20.0
+    },
+    "knee": {
+      "type": "float",
+      "default": 0.5,
+      "min": 0.0,
+      "max": 2.0
+    },
+    "radius": {
+      "type": "float",
+      "default": 1.0,
+      "min": 0.25,
+      "max": 4.0
+    }
+  },
+  "textures": {
+    "down0": {
+      "format": "rgba16float",
+      "scale": 0.5
+    },
+    "down1": {
+      "format": "rgba16float",
+      "scale": 0.25
+    },
+    "down2": {
+      "format": "rgba16float",
+      "scale": 0.125
+    },
+    "down3": {
+      "format": "rgba16float",
+      "scale": 0.0625
+    },
+    "down4": {
+      "format": "rgba16float",
+      "scale": 0.03125
+    },
+    "down5": {
+      "format": "rgba16float",
+      "scale": 0.015625
+    },
+    "up0": {
+      "format": "rgba16float",
+      "scale": 0.5
+    },
+    "up1": {
+      "format": "rgba16float",
+      "scale": 0.25
+    },
+    "up2": {
+      "format": "rgba16float",
+      "scale": 0.125
+    },
+    "up3": {
+      "format": "rgba16float",
+      "scale": 0.0625
+    },
+    "up4": {
+      "format": "rgba16float",
+      "scale": 0.03125
+    }
+  },
+  "passes": [
+    {
+      "name": "Downsample 0",
+      "shader": "/Shaders/Effects/bloom_down.wgsl",
+      "inputs": {
+        "source": "Input"
+      },
+      "output": "down0",
+      "constants": [
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Downsample 1",
+      "shader": "/Shaders/Effects/bloom_down.wgsl",
+      "inputs": {
+        "source": "down0"
+      },
+      "output": "down1"
+    },
+    {
+      "name": "Downsample 2",
+      "shader": "/Shaders/Effects/bloom_down.wgsl",
+      "inputs": {
+        "source": "down1"
+      },
+      "output": "down2"
+    },
+    {
+      "name": "Downsample 3",
+      "shader": "/Shaders/Effects/bloom_down.wgsl",
+      "inputs": {
+        "source": "down2"
+      },
+      "output": "down3"
+    },
+    {
+      "name": "Downsample 4",
+      "shader": "/Shaders/Effects/bloom_down.wgsl",
+      "inputs": {
+        "source": "down3"
+      },
+      "output": "down4"
+    },
+    {
+      "name": "Downsample 5",
+      "shader": "/Shaders/Effects/bloom_down.wgsl",
+      "inputs": {
+        "source": "down4"
+      },
+      "output": "down5"
+    },
+    {
+      "name": "Upsample 4",
+      "shader": "/Shaders/Effects/bloom_up.wgsl",
+      "inputs": {
+        "source": "down5",
+        "current": "down4"
+      },
+      "output": "up4"
+    },
+    {
+      "name": "Upsample 3",
+      "shader": "/Shaders/Effects/bloom_up.wgsl",
+      "inputs": {
+        "source": "up4",
+        "current": "down3"
+      },
+      "output": "up3"
+    },
+    {
+      "name": "Upsample 2",
+      "shader": "/Shaders/Effects/bloom_up.wgsl",
+      "inputs": {
+        "source": "up3",
+        "current": "down2"
+      },
+      "output": "up2"
+    },
+    {
+      "name": "Upsample 1",
+      "shader": "/Shaders/Effects/bloom_up.wgsl",
+      "inputs": {
+        "source": "up2",
+        "current": "down1"
+      },
+      "output": "up1"
+    },
+    {
+      "name": "Upsample 0",
+      "shader": "/Shaders/Effects/bloom_up.wgsl",
+      "inputs": {
+        "source": "up1",
+        "current": "down0"
+      },
+      "output": "up0"
+    },
+    {
+      "name": "Apply",
+      "shader": "/Shaders/Effects/bloom_apply.wgsl",
+      "inputs": {
+        "scene": "Input",
+        "bloom": "up0"
+      },
+      "output": "Output",
+      "constants": [
+        0.16666666666666666,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

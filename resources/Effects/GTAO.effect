@@ -1,0 +1,44 @@
+{
+  "name": "Ambient Occlusion (GTAO)",
+  "stage": "BeforeLighting",
+  "parameters": {
+    "radius": {
+      "type": "float",
+      "default": 0.6,
+      "min": 0.05,
+      "max": 5.0
+    },
+    "power": {
+      "type": "float",
+      "default": 1.5,
+      "min": 0.5,
+      "max": 4.0
+    }
+  },
+  "textures": {
+    "raw": {
+      "format": "r8unorm",
+      "scale": 1.0
+    }
+  },
+  "passes": [
+    {
+      "name": "Horizon search",
+      "shader": "/Shaders/Effects/gtao.wgsl",
+      "inputs": {
+        "depth": "SceneDepth",
+        "normals": "SceneNormals"
+      },
+      "output": "raw"
+    },
+    {
+      "name": "Denoise",
+      "shader": "/Shaders/Effects/gtao_blur.wgsl",
+      "inputs": {
+        "depth": "SceneDepth",
+        "ao": "raw"
+      },
+      "output": "AmbientOcclusion"
+    }
+  ]
+}

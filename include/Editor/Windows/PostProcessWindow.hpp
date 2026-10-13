@@ -1,17 +1,21 @@
 #pragma once
 
 #include "Editor/Windows/EditorWindow.hpp"
-#include <PostProcess.hpp>
-#include <AmbientOcclusion.hpp>
+#include <Rendering/Effect.hpp>
 
-// Live controls for exposure, bloom and ambient occlusion.
+class ICamera;
+
+// The effect stack: camera exposure, then every effect with the controls its file declares;
+// effects can be added from resources/Effects, toggled, reordered and removed.
 class PostProcessWindow final : public EditorWindow
 {
 public:
-    PostProcessWindow(GUI& gui, PostProcessPipeline& postProcess, AmbientOcclusion& ambientOcclusion);
+    PostProcessWindow(GUI& gui, EffectStack& effects, ICamera& camera);
     void Draw() override;
 
 private:
-    PostProcessPipeline& m_postProcess;
-    AmbientOcclusion& m_ambientOcclusion;
+    EffectStack& m_effects;
+    ICamera& m_camera;
+
+    void DrawEffect(EffectInstance& effect, bool& removed);
 };
