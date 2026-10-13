@@ -4,7 +4,7 @@
         {
             "label": "build Debug",
             "type": "shell",
-            "command": "cmake --build build --config Debug --target app -j4",
+            "command": "cmake --build build --config Debug --target MarianaEditor -j4",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -14,7 +14,7 @@
         {
             "label": "build Release",
             "type": "shell",
-            "command": "cmake --build build --config Release --target app -j4",
+            "command": "cmake --build build --config Release --target MarianaEditor -j4",
             "group": "build",
             "problemMatcher": ["$msCompile"]
         }

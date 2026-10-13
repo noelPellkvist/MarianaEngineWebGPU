@@ -53,7 +53,7 @@ jobs:
       - name: Upload artifact (build-web -> Pages)
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build-web
+          path: build-web/bin
 
   deploy:
     needs: build

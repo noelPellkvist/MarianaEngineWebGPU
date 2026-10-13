@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug app.exe",
+            "name": "Debug MarianaEditor",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/app.exe",
+            "program": "${workspaceFolder}/build/bin/Debug/MarianaEditor.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -14,10 +14,10 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Release app.exe",
+            "name": "Release MarianaEditor",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Release/app.exe",
+            "program": "${workspaceFolder}/build/bin/Release/MarianaEditor.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
