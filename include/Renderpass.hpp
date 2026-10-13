@@ -17,7 +17,10 @@ class Shader2;
 // Pipelines a shader can draw with: Default (triangles, back faces culled) always, the others when
 // built with SetDrawVariants(true). Mirrored culls front faces instead: a transform with a negative
 // determinant flips the winding. Renderpass::SetShader2 picks one per draw.
-enum class ShaderVariant : uint8_t { Default, DoubleSided, Mirrored, Lines, Points, Count };
+// The AlphaToCoverage ones are the three triangle variants with alpha to coverage, for alpha-tested
+// materials in MSAA passes (other passes fall back to the plain ones).
+enum class ShaderVariant : uint8_t { Default, DoubleSided, Mirrored, Lines, Points,
+                                     AlphaToCoverage, AlphaToCoverageDoubleSided, AlphaToCoverageMirrored, Count };
 
 class Renderpass 
 {
@@ -43,6 +46,8 @@ class Renderpass
         const std::vector<TextureFormat>& GetOutputFormats() const { return m_OutputFormats; }
         void* GetDepthStencilAttachment();
         bool HasDepthTexture() const { return m_HasDepthTexture; }
+        // 4 samples per pixel, resolved into GetRenderResloveTarget at the end of the pass.
+        bool IsMSAA() const { return m_MSSA; }
 
         // State setters skip the GPU call when the state is already bound.
         void SetMesh(IMesh* shader);

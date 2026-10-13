@@ -73,7 +73,6 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 
 struct FragOut {
     @location(0) color: vec4f,
-    @location(1) pick_pic: vec4u
 };
 
 // Inverse of the ACES fit used in composite.wgsl, for y in [0, 1).
@@ -101,6 +100,5 @@ fn fragmentMain(input: VertexOutput) -> FragOut {
     // tonemap in advance so it reaches the screen exactly as authored. Alpha 0 keeps it out of bloom.
     var out: FragOut;
     out.color = vec4f(inverseTonemapACES(sky) / max(camInfo.exposure, 1e-4), 0.0);
-    out.pick_pic = vec4u(0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu);
     return out;
 }

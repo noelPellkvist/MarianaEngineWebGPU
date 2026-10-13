@@ -31,7 +31,7 @@ struct UBO {
     cascadeTexel: vec4f,  // world size of one shadow texel in each cascade
     sunColor: vec4f,      // rgb = color * intensity
     skySH: array<vec4f, 9>, // diffuse sky light (SkyLight.hpp)
-    skyParams: vec4f,     // x = sky diffuse intensity, y = sky reflection intensity
+    skyParams: vec4f,     // x = sky diffuse intensity, y = sky reflection intensity, z = 1 when AO is on
 };
 
 struct ModelData {
@@ -88,6 +88,7 @@ struct DrawData
 @group(0) @binding(10) var shadowSampler: sampler_comparison;
 @group(0) @binding(11) var skyCube: texture_cube<f32>;
 @group(0) @binding(12) var skySampler: sampler;
+@group(0) @binding(13) var aoTexture: texture_2d<f32>; // GTAO result, screen sized (gtao.wgsl)
 
 
 @group(1) @binding(0) var albedo: texture_2d<f32>;
@@ -103,15 +104,10 @@ struct DrawData
 @group(1) @binding(9) var emissiveSampler: sampler;
 
 struct FragOut {
-    @location(0) color: vec4f,
-    @location(1) pick_pic: vec4u
+    @location(0) color: vec4f, // alpha: coverage for alpha to coverage (1 when opaque)
 };
 
 // ===================== helpers =====================
-
-fn packEntityId(id: vec2u) -> vec4u {
-    return vec4u(id.x & 0xFFFFu, (id.x >> 16u) & 0xFFFFu, id.y & 0xFFFFu, (id.y >> 16u) & 0xFFFFu);
-}
 
 fn saturate(x: f32) -> f32 { return clamp(x, 0.0, 1.0); }
 fn saturate3(v: vec3f) -> vec3f { return clamp(v, vec3f(0.0), vec3f(1.0)); }
@@ -236,6 +232,20 @@ fn skyReflection(R: vec3f, perceptualRoughness: f32) -> vec3f {
     return mix(sharp, skyIrradiance(R), smoothstep(0.6, 1.0, perceptualRoughness));
 }
 
+// Ambient occlusion only hides light bouncing around, so a bright surface in a crevice still gets
+// some back (Jimenez et al. 2016, multi-bounce fit).
+fn multiBounceAO(visibility: f32, albedo: vec3f) -> vec3f {
+    let a = 2.0404 * albedo - 0.3324;
+    let b = -4.7951 * albedo + 0.6417;
+    let c = 2.7552 * albedo + 0.6903;
+    return max(vec3f(visibility), ((visibility * a + b) * visibility + c) * visibility);
+}
+
+// How much of the sky's reflection gets past the occlusion (Lagarde & de Rousiers 2014).
+fn specularOcclusion(NoV: f32, visibility: f32, perceptualRoughness: f32) -> f32 {
+    return saturate(pow(NoV + visibility, exp2(-16.0 * perceptualRoughness - 1.0)) - 1.0 + visibility);
+}
+
 // Split-sum environment BRDF, analytic fit (Karis, "Physically Based Shading on Mobile").
 fn envBRDFApprox(F0: vec3f, perceptualRoughness: f32, NoV: f32) -> vec3f {
     let c0 = vec4f(-1.0, -0.0275, -0.572, 0.022);
@@ -325,8 +335,15 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
     let albedoSample = textureSample(albedo, albedoSampler, textureUV(input.uv, input.uv1, Material.uvSets, 0u));
     let baseColor = albedoSample.rgb * Material.baseColor.rgb * input.color.rgb;
     let alpha = albedoSample.a * Material.baseColor.a * input.color.a;
-    if (alpha < Material.alphaCutoff) {
-        discard;
+    // Alpha-tested materials draw with alpha to coverage: alpha sharpened to about a pixel around
+    // the cutoff becomes the share of covered MSAA samples, which smooths cut-out edges.
+    let alphaWidth = max(fwidth(alpha), 1e-4);
+    var coverage = 1.0;
+    if (Material.alphaCutoff > 0.0) {
+        coverage = saturate((alpha - Material.alphaCutoff) / alphaWidth + 0.5);
+        if (coverage <= 0.0) {
+            discard;
+        }
     }
 
     // ----- Metallic/Roughness -----
@@ -395,7 +412,13 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
     let envSpecular = envBRDFApprox(F0, perceptualRoughness, NoV);
     let skyDiffuse = skyIrradiance(N) * baseColor * (1.0 - metallic) * (1.0 - envSpecular) * UniformBufferObject.skyParams.x;
     let skySpecular = skyReflection(reflect(-V, N), perceptualRoughness) * envSpecular * UniformBufferObject.skyParams.y;
-    let ambient = (skyDiffuse + skySpecular) * aoTerm;
+    // Screen-space AO (from the prepass) and the material's own: the darker wins, so baked crevices
+    // aren't darkened twice. It only affects sky light, never the sun.
+    var visibility = aoTerm;
+    if (UniformBufferObject.skyParams.z > 0.5) {
+        visibility = min(visibility, textureLoad(aoTexture, vec2i(input.position.xy), 0).r);
+    }
+    let ambient = skyDiffuse * multiBounceAO(visibility, baseColor) + skySpecular * specularOcclusion(NoV, visibility, perceptualRoughness);
 
     // ----- Emissive -----
     // The emissive texture is sampled through an sRGB view, so it is already linear here.
@@ -405,8 +428,7 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
     var out: FragOut;
     // Points and lines without normals can't be lit: they show their base color.
     let hasNormal = dot(input.world_normal, input.world_normal) > 1e-8;
-    out.color = vec4f(select(baseColor, direct + ambient, hasNormal) + emissive, 1.0);
+    out.color = vec4f(select(baseColor, direct + ambient, hasNormal) + emissive, coverage);
     //out.color = vec4f(input.world_normal * 0.5 + 0.5, 1.0);
-    out.pick_pic = packEntityId(ModelDataObjectBuffer[DrawInfo[input.drawIndex].transformIndex].entityID);
     return out;
 }

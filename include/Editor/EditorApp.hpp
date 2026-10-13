@@ -13,6 +13,7 @@
 #include <Editor/Windows/EditorWindow.hpp>
 #include <StandardPBR.hpp>
 #include <PostProcess.hpp>
+#include <AmbientOcclusion.hpp>
 #include <MaterialAsset.hpp>
 
 #include <array>
@@ -53,6 +54,8 @@ class EditorApp : public Application
         Entity selectedEntity;
         Entity skyboxEntity;
         Renderpass renderpass;
+        Renderpass prepass; // depth, normals and entity ids, single sampled
+        AmbientOcclusion ambientOcclusion;
         PostProcessPipeline postProcess;
         std::vector<std::unique_ptr<Renderpass>> shadowpasses; // one per shadow cascade
 
@@ -91,6 +94,7 @@ class EditorApp : public Application
         void UpdateShadowCascades();
         void BuildDrawLists();
         void OnWindowResized(int w, int h);
+        void ResizeTargets(uint32_t w, uint32_t h);
         void SpawnSkybox();
         void SpawnPrefab(const std::filesystem::path& path);
 

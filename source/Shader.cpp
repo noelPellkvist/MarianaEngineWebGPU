@@ -363,7 +363,7 @@ Shader2& Shader2::Build(bool shadow)
                                         },
                                      .depthStencil = m_Renderpass->HasDepthTexture() ? &depthStencilState : nullptr,
                                      .multisample = {
-                                        .count = 1,
+                                        .count = m_Renderpass->IsMSAA() ? 4u : 1u,
                                         .mask = ~0u,
                                         .alphaToCoverageEnabled = false
                                      },
@@ -383,6 +383,15 @@ Shader2& Shader2::Build(bool shadow)
         build(ShaderVariant::Mirrored, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::Front);
         build(ShaderVariant::Lines, wgpu::PrimitiveTopology::LineList, wgpu::CullMode::None);
         build(ShaderVariant::Points, wgpu::PrimitiveTopology::PointList, wgpu::CullMode::None);
+
+        // With MSAA, alpha-tested materials turn alpha into the share of covered samples.
+        if (m_Renderpass->IsMSAA())
+        {
+            descriptor.multisample.alphaToCoverageEnabled = true;
+            build(ShaderVariant::AlphaToCoverage, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::Back);
+            build(ShaderVariant::AlphaToCoverageDoubleSided, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::None);
+            build(ShaderVariant::AlphaToCoverageMirrored, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::Front);
+        }
     }
     
     return *this;
@@ -390,6 +399,13 @@ Shader2& Shader2::Build(bool shadow)
 
 void* Shader2::GetPipeline(ShaderVariant variant)
 {
+    // Alpha to coverage only exists in MSAA passes; elsewhere the plain variant does the same.
+    if (!_impl->m_Pipelines[static_cast<size_t>(variant)])
+    {
+        if (variant == ShaderVariant::AlphaToCoverage) variant = ShaderVariant::Default;
+        else if (variant == ShaderVariant::AlphaToCoverageDoubleSided) variant = ShaderVariant::DoubleSided;
+        else if (variant == ShaderVariant::AlphaToCoverageMirrored) variant = ShaderVariant::Mirrored;
+    }
     wgpu::RenderPipeline& pipeline = _impl->m_Pipelines[static_cast<size_t>(variant)];
     return pipeline ? &pipeline : &_impl->m_Pipelines[static_cast<size_t>(ShaderVariant::Default)];
 }

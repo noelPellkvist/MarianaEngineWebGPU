@@ -84,6 +84,7 @@ Shader2 StandardPBRShader("StandardPBR");
 Shader2 StandardSkyboxShader("StandardSkybox");
 Shader2 ShadowMapShader("StandardShadowMap");
 Shader2 ShadowMapMaskedShader("StandardShadowMapMasked");
+Shader2 PrepassShader("StandardPrepass");
 
 struct Skybox {};
 
@@ -145,16 +146,19 @@ static bool IsVisible(const Frustum& frustum, const IMesh& mesh, const float* mo
 }
 
 // The pipeline a submesh draws with: lines and points have their own, double-sided materials skip
-// culling, and a mirroring transform (negative determinant) culls the other side.
-static ShaderVariant DrawVariant(PrimitiveTopology topology, bool doubleSided, bool mirrored)
+// culling, a mirroring transform (negative determinant) culls the other side, and alpha-tested
+// materials use alpha to coverage.
+static ShaderVariant DrawVariant(PrimitiveTopology topology, bool doubleSided, bool mirrored, bool alphaTested)
 {
     if (topology == PrimitiveTopology::Lines)
         return ShaderVariant::Lines;
     if (topology == PrimitiveTopology::Points)
         return ShaderVariant::Points;
     if (doubleSided)
-        return ShaderVariant::DoubleSided;
-    return mirrored ? ShaderVariant::Mirrored : ShaderVariant::Default;
+        return alphaTested ? ShaderVariant::AlphaToCoverageDoubleSided : ShaderVariant::DoubleSided;
+    if (mirrored)
+        return alphaTested ? ShaderVariant::AlphaToCoverageMirrored : ShaderVariant::Mirrored;
+    return alphaTested ? ShaderVariant::AlphaToCoverage : ShaderVariant::Default;
 }
 
 // Finds the entity of each joint of `skin`. Joints live in the same model as the skinned mesh,
@@ -184,7 +188,8 @@ static void ResolveJoints(Scene& scene, Entity skinned, const Skin& skin, std::v
 static ImGuizmo::OPERATION CurrentGizmoOperation = ImGuizmo::TRANSLATE;
 
 EditorApp::EditorApp(const std::string& name) : Application(name), 
-renderpass(false, true, { TextureFormat::RGBA16Float, TextureFormat::RGBA16Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
+renderpass(true, true, { TextureFormat::RGBA16Float }, m_Window.GetWidth(), m_Window.GetHeight()),
+prepass(false, true, { TextureFormat::RGB10A2Unorm, TextureFormat::RGBA16Uint }, m_Window.GetWidth(), m_Window.GetHeight()),
 standardPBRPipeline()
 {
     ECS::RegisterTag<ShadowCasterTag>("ShadowCasterTag");
@@ -205,8 +210,11 @@ standardPBRPipeline()
     cam->SetViewportSize(m_Window.GetWidth(), m_Window.GetHeight());
 
     renderpass.Init();
-    // The scene renders linear HDR into renderpass target 0; post-processing tonemaps it to the screen.
-    postProcess.Init(m_Window.GetWidth(), m_Window.GetHeight(), m_Window.GetWindowFormat(), renderpass.GetRenderTarget(0));
+    prepass.Init();
+    // AO reads the prepass; the scene renders linear HDR with 4x MSAA, resolved into one texture
+    // that post-processing tonemaps to the screen.
+    ambientOcclusion.Init(m_Window.GetWidth(), m_Window.GetHeight(), prepass.GetDepthView(), prepass.GetRenderTarget(0), standardPBRPipeline.cameraBuffer);
+    postProcess.Init(m_Window.GetWidth(), m_Window.GetHeight(), m_Window.GetWindowFormat(), renderpass.GetRenderResloveTarget(0));
     for (uint32_t i = 0; i < kShadowCascades; ++i)
     {
         shadowpasses.push_back(std::make_unique<Renderpass>(false, true, std::vector<TextureFormat>{}, kShadowMapSize, kShadowMapSize));
@@ -281,12 +289,14 @@ standardPBRPipeline()
     .AddTexture("ShadowMap3", 9, TextureType_Depth)
     .AddSampler("ShadowSampler", 10, SamplerType_Comparison)
     .AddTexture("SkyCube", 11, TextureType_Cube)
-    .AddSampler("SkySampler", 12, SamplerType_LinearClamp);
+    .AddSampler("SkySampler", 12, SamplerType_LinearClamp)
+    .AddTexture("AmbientOcclusion", 13, TextureType_2D);
 
 
     for (uint32_t i = 0; i < kShadowCascades; ++i)
         StandardPBRShader.SetTexture("ShadowMap" + std::to_string(i), shadowpasses[i]->GetDepthView());
     StandardPBRShader.SetTexture("SkyCube", *skyboxTex);
+    StandardPBRShader.SetTexture("AmbientOcclusion", ambientOcclusion.Result());
 
     StandardPBRShader.Group(1)
     .AddTexture("albedoMap", 0, TextureType_2D)
@@ -307,6 +317,34 @@ standardPBRPipeline()
     StandardPBRShader.SetDrawVariants(true);
 
     StandardPBRShader.Build();
+
+    // Depth, view-space normals (for ambient occlusion) and entity ids (for picking), single sampled.
+    // Group 1 matches the PBR material group, so the materials' bind groups work here too.
+    PrepassShader.Group(0)
+    .AddBuffer("CameraInfo", 0, standardPBRPipeline.cameraBuffer)
+    .AddBuffer("DrawInfo", 1, standardPBRPipeline.drawBuffer)
+    .AddBuffer("ModelData", 2, standardPBRPipeline.transformBuffer)
+    .AddBuffer("Material", 3, standardPBRPipeline.materialsBuffer)
+    .AddBuffer("BoneData", 4, standardPBRPipeline.boneBuffer);
+
+    PrepassShader.Group(1)
+    .AddTexture("albedoMap", 0, TextureType_2D)
+    .AddTexture("normalMap", 1, TextureType_2D)
+    .AddTexture("metallicRoughnessMap", 2, TextureType_2D)
+    .AddTexture("occlusionMap", 3, TextureType_2D)
+    .AddTexture("emissiveMap", 4, TextureType_2D)
+    .AddSampler("albedoSampler", 5)
+    .AddSampler("normalSampler", 6)
+    .AddSampler("metallicRoughnessSampler", 7)
+    .AddSampler("occlusionSampler", 8)
+    .AddSampler("emissiveSampler", 9);
+
+    PrepassShader.SetMaterialGroup(1);
+    PrepassShader.SetVertexStructLayout(vertexLayout);
+    PrepassShader.SetWGSL(FileReader::LoadRawString("/Shaders/prepass.wgsl"));
+    PrepassShader.SetRenderpass(&prepass);
+    PrepassShader.SetDrawVariants(true);
+    PrepassShader.Build();
 
     standardPBRPipeline.boneBuffer.Write(boneData, 0);
 
@@ -372,7 +410,7 @@ standardPBRPipeline()
             if (!material || material->GetGpuSlot() == MaterialAsset::kInvalidSlot)
                 material = defaultMaterial.Get().get();
             if (material)
-                drawItems.push_back({ material, mesh, i, form.id, boneOffset, DrawVariant(mesh->submeshes[i].topology, material->doubleSided, mirrored) });
+                drawItems.push_back({ material, mesh, i, form.id, boneOffset, DrawVariant(mesh->submeshes[i].topology, material->doubleSided, mirrored, material->properties.alphaCutoff > 0.0f) });
         }
     });
 
@@ -487,7 +525,16 @@ void EditorApp::OnWindowResized(int w, int h)
 
     m_Window.GetSurface();
     cam->SetViewportSize(w, h);
+    ResizeTargets(w, h);
+}
+
+void EditorApp::ResizeTargets(uint32_t w, uint32_t h)
+{
     renderpass.Recreate(w, h);
+    prepass.Recreate(w, h);
+    ambientOcclusion.Resize(w, h);
+    // The PBR shader reads the AO result, which was just recreated.
+    StandardPBRShader.RebuildBindGroups();
     postProcess.Resize(w, h);
 }
 
@@ -549,7 +596,7 @@ void EditorApp::OnStart()
     inspectorWindow = inspector.get();
     EditorWindows["Inspector"] = std::move(inspector);
     EditorWindows["Loaded Assets"] = std::make_unique<LoadedAssetsWindow>(gui, assets);
-    EditorWindows["Post Processing"] = std::make_unique<PostProcessWindow>(gui, postProcess);
+    EditorWindows["Post Processing"] = std::make_unique<PostProcessWindow>(gui, postProcess, ambientOcclusion);
     EditorWindows["Lighting"] = std::make_unique<LightingWindow>(gui, lighting);
     EditorWindows["Hierarchy"] = std::make_unique<HierarchyWindow>(
         gui,
@@ -570,11 +617,24 @@ void EditorApp::OnStart()
 
     for (auto& pass : shadowpasses)
         renderer.PushRenderpass(pass.get());
+    renderer.PushRenderpass(&prepass);
+    ambientOcclusion.AddPasses(renderer);
     renderer.PushRenderpass(&renderpass);
     postProcess.AddPasses(renderer);
 
     // The sun comes from `lighting` (ApplyLighting); cascades are fitted around the camera every
     // frame (UpdateShadowCascades).
+
+    // The same draws as the scene pass, for depth, normals and picking.
+    prepass.recordCallback = [this]() {
+        for (const DrawBatch& batch : mainBatches)
+        {
+            prepass.SetShader2(PrepassShader, batch.variant);
+            prepass.SetMesh(batch.mesh);
+            prepass.SetMaterial2(PrepassShader, batch.material->material);
+            prepass.Draw(batch.indexCount, batch.startIndex, batch.firstInstance, batch.instanceCount);
+        }
+    };
 
     renderpass.recordCallback = [this]() {
         if (!mainBatches.empty())
@@ -638,8 +698,7 @@ void EditorApp::OnUpdate(float deltaTime)
         m_Window.ToggleFullscreen();
         m_Window.GetSurface();
         cam->SetViewportSize(m_Window.GetWidth(), m_Window.GetHeight());
-        renderpass.Recreate(m_Window.GetWidth(), m_Window.GetHeight());
-        postProcess.Resize(m_Window.GetWidth(), m_Window.GetHeight());
+        ResizeTargets(m_Window.GetWidth(), m_Window.GetHeight());
     }
 
     if (selectedEntityID != static_cast<uint64_t>(-1) &&
@@ -661,7 +720,7 @@ void EditorApp::OnUpdate(float deltaTime)
     // or two later. Clicks on UI or the gizmo don't pick.
     double x, y;
     input.GetMousePosition(x, y);
-    Texture& pickTarget = renderpass.GetRenderTarget(1);
+    Texture& pickTarget = prepass.GetRenderTarget(1);
     if (input.IsMouseButtonPressed(MouseButton::Left) &&
         !ImGui::GetIO().WantCaptureMouse && !ImGuizmo::IsOver() && !ImGuizmo::IsUsing() &&
         x > 0 && y > 0 && x < m_Window.GetWidth() && y < m_Window.GetHeight())
@@ -672,8 +731,9 @@ void EditorApp::OnUpdate(float deltaTime)
     uint64_t pickedID;
     if (pickTarget.TryGetPixelReadback(pickedID))
     {
+        // 0: nothing was drawn there (the prepass clears to 0, and flecs never uses id 0).
         DeselectEntity();
-        if (pickedID != UINT64_MAX)
+        if (pickedID != 0 && pickedID != UINT64_MAX)
             SelectEntity(pickedID);
     }
 
@@ -900,7 +960,7 @@ void EditorApp::ApplyLighting()
 {
     const glm::vec3 lightDir = lighting.LightDirection();
     const glm::vec4 sunColor(lighting.sunColor * lighting.sunIntensity, 1.0f);
-    const glm::vec4 skyParams(lighting.skyIntensity, lighting.reflectionIntensity, 0.0f, 0.0f);
+    const glm::vec4 skyParams(lighting.skyIntensity, lighting.reflectionIntensity, ambientOcclusion.enabled ? 1.0f : 0.0f, 0.0f);
     if (lightDir == ubo.lightDir && sunColor == ubo.sunColor && skyParams == ubo.skyParams)
         return;
 
@@ -1100,6 +1160,7 @@ void EditorApp::OnRender()
         standardPBRPipeline.boneBuffer.Write(frameBones);
 
     BuildDrawLists();
+    ambientOcclusion.Update();
     postProcess.Update();
     renderer.Render(&gui);
 }

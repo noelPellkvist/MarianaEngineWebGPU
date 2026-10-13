@@ -182,10 +182,14 @@ void Renderpass::Start(void* encoder, bool surfaceTarget, void* surfaceView)
     std::vector<wgpu::RenderPassColorAttachment> attachments(NumberOfOutputs());
     for (uint8_t i = 0; i < NumberOfOutputs(); i++)
     {
+      // MSAA targets resolve into the single-sample ones (which later passes read); the samples
+      // themselves aren't kept.
+      const bool resolve = m_MSSA && !(i == 0 && surfaceTarget);
       attachments[i] = {
       .view = (i == 0 && surfaceTarget) ? *static_cast<wgpu::TextureView*>(surfaceView) : *static_cast<wgpu::TextureView*>(GetRenderTarget(i).GetTextureView()),
+      .resolveTarget = resolve ? *static_cast<wgpu::TextureView*>(GetRenderResloveTarget(i).GetTextureView()) : wgpu::TextureView(),
       .loadOp = wgpu::LoadOp::Clear,
-      .storeOp = wgpu::StoreOp::Store};
+      .storeOp = resolve ? wgpu::StoreOp::Discard : wgpu::StoreOp::Store};
     }
 
     wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = attachments.size(),

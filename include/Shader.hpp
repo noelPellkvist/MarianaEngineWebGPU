@@ -185,6 +185,8 @@ public:
     // discard (alpha-tested shadows).
     Shader2& SetDepthOnlyFragment(bool enabled) { m_DepthOnlyFragment = enabled; return *this; }
     Shader2& Build(bool shadow = false);
+    // Recreates the shader's own bind groups, e.g. after textures it reads were recreated at a new size.
+    void RebuildBindGroups() { BuildBindgroups(); }
 
 private:
     std::string m_Name;

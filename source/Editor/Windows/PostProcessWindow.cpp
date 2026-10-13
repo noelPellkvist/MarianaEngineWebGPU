@@ -2,9 +2,10 @@
 
 #include <imgui.h>
 
-PostProcessWindow::PostProcessWindow(GUI& gui, PostProcessPipeline& postProcess)
+PostProcessWindow::PostProcessWindow(GUI& gui, PostProcessPipeline& postProcess, AmbientOcclusion& ambientOcclusion)
     : EditorWindow("Post Processing", gui, false),
-      m_postProcess(postProcess)
+      m_postProcess(postProcess),
+      m_ambientOcclusion(ambientOcclusion)
 {
 }
 
@@ -25,6 +26,18 @@ void PostProcessWindow::Draw()
         ImGui::SliderFloat("Knee", &m_postProcess.bloomKnee, 0.0f, 2.0f, "%.2f");
         ImGui::SliderFloat("Radius", &m_postProcess.bloomRadius, 0.25f, 4.0f, "%.2f");
         ImGui::EndDisabled();
+
+        ImGui::PushID("AO");
+        ImGui::SeparatorText("Ambient Occlusion (GTAO)");
+        ImGui::Checkbox("Enabled", &m_ambientOcclusion.enabled);
+        ImGui::BeginDisabled(!m_ambientOcclusion.enabled);
+        ImGui::DragFloat("Radius", &m_ambientOcclusion.radius, 0.01f, 0.05f, 5.0f, "%.2f m");
+        ImGui::SliderFloat("Power", &m_ambientOcclusion.power, 0.5f, 4.0f, "%.2f");
+        ImGui::EndDisabled();
+        ImGui::PopID();
+
+        ImGui::SeparatorText("Anti-aliasing");
+        ImGui::TextDisabled("4x MSAA, alpha to coverage on alpha-tested materials");
     }
     ImGui::End();
 }
