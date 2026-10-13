@@ -1,4 +1,4 @@
-#include <Editor/GLTFLoader.hpp>
+#include <Importers/GLTFLoader.hpp>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -19,8 +19,8 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <Logger.hpp>
-#include <Material.hpp>
 #include <MaterialAsset.hpp>
+#include <Geometry/MeshBuilder.hpp>
 #include <BuiltinAssets.hpp>
 #include <Renderer.hpp>
 #include <Animation.hpp>
@@ -260,102 +260,24 @@ std::vector<glm::mat4> ReadAccessor<glm::mat4>(const tinygltf::Model& model,
     return result;
 }
 
-// Tangents are optional in glTF, but normal maps need them. Each triangle's direction of
-// increasing u (and v) is summed on its vertices (Lengyel's method), then made perpendicular to the
-// normal. w picks the bitangent side so it points up the texture (decreasing v), as glTF expects.
-void GenerateTangents(std::vector<GLTF::Vertex>& vertices, const std::vector<uint32_t>& indices)
+// glTF primitive modes as mesh section topologies (BuildMesh converts the non-list ones).
+SourceTopology ToSourceTopology(int mode)
 {
-    std::vector<glm::vec3> tangents(vertices.size(), glm::vec3(0.0f));
-    std::vector<glm::vec3> bitangents(vertices.size(), glm::vec3(0.0f));
-    for (size_t i = 0; i + 2 < indices.size(); i += 3)
-    {
-        const uint32_t i0 = indices[i], i1 = indices[i + 1], i2 = indices[i + 2];
-        if (i0 >= vertices.size() || i1 >= vertices.size() || i2 >= vertices.size())
-            continue;
-
-        const glm::vec3 e1 = vertices[i1].position - vertices[i0].position;
-        const glm::vec3 e2 = vertices[i2].position - vertices[i0].position;
-        const glm::vec2 d1 = vertices[i1].texcoord0 - vertices[i0].texcoord0;
-        const glm::vec2 d2 = vertices[i2].texcoord0 - vertices[i0].texcoord0;
-        const float det = d1.x * d2.y - d2.x * d1.y;
-        if (std::abs(det) < 1e-12f)
-            continue;
-
-        const glm::vec3 t = (e1 * d2.y - e2 * d1.y) / det;
-        const glm::vec3 b = (e2 * d1.x - e1 * d2.x) / det;
-        for (const uint32_t index : { i0, i1, i2 })
-        {
-            tangents[index] += t;
-            bitangents[index] += b;
-        }
-    }
-
-    for (size_t i = 0; i < vertices.size(); ++i)
-    {
-        const glm::vec3 n = vertices[i].normal;
-        glm::vec3 t = tangents[i] - n * glm::dot(n, tangents[i]);
-        // No usable UVs around this vertex: any direction along the surface.
-        if (glm::dot(t, t) < 1e-12f)
-            t = glm::cross(n, std::abs(n.y) < 0.99f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f));
-        t = glm::normalize(t);
-        const float w = glm::dot(glm::cross(n, t), bitangents[i]) < 0.0f ? 1.0f : -1.0f;
-        vertices[i].tangent = glm::vec4(t, w);
-    }
-}
-
-// Turns glTF strips, fans and loops into plain lists (the only topologies the pipelines draw),
-// keeping every triangle's winding.
-PrimitiveTopology ToListTopology(int mode, std::vector<uint32_t>& indices)
-{
-    std::vector<uint32_t> list;
     switch (mode)
     {
-        case TINYGLTF_MODE_POINTS:
-            return PrimitiveTopology::Points;
-        case TINYGLTF_MODE_LINE:
-            indices.resize(indices.size() & ~size_t(1));
-            return PrimitiveTopology::Lines;
-        case TINYGLTF_MODE_LINE_LOOP:
-        case TINYGLTF_MODE_LINE_STRIP:
-            for (size_t i = 0; i + 1 < indices.size(); ++i) {
-                list.push_back(indices[i]);
-                list.push_back(indices[i + 1]);
-            }
-            if (mode == TINYGLTF_MODE_LINE_LOOP && indices.size() > 2) {
-                list.push_back(indices.back());
-                list.push_back(indices.front());
-            }
-            indices.swap(list);
-            return PrimitiveTopology::Lines;
-        case TINYGLTF_MODE_TRIANGLE_STRIP:
-            // Every other triangle of a strip is wound the other way, so it is flipped back.
-            for (size_t i = 0; i + 2 < indices.size(); ++i) {
-                const bool odd = (i % 2) == 1;
-                list.push_back(indices[i]);
-                list.push_back(indices[i + (odd ? 2 : 1)]);
-                list.push_back(indices[i + (odd ? 1 : 2)]);
-            }
-            indices.swap(list);
-            return PrimitiveTopology::Triangles;
-        case TINYGLTF_MODE_TRIANGLE_FAN:
-            for (size_t i = 0; i + 2 < indices.size(); ++i) {
-                list.push_back(indices[i + 1]);
-                list.push_back(indices[i + 2]);
-                list.push_back(indices[0]);
-            }
-            indices.swap(list);
-            return PrimitiveTopology::Triangles;
-        default:
-            indices.resize(indices.size() - indices.size() % 3);
-            return PrimitiveTopology::Triangles;
+        case TINYGLTF_MODE_POINTS:         return SourceTopology::Points;
+        case TINYGLTF_MODE_LINE:           return SourceTopology::Lines;
+        case TINYGLTF_MODE_LINE_LOOP:      return SourceTopology::LineLoop;
+        case TINYGLTF_MODE_LINE_STRIP:     return SourceTopology::LineStrip;
+        case TINYGLTF_MODE_TRIANGLE_STRIP: return SourceTopology::TriangleStrip;
+        case TINYGLTF_MODE_TRIANGLE_FAN:   return SourceTopology::TriangleFan;
+        default:                           return SourceTopology::Triangles;
     }
 }
 
-void LoadVertices(const tinygltf::Model& model,
-                  const tinygltf::Primitive& primitive,
-                  std::vector<GLTF::Vertex>& outVertices,
-                  std::vector<uint32_t>& outIndices,
-                  PrimitiveTopology& outTopology)
+// A primitive as a mesh section. Without normals glTF asks for flat shading, which BuildMesh does
+// (ignoring any tangents); points and lines keep a zero normal, which the PBR shader draws unlit.
+MeshSection LoadPrimitive(const tinygltf::Model& model, const tinygltf::Primitive& primitive, uint32_t materialIndex)
 {
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
@@ -408,23 +330,22 @@ void LoadVertices(const tinygltf::Model& model,
         throw std::runtime_error("Primitive has no POSITION attribute (invalid glTF).");
     }
 
-    // --- Indices ---
-    outIndices.clear();
+    MeshSection section;
+    section.topology = ToSourceTopology(primitive.mode);
+    section.materialIndex = materialIndex;
+    section.hasNormals = !normals.empty();
+    section.hasTangents = !tangents.empty();
+
+    // Without indices, the vertices are used in order.
     if (primitive.indices >= 0) {
         const tinygltf::Accessor& indexAccessor = model.accessors[primitive.indices];
-        outIndices = ReadAccessor<uint32_t>(model, indexAccessor); // must upcast smaller types
-    } else {
-        outIndices.resize(positions.size());
-        for (size_t i = 0; i < positions.size(); ++i) {
-            outIndices[i] = static_cast<uint32_t>(i);
-        }
+        section.indices = ReadAccessor<uint32_t>(model, indexAccessor); // must upcast smaller types
     }
 
-    // --- Assemble vertices ---
-    size_t vertexCount = positions.size();
-    outVertices.resize(vertexCount);
+    const size_t vertexCount = positions.size();
+    section.vertices.resize(vertexCount);
     for (size_t i = 0; i < vertexCount; ++i) {
-        GLTF::Vertex v{};
+        StandardVertex v{};
         v.position  = (i < positions.size()) ? positions[i] : glm::vec3(0.0f);
         v.normal    = (i < normals.size())   ? normals[i]   : glm::vec3(0.0f);
         v.tangent   = (i < tangents.size())  ? tangents[i]  : glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
@@ -436,40 +357,9 @@ void LoadVertices(const tinygltf::Model& model,
         // Exporters often leave weights not quite summing to 1, which shrinks or swells the skin.
         const float weightSum = v.boneWeights.x + v.boneWeights.y + v.boneWeights.z + v.boneWeights.w;
         if (weightSum > 0.0f) v.boneWeights /= weightSum;
-        outVertices[i] = v;
+        section.vertices[i] = v;
     }
-
-    outTopology = ToListTopology(primitive.mode, outIndices);
-
-    // Without normals glTF asks for flat shading: every triangle gets its own three vertices with
-    // the face's normal, and any tangents given are ignored. Points and lines keep a zero normal,
-    // which the PBR shader draws unlit.
-    if (normals.empty() && outTopology == PrimitiveTopology::Triangles)
-    {
-        std::vector<GLTF::Vertex> flat;
-        flat.reserve(outIndices.size());
-        for (size_t i = 0; i + 2 < outIndices.size(); i += 3)
-        {
-            if (outIndices[i] >= vertexCount || outIndices[i + 1] >= vertexCount || outIndices[i + 2] >= vertexCount)
-                continue;
-            GLTF::Vertex a = outVertices[outIndices[i]];
-            GLTF::Vertex b = outVertices[outIndices[i + 1]];
-            GLTF::Vertex c = outVertices[outIndices[i + 2]];
-            const glm::vec3 n = glm::cross(b.position - a.position, c.position - a.position);
-            a.normal = b.normal = c.normal = glm::dot(n, n) > 1e-20f ? glm::normalize(n) : glm::vec3(0.0f, 0.0f, 1.0f);
-            flat.push_back(a);
-            flat.push_back(b);
-            flat.push_back(c);
-        }
-        outVertices.swap(flat);
-        outIndices.resize(outVertices.size());
-        for (size_t i = 0; i < outIndices.size(); ++i)
-            outIndices[i] = static_cast<uint32_t>(i);
-        tangents.clear();
-    }
-
-    if (tangents.empty() && outTopology == PrimitiveTopology::Triangles)
-        GenerateTangents(outVertices, outIndices);
+    return section;
 }
 
 #pragma endregion
@@ -531,52 +421,11 @@ bool ToRGBA8(const tinygltf::Image& image, std::vector<uint8_t>& out)
 // materialIndex is the primitive's index, i.e. its slot in MeshComponent::materials.
 std::shared_ptr<IMesh> LoadEntireMesh(const tinygltf::Model& model, const tinygltf::Mesh& rawMesh)
 {
-    std::vector<GLTF::Vertex> vertices;
-    std::vector<uint32_t> indices;
-    std::vector<Submesh> submeshes;
-
+    std::vector<MeshSection> sections;
+    sections.reserve(rawMesh.primitives.size());
     for (size_t primIndex = 0; primIndex < rawMesh.primitives.size(); ++primIndex)
-    {
-        std::vector<GLTF::Vertex> localVerts;
-        std::vector<uint32_t>     localIdx;
-        PrimitiveTopology topology = PrimitiveTopology::Triangles;
-        LoadVertices(model, rawMesh.primitives[primIndex], localVerts, localIdx, topology);
-        if(localVerts.empty() || localIdx.empty()) continue;
-
-        const uint32_t baseVertex = (uint32_t)vertices.size();
-        const uint32_t startIndex = (uint32_t)indices.size();
-        vertices.insert(vertices.end(), localVerts.begin(), localVerts.end());
-
-        indices.reserve(indices.size() + localIdx.size());
-        for (uint32_t i : localIdx) indices.push_back(i + baseVertex);
-
-        Submesh sm{};
-        sm.startIndex    = startIndex;
-        sm.indexCount    = (uint32_t)localIdx.size();
-        sm.materialIndex = (uint32_t)primIndex;
-        sm.topology      = topology;
-        submeshes.push_back(sm);
-    }
-
-    if (vertices.empty() || indices.empty())
-        return nullptr;
-
-    std::shared_ptr<IMesh> mesh;
-    if (vertices.size() <= 65536)
-    {
-        // Every index fits in 16 bits: half the index memory and bandwidth.
-        std::vector<uint16_t> shortIndices(indices.begin(), indices.end());
-        mesh = std::make_shared<Mesh<GLTF::Vertex, uint16_t>>(std::move(vertices), std::move(shortIndices));
-    }
-    else
-    {
-        mesh = std::make_shared<Mesh<GLTF::Vertex, uint32_t>>(std::move(vertices), std::move(indices));
-    }
-    mesh->submeshes = std::move(submeshes);
-    mesh->BuildMesh();
-    // The GPU has its own copy now; only the counts and bounds are kept on the CPU.
-    mesh->Clear();
-    return mesh;
+        sections.push_back(LoadPrimitive(model, rawMesh.primitives[primIndex], static_cast<uint32_t>(primIndex)));
+    return BuildMesh(std::move(sections));
 }
 
 struct LoadedMesh
@@ -831,7 +680,7 @@ Animation LoadAnimation(const tinygltf::Model& model, const tinygltf::Animation&
     return animation.Build();
 }
 
-std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const std::filesystem::path& file, Shader2& shader)
+std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const std::filesystem::path& file)
 {
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
@@ -882,19 +731,16 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
         return fileName + "/" + (name.empty() ? std::string(kind) + "_" + std::to_string(index) : name);
     };
 
-    AssetHandle<Texture> whiteSrgb = BuiltinAssets::WhiteTexture(assets, true);
-    AssetHandle<Texture> whiteLinear = BuiltinAssets::WhiteTexture(assets, false);
-    AssetHandle<Texture> flatNormal = BuiltinAssets::FlatNormalTexture(assets);
-
     // Textures are made on demand per (image, color space): base color and emissive hold
-    // sRGB-encoded color, the other maps hold linear data.
-    auto loadTexture = [&](int textureIndex, bool srgb, const AssetHandle<Texture>& fallback) -> AssetHandle<Texture> {
+    // sRGB-encoded color, the other maps hold linear data. No texture: an empty handle, which the
+    // renderer replaces with a neutral one.
+    auto loadTexture = [&](int textureIndex, bool srgb) -> AssetHandle<Texture> {
         if (textureIndex < 0 || textureIndex >= (int)model.textures.size())
-            return fallback;
+            return {};
 
         const int imageIndex = model.textures[textureIndex].source;
         if (imageIndex < 0 || imageIndex >= (int)model.images.size())
-            return fallback;
+            return {};
 
         const std::string key = subKey("image", imageIndex) + (srgb ? "/srgb" : "/linear");
         if (AssetHandle<Texture> existing = assets.Find<Texture>(key); existing.IsValid())
@@ -904,7 +750,7 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
         std::vector<uint8_t> rgba;
         if (!ToRGBA8(image, rgba)) {
             Logger::Warning("Unsupported image format for image " + std::to_string(imageIndex) + " in " + filename);
-            return fallback;
+            return {};
         }
 
         // Mipmapped: minified textures sample from small levels instead of thrashing the cache.
@@ -957,14 +803,8 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
         const tinygltf::Material& mat = model.materials[i];
         const tinygltf::PbrMetallicRoughness& pbr = mat.pbrMetallicRoughness;
 
-        AssetHandle<Texture> albedo = loadTexture(pbr.baseColorTexture.index, true, whiteSrgb);
-        AssetHandle<Texture> normal = loadTexture(mat.normalTexture.index, false, flatNormal);
-        AssetHandle<Texture> metallicRoughness = loadTexture(pbr.metallicRoughnessTexture.index, false, whiteLinear);
-        AssetHandle<Texture> occlusion = loadTexture(mat.occlusionTexture.index, false, whiteLinear);
-        AssetHandle<Texture> emissive = loadTexture(mat.emissiveTexture.index, true, whiteSrgb);
-
         auto material = std::make_shared<MaterialAsset>();
-        GLTFMaterialProperties& props = material->properties;
+        PBRMaterialProperties& props = material->properties;
         if (pbr.baseColorFactor.size() == 4) {
             props.baseColor = glm::vec4(pbr.baseColorFactor[0], pbr.baseColorFactor[1],
                                         pbr.baseColorFactor[2], pbr.baseColorFactor[3]);
@@ -981,38 +821,27 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
         if (emissiveStrength != mat.extensions.end() && emissiveStrength->second.Has("emissiveStrength")) {
             props.emissiveFactor *= (float)emissiveStrength->second.Get("emissiveStrength").GetNumberAsDouble();
         }
-        // Opaque materials ignore alpha. Blending isn't supported, so BLEND is treated like MASK.
-        props.alphaCutoff = mat.alphaMode == "OPAQUE" ? 0.0f : (float)mat.alphaCutoff;
+        // Blending isn't supported yet; BLEND draws like MASK.
+        const AlphaMode alphaMode = mat.alphaMode == "MASK" ? AlphaMode::Mask : mat.alphaMode == "BLEND" ? AlphaMode::Blend : AlphaMode::Opaque;
+        material->SetAlphaMode(alphaMode, (float)mat.alphaCutoff);
         material->doubleSided = mat.doubleSided;
 
-        // Which UV set each texture reads; only TEXCOORD_0 and TEXCOORD_1 are loaded.
-        const int texCoords[5] = { pbr.baseColorTexture.texCoord, mat.normalTexture.texCoord, pbr.metallicRoughnessTexture.texCoord,
-                                   mat.occlusionTexture.texCoord, mat.emissiveTexture.texCoord };
-        for (uint32_t t = 0; t < 5; ++t) {
-            if (texCoords[t] == 1)
-                props.uvSets |= 1u << t;
-            else if (texCoords[t] > 1)
-                Logger::Warning("Material " + std::to_string(i) + " in " + filename + " uses TEXCOORD_" + std::to_string(texCoords[t]) + "; only 0 and 1 are supported");
-        }
-
-        material->material.InitFromShader(shader)
-              .SetTexture("albedoMap", *albedo.Get())
-              .SetTexture("normalMap", *normal.Get())
-              .SetTexture("occlusionMap", *occlusion.Get())
-              .SetTexture("metallicRoughnessMap", *metallicRoughness.Get())
-              .SetTexture("emissiveMap", *emissive.Get())
-              .SetSampler("albedoSampler", samplerFor(pbr.baseColorTexture.index))
-              .SetSampler("normalSampler", samplerFor(mat.normalTexture.index))
-              .SetSampler("metallicRoughnessSampler", samplerFor(pbr.metallicRoughnessTexture.index))
-              .SetSampler("occlusionSampler", samplerFor(mat.occlusionTexture.index))
-              .SetSampler("emissiveSampler", samplerFor(mat.emissiveTexture.index))
-              .Build();
-        material->textures = { albedo, normal, metallicRoughness, occlusion, emissive };
+        // Only TEXCOORD_0 and TEXCOORD_1 are loaded.
+        auto setTexture = [&](MaterialTexture slot, const auto& info, bool srgb) {
+            if (info.texCoord > 1)
+                Logger::Warning("Material " + std::to_string(i) + " in " + filename + " uses TEXCOORD_" + std::to_string(info.texCoord) + "; only 0 and 1 are supported");
+            material->SetTexture(slot, loadTexture(info.index, srgb), samplerFor(info.index), info.texCoord == 1 ? 1u : 0u);
+        };
+        setTexture(MaterialTexture::BaseColor, pbr.baseColorTexture, true);
+        setTexture(MaterialTexture::Normal, mat.normalTexture, false);
+        setTexture(MaterialTexture::MetallicRoughness, pbr.metallicRoughnessTexture, false);
+        setTexture(MaterialTexture::Occlusion, mat.occlusionTexture, false);
+        setTexture(MaterialTexture::Emissive, mat.emissiveTexture, true);
 
         materials[i] = assets.RegisterAsset<MaterialAsset>(material, AssetType::Material, subName(mat.name, "material", i), key);
     }
 
-    AssetHandle<MaterialAsset> defaultMaterial = BuiltinAssets::DefaultMaterial(assets, shader);
+    AssetHandle<MaterialAsset> defaultMaterial = BuiltinAssets::DefaultMaterial(assets);
 
     std::vector<LoadedMesh> meshes(model.meshes.size());
     for (size_t i = 0; i < model.meshes.size(); ++i)
@@ -1096,10 +925,10 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
     return prefab;
 }
 
-void GLTF::GLTFLoader::RegisterLoader(AssetManager2& assets, Shader2& shader)
+void GLTF::GLTFLoader::RegisterLoader(AssetManager2& assets)
 {
     assets.RegisterLoader<Prefab>(AssetType::Prefab, { ".gltf", ".glb" },
-        [&shader](AssetManager2& manager, const AssetMetadata& meta) {
-            return LoadGLTF(manager, meta.path, shader);
+        [](AssetManager2& manager, const AssetMetadata& meta) {
+            return LoadGLTF(manager, meta.path);
         });
 }

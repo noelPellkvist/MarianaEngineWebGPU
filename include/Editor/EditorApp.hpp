@@ -5,6 +5,7 @@
 #include <Editor/Windows/EditorWindow.hpp>
 #include <Rendering/SceneRenderer.hpp>
 #include <Rendering/Effect.hpp>
+#include <BuiltinAssets.hpp>
 
 #include <filesystem>
 #include <memory>
@@ -42,6 +43,7 @@ class EditorApp : public Application
 
         void OnWindowResized(int w, int h);
         void SpawnPrefab(const std::filesystem::path& path);
+        Entity SpawnPrimitive(BuiltinMesh shape, const char* name);
 
         void SelectEntity(uint64_t id);
         void DeselectEntity();

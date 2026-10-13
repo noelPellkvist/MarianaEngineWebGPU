@@ -5,6 +5,7 @@
 #include <ICamera.hpp>
 #include <FileReader.hpp>
 #include <BuiltinAssets.hpp>
+#include <Geometry/Primitives.hpp>
 #include <SkyLight.hpp>
 #include <Logger.hpp>
 
@@ -16,7 +17,7 @@
 
 namespace
 {
-    GLTF::Vertex v{};
+    StandardVertex v{};
     VertexBufferLayout vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1, v.color0, v.boneIndices, v.boneWeights};
 
     const char* kSceneColorMS = "SceneColorMS";
@@ -126,37 +127,15 @@ namespace
     // A cube seen from inside: the sky shader uses its positions as view directions.
     std::shared_ptr<IMesh> MakeSkyCube()
     {
-        auto mesh = std::make_shared<Mesh<GLTF::Vertex, uint16_t>>();
-        const glm::vec3 axes[3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
-        for (int axis = 0; axis < 3; ++axis)
-        {
-            for (float side : { -1.0f, 1.0f })
-            {
-                const glm::vec3 n = axes[axis] * side;
-                const glm::vec3 u = axes[(axis + 1) % 3];
-                const glm::vec3 w = axes[(axis + 2) % 3];
-                const uint16_t base = static_cast<uint16_t>(mesh->vertices.size());
-                for (glm::vec2 corner : { glm::vec2(-1, -1), glm::vec2(1, -1), glm::vec2(1, 1), glm::vec2(-1, 1) })
-                {
-                    GLTF::Vertex vertex{};
-                    vertex.position = n + u * corner.x + w * corner.y;
-                    vertex.color0 = glm::vec4(1.0f);
-                    mesh->vertices.push_back(vertex);
-                }
-                // Front faces are the side cross(p1 - p0, p2 - p0) points to; here, the inside.
-                const bool inward = glm::dot(glm::cross(u, w), n) < 0.0f;
-                static const uint16_t order[6] = { 0, 1, 2, 0, 2, 3 };
-                static const uint16_t flipped[6] = { 0, 2, 1, 0, 3, 2 };
-                const uint16_t* triangles = inward ? order : flipped;
-                for (int i = 0; i < 6; ++i)
-                    mesh->indices.push_back(static_cast<uint16_t>(base + triangles[i]));
-            }
-        }
-        mesh->submeshes = { Submesh{ 0, static_cast<uint32_t>(mesh->indices.size()), 0 } };
-        mesh->BuildMesh();
-        mesh->Clear();
-        return mesh;
+        MeshSection cube = Primitives::Cube(2.0f);
+        for (size_t i = 0; i + 2 < cube.indices.size(); i += 3)
+            std::swap(cube.indices[i + 1], cube.indices[i + 2]);
+        return BuildMesh({ std::move(cube) });
     }
+
+    // Shader names of each MaterialTexture's texture and sampler.
+    const char* const kMaterialTextureNames[] = { "albedoMap", "normalMap", "metallicRoughnessMap", "occlusionMap", "emissiveMap" };
+    const char* const kMaterialSamplerNames[] = { "albedoSampler", "normalSampler", "metallicRoughnessSampler", "occlusionSampler", "emissiveSampler" };
 }
 
 SceneRenderer::SceneRenderer(Scene& scene, AssetManager2& assets)
@@ -193,6 +172,11 @@ void SceneRenderer::Init(RenderGraph& renderGraph)
     unoccluded = BuiltinAssets::WhiteTexture(assets, false);
     graph->SetFallback(kAmbientOcclusion, unoccluded.Get().get());
 
+    // What an empty material texture slot samples: neutral for its use.
+    materialFallbacks = { BuiltinAssets::WhiteTexture(assets, true), BuiltinAssets::FlatNormalTexture(assets),
+                          BuiltinAssets::WhiteTexture(assets, false), BuiltinAssets::WhiteTexture(assets, false),
+                          BuiltinAssets::WhiteTexture(assets, true) };
+
     for (uint32_t c = 0; c < kShadowCascades; ++c)
     {
         shadowPasses[c] = &graph->AddPass(GraphPassDesc{
@@ -225,7 +209,7 @@ void SceneRenderer::Init(RenderGraph& renderGraph)
 
     LoadSky();
     BuildShaders(*shadowPasses[0], prepass, forward);
-    defaultMaterial = BuiltinAssets::DefaultMaterial(assets, pbrShader);
+    defaultMaterial = BuiltinAssets::DefaultMaterial(assets);
     CreateSystems();
 }
 
@@ -353,6 +337,29 @@ void SceneRenderer::BindGraphTextures()
         pbrShader.BindTexture(ShadowMapName(c), graph->GetTexture(ShadowMapName(c)));
     pbrShader.BindTexture("AmbientOcclusion", graph->GetTexture(kAmbientOcclusion));
     pbrShader.RebuildBindGroups();
+}
+
+void SceneRenderer::BuildMaterialBindGroups()
+{
+    // The masked shadow and prepass shaders declare the same material group as the PBR shader, so
+    // one bind group serves all three.
+    assets.ForEach<MaterialAsset>([this](AssetID, MaterialAsset& material) {
+        if (!material.BindGroupDirty())
+            return;
+
+        material.material.InitFromShader(pbrShader);
+        for (uint32_t t = 0; t < static_cast<uint32_t>(MaterialTexture::Count); ++t)
+        {
+            const MaterialAsset::TextureSlot& slot = material.GetTexture(static_cast<MaterialTexture>(t));
+            Texture* texture = slot.texture.Get().get();
+            if (!texture || !texture->GetTextureView())
+                texture = materialFallbacks[t].Get().get();
+            material.material.SetTexture(kMaterialTextureNames[t], *texture)
+                             .SetSampler(kMaterialSamplerNames[t], slot.sampler);
+        }
+        material.material.Build();
+        material.ClearBindGroupDirty();
+    });
 }
 
 void SceneRenderer::CreateSystems()
@@ -503,6 +510,7 @@ void SceneRenderer::Prepare(ICamera& camera)
 
     writeTransformBufferSystem.Run();
     pipeline.FlushTransforms();
+    BuildMaterialBindGroups();
     pipeline.UploadDirtyMaterials(assets);
 
     // Joint matrices for every skin, in one write; draws find theirs through SkinComponent::boneOffset.
@@ -649,6 +657,9 @@ void SceneRenderer::BuildDrawLists()
         {
             uint64_t h = reinterpret_cast<uintptr_t>(item.mesh) ^ (uint64_t(item.transformIndex) << 32) ^ item.transformVersion;
             h ^= (uint64_t(item.startIndex) << 20) ^ reinterpret_cast<uintptr_t>(item.material);
+            // An edited alpha-tested material may cut different holes.
+            if (item.material)
+                h ^= uint64_t(item.material->Version()) * 0xC2B2AE3D27D4EB4Full;
             h *= 0x9E3779B97F4A7C15ull;
             signature += h ^ (h >> 29);
         }

@@ -192,6 +192,13 @@ void AssetsExplorer::DrawAssetsWindow()
                     ImGui::TextDisabled("%s", en.name.c_str());
                     ImGui::EndDragDropSource();
                 }
+                if (en.isImage && ImGui::BeginDragDropSource()) {
+                    const std::string& dragPath = en.pathString;
+                    ImGui::SetDragDropPayload("MARIANA_ASSET_IMAGE", dragPath.c_str(), dragPath.size() + 1);
+                    ImGui::TextUnformatted("Drop on a material texture slot");
+                    ImGui::TextDisabled("%s", en.name.c_str());
+                    ImGui::EndDragDropSource();
+                }
             }
             ImVec2 rMin = ImGui::GetItemRectMin();
             ImVec2 rMax = ImGui::GetItemRectMax();

@@ -2,8 +2,11 @@
 #include <AssetsSystem/AssetManager.hpp>
 #include <Texture.hpp>
 
-class Shader2;
 class MaterialAsset;
+class IMesh;
+
+// The shapes PrimitiveMesh makes (Geometry/Primitives).
+enum class BuiltinMesh { Cube, Sphere, Plane };
 
 // Small engine-provided assets, created on first use and registered as persistent.
 namespace BuiltinAssets
@@ -15,5 +18,8 @@ namespace BuiltinAssets
     AssetHandle<Texture> FlatNormalTexture(AssetManager2& assets);
 
     // Plain white, rough, non-metallic material for primitives that don't specify one.
-    AssetHandle<MaterialAsset> DefaultMaterial(AssetManager2& assets, Shader2& pbrShader);
+    AssetHandle<MaterialAsset> DefaultMaterial(AssetManager2& assets);
+
+    // A 1 m cube, a 1 m wide sphere or a 10 m ground plane, shared by everything that uses it.
+    AssetHandle<IMesh> PrimitiveMesh(AssetManager2& assets, BuiltinMesh shape);
 }

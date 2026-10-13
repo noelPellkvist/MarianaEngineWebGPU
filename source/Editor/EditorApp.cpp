@@ -1,7 +1,9 @@
 #include <Editor/EditorApp.hpp>
 #include <FileReader.hpp>
 #include <Editor/EditorCameraController.hpp>
-#include <Editor/GLTFLoader.hpp>
+#include <Importers/GLTFLoader.hpp>
+#include <BuiltinAssets.hpp>
+#include <MaterialAsset.hpp>
 #include <ECS.hpp>
 #include <Prefab.hpp>
 #include <AnimationPlayer.hpp>
@@ -92,7 +94,7 @@ effects(renderer.graph, sceneRenderer.CameraBuffer())
     renderer.graph.SetBackbufferFormat(m_Window.GetWindowFormat());
     renderer.graph.SetOutputSize(m_Window.GetWidth(), m_Window.GetHeight());
     sceneRenderer.Init(renderer.graph);
-    GLTF::GLTFLoader::RegisterLoader(assets, sceneRenderer.PBRShader());
+    GLTF::GLTFLoader::RegisterLoader(assets);
 
     effects.Add("/Effects/GTAO.effect");
     effects.Add("/Effects/Bloom.effect");
@@ -142,13 +144,35 @@ void EditorApp::SpawnPrefab(const fs::path& path)
     Logger::Info("Spawned prefab from: " + path.string());
 }
 
+Entity EditorApp::SpawnPrimitive(BuiltinMesh shape, const char* name)
+{
+    AssetHandle<IMesh> mesh = BuiltinAssets::PrimitiveMesh(assets, shape);
+    if (!mesh.IsValid())
+        return {};
+
+    // Each spawned shape gets its own material, so editing one leaves the others alone.
+    AssetHandle<MaterialAsset> material = assets.RegisterAsset<MaterialAsset>(std::make_shared<MaterialAsset>(), AssetType::Material, std::string(name) + " Material");
+
+    // A few metres in front of the camera.
+    const CameraInfo info = cam->GetCameraInfo();
+    const glm::vec3 position = info.pos + glm::normalize(glm::vec3(info.invView[2])) * 5.0f;
+
+    Entity spawned = scene.Instantiate(name);
+    spawned.SetPosition(position.x, position.y, position.z);
+    spawned.Add<MeshComponent>(MeshComponent{ mesh, { material } }).AddTag<ShadowCasterTag>();
+    scene.Update(0.0f);
+    DeselectEntity();
+    SelectEntity(spawned.RawId());
+    return spawned;
+}
+
 void EditorApp::OnStart()
 {
     Logger::Info("Starting");
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
     EditorWindows["Assets"] = std::make_unique<AssetsExplorer>(gui);
-    auto inspector = std::make_unique<InspectorWindow>(gui);
+    auto inspector = std::make_unique<InspectorWindow>(gui, assets);
     inspectorWindow = inspector.get();
     EditorWindows["Inspector"] = std::move(inspector);
     EditorWindows["Loaded Assets"] = std::make_unique<LoadedAssetsWindow>(gui, assets);
@@ -387,6 +411,14 @@ void EditorApp::DrawTopMenu()
             if (ImGui::MenuItem("Cut", "Ctrl+X")) {/* TODO */}
             if (ImGui::MenuItem("Copy", "Ctrl+C")) {/* TODO */}
             if (ImGui::MenuItem("Paste", "Ctrl+V")) {/* TODO */}
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Create"))
+        {
+            if (ImGui::MenuItem("Cube")) SpawnPrimitive(BuiltinMesh::Cube, "Cube");
+            if (ImGui::MenuItem("Sphere")) SpawnPrimitive(BuiltinMesh::Sphere, "Sphere");
+            if (ImGui::MenuItem("Plane")) SpawnPrimitive(BuiltinMesh::Plane, "Plane");
             ImGui::EndMenu();
         }
 

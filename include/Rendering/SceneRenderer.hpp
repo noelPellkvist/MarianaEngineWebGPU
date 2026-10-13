@@ -23,8 +23,10 @@ struct Frustum { glm::vec4 planes[6]; };
 
 // Renders an ECS scene from a camera into a render graph: frustum culling, sorted instanced draw
 // lists, GPU skinning, cascaded shadow maps, a depth/normal/entity-id prepass, the forward PBR pass
-// (4x MSAA) and the sky. Its results are graph textures that other passes and effects read; it
-// reads AmbientOcclusion, which an effect may write (unoccluded otherwise).
+// (4x MSAA) and the sky. It draws entities with a MeshComponent, whatever made their meshes and
+// materials (an importer, Primitives, code), and builds the materials' GPU bind groups itself.
+// Its results are graph textures that other passes and effects read; it reads AmbientOcclusion,
+// which an effect may write (unoccluded otherwise).
 class SceneRenderer
 {
 public:
@@ -54,8 +56,7 @@ public:
     void InvalidateShadows() { shadowsDirty = true; }
 
     Buffer& CameraBuffer() { return pipeline.cameraBuffer; }
-    // Material bind groups are built against this shader's material group.
-    Shader2& PBRShader() { return pbrShader; }
+    // What submeshes without a (valid) material draw with.
     const AssetHandle<MaterialAsset>& DefaultMaterial() const { return defaultMaterial; }
 
 private:
@@ -85,6 +86,7 @@ private:
     System skinningSystem;
 
     AssetHandle<MaterialAsset> defaultMaterial;
+    std::array<AssetHandle<Texture>, static_cast<size_t>(MaterialTexture::Count)> materialFallbacks;
     AssetHandle<Texture> skyCubemap;
     std::shared_ptr<IMesh> skyMesh;
     AssetHandle<Texture> unoccluded; // what AmbientOcclusion reads when nothing writes it
@@ -116,6 +118,8 @@ private:
     void BuildShaders(Renderpass& shadow, Renderpass& prepass, Renderpass& forward);
     void CreateSystems();
     void BindGraphTextures();
+    // (Re)builds the texture bind group of every material that is new or had a texture changed.
+    void BuildMaterialBindGroups();
     void ApplyLighting();
     void UpdateShadowCascades(const ICamera& camera);
     void BuildDrawLists();

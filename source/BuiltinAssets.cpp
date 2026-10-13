@@ -1,6 +1,6 @@
 #include <BuiltinAssets.hpp>
 #include <MaterialAsset.hpp>
-#include <Shader.hpp>
+#include <Geometry/Primitives.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -39,28 +39,32 @@ namespace BuiltinAssets
         return SolidTexture(assets, "builtin://texture/flat_normal", "Flat Normal", flatNormal, TextureFormat::RGBA8Unorm);
     }
 
-    AssetHandle<MaterialAsset> DefaultMaterial(AssetManager2& assets, Shader2& pbrShader)
+    AssetHandle<MaterialAsset> DefaultMaterial(AssetManager2& assets)
     {
         const std::string key = "builtin://material/default";
         if (AssetHandle<MaterialAsset> existing = assets.Find<MaterialAsset>(key); existing.IsValid())
             return existing;
 
-        AssetHandle<Texture> albedo = WhiteTexture(assets, true);
-        AssetHandle<Texture> normal = FlatNormalTexture(assets);
-        AssetHandle<Texture> data = WhiteTexture(assets, false);
-
+        // No textures: the renderer binds neutral ones in their place.
         auto material = std::make_shared<MaterialAsset>();
-        material->material.InitFromShader(pbrShader)
-            .SetTexture("albedoMap", *albedo.Get())
-            .SetTexture("normalMap", *normal.Get())
-            .SetTexture("metallicRoughnessMap", *data.Get())
-            .SetTexture("occlusionMap", *data.Get())
-            .SetTexture("emissiveMap", *albedo.Get())
-            .Build();
-        material->textures = { albedo, normal, data };
-
         AssetHandle<MaterialAsset> handle = assets.RegisterAsset<MaterialAsset>(material, AssetType::Material, "Default Material", key);
         assets.SetPersistent(handle.GetID(), true);
         return handle;
+    }
+
+    AssetHandle<IMesh> PrimitiveMesh(AssetManager2& assets, BuiltinMesh shape)
+    {
+        const char* name = shape == BuiltinMesh::Cube ? "Cube" : shape == BuiltinMesh::Sphere ? "Sphere" : "Plane";
+        const std::string key = std::string("builtin://mesh/") + name;
+        if (AssetHandle<IMesh> existing = assets.Find<IMesh>(key); existing.IsValid())
+            return existing;
+
+        MeshSection section = shape == BuiltinMesh::Cube ? Primitives::Cube(1.0f)
+                            : shape == BuiltinMesh::Sphere ? Primitives::Sphere(0.5f)
+                            : Primitives::Plane(10.0f, 10);
+        std::shared_ptr<IMesh> mesh = BuildMesh({ std::move(section) });
+        if (!mesh)
+            return {};
+        return assets.RegisterAsset<IMesh>(mesh, AssetType::Mesh, name, key);
     }
 }

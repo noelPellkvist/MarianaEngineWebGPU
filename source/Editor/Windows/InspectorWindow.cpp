@@ -11,8 +11,8 @@
 #include <string>
 #include <vector>
 
-InspectorWindow::InspectorWindow(GUI& gui)
-    : EditorWindow("Inspector", gui, true)
+InspectorWindow::InspectorWindow(GUI& gui, AssetManager2& assets)
+    : EditorWindow("Inspector", gui, true), m_assets(assets)
 {
     RegisterComponentDrawers();
 }
@@ -35,7 +35,7 @@ void InspectorWindow::RegisterComponentDrawers()
 {
     m_componentDrawers["LocalTRS"] = &InspectorComponents::DrawLocalTRS;
     m_componentDrawers["AnimationPlayer"] = &InspectorComponents::DrawAnimationComponent;
-    m_componentDrawers["MeshComponent"] = &InspectorComponents::DrawMeshComponent;
+    m_componentDrawers["MeshComponent"] = [this](Entity& entity) { InspectorComponents::DrawMeshComponent(entity, m_assets); };
 }
 
 void InspectorWindow::Draw()

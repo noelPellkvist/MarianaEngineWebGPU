@@ -6,7 +6,7 @@
 #include <glm/glm.hpp>
 #include <MaterialAsset.hpp>
 #include <ICamera.hpp>
-#include <Editor/GLTFLoader.hpp>
+#include <Vertex.hpp>
 
 // Cascaded shadow maps: the camera's view out to kShadowDistance is split into kShadowCascades
 // slices, each with its own square depth map (kShadowMapSize texels wide) fitted around it.
@@ -79,12 +79,12 @@ class StandardPBRPipeline
 
         UBO ubo{};
         TransformData transformData{};
-        GLTFMaterialProperties materialData{};
+        PBRMaterialProperties materialData{};
         CameraInfo cameraInfo{};
         BoneData boneData{};
         DrawData drawData{};
         ShadowCascadeData cascadeData{};
-        GLTF::Vertex v{};
+        StandardVertex v{};
 
         UniformBufferLayout uboLayout;
         StorageArrayLayout transformLayout;
