@@ -4,6 +4,7 @@
 #include <Importers/GLTFLoader.hpp>
 #include <BuiltinAssets.hpp>
 #include <MaterialAsset.hpp>
+#include <Rendering/RenderPipeline.hpp>
 #include <ECS.hpp>
 #include <Prefab.hpp>
 #include <AnimationPlayer.hpp>
@@ -15,7 +16,7 @@
 #include <Editor/Windows/HierarchyWindow.hpp>
 #include <Editor/Windows/InspectorWindow.hpp>
 #include <Editor/Windows/LoadedAssetsWindow.hpp>
-#include <Editor/Windows/PostProcessWindow.hpp>
+#include <Editor/Windows/RenderPipelineWindow.hpp>
 #include <Editor/Windows/LightingWindow.hpp>
 
 #include <sstream>
@@ -28,6 +29,11 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
 namespace fs = std::filesystem;
+
+namespace
+{
+    const char* const kDefaultPipeline = "/Pipelines/Default.pipeline";
+}
 
 #pragma region Helpers
 
@@ -87,7 +93,6 @@ effects(renderer.graph, sceneRenderer.CameraBuffer())
 
     cam = new EditorCameraController(input);
     cam->SetViewportSize(m_Window.GetWidth(), m_Window.GetHeight());
-    cam->SetExposure(1.5f);
 
     // The scene renderer adds the scene passes; effects add ambient occlusion and the post-process
     // chain that ends on the screen.
@@ -96,9 +101,13 @@ effects(renderer.graph, sceneRenderer.CameraBuffer())
     sceneRenderer.Init(renderer.graph);
     GLTF::GLTFLoader::RegisterLoader(assets);
 
-    effects.Add("/Effects/GTAO.effect");
-    effects.Add("/Effects/Bloom.effect");
-    effects.Add("/Effects/Tonemap.effect");
+    // The effects, their settings, the exposure and the shadow settings come from a pipeline file.
+    RenderPipelineDesc pipeline;
+    std::string pipelineError;
+    if (RenderPipelineDesc::Load(kDefaultPipeline, pipeline, pipelineError))
+        pipeline.Apply(effects, sceneRenderer, cam);
+    else
+        Logger::Error("Could not load the render pipeline: " + pipelineError);
 
     animationSystem = scene.CreateSystem<AnimationPlayer>([](Entity e, AnimationPlayer& player, float dt) {
         player.Update(e, dt);
@@ -176,7 +185,7 @@ void EditorApp::OnStart()
     inspectorWindow = inspector.get();
     EditorWindows["Inspector"] = std::move(inspector);
     EditorWindows["Loaded Assets"] = std::make_unique<LoadedAssetsWindow>(gui, assets);
-    EditorWindows["Post Processing"] = std::make_unique<PostProcessWindow>(gui, effects, *cam);
+    EditorWindows["Render Pipeline"] = std::make_unique<RenderPipelineWindow>(gui, effects, sceneRenderer, *cam, kDefaultPipeline);
     EditorWindows["Lighting"] = std::make_unique<LightingWindow>(gui, sceneRenderer.lighting);
     EditorWindows["Hierarchy"] = std::make_unique<HierarchyWindow>(
         gui,
@@ -429,7 +438,7 @@ void EditorApp::DrawTopMenu()
             if (ImGui::MenuItem("Inspector")) { EditorWindows["Inspector"]->SetOpen(!EditorWindows["Inspector"]->IsOpen()); }
             if (ImGui::MenuItem("Stats")) { EditorWindows["Stats"]->SetOpen(!EditorWindows["Stats"]->IsOpen()); }
             if (ImGui::MenuItem("Loaded Assets")) { EditorWindows["Loaded Assets"]->SetOpen(!EditorWindows["Loaded Assets"]->IsOpen()); }
-            if (ImGui::MenuItem("Post Processing")) { EditorWindows["Post Processing"]->SetOpen(!EditorWindows["Post Processing"]->IsOpen()); }
+            if (ImGui::MenuItem("Render Pipeline")) { EditorWindows["Render Pipeline"]->SetOpen(!EditorWindows["Render Pipeline"]->IsOpen()); }
             if (ImGui::MenuItem("Lighting")) { EditorWindows["Lighting"]->SetOpen(!EditorWindows["Lighting"]->IsOpen()); }
             ImGui::EndMenu();
         }

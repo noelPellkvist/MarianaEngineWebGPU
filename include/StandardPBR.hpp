@@ -8,11 +8,9 @@
 #include <ICamera.hpp>
 #include <Vertex.hpp>
 
-// Cascaded shadow maps: the camera's view out to kShadowDistance is split into kShadowCascades
-// slices, each with its own square depth map (kShadowMapSize texels wide) fitted around it.
+// Cascaded shadow maps: the camera's view out to the shadow distance is split into kShadowCascades
+// slices, each with its own square depth map fitted around it (SceneRendererSettings).
 inline constexpr uint32_t kShadowCascades = 4; // the shaders pack per-cascade values into vec4s
-inline constexpr uint32_t kShadowMapSize = 2048;
-inline constexpr float kShadowDistance = 80.0f;
 
 struct UBO {
   glm::vec3 lightDir;

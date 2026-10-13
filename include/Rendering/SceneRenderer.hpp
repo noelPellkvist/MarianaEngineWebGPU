@@ -21,6 +21,16 @@ struct SkinComponent;
 // Six inward-facing planes; a point p is inside when dot(plane.xyz, p) + plane.w >= 0 for all.
 struct Frustum { glm::vec4 planes[6]; };
 
+// The scene renderer's options that can change while it runs (see RenderPipelineDesc).
+struct SceneRendererSettings
+{
+    bool shadows = true;
+    float shadowDistance = 80.0f;  // shadows fade out this far from the camera
+    uint32_t shadowMapSize = 2048; // texels per side of each cascade's depth map
+
+    bool operator==(const SceneRendererSettings&) const = default;
+};
+
 // Renders an ECS scene from a camera into a render graph: frustum culling, sorted instanced draw
 // lists, GPU skinning, cascaded shadow maps, a depth/normal/entity-id prepass, the forward PBR pass
 // (4x MSAA) and the sky. It draws entities with a MeshComponent, whatever made their meshes and
@@ -50,6 +60,10 @@ public:
     void Prepare(ICamera& camera);
 
     LightingSettings lighting;
+
+    const SceneRendererSettings& Settings() const { return settings; }
+    // Takes effect from the next Prepare; a new shadow map size recreates the maps.
+    void SetSettings(const SceneRendererSettings& value);
     // Keeps the prepass (and its entity ids) even when nothing in the graph reads it: editor picking.
     bool writeEntityIds = true;
     // Redraws every shadow cascade (the cache can't see e.g. edited geometry).
@@ -91,6 +105,7 @@ private:
     std::shared_ptr<IMesh> skyMesh;
     AssetHandle<Texture> unoccluded; // what AmbientOcclusion reads when nothing writes it
 
+    SceneRendererSettings settings;
     std::array<Renderpass*, kShadowCascades> shadowPasses{};
     bool built = false;
 
@@ -114,6 +129,7 @@ private:
     // WorldXform::version last uploaded per transform slot.
     std::vector<uint32_t> uploadedTransformVersions;
 
+    void AddShadowMaps();
     void LoadSky();
     void BuildShaders(Renderpass& shadow, Renderpass& prepass, Renderpass& forward);
     void CreateSystems();

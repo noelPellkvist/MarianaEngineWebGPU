@@ -1,0 +1,34 @@
+{
+  "name": "Default",
+  "exposure": 1.5,
+  "scene": {
+    "shadows": true,
+    "shadowDistance": 80.0,
+    "shadowMapSize": 2048
+  },
+  "effects": [
+    {
+      "effect": "/Effects/GTAO.effect",
+      "enabled": true,
+      "parameters": {
+        "radius": 0.6,
+        "power": 1.5
+      }
+    },
+    {
+      "effect": "/Effects/Bloom.effect",
+      "enabled": true,
+      "parameters": {
+        "intensity": 1.0,
+        "threshold": 1.0,
+        "knee": 0.5,
+        "radius": 1.0
+      }
+    },
+    {
+      "effect": "/Effects/Tonemap.effect",
+      "enabled": true,
+      "parameters": {}
+    }
+  ]
+}

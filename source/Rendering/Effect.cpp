@@ -459,6 +459,12 @@ void EffectStack::Remove(EffectInstance* effect)
     m_Dirty = true;
 }
 
+void EffectStack::Clear()
+{
+    m_Effects.clear();
+    m_Dirty = true;
+}
+
 void EffectStack::Move(EffectInstance* effect, int delta)
 {
     auto it = std::find_if(m_Effects.begin(), m_Effects.end(), [effect](const std::unique_ptr<EffectInstance>& e) { return e.get() == effect; });

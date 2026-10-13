@@ -96,6 +96,7 @@ public:
     size_t ParamCount() const { return m_Values.size(); }
     const EffectParamInfo& ParamInfo(size_t index) const { return m_Definition->params[index]; }
     glm::vec4& ParamValue(size_t index) { return m_Values[index]; }
+    const glm::vec4& ParamValue(size_t index) const { return m_Values[index]; }
     // By name; false if the effect has no such parameter.
     bool SetParam(const std::string& name, const glm::vec4& value);
     bool GetParam(const std::string& name, glm::vec4& value) const;
@@ -135,6 +136,8 @@ public:
     // Loads an effect file and appends it; nullptr (and an error in the log) if it can't be loaded.
     EffectInstance* Add(const std::string& path);
     void Remove(EffectInstance* effect);
+    // Removes every effect (the screen then shows SceneColor through the plain present).
+    void Clear();
     // Moves an effect `delta` places within its stage.
     void Move(EffectInstance* effect, int delta);
     // The first effect with that name, or nullptr.

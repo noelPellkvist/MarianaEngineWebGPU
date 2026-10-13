@@ -160,8 +160,7 @@ void SceneRenderer::Init(RenderGraph& renderGraph)
 {
     graph = &renderGraph;
 
-    for (uint32_t c = 0; c < kShadowCascades; ++c)
-        graph->AddTexture(ShadowMapName(c), GraphTextureDesc{ .format = TextureFormat::Depth24Plus, .width = kShadowMapSize, .height = kShadowMapSize }, this);
+    AddShadowMaps();
     graph->AddTexture(kSceneDepth, GraphTextureDesc{ .format = TextureFormat::Depth24Plus }, this);
     graph->AddTexture(kSceneNormals, GraphTextureDesc{ .format = TextureFormat::RGB10A2Unorm }, this);
     graph->AddTexture(kEntityIds, GraphTextureDesc{ .format = TextureFormat::RGBA16Uint }, this);
@@ -211,6 +210,25 @@ void SceneRenderer::Init(RenderGraph& renderGraph)
     BuildShaders(*shadowPasses[0], prepass, forward);
     defaultMaterial = BuiltinAssets::DefaultMaterial(assets);
     CreateSystems();
+}
+
+void SceneRenderer::AddShadowMaps()
+{
+    const uint32_t size = std::max(settings.shadowMapSize, 16u);
+    for (uint32_t c = 0; c < kShadowCascades; ++c)
+        graph->AddTexture(ShadowMapName(c), GraphTextureDesc{ .format = TextureFormat::Depth24Plus, .width = size, .height = size }, this);
+}
+
+void SceneRenderer::SetSettings(const SceneRendererSettings& value)
+{
+    if (value == settings)
+        return;
+    const bool resize = value.shadowMapSize != settings.shadowMapSize;
+    settings = value;
+    // The graph recreates the maps on its next compile and the shaders rebind them (BindGraphTextures).
+    if (resize && graph)
+        AddShadowMaps();
+    shadowsDirty = true;
 }
 
 void SceneRenderer::LoadSky()
@@ -547,7 +565,7 @@ void SceneRenderer::UpdateShadowCascades(const ICamera& camera)
     constexpr float kLogSplitWeight = 0.75f;
 
     const float nearClip = camera.NearClip();
-    const float farClip = std::min(kShadowDistance, camera.FarClip());
+    const float farClip = std::max(std::min(settings.shadowDistance, camera.FarClip()), nearClip * 2.0f);
     const float tanHalfFov = std::tan(glm::radians(camera.FieldOfView()) * 0.5f);
     // Distance of a slice corner from the view axis, per unit of view depth.
     const float cornerSlope = tanHalfFov * std::sqrt(camera.Aspect() * camera.Aspect() + 1.0f);
@@ -574,7 +592,7 @@ void SceneRenderer::UpdateShadowCascades(const ICamera& camera)
         radius = std::ceil(radius * 16.0f) / 16.0f;
 
         // Snap the centre to whole texels in light space, so shadow edges don't crawl as the camera moves.
-        const float texel = 2.0f * radius / kShadowMapSize;
+        const float texel = 2.0f * radius / std::max(settings.shadowMapSize, 16u);
         glm::vec3 center = glm::vec3(cameraInfo.invView * glm::vec4(0.0f, 0.0f, centerDepth, 1.0f));
         glm::vec3 centerLight = glm::vec3(lightRotation * glm::vec4(center, 1.0f));
         centerLight.x = std::floor(centerLight.x / texel) * texel;
@@ -613,7 +631,9 @@ void SceneRenderer::BuildDrawLists()
 
     cameraFrustum = ExtractFrustum(cameraInfo.viewProj);
     gatherDrawsSystem.Run();
-    gatherShadowCastersSystem.Run();
+    // Without shadows the maps are cleared once (no casters) and then left alone.
+    if (settings.shadows)
+        gatherShadowCastersSystem.Run();
 
     // Identical (material, mesh, submesh) draws end up adjacent; each run becomes one instanced draw.
     std::sort(drawItems.begin(), drawItems.end(), [](const DrawItem& a, const DrawItem& b) {
@@ -646,8 +666,9 @@ void SceneRenderer::BuildDrawLists()
     for (uint32_t c = 0; c < kShadowCascades; ++c)
     {
         uint64_t signature = shadowItems[c].size();
+        // An empty map is the same wherever the cascade is.
         const float* cascadeMatrix = glm::value_ptr(ubo.cascadeVP[c]);
-        for (int i = 0; i < 16; ++i)
+        for (int i = 0; i < 16 && !shadowItems[c].empty(); ++i)
         {
             uint32_t bits;
             std::memcpy(&bits, &cascadeMatrix[i], sizeof(bits));
