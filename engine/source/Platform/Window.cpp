@@ -7,6 +7,7 @@
 #include "Graphics/Init.hpp"
 #include <stb_image.h>
 #include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
 #include <webgpu/webgpu_cpp.h>
 #include <webgpu/webgpu_glfw.h>
 
@@ -32,7 +33,7 @@ Window::Window(uint32_t width, uint32_t height, std::string title, std::string l
     if (logoPath.empty())
         return;
     GLFWimage image;
-    image.pixels = stbi_load((std::string(RESOURCE_DIR) + logoPath).c_str(), &image.width, &image.height, nullptr, 4);
+    image.pixels = stbi_load(FileSystem::Resolve(logoPath).string().c_str(), &image.width, &image.height, nullptr, 4);
     if (image.pixels)
         glfwSetWindowIcon(m_Window, 1, &image);
     else

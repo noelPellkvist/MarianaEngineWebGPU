@@ -1,6 +1,7 @@
 #include <Mariana/Rendering/RenderPipeline.hpp>
 #include <Mariana/Rendering/ICamera.hpp>
 #include <Mariana/Foundation/FileReader.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 
 #include <json.hpp>
@@ -159,7 +160,7 @@ bool RenderPipelineDesc::Save(const std::string& path, std::string& error) const
     }
     file["effects"] = list;
 
-    const std::filesystem::path fullPath = std::string(RESOURCE_DIR) + path;
+    const std::filesystem::path fullPath = FileSystem::ResolveForWrite(path);
     std::error_code ec;
     std::filesystem::create_directories(fullPath.parent_path(), ec);
     std::ofstream stream(fullPath, std::ios::binary | std::ios::trunc);

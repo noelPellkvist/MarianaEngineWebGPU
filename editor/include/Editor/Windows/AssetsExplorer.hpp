@@ -12,7 +12,8 @@
 class AssetsExplorer final : public EditorWindow
 {
 public:
-    AssetsExplorer(GUI& gui);
+    // Browses `root` (the project's content).
+    AssetsExplorer(GUI& gui, std::filesystem::path root);
     void Draw() override;
 
 private:
@@ -23,12 +24,13 @@ private:
         std::string pathString;
         std::string name;
         std::string extension; // lowercase, with the dot
-        std::string localKey;  // "/sub/dir/file.ext" relative to RESOURCE_DIR
+        std::string localKey;  // "/sub/dir/file.ext" relative to the root (a resource path)
         bool isDir = false;
         bool isImage = false;
         bool isGltf = false;
     };
 
+    std::filesystem::path m_root;
     std::unordered_map<std::string, Texture> AssetsTextures;
     std::unordered_set<std::string> m_failedThumbnails;
     std::vector<Entry> m_entries;

@@ -43,7 +43,8 @@ struct RenderPipelineDesc
     SceneRendererSettings scene;
     std::vector<Effect> effects;
 
-    // Paths are relative to the resources folder, like "/Pipelines/Default.pipeline".
+    // Resource paths (FileSystem), like "/Pipelines/Default.pipeline". Save overwrites the file the
+    // path resolves to, or creates it under the first root.
     static bool Load(const std::string& path, RenderPipelineDesc& out, std::string& error);
     bool Save(const std::string& path, std::string& error) const;
 

@@ -19,8 +19,8 @@ inline bool IsImageExtension(const std::string& ext) {
     return std::find(allowed.begin(), allowed.end(), e) != allowed.end();
 }
 
-AssetsExplorer::AssetsExplorer(GUI& gui)
-    : EditorWindow("Assets", gui, true)
+AssetsExplorer::AssetsExplorer(GUI& gui, std::filesystem::path root)
+    : EditorWindow("Assets", gui, true), m_root(std::move(root))
 {
     // Thumbnails are loaded lazily as their folder is shown, not all at startup.
 }
@@ -79,7 +79,7 @@ void AssetsExplorer::ScanDirectory(const fs::path& dir, const fs::path& root)
                 entry.isImage = IsImageExtension(entry.extension);
                 entry.isGltf = entry.extension == ".glb" || entry.extension == ".gltf";
 
-                // Local key relative to RESOURCE_DIR in form "/sub/dir/file.ext" (thumbnail lookup)
+                // Local key relative to the root in form "/sub/dir/file.ext" (thumbnail lookup)
                 std::error_code rel_ec;
                 fs::path rel = fs::relative(entry.path, root, rel_ec);
                 entry.localKey = "/" + (rel_ec ? entry.path.filename() : rel).generic_string();
@@ -96,7 +96,7 @@ void AssetsExplorer::ScanDirectory(const fs::path& dir, const fs::path& root)
 
 void AssetsExplorer::DrawAssetsWindow()
 {
-    static const fs::path kRoot = fs::path(RESOURCE_DIR);
+    const fs::path& kRoot = m_root;
     static float tileSize  = 96.0f;
     static float labelH    = 24.0f;
     static float padding   = 8.0f;

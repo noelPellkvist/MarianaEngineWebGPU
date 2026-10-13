@@ -5,10 +5,30 @@
 #include <Mariana/Rendering/RenderPipeline.hpp>
 #include <imgui.h>
 
+#include <Mariana/Foundation/FileSystem.hpp>
+
 #include <cctype>
 #include <filesystem>
+#include <set>
 #include <string>
 #include <utility>
+
+namespace
+{
+    // The files with `extension` in a resource folder, across every FileSystem root.
+    std::set<std::string> ListResources(const std::string& folder, const std::string& extension)
+    {
+        std::set<std::string> files;
+        for (const std::filesystem::path& root : FileSystem::Roots())
+        {
+            std::error_code error;
+            for (const auto& entry : std::filesystem::directory_iterator(root / folder, error))
+                if (entry.path().extension() == extension)
+                    files.insert(entry.path().filename().string());
+        }
+        return files;
+    }
+}
 
 RenderPipelineWindow::RenderPipelineWindow(GUI& gui, EffectStack& effects, SceneRenderer& sceneRenderer, ICamera& camera, std::string pipelinePath)
     : EditorWindow("Render Pipeline", gui, false),
@@ -54,12 +74,8 @@ void RenderPipelineWindow::DrawPipelineFile()
     const std::string current = std::filesystem::path(m_pipelinePath).filename().string();
     if (ImGui::BeginCombo("Pipeline", current.empty() ? "None" : current.c_str()))
     {
-        std::error_code error;
-        for (const auto& entry : std::filesystem::directory_iterator(std::string(RESOURCE_DIR) + "/Pipelines", error))
+        for (const std::string& file : ListResources("Pipelines", ".pipeline"))
         {
-            if (entry.path().extension() != ".pipeline")
-                continue;
-            const std::string file = entry.path().filename().string();
             if (ImGui::Selectable(file.c_str(), file == current))
                 LoadPipeline("/Pipelines/" + file);
         }
@@ -213,12 +229,8 @@ void RenderPipelineWindow::Draw()
         ImGui::Separator();
         if (ImGui::BeginCombo("##add", "Add effect..."))
         {
-            std::error_code error;
-            for (const auto& entry : std::filesystem::directory_iterator(std::string(RESOURCE_DIR) + "/Effects", error))
+            for (const std::string& file : ListResources("Effects", ".effect"))
             {
-                if (entry.path().extension() != ".effect")
-                    continue;
-                const std::string file = entry.path().filename().string();
                 if (ImGui::Selectable(file.c_str()))
                     m_effects.Add("/Effects/" + file);
             }

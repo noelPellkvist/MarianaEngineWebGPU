@@ -76,7 +76,7 @@ struct EffectDefinition
     std::vector<Texture> textures;
     std::vector<Pass> passes;
 
-    // Reads and validates an effect file (path relative to the resources folder, like "/Effects/Bloom.effect").
+    // Reads and validates an effect file (a resource path, like "/Effects/Bloom.effect").
     static std::shared_ptr<EffectDefinition> Load(const std::string& path, std::string& error);
 };
 

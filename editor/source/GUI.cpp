@@ -6,6 +6,8 @@
 #include <backends/imgui_impl_glfw.h>
 
 #include <Mariana/Graphics/NativeGPU.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
+#include <string>
 #include <Mariana/Foundation/Logger.hpp>
 
 static ImVec4 Lerp(const ImVec4& a, const ImVec4& b, float t) {
@@ -151,6 +153,9 @@ void GUI::InitGui(Window& window)
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    // The layout is kept with the editor, wherever it is started from.
+    static const std::string iniPath = std::string(MARIANA_EDITOR_DIR) + "/imgui.ini";
+    io.IniFilename = iniPath.c_str();
 
     ImGui_ImplGlfw_InitForOther(window.GetWindow(), true);
 
@@ -170,7 +175,7 @@ void GUI::InitGui(Window& window)
     config.MergeMode = false;
     config.PixelSnapH = true;
 
-    io.Fonts->AddFontFromFileTTF((std::string(RESOURCE_DIR) + "/Fonts/JetBrainsMonoNerdFont-Regular.ttf").c_str(), 16.0f, &config);
+    io.Fonts->AddFontFromFileTTF(FileSystem::Resolve("/Fonts/JetBrainsMonoNerdFont-Regular.ttf").string().c_str(), 16.0f, &config);
 }
 
 void GUI::PreUpdateGUI()

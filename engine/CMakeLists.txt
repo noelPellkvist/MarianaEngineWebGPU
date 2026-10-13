@@ -12,8 +12,8 @@ target_include_directories(MarianaEngine
           "${PROJECT_SOURCE_DIR}/external/tinygltf"
 )
 
-# Until the resources are split per project, every app reads the repository's resources folder.
-target_compile_definitions(MarianaEngine PUBLIC RESOURCE_DIR="${PROJECT_SOURCE_DIR}/resources")
+# The default engine root of FileSystem (apps add their own roots in front of it).
+target_compile_definitions(MarianaEngine PRIVATE MARIANA_ENGINE_RESOURCES="${MARIANA_ENGINE_RESOURCES}")
 
 # The ECS wrapper is opaque, so flecs stays private to the engine.
 target_link_libraries(MarianaEngine

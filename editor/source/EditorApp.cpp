@@ -176,7 +176,7 @@ void EditorApp::OnStart()
     gui.InitGui(m_Window);
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
-    EditorWindows["Assets"] = std::make_unique<AssetsExplorer>(gui);
+    EditorWindows["Assets"] = std::make_unique<AssetsExplorer>(gui, MARIANA_PROJECT_DIR);
     auto inspector = std::make_unique<InspectorWindow>(gui, assets);
     inspectorWindow = inspector.get();
     EditorWindows["Inspector"] = std::move(inspector);

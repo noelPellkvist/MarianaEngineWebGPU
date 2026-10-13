@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include <Mariana/Foundation/FileReader.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 #include <fstream>
 #include <sstream>
@@ -10,10 +11,10 @@
 
 std::string FileReader::LoadRawString(const std::string& path)
 {
-    std::filesystem::path realPath = std::string(RESOURCE_DIR) + path;
+    const std::filesystem::path realPath = FileSystem::Resolve(path);
     std::ifstream file(realPath, std::ios::binary);
-    if (!file.is_open()) {
-        const std::string message = "Failed to open file: " + realPath.string();
+    if (realPath.empty() || !file.is_open()) {
+        const std::string message = "Failed to open file: " + path;
         Logger::Error(message);
         throw std::runtime_error(message);
     }
@@ -25,7 +26,7 @@ std::string FileReader::LoadRawString(const std::string& path)
 std::vector<uint8_t> FileReader::LoadPixelsFromImage(const std::string& path, int& width, int& height)
 {
     int channels;
-    unsigned char *pixelData = stbi_load((std::string(RESOURCE_DIR) + path).c_str(), &width, &height, &channels, 4);
+    unsigned char *pixelData = stbi_load(FileSystem::Resolve(path).string().c_str(), &width, &height, &channels, 4);
     if (!pixelData) {
         throw std::runtime_error("Failed to load image: " + path);
     }

@@ -67,6 +67,9 @@ endif()
 # Every app lands in bin/ (bin/<Config>/ with multi-config generators like Visual Studio).
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
+# The engine's built-in resources (shaders, effects, pipelines, the default sky); every app needs them.
+set(MARIANA_ENGINE_RESOURCES "${PROJECT_SOURCE_DIR}/engine/resources")
+
 include(cmake/MarianaWeb.cmake)
 
 # The engine library, then the apps built on it. The engine never depends on an app.
