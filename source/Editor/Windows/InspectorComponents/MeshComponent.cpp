@@ -2,7 +2,7 @@
 
 #include <MaterialAsset.hpp>
 #include <Mesh.hpp>
-#include <Renderer.hpp>
+#include <Rendering/Components.hpp>
 #include <Importers/ImageImporter.hpp>
 #include <imgui.h>
 

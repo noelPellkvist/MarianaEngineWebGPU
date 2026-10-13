@@ -5,7 +5,7 @@
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
 
-#include "Init.hpp"
+#include <NativeGPU.hpp>
 #include <Logger.hpp>
 
 static ImVec4 Lerp(const ImVec4& a, const ImVec4& b, float t) {
@@ -155,9 +155,9 @@ void GUI::InitGui(Window& window)
     ImGui_ImplGlfw_InitForOther(window.GetWindow(), true);
 
     ImGui_ImplWGPU_InitInfo info = {};
-    info.Device = device.Get();
+    info.Device = NativeGPU::Device().Get();
     info.NumFramesInFlight = 3;
-    info.RenderTargetFormat = static_cast<WGPUTextureFormat>(windowFormat);
+    info.RenderTargetFormat = static_cast<WGPUTextureFormat>(NativeGPU::SurfaceFormat());
     info.DepthStencilFormat = WGPUTextureFormat_Undefined; // UI pass has no depth attachment
     info.PipelineMultisampleState.count = 1;
     if(ImGui_ImplWGPU_Init(&info))

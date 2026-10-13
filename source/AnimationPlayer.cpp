@@ -129,6 +129,12 @@ namespace
     }
 }
 
+void AnimationPlayer::RegisterComponents()
+{
+    ECS::RegisterComponent<AnimationTargetEntity>("AnimationTargetEntity");
+    ECS::RegisterComponent<AnimationPlayer>("AnimationPlayer");
+}
+
 AnimationPlayer::AnimationPlayer(const AnimationPlayer& other)
     : clips(other.clips),
       currentClip(other.currentClip),

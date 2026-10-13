@@ -29,6 +29,9 @@ struct AnimationPlayer
     AnimationPlayer(AnimationPlayer&&) = default;
     AnimationPlayer& operator=(AnimationPlayer&&) = default;
 
+    // AnimationPlayer and AnimationTargetEntity; call before Scene::UpdateComponentRegistry.
+    static void RegisterComponents();
+
     // Switches to clips[clipIndex] and plays it from the start.
     void Play(int clipIndex);
 

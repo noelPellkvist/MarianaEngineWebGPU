@@ -1,5 +1,5 @@
 #include <Rendering/SceneRenderer.hpp>
-#include <Renderer.hpp>
+#include <Rendering/Components.hpp>
 #include <Skin.hpp>
 #include <AnimationPlayer.hpp>
 #include <ICamera.hpp>

@@ -29,6 +29,8 @@ Window::Window(uint32_t width, uint32_t height, std::string title, std::string l
 
     glfwSetFramebufferSizeCallback(m_Window, FramebufferSizeCallback);
 
+    if (logoPath.empty())
+        return;
     GLFWimage image;
     image.pixels = stbi_load((std::string(RESOURCE_DIR) + logoPath).c_str(), &image.width, &image.height, nullptr, 4);
     if (image.pixels)

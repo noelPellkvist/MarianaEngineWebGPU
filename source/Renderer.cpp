@@ -4,7 +4,6 @@
 #include <Material.hpp>
 #include <Mesh.hpp>
 #include <Shader.hpp>
-#include <GUI.hpp>
 #include <webgpu/webgpu_cpp.h>
 
 Renderer::Renderer()
@@ -17,8 +16,8 @@ Renderer::~Renderer()
   
 }
 
-// ImGui draws on top of the frame, without depth.
-void RenderGUI(wgpu::TextureView& view, wgpu::CommandEncoder& encoder, GUI& gui)
+// The overlay draws on top of the frame, without depth.
+void RenderOverlay(wgpu::TextureView& view, wgpu::CommandEncoder& encoder, const Renderer::Overlay& overlay)
 {
   wgpu::RenderPassColorAttachment attachment{
     .view = view,
@@ -31,11 +30,11 @@ void RenderGUI(wgpu::TextureView& view, wgpu::CommandEncoder& encoder, GUI& gui)
                                         .depthStencilAttachment = nullptr};
 
   auto pass = encoder.BeginRenderPass(&renderpassDesc);
-  gui.PostUpdateGUI(&pass);
+  overlay(static_cast<void*>(&pass));
   pass.End();
 }
 
-void Renderer::Render(GUI* gui)
+void Renderer::Render(const Overlay& overlay)
 {
     wgpu::SurfaceTexture surfaceTexture;
     surface.GetCurrentTexture(&surfaceTexture);
@@ -43,8 +42,8 @@ void Renderer::Render(GUI* gui)
     wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
 
     graph.Execute(static_cast<void*>(&encoder), static_cast<void*>(&backbuffer));
-    if (gui != nullptr)
-      RenderGUI(backbuffer, encoder, *gui);
+    if (overlay)
+      RenderOverlay(backbuffer, encoder, overlay);
 
     wgpu::CommandBuffer commands = encoder.Finish();
     device.GetQueue().Submit(1, &commands);

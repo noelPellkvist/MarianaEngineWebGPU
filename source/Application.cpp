@@ -5,13 +5,13 @@
 #endif
 #include <chrono>
 
-Application::Application(const std::string& name)
-    : m_Name(name), m_Running(false), m_Window(1366, 768, name, "/logo.png"), input(m_Window.GetWindow())
+Application::Application(const WindowSettings& window)
+    : m_Running(false), m_Window(window.width, window.height, window.title, window.iconPath), input(m_Window.GetWindow())
 {
     Init();
     // Configure the surface now so derived apps can build pipelines for the window's format.
     m_Window.GetSurface();
-    Logger::Info("Application Created: " + m_Name);
+    Logger::Info("Application Created");
 }
 
 Application::~Application()
@@ -22,7 +22,6 @@ void Application::Start()
 {
     Logger::Info("Application Starting...");
     Initalize();
-    gui.InitGui(m_Window);
     Logger::Info("Application Started.");
     OnStart();
     m_Running = true;
@@ -57,10 +56,12 @@ void Application::MainLoop()
 
     //first thing that happens in the loop is we get the time at the start of the frame
     OnUpdate(dt);
-    cam->OnUpdate(dt);
-    cam->UpdateBuffer();
+    if (cam)
+    {
+        cam->OnUpdate(dt);
+        cam->UpdateBuffer();
+    }
 
-    gui.PreUpdateGUI();
     OnGUI();
 
     //After everything is updated we render
@@ -72,5 +73,4 @@ void Application::MainLoop()
 
 void Application::Shutdown()
 {
-    gui.KillGui();
 }

@@ -1,6 +1,6 @@
 #include <Editor/EditorApp.hpp>
 
 int main() {
-  EditorApp app("Mariana Engine Editor");
+  EditorApp app;
   app.Start();
 }

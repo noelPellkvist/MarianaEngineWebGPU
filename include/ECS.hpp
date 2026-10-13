@@ -60,6 +60,8 @@ namespace ECS {
     void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name = nullptr);
     void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle);
     void RegisterTag(const std::type_info& ti, const char* name = nullptr);
+    // The ECS's own components (names, transforms); every Scene does this on construction.
+    void RegisterBuiltinComponents();
 
     namespace detail {
         uint32_t NextTypeSlot();

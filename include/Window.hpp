@@ -4,6 +4,15 @@
 #include <string>
 #include <functional>
 
+// The window an app asks for. The engine has no defaults: the app decides.
+struct WindowSettings
+{
+    std::string title;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    std::string iconPath; // resource path of an image; empty = the platform's icon
+};
+
 class Window {
     public:
         Window(uint32_t width, uint32_t height, std::string title, std::string logoPath = "");

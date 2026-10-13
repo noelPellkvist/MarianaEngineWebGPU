@@ -12,6 +12,7 @@
 #include <Texture.hpp>
 #include <StandardPBR.hpp>
 #include <MaterialAsset.hpp>
+#include <Rendering/Components.hpp>
 #include <Rendering/RenderGraph.hpp>
 #include <AssetsSystem/AssetManager.hpp>
 

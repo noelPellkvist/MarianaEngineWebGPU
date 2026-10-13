@@ -1,18 +1,19 @@
 #pragma once
-#include <string>
+#include <memory>
 #include <Logger.hpp>
 #include <Window.hpp>
 #include <Renderpass.hpp>
 #include <ICamera.hpp>
 
-#include <GUI.hpp>
 #include <IInput.hpp>
 #include <AssetsSystem/AssetManager.hpp>
 
+// The base of an app (the editor, a game): window, input, assets and the main loop, which calls
+// OnUpdate, updates `cam`, then OnGUI and OnRender every frame. The app chooses its window.
 class Application
 {
     public:
-        Application(const std::string& name = "Game");
+        explicit Application(const WindowSettings& window);
         virtual ~Application();
 
 
@@ -29,15 +30,14 @@ class Application
         
         Window m_Window;
         IInput input;
-        ICamera* cam;
-        GUI gui;
+        // Set by the app; updated by the main loop after OnUpdate.
+        std::unique_ptr<ICamera> cam;
         // Declared in the base class so it outlives everything a derived app owns (scenes,
         // components) that may still hold asset handles.
         AssetManager2 assets;
 
     private:
         bool m_Running;
-        std::string m_Name;
         
 
         void Initalize();

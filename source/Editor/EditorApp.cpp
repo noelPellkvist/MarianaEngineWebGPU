@@ -5,6 +5,7 @@
 #include <BuiltinAssets.hpp>
 #include <MaterialAsset.hpp>
 #include <Rendering/RenderPipeline.hpp>
+#include <Rendering/Components.hpp>
 #include <ECS.hpp>
 #include <Prefab.hpp>
 #include <AnimationPlayer.hpp>
@@ -76,22 +77,16 @@ inline std::string ToString(const uint64_t& v)
 
 static ImGuizmo::OPERATION CurrentGizmoOperation = ImGuizmo::TRANSLATE;
 
-EditorApp::EditorApp(const std::string& name) : Application(name),
+EditorApp::EditorApp() : Application({ .title = "Mariana Engine Editor", .width = 1366, .height = 768, .iconPath = "/logo.png" }),
 sceneRenderer(scene, assets),
 effects(renderer.graph, sceneRenderer.CameraBuffer())
 {
-    ECS::RegisterComponent<NameComponent>("NameComponent");
-    ECS::RegisterComponent<LocalTRS>("LocalTRS");
-    ECS::RegisterComponent<WorldXform>("WorldXform");
-    ECS::RegisterComponent<TransformClock>("TransformClock");
-    ECS::RegisterComponent<XformCache>("XformCache");
-    ECS::RegisterComponent<AnimationTargetEntity>("AnimationTargetEntity");
-    ECS::RegisterComponent<AnimationPlayer>("AnimationPlayer");
+    AnimationPlayer::RegisterComponents();
     SceneRenderer::RegisterComponents();
 
     scene.UpdateComponentRegistry();
 
-    cam = new EditorCameraController(input);
+    cam = std::make_unique<EditorCameraController>(input);
     cam->SetViewportSize(m_Window.GetWidth(), m_Window.GetHeight());
 
     // The scene renderer adds the scene passes; effects add ambient occlusion and the post-process
@@ -105,7 +100,7 @@ effects(renderer.graph, sceneRenderer.CameraBuffer())
     RenderPipelineDesc pipeline;
     std::string pipelineError;
     if (RenderPipelineDesc::Load(kDefaultPipeline, pipeline, pipelineError))
-        pipeline.Apply(effects, sceneRenderer, cam);
+        pipeline.Apply(effects, sceneRenderer, cam.get());
     else
         Logger::Error("Could not load the render pipeline: " + pipelineError);
 
@@ -178,6 +173,7 @@ Entity EditorApp::SpawnPrimitive(BuiltinMesh shape, const char* name)
 void EditorApp::OnStart()
 {
     Logger::Info("Starting");
+    gui.InitGui(m_Window);
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
     EditorWindows["Assets"] = std::make_unique<AssetsExplorer>(gui);
@@ -199,7 +195,7 @@ void EditorApp::OnStart()
             SpawnPrefab(gltfPath);
         });
 
-    if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam)) {
+    if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get())) {
         editorCam->SetPosition({-10.0f, 3.0f, -10.0f});
         editorCam->SetYawPitch(glm::half_pi<float>() / 2, -glm::half_pi<float>() / 5);
     } 
@@ -267,6 +263,7 @@ void EditorApp::OnUpdate(float deltaTime)
 
 void EditorApp::OnGUI()
 {
+    gui.PreUpdateGUI();
     if(selectedEntityID != static_cast<uint64_t>(-1) && selectedEntity.Has<WorldXform>())
     {
         WorldXform& form = *selectedEntity.Get<WorldXform>();
@@ -493,10 +490,11 @@ void EditorApp::OnRender()
     scene.Update(0.0f);
     sceneRenderer.Prepare(*cam);
     effects.Update();
-    renderer.Render(&gui);
+    renderer.Render([this](void* pass) { gui.PostUpdateGUI(static_cast<wgpu::RenderPassEncoder*>(pass)); });
 }
 
 void EditorApp::OnShutdown()
 {
     Logger::Info("Shutdown now");
+    gui.KillGui();
 }

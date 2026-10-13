@@ -1,6 +1,7 @@
 #pragma once
 #include <Application.hpp>
 #include <Renderer.hpp>
+#include <GUI.hpp>
 #include <ECS.hpp>
 #include <Editor/Windows/EditorWindow.hpp>
 #include <Rendering/SceneRenderer.hpp>
@@ -18,7 +19,7 @@ class InspectorWindow;
 class EditorApp : public Application
 {
     public:
-        EditorApp(const std::string& name);
+        EditorApp();
         ~EditorApp() override;
 
     protected:
@@ -29,6 +30,7 @@ class EditorApp : public Application
         void OnShutdown() override;
 
     private:
+        GUI gui;
         std::unordered_map<std::string, std::unique_ptr<EditorWindow>> EditorWindows;
         InspectorWindow* inspectorWindow = nullptr;
         // Declared first: the scene renderer and the effects remove their passes from its graph.

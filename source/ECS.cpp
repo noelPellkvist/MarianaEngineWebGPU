@@ -311,6 +311,7 @@ Scene::Scene() : _p(new Impl) {
     _p->comp_info[idCache] = { sizeof(XformCache), alignof(XformCache) };
     _p->comp_info[idClock] = { sizeof(TransformClock), alignof(TransformClock) };
     _p->ecs.set<TransformClock>({1});
+    ECS::RegisterBuiltinComponents();
 
     // Parents are processed before children (cascade), and the parent's WorldXform/XformCache
     // come straight from the query (null for roots) instead of per-entity lookups.
@@ -735,6 +736,18 @@ uint32_t NextTypeSlot() {
 
 void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name) {
     RegisterComponent(ti, size, align, name, nullptr);
+}
+
+void RegisterBuiltinComponents() {
+    static bool registered = false;
+    if (registered)
+        return;
+    registered = true;
+    RegisterComponent<NameComponent>("NameComponent");
+    RegisterComponent<LocalTRS>("LocalTRS");
+    RegisterComponent<WorldXform>("WorldXform");
+    RegisterComponent<TransformClock>("TransformClock");
+    RegisterComponent<XformCache>("XformCache");
 }
 
 void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle) {

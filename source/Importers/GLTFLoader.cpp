@@ -1,7 +1,5 @@
 #include <Importers/GLTFLoader.hpp>
 #define TINYGLTF_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 
 #include <moved_later/tiny_gltf.h>
 
@@ -22,7 +20,7 @@
 #include <MaterialAsset.hpp>
 #include <Geometry/MeshBuilder.hpp>
 #include <BuiltinAssets.hpp>
-#include <Renderer.hpp>
+#include <Rendering/Components.hpp>
 #include <Animation.hpp>
 #include <AnimationPlayer.hpp>
 #include <Skin.hpp>
