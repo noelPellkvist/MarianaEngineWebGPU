@@ -1,9 +1,9 @@
 {
   "window": { "title": "Mariana Player - Sandbox", "width": 1280, "height": 720 },
   "pipeline": "/Pipelines/Default.pipeline",
-  "camera": { "position": [-11.0, 2.0, -0.4], "target": [10.0, 4.0, 0.0], "orbitSpeed": 0 },
+  "camera": { "position": [2.0, 1.5, 0.7], "target": [5.5, 1.0, -1.0], "orbitSpeed": 0 },
   "spawn": [
     { "prefab": "/Models/Sponza/Sponza.gltf", "position": [0, 0, 0], "scale": 1 },
-    { "prefab": "/Models/Rumba.glb", "position": [-4.5, 0, -0.4], "faceCamera": true }
+    { "prefab": "/Models/Rumba.glb", "position": [5.5, 0, -1.0], "faceCamera": true }
   ]
 }
