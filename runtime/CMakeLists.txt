@@ -41,10 +41,11 @@ if(EMSCRIPTEN)
   endif()
   list(REMOVE_DUPLICATES player_files)
 
-  # Kept out of bin/, which is what the Pages workflow publishes (the editor).
+  # A standalone site in player/ (index.html, .js, .wasm, .data), ready to upload as is. Kept out of
+  # bin/, which is what the Pages workflow publishes (the editor).
   set_target_properties(MarianaPlayer PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/player")
   mariana_web_app(MarianaPlayer
-    OUTPUT_NAME player
+    OUTPUT_NAME index
     SHELL "${CMAKE_CURRENT_SOURCE_DIR}/shell.html"
     PRELOAD ${player_files}
   )
