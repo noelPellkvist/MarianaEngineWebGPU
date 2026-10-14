@@ -1,6 +1,7 @@
 # The Emscripten setup every app's web build shares: its HTML shell, memory and stack, GLFW,
 # ASYNCIFY (the engine waits on WebGPU synchronously) and the preloaded resource folders: the
-# engine's, plus the app's own (PRELOAD). They keep their absolute paths, which FileSystem's roots use.
+# engine's, plus the app's own folders or files (PRELOAD). They keep their absolute paths, which
+# FileSystem's roots use.
 #
 #   mariana_web_app(<target> OUTPUT_NAME <name> [SHELL <html file>] PRELOAD <dir>...)
 # Without SHELL the page is Emscripten's default one.
@@ -24,7 +25,12 @@ function(mariana_web_app target)
     "-sUSE_GLFW=3"
     "SHELL:-sFORCE_FILESYSTEM=1"
   )
-  foreach(dir IN LISTS MARIANA_ENGINE_RESOURCES ARG_PRELOAD)
-    target_link_options(${target} PRIVATE "SHELL:--preload-file ${dir}")
+  foreach(path IN LISTS MARIANA_ENGINE_RESOURCES ARG_PRELOAD)
+    if(IS_DIRECTORY "${path}")
+      target_link_options(${target} PRIVATE "SHELL:--preload-file ${path}")
+    else()
+      # Single files from outside the build folder need their destination spelled out.
+      target_link_options(${target} PRIVATE "SHELL:--preload-file ${path}@${path}")
+    endif()
   endforeach()
 endfunction()

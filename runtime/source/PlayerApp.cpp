@@ -13,6 +13,7 @@
 #include <cmath>
 #include <filesystem>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace
 {
@@ -53,7 +54,9 @@ bool PlayerConfig::Load(const std::string& path, PlayerConfig& out, std::string&
                 Spawn spawn;
                 spawn.prefab = entry.value("prefab", std::string());
                 spawn.position = ReadVec3(entry, "position", spawn.position);
+                spawn.rotation = ReadVec3(entry, "rotation", spawn.rotation);
                 spawn.scale = entry.value("scale", spawn.scale);
+                spawn.faceCamera = entry.value("faceCamera", spawn.faceCamera);
                 if (!spawn.prefab.empty())
                     out.spawns.push_back(spawn);
             }
@@ -130,8 +133,16 @@ void PlayerApp::OnStart()
             Logger::Error("Could not spawn " + spawn.prefab);
             continue;
         }
+        glm::quat rotation = glm::quat(glm::radians(spawn.rotation));
+        if (spawn.faceCamera)
+        {
+            const glm::vec3 toCamera = config.cameraPosition - spawn.position;
+            rotation = glm::angleAxis(std::atan2(toCamera.x, toCamera.z), glm::vec3(0.0f, 1.0f, 0.0f));
+        }
+
         Entity root = scene.Instantiate(*prefab, file.stem().string().c_str());
         root.SetPosition(spawn.position.x, spawn.position.y, spawn.position.z);
+        root.SetRotationQuat(rotation.x, rotation.y, rotation.z, rotation.w);
         root.SetScale(spawn.scale, spawn.scale, spawn.scale);
     }
     scene.Update(0.0f);

@@ -4,6 +4,6 @@
   "camera": { "position": [-11.0, 2.0, -0.4], "target": [10.0, 4.0, 0.0], "orbitSpeed": 0 },
   "spawn": [
     { "prefab": "/Models/Sponza/Sponza.gltf", "position": [0, 0, 0], "scale": 1 },
-    { "prefab": "/Models/DamagedHelmet.glb", "position": [0, 1.2, 0], "scale": 1 }
+    { "prefab": "/Models/Rumba.glb", "position": [-4.5, 0, -0.4], "faceCamera": true }
   ]
 }

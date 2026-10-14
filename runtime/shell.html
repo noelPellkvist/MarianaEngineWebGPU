@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mariana Player</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    body { display: flex; align-items: center; justify-content: center; }
+    /* The engine owns the canvas's pixel size (the window it asks for); the page only scales it down
+       to fit, keeping its aspect. Changing canvas.width/height here would desync it from the surface. */
+    canvas { display: block; width: auto !important; height: auto !important; max-width: 100vw; max-height: 100vh; outline: none; }
+    #status { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+              color: #8a8fa3; font: 14px system-ui, sans-serif; letter-spacing: 0.02em; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="status">Loading…</div>
+  <script>
+    var statusElement = document.getElementById('status');
+    var Module = {
+      canvas: document.getElementById('canvas'),
+      print: function (text) { console.log(text); },
+      printErr: function (text) { console.error(text); },
+      setStatus: function (text) {
+        var progress = /([\d.]+)\/(\d+)/.exec(text || '');
+        if (progress) text = 'Loading… ' + Math.round(100 * parseFloat(progress[1]) / parseFloat(progress[2])) + '%';
+        statusElement.textContent = text || '';
+        statusElement.style.display = text ? 'block' : 'none';
+      },
+      onRuntimeInitialized: function () { statusElement.style.display = 'none'; }
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

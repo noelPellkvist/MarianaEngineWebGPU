@@ -14,16 +14,21 @@
 //     "window": { "title": "Mariana Player", "width": 1280, "height": 720, "icon": "/logo.png" },
 //     "pipeline": "/Pipelines/Default.pipeline",
 //     "camera": { "position": [0, 2, -5], "target": [0, 1, 0], "orbitSpeed": 0 },
-//     "spawn": [ { "prefab": "/Models/Sponza/Sponza.gltf", "position": [0, 0, 0], "scale": 1 }, ... ]
+//     "spawn": [ { "prefab": "/Models/Sponza/Sponza.gltf", "position": [0, 0, 0], "rotation": [0, 0, 0],
+//                  "scale": 1, "faceCamera": false }, ... ]
 //   }
-// Everything is optional; paths are resource paths (FileSystem).
+// Everything is optional; paths are resource paths (FileSystem). `rotation` is Euler angles in
+// degrees; `faceCamera` instead turns the prefab about +Y so its front (+Z, as glTF assets face)
+// points at the camera's starting position.
 struct PlayerConfig
 {
     struct Spawn
     {
         std::string prefab;
         glm::vec3 position{0.0f};
+        glm::vec3 rotation{0.0f}; // Euler degrees
         float scale = 1.0f;
+        bool faceCamera = false;
     };
 
     WindowSettings window{ "Mariana Player", 1280, 720, "" };
