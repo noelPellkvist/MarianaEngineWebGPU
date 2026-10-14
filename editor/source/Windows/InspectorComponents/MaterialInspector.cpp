@@ -11,6 +11,8 @@
 
 namespace
 {
+    using InspectorComponents::OpenAsset;
+
     constexpr float kThumbnailSize = 56.0f;
     constexpr float kPreviewSize = 256.0f;
 
@@ -59,19 +61,21 @@ namespace
         return true;
     }
 
-    // The texture, or for an empty slot a swatch of what the renderer samples instead.
-    void DrawThumbnail(Texture* texture, MaterialTexture slot)
+    // The texture (clicking it returns true), or for an empty slot a swatch of what the renderer
+    // samples instead.
+    bool DrawThumbnail(Texture* texture, MaterialTexture slot)
     {
         const ImVec2 size(kThumbnailSize, kThumbnailSize);
         if (texture)
         {
-            ImGui::Image(GUI::TextureId(*texture), size);
+            const bool clicked = ImGui::ImageButton("##thumbnail", GUI::TextureId(*texture), size);
             if (ImGui::BeginItemTooltip())
             {
                 ImGui::Image(GUI::TextureId(*texture), ImVec2(kPreviewSize, kPreviewSize));
+                ImGui::TextDisabled("Click to open");
                 ImGui::EndTooltip();
             }
-            return;
+            return clicked;
         }
         const ImVec2 min = ImGui::GetCursorScreenPos();
         const ImVec2 max(min.x + size.x, min.y + size.y);
@@ -80,11 +84,12 @@ namespace
         drawList->AddRectFilled(min, max, fallback, 3.0f);
         drawList->AddRect(min, max, ImGui::GetColorU32(ImGuiCol_Border), 3.0f);
         ImGui::Dummy(size);
+        return false;
     }
 
     // A texture slot: thumbnail, texture name, size and format, and (folded) its UV set and
     // sampler. An image dragged from the Assets window replaces the texture.
-    void DrawTextureSlot(MaterialAsset& material, MaterialTexture slot, AssetManager2& assets)
+    void DrawTextureSlot(MaterialAsset& material, MaterialTexture slot, AssetManager2& assets, const OpenAsset& openAsset)
     {
         const MaterialAsset::TextureSlot& current = material.GetTexture(slot);
         AssetHandle<Texture> texture = current.texture;
@@ -95,7 +100,8 @@ namespace
 
         ImGui::PushID(static_cast<int>(slot));
         ImGui::BeginGroup();
-        DrawThumbnail(gpuTexture, slot);
+        if (DrawThumbnail(gpuTexture, slot))
+            openAsset(texture.GetID());
         ImGui::SameLine();
         ImGui::BeginGroup();
         ImGui::TextUnformatted(kTextureSlotNames[static_cast<int>(slot)]);
@@ -158,7 +164,7 @@ namespace
 
 namespace InspectorComponents
 {
-    void DrawMaterialEditor(MaterialAsset& material, AssetManager2& assets)
+    void DrawMaterialEditor(MaterialAsset& material, AssetManager2& assets, const OpenAsset& openAsset)
     {
         PBRMaterialProperties& p = material.properties;
         bool dirty = false;
@@ -183,10 +189,10 @@ namespace InspectorComponents
 
         ImGui::SeparatorText("Textures");
         for (uint32_t t = 0; t < static_cast<uint32_t>(MaterialTexture::Count); ++t)
-            DrawTextureSlot(material, static_cast<MaterialTexture>(t), assets);
+            DrawTextureSlot(material, static_cast<MaterialTexture>(t), assets, openAsset);
     }
 
-    void DrawEntityMaterials(Entity entity, const Scene& scene, AssetManager2& assets)
+    void DrawEntityMaterials(Entity entity, const Scene& scene, AssetManager2& assets, const OpenAsset& openAsset)
     {
         // The entity's own materials, or for one without a mesh (a model's root) those below it.
         std::vector<AssetHandle<MaterialAsset>> materials;
@@ -217,11 +223,15 @@ namespace InspectorComponents
         {
             MaterialAsset& material = *handle.Get();
             ImGui::PushID(&material);
-            if (ImGui::CollapsingHeader(AssetName(handle.GetMetadata()), flags))
+            const bool open = ImGui::CollapsingHeader(AssetName(handle.GetMetadata()), flags | ImGuiTreeNodeFlags_AllowOverlap);
+            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 40.0f);
+            if (ImGui::SmallButton("Open"))
+                openAsset(handle.GetID());
+            if (open)
             {
                 const size_t users = CountMaterialUsers(scene, &material);
                 ImGui::TextDisabled(users == 1 ? "Used by 1 mesh" : "Used by %zu meshes", users);
-                DrawMaterialEditor(material, assets);
+                DrawMaterialEditor(material, assets, openAsset);
             }
             ImGui::PopID();
         }

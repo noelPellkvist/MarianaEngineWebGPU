@@ -177,10 +177,17 @@ void EditorApp::OnStart()
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
     EditorWindows["Assets"] = std::make_unique<AssetsExplorer>(gui, MARIANA_PROJECT_DIR);
-    auto inspector = std::make_unique<InspectorWindow>(gui, assets);
+    auto inspector = std::make_unique<InspectorWindow>(gui, assets, scene);
     inspectorWindow = inspector.get();
+    inspector->SetSelectEntity([this](Entity entity) {
+        DeselectEntity();
+        SelectEntity(entity.RawId());
+    });
     EditorWindows["Inspector"] = std::move(inspector);
-    EditorWindows["Loaded Assets"] = std::make_unique<LoadedAssetsWindow>(gui, assets);
+    EditorWindows["Loaded Assets"] = std::make_unique<LoadedAssetsWindow>(gui, assets, [this](AssetID id) {
+        inspectorWindow->InspectAsset(id);
+        EditorWindows["Inspector"]->SetOpen(true);
+    });
     EditorWindows["Render Pipeline"] = std::make_unique<RenderPipelineWindow>(gui, effects, sceneRenderer, *cam, kDefaultPipeline);
     EditorWindows["Lighting"] = std::make_unique<LightingWindow>(gui, sceneRenderer.lighting);
     EditorWindows["Hierarchy"] = std::make_unique<HierarchyWindow>(

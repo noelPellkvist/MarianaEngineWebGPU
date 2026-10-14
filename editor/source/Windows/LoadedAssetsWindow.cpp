@@ -7,9 +7,10 @@
 #include <string>
 #include <vector>
 
-LoadedAssetsWindow::LoadedAssetsWindow(GUI& gui, AssetManager2& assets)
+LoadedAssetsWindow::LoadedAssetsWindow(GUI& gui, AssetManager2& assets, std::function<void(AssetID)> openAsset)
     : EditorWindow("Loaded Assets", gui, false),
-      m_assets(assets)
+      m_assets(assets),
+      m_openAsset(std::move(openAsset))
 {
 }
 
@@ -61,7 +62,10 @@ void LoadedAssetsWindow::Draw()
                 ImGui::TableNextRow();
 
                 ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted(meta->name.c_str());
+                ImGui::PushID(meta);
+                if (ImGui::Selectable(meta->name.c_str(), false, ImGuiSelectableFlags_SpanAllColumns) && m_openAsset)
+                    m_openAsset(meta->id);
+                ImGui::PopID();
                 if (ImGui::IsItemHovered())
                 {
                     ImGui::BeginTooltip();

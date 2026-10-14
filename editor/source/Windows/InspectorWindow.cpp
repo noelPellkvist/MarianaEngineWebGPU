@@ -4,6 +4,7 @@
 #include <Editor/Windows/InspectorComponents/LocalTRS.hpp>
 #include <Editor/Windows/InspectorComponents/MeshComponent.hpp>
 #include <Editor/Windows/InspectorComponents/MaterialInspector.hpp>
+#include <Editor/Windows/InspectorComponents/AssetInspector.hpp>
 
 #include <imgui.h>
 
@@ -12,8 +13,8 @@
 #include <string>
 #include <vector>
 
-InspectorWindow::InspectorWindow(GUI& gui, AssetManager2& assets)
-    : EditorWindow("Inspector", gui, true), m_assets(assets)
+InspectorWindow::InspectorWindow(GUI& gui, AssetManager2& assets, const Scene& scene)
+    : EditorWindow("Inspector", gui, true), m_assets(assets), m_scene(&scene)
 {
     RegisterComponentDrawers();
 }
@@ -21,13 +22,13 @@ InspectorWindow::InspectorWindow(GUI& gui, AssetManager2& assets)
 void InspectorWindow::SetInspectedEntity(const Scene& scene, Entity entity)
 {
     m_scene = &scene;
+    m_asset = {};
     m_entity = entity;
     m_entityID = entity.IsValid() ? entity.RawId() : static_cast<uint64_t>(-1);
 }
 
 void InspectorWindow::ClearInspectedEntity()
 {
-    m_scene = nullptr;
     m_entity = Entity{};
     m_entityID = static_cast<uint64_t>(-1);
 }
@@ -46,7 +47,18 @@ void InspectorWindow::Draw()
 
     if (ImGui::Begin(m_name.c_str(), &m_open))
     {
-        if (!m_scene || !m_entity.IsValid() || m_entityID == static_cast<uint64_t>(-1))
+        const bool hasEntity = m_entity.IsValid() && m_entityID != static_cast<uint64_t>(-1);
+        if (m_asset.IsValid())
+        {
+            if (ImGui::SmallButton(hasEntity ? "< Back to the entity" : "< Back"))
+                m_asset = {};
+            ImGui::Separator();
+            const AssetID shown = m_asset;
+            InspectorComponents::DrawAssetInspector(shown, m_assets, *m_scene,
+                [this](AssetID id) { m_asset = id; },
+                [this](Entity entity) { if (m_selectEntity) m_selectEntity(entity); });
+        }
+        else if (!hasEntity)
             ImGui::Text("Select an entity to show it here");
         else
             DrawEntityInspector();
@@ -80,7 +92,7 @@ void InspectorWindow::DrawEntityInspector()
             drawer->second(m_entity);
     });
 
-    InspectorComponents::DrawEntityMaterials(m_entity, *m_scene, m_assets);
+    InspectorComponents::DrawEntityMaterials(m_entity, *m_scene, m_assets, [this](AssetID id) { m_asset = id; });
 
     DrawHiddenComponentsAndTags(m_entity);
 }
