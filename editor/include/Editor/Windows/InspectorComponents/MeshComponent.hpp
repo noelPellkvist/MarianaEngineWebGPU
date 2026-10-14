@@ -6,6 +6,7 @@ class AssetManager2;
 
 namespace InspectorComponents
 {
-    // The mesh and a material editor per submesh; images dropped on a texture slot load through `assets`.
+    // The Mesh Renderer section: the mesh, whether it casts shadows, and the material in each slot
+    // (picked from the loaded materials). The materials themselves are edited below the components.
     void DrawMeshComponent(Entity& entity, AssetManager2& assets);
 }

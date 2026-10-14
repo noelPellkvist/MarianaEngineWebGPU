@@ -197,10 +197,12 @@ void GUI::PostUpdateGUI(wgpu::RenderPassEncoder* renderPass)
 
 void GUI::DrawTexture(Texture texture, float width, float height)
 {
-    ImTextureID _tex = (ImTextureID)(((wgpu::TextureView*)texture.GetTextureView())->Get());
-    ImVec2 size(width, height);
+    ImGui::Image(TextureId(texture), ImVec2(width, height));
+}
 
-    ImGui::Image(_tex, size);
+ImTextureID GUI::TextureId(Texture& texture, int mipLevel)
+{
+    return (ImTextureID)(static_cast<wgpu::TextureView*>(texture.GetDisplayView(mipLevel))->Get());
 }
 
 void GUI::KillGui()

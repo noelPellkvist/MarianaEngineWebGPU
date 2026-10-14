@@ -227,6 +227,12 @@ struct Texture::Impl
 {
     wgpu::Texture m_Texture;
     wgpu::TextureView m_View;
+    uint32_t mipLevels = 1;
+
+    // Views without the sRGB decode, made on first use (GetDisplayView).
+    wgpu::TextureFormat displayFormat = wgpu::TextureFormat::Undefined;
+    wgpu::TextureView displayView;
+    std::vector<wgpu::TextureView> displayMipViews;
 
     // Pixel readback (picking). The map callback may run on another thread, hence the atomics.
     wgpu::Buffer readbackBuffer;
@@ -259,6 +265,42 @@ void* Texture::GetTexture()
 void* Texture::GetTextureView()
 {
     return &_impl->m_View;
+}
+
+void* Texture::GetDisplayView(int mipLevel)
+{
+    Impl& impl = *_impl;
+    if (!impl.m_Texture)
+        return &impl.m_View;
+
+    auto makeView = [&](uint32_t baseMip, uint32_t mipCount) {
+        wgpu::TextureViewDescriptor desc{};
+        desc.format = impl.displayFormat != wgpu::TextureFormat::Undefined ? impl.displayFormat : impl.m_Texture.GetFormat();
+        desc.dimension = wgpu::TextureViewDimension::e2D;
+        desc.baseMipLevel = baseMip;
+        desc.mipLevelCount = mipCount;
+        desc.baseArrayLayer = 0;
+        desc.arrayLayerCount = 1;
+        return impl.m_Texture.CreateView(&desc);
+    };
+
+    if (mipLevel < 0 || static_cast<uint32_t>(mipLevel) >= impl.mipLevels)
+    {
+        if (!impl.displayView)
+            impl.displayView = makeView(0, impl.mipLevels);
+        return &impl.displayView;
+    }
+    if (impl.displayMipViews.size() < impl.mipLevels)
+        impl.displayMipViews.resize(impl.mipLevels);
+    wgpu::TextureView& view = impl.displayMipViews[mipLevel];
+    if (!view)
+        view = makeView(static_cast<uint32_t>(mipLevel), 1);
+    return &view;
+}
+
+uint32_t Texture::GetMipLevelCount() const
+{
+    return _impl->mipLevels;
 }
 
 
@@ -484,9 +526,19 @@ void Texture::CreateTexture(int width, int height, TextureFormat format, bool MS
     textureDesc.sampleCount = MSSA ? 4 : 1;
     textureDesc.format = ToNative(format);
     textureDesc.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopySrc | (renderTarget ? wgpu::TextureUsage::RenderAttachment : wgpu::TextureUsage::CopyDst);
-    textureDesc.viewFormatCount = 0;
-    textureDesc.viewFormats = nullptr;
+    // sRGB textures can also be viewed without the decode (GetDisplayView).
+    wgpu::TextureFormat displayFormat = wgpu::TextureFormat::Undefined;
+    if (textureDesc.format == wgpu::TextureFormat::RGBA8UnormSrgb)
+        displayFormat = wgpu::TextureFormat::RGBA8Unorm;
+    else if (textureDesc.format == wgpu::TextureFormat::BGRA8UnormSrgb)
+        displayFormat = wgpu::TextureFormat::BGRA8Unorm;
+    textureDesc.viewFormatCount = displayFormat != wgpu::TextureFormat::Undefined ? 1 : 0;
+    textureDesc.viewFormats = displayFormat != wgpu::TextureFormat::Undefined ? &displayFormat : nullptr;
     _impl->m_Texture = device.CreateTexture(&textureDesc);
+    _impl->mipLevels = textureDesc.mipLevelCount;
+    _impl->displayFormat = displayFormat;
+    _impl->displayView = nullptr;
+    _impl->displayMipViews.clear();
 
     wgpu::TextureViewDescriptor textureViewDesc{};
     textureViewDesc.aspect = (isDepthTexture ? wgpu::TextureAspect::DepthOnly : wgpu::TextureAspect::All);

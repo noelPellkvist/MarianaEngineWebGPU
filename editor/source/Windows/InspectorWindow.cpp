@@ -3,6 +3,7 @@
 #include <Editor/Windows/InspectorComponents/AnimationComponent.hpp>
 #include <Editor/Windows/InspectorComponents/LocalTRS.hpp>
 #include <Editor/Windows/InspectorComponents/MeshComponent.hpp>
+#include <Editor/Windows/InspectorComponents/MaterialInspector.hpp>
 
 #include <imgui.h>
 
@@ -78,6 +79,8 @@ void InspectorWindow::DrawEntityInspector()
         if (drawer != m_componentDrawers.end())
             drawer->second(m_entity);
     });
+
+    InspectorComponents::DrawEntityMaterials(m_entity, *m_scene, m_assets);
 
     DrawHiddenComponentsAndTags(m_entity);
 }

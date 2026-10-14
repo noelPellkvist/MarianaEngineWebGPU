@@ -145,10 +145,14 @@ class Texture
 
         void* GetTexture();
         void* GetTextureView();
+        // A view (wgpu::TextureView*) for showing the texture as an image, e.g. in a UI: the stored
+        // texels without the sRGB decode, so colors look as authored. `mipLevel` -1 = every level.
+        void* GetDisplayView(int mipLevel = -1);
 
-        int GetHeight() { return m_Height; }
-        int GetWidth() { return m_Width; }
-        TextureFormat GetFormat() { return m_Format; }
+        int GetHeight() const { return m_Height; }
+        int GetWidth() const { return m_Width; }
+        TextureFormat GetFormat() const { return m_Format; }
+        uint32_t GetMipLevelCount() const;
 
     private:
         
