@@ -22,4 +22,9 @@ namespace InspectorComponents
 
     // How many entities in `scene` draw with `material`.
     size_t CountMaterialUsers(const Scene& scene, const MaterialAsset* material);
+
+    // Gives `entity` (and, with `includeDescendants`, everything below it) its own copy of
+    // `material`, registered as "<name> (copy)". Returns the copy.
+    AssetHandle<MaterialAsset> MakeMaterialUnique(Entity entity, bool includeDescendants, const Scene& scene,
+                                                  AssetManager2& assets, const AssetHandle<MaterialAsset>& material);
 }

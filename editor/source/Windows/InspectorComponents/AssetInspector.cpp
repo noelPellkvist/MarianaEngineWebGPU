@@ -193,6 +193,13 @@ namespace InspectorComponents
                 AssetHandle<MaterialAsset> material = assets.LoadAsset<MaterialAsset>(id);
                 if (!material.Get())
                     break;
+                if (ImGui::SmallButton("Duplicate"))
+                {
+                    AssetHandle<MaterialAsset> copy = assets.RegisterAsset<MaterialAsset>(
+                        material.Get()->Clone(), AssetType::Material, meta->name + " (copy)");
+                    openAsset(copy.GetID());
+                }
+                ImGui::SetItemTooltip("A new material with the same settings (assign it in a Mesh Renderer's slot).");
                 DrawMaterialEditor(*material.Get(), assets, openAsset);
                 MaterialAsset* raw = material.Get().get();
                 DrawEntityList("Used by", FindEntities(scene, [&](Entity e) {

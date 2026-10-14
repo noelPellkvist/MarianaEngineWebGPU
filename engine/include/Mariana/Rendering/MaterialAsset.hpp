@@ -58,6 +58,10 @@ public:
     MaterialAsset(const MaterialAsset&) = delete;
     MaterialAsset& operator=(const MaterialAsset&) = delete;
 
+    // A new material with the same settings and textures (and its own GPU slot), e.g. to edit
+    // one mesh's material without changing the others that share it. Register it to use it.
+    std::shared_ptr<MaterialAsset> Clone() const;
+
     PBRMaterialProperties properties;
     // Drawn without back-face culling, back faces lit from their side.
     bool doubleSided = false;

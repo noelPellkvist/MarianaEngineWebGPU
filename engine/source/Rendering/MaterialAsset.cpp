@@ -43,6 +43,16 @@ MaterialAsset::~MaterialAsset()
         MaterialSlots().freeSlots.push_back(m_GpuSlot);
 }
 
+std::shared_ptr<MaterialAsset> MaterialAsset::Clone() const
+{
+    auto copy = std::make_shared<MaterialAsset>();
+    copy->properties = properties;
+    copy->doubleSided = doubleSided;
+    copy->m_Textures = m_Textures;
+    copy->m_AlphaMode = m_AlphaMode;
+    return copy;
+}
+
 void MaterialAsset::SetTexture(MaterialTexture slot, AssetHandle<Texture> texture, const SamplerSettings& sampler, uint32_t uvSet)
 {
     const uint32_t index = static_cast<uint32_t>(slot);

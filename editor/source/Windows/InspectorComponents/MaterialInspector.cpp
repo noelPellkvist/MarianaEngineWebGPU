@@ -87,6 +87,23 @@ namespace
         return false;
     }
 
+    // Points every slot of `entity` (and, with `descendants`, of everything below it) that uses
+    // `from` at `to` instead.
+    void ReplaceMaterial(Entity entity, bool descendants, const Scene& scene, const MaterialAsset* from, const AssetHandle<MaterialAsset>& to)
+    {
+        auto replace = [&](Entity e) {
+            MeshComponent* mesh = e.Has<MeshComponent>() ? e.Get<MeshComponent>() : nullptr;
+            if (!mesh)
+                return;
+            for (AssetHandle<MaterialAsset>& slot : mesh->materials)
+                if (slot.Get().get() == from)
+                    slot = to;
+        };
+        replace(entity);
+        if (descendants)
+            scene.ForEachDescendant(entity, replace);
+    }
+
     // A texture slot: thumbnail, texture name, size and format, and (folded) its UV set and
     // sampler. An image dragged from the Assets window replaces the texture.
     void DrawTextureSlot(MaterialAsset& material, MaterialTexture slot, AssetManager2& assets, const OpenAsset& openAsset)
@@ -219,6 +236,7 @@ namespace InspectorComponents
         // Open by default only when there are few (a building can have dozens).
         const ImGuiTreeNodeFlags flags = ownMesh && materials.size() <= 3 ? ImGuiTreeNodeFlags_DefaultOpen : 0;
         ImGui::SeparatorText(ownMesh ? "Materials" : "Materials used below");
+        AssetHandle<MaterialAsset> makeUnique;
         for (const AssetHandle<MaterialAsset>& handle : materials)
         {
             MaterialAsset& material = *handle.Get();
@@ -231,10 +249,45 @@ namespace InspectorComponents
             {
                 const size_t users = CountMaterialUsers(scene, &material);
                 ImGui::TextDisabled(users == 1 ? "Used by 1 mesh" : "Used by %zu meshes", users);
+                // Only worth it when something outside the selection shares the material.
+                size_t usersHere = 1;
+                if (!ownMesh)
+                {
+                    usersHere = 0;
+                    scene.ForEachDescendant(entity, [&](Entity e) {
+                        const MeshComponent* mesh = e.TryGet<MeshComponent>();
+                        if (mesh && std::any_of(mesh->materials.begin(), mesh->materials.end(),
+                                [&](const AssetHandle<MaterialAsset>& m) { return m.Get().get() == &material; }))
+                            ++usersHere;
+                    });
+                }
+                if (users > usersHere)
+                {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(ownMesh ? "Make unique" : "Make unique to this model"))
+                        makeUnique = handle;
+                    ImGui::SetItemTooltip("Gives %s its own copy, so editing it leaves the other users alone.",
+                                          ownMesh ? "this mesh" : "the meshes below this entity");
+                }
                 DrawMaterialEditor(material, assets, openAsset);
             }
             ImGui::PopID();
         }
+
+        if (makeUnique.Get())
+            MakeMaterialUnique(entity, !ownMesh, scene, assets, makeUnique);
+    }
+
+    AssetHandle<MaterialAsset> MakeMaterialUnique(Entity entity, bool includeDescendants, const Scene& scene,
+                                                  AssetManager2& assets, const AssetHandle<MaterialAsset>& material)
+    {
+        if (!material.Get())
+            return {};
+        const AssetMetadata* meta = material.GetMetadata();
+        AssetHandle<MaterialAsset> copy = assets.RegisterAsset<MaterialAsset>(
+            material.Get()->Clone(), AssetType::Material, (meta ? meta->name : std::string("Material")) + " (copy)");
+        ReplaceMaterial(entity, includeDescendants, scene, material.Get().get(), copy);
+        return copy;
     }
 
     size_t CountMaterialUsers(const Scene& scene, const MaterialAsset* material)
