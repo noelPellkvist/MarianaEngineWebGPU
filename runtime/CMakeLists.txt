@@ -16,7 +16,7 @@ target_compile_definitions(MarianaPlayer PRIVATE MARIANA_PROJECT_DIR="${MARIANA_
 if(EMSCRIPTEN)
   # Only what Player.json uses is packaged with the engine's resources: Player.json itself, the
   # pipeline if the project has its own, and each prefab (a .gltf with the folder holding its
-  # buffers and images). Editing Player.json re-runs this.
+  # buffers and images; a .glb with its extracted materials, if any). Editing Player.json re-runs this.
   set(player_json "${MARIANA_PLAYER_PROJECT}/Player.json")
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${player_json}")
   file(READ "${player_json}" player_config)
@@ -35,6 +35,12 @@ if(EMSCRIPTEN)
       set(prefab_file "${MARIANA_PLAYER_PROJECT}${prefab}")
       if(prefab_file MATCHES "\\.gltf$")
         get_filename_component(prefab_file "${prefab_file}" DIRECTORY)
+      else()
+        get_filename_component(prefab_dir "${prefab_file}" DIRECTORY)
+        get_filename_component(prefab_name "${prefab_file}" NAME_WE)
+        if(IS_DIRECTORY "${prefab_dir}/${prefab_name}.materials")
+          list(APPEND player_files "${prefab_dir}/${prefab_name}.materials")
+        endif()
       endif()
       list(APPEND player_files "${prefab_file}")
     endforeach()

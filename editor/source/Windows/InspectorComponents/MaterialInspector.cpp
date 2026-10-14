@@ -1,12 +1,21 @@
 #include <Editor/Windows/InspectorComponents/MaterialInspector.hpp>
 
 #include <Editor/GUI.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
+#include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Importers/GLTFLoader.hpp>
 #include <Mariana/Importers/ImageImporter.hpp>
+#include <Mariana/Importers/MaterialFile.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
 #include <imgui.h>
 
 #include <algorithm>
+#include <cctype>
+#include <cstring>
+#include <filesystem>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace
@@ -104,6 +113,123 @@ namespace
             scene.ForEachDescendant(entity, replace);
     }
 
+    // The glTF a sub-asset key ("<file key>#<kind>/...") came from: the prefab's own path when
+    // known (keeps its case), else the key's file part.
+    std::filesystem::path ModelFile(AssetManager2& assets, const std::string& fileKey)
+    {
+        if (const AssetMetadata* prefab = assets.GetMetadata(assets.FindID(fileKey)); prefab && !prefab->path.empty())
+            return prefab->path;
+        return fileKey;
+    }
+
+    // Per material (by asset ID): its version when last loaded or saved, and the last save result.
+    struct SaveState
+    {
+        uint32_t savedVersion = 0;
+        std::string message;
+    };
+
+    SaveState& SaveStateOf(const AssetMetadata& meta)
+    {
+        static std::unordered_map<std::string, SaveState> states;
+        return states[meta.id.ToString()];
+    }
+
+    // Where the material is kept, with Save / Extract materials / Save As.
+    void DrawMaterialFile(const AssetHandle<MaterialAsset>& handle, AssetManager2& assets)
+    {
+        const AssetMetadata* meta = handle.GetMetadata();
+        if (!meta)
+            return;
+        MaterialAsset& material = *handle.Get();
+        SaveState& state = SaveStateOf(*meta);
+
+        auto save = [&](const std::filesystem::path& file) {
+            std::string error;
+            const bool saved = MaterialFile::Save(material, assets, file, error);
+            if (saved)
+            {
+                assets.SetSource(meta->id, file);
+                state.savedVersion = material.Version();
+            }
+            state.message = saved ? (error.empty() ? "Saved " + file.filename().string() : error) : error;
+            if (!error.empty())
+                Logger::Warning(error);
+        };
+
+        std::filesystem::path file;
+        if (meta->path.extension() == ".material")
+            file = meta->path;
+        else if (meta->source.extension() == ".material")
+            file = meta->source;
+
+        if (!file.empty())
+        {
+            static std::unordered_map<std::string, bool> seen;
+            if (!seen[meta->id.ToString()])
+            {
+                seen[meta->id.ToString()] = true;
+                state.savedVersion = material.Version();
+            }
+            const bool unsaved = state.savedVersion != material.Version();
+            ImGui::TextDisabled("%s%s", file.filename().string().c_str(), unsaved ? " (unsaved)" : "");
+            ImGui::SetItemTooltip("%s", file.string().c_str());
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Save"))
+                save(file);
+        }
+        else if (const size_t at = meta->key.rfind("#material/"); at != std::string::npos)
+        {
+            const std::filesystem::path model = ModelFile(assets, meta->key.substr(0, at));
+            ImGui::TextDisabled("From %s, not saved", model.filename().string().c_str());
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Extract materials"))
+            {
+                std::string error;
+                const bool extracted = GLTF::GLTFLoader::ExtractMaterials(assets, model, error);
+                state.message = extracted && error.empty() ? "Extracted next to " + model.filename().string() : error;
+                if (!error.empty())
+                    Logger::Warning(error);
+            }
+            ImGui::SetItemTooltip("Writes every material of %s to .material files next to it, so edits can be saved and are used when it loads.",
+                                  model.filename().string().c_str());
+        }
+        else
+        {
+            ImGui::TextDisabled("Not saved");
+        }
+
+        ImGui::SameLine();
+        static char saveName[64] = {};
+        if (ImGui::SmallButton("Save As"))
+        {
+            const std::string name = meta->name.substr(meta->name.find_last_of('/') + 1);
+            std::strncpy(saveName, name.c_str(), sizeof(saveName) - 1);
+            ImGui::OpenPopup("SaveMaterialAs");
+        }
+        if (ImGui::BeginPopup("SaveMaterialAs"))
+        {
+            ImGui::TextUnformatted("Save to the project's Materials folder as");
+            ImGui::SetNextItemWidth(220.0f);
+            ImGui::InputText("##name", saveName, sizeof(saveName));
+            ImGui::SameLine();
+            ImGui::BeginDisabled(saveName[0] == '\0');
+            if (ImGui::Button("Save"))
+            {
+                std::string name = saveName;
+                for (char& c : name)
+                    if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_' && c != ' ')
+                        c = '_';
+                save(FileSystem::ResolveForWrite("/Materials/" + name + ".material"));
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndDisabled();
+            ImGui::EndPopup();
+        }
+        if (!state.message.empty())
+            ImGui::TextDisabled("%s", state.message.c_str());
+    }
+
     // A texture slot: thumbnail, texture name, size and format, and (folded) its UV set and
     // sampler. An image dragged from the Assets window replaces the texture.
     void DrawTextureSlot(MaterialAsset& material, MaterialTexture slot, AssetManager2& assets, const OpenAsset& openAsset)
@@ -181,8 +307,13 @@ namespace
 
 namespace InspectorComponents
 {
-    void DrawMaterialEditor(MaterialAsset& material, AssetManager2& assets, const OpenAsset& openAsset)
+    void DrawMaterialEditor(const AssetHandle<MaterialAsset>& handle, AssetManager2& assets, const OpenAsset& openAsset)
     {
+        if (!handle.Get())
+            return;
+        MaterialAsset& material = *handle.Get();
+        DrawMaterialFile(handle, assets);
+
         PBRMaterialProperties& p = material.properties;
         bool dirty = false;
         dirty |= ImGui::ColorEdit4("Base Color", &p.baseColor.x);
@@ -269,7 +400,7 @@ namespace InspectorComponents
                     ImGui::SetItemTooltip("Gives %s its own copy, so editing it leaves the other users alone.",
                                           ownMesh ? "this mesh" : "the meshes below this entity");
                 }
-                DrawMaterialEditor(material, assets, openAsset);
+                DrawMaterialEditor(handle, assets, openAsset);
             }
             ImGui::PopID();
         }

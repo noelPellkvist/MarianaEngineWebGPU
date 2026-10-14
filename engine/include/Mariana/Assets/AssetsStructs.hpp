@@ -143,6 +143,11 @@ struct AssetMetadata
     // of a file, or "builtin://..." for engine-provided assets. May be empty.
     std::string key;
 
+    // The file the asset's data is in when that isn't `path`: the image a texture was made from,
+    // the .material file a material was saved to. Empty if there is none (e.g. an image embedded
+    // in a .glb).
+    std::filesystem::path source;
+
     AssetStatus status = AssetStatus::Unloaded;
 
     uint32_t refCount = 0;

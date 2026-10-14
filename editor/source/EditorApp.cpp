@@ -2,6 +2,7 @@
 #include <Mariana/Foundation/FileReader.hpp>
 #include <Editor/EditorCameraController.hpp>
 #include <Mariana/Importers/GLTFLoader.hpp>
+#include <Mariana/Importers/MaterialFile.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
 #include <Mariana/Rendering/RenderPipeline.hpp>
@@ -95,6 +96,7 @@ effects(renderer.graph, sceneRenderer.CameraBuffer())
     renderer.graph.SetOutputSize(m_Window.GetWidth(), m_Window.GetHeight());
     sceneRenderer.Init(renderer.graph);
     GLTF::GLTFLoader::RegisterLoader(assets);
+    MaterialFile::RegisterLoader(assets);
 
     // The effects, their settings, the exposure and the shadow settings come from a pipeline file.
     RenderPipelineDesc pipeline;

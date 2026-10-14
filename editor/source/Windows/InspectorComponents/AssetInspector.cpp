@@ -200,7 +200,7 @@ namespace InspectorComponents
                     openAsset(copy.GetID());
                 }
                 ImGui::SetItemTooltip("A new material with the same settings (assign it in a Mesh Renderer's slot).");
-                DrawMaterialEditor(*material.Get(), assets, openAsset);
+                DrawMaterialEditor(material, assets, openAsset);
                 MaterialAsset* raw = material.Get().get();
                 DrawEntityList("Used by", FindEntities(scene, [&](Entity e) {
                     const MeshComponent* mesh = e.TryGet<MeshComponent>();

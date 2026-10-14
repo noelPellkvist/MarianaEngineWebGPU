@@ -206,6 +206,13 @@ void AssetManager2::SetPersistent(AssetID id, bool persistent)
         it->second.persistent = persistent;
 }
 
+void AssetManager2::SetSource(AssetID id, const std::filesystem::path& source)
+{
+    auto it = metadata.find(id);
+    if (it != metadata.end())
+        it->second.source = source;
+}
+
 bool AssetManager2::IsLoaded(AssetID id) const
 {
     auto it = metadata.find(id);

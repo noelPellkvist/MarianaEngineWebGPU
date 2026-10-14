@@ -27,6 +27,6 @@ namespace ImageImporter
         texture->UploadTextureWithMips(pixels, static_cast<size_t>(width) * height * 4, width, height);
         stbi_image_free(pixels);
 
-        return assets.RegisterAsset<Texture>(texture, AssetType::Texture, file.filename().string(), key);
+        return assets.RegisterAsset<Texture>(texture, AssetType::Texture, file.filename().string(), key, file);
     }
 }

@@ -5,6 +5,7 @@
 #include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Importers/GLTFLoader.hpp>
+#include <Mariana/Importers/MaterialFile.hpp>
 #include <Mariana/Rendering/RenderPipeline.hpp>
 #include <Mariana/Scene/Prefab.hpp>
 
@@ -107,6 +108,7 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
     sceneRenderer.writeEntityIds = false; // nothing picks
     sceneRenderer.Init(renderer.graph);
     GLTF::GLTFLoader::RegisterLoader(assets);
+    MaterialFile::RegisterLoader(assets);
 
     RenderPipelineDesc pipeline;
     std::string error;

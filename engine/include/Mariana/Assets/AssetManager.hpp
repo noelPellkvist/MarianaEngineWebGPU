@@ -47,9 +47,11 @@ public:
     std::shared_ptr<T> Get(AssetID id);
 
     // Adds an asset created in memory and returns a handle to it. If `key` is already known its
-    // ID is reused, so re-creating an unloaded sub-asset keeps the same ID.
+    // ID is reused, so re-creating an unloaded sub-asset keeps the same ID. `source` is the file
+    // its data came from, if any (AssetMetadata::source).
     template <typename T>
-    AssetHandle<T> RegisterAsset(std::shared_ptr<T> asset, AssetType type, const std::string& name, const std::string& key = {});
+    AssetHandle<T> RegisterAsset(std::shared_ptr<T> asset, AssetType type, const std::string& name, const std::string& key = {},
+                                 const std::filesystem::path& source = {});
 
     template <typename T>
     void RegisterAsset(AssetID id, std::shared_ptr<T> asset, AssetType type);
@@ -72,6 +74,7 @@ public:
     size_t UnloadUnused();
 
     void SetPersistent(AssetID id, bool persistent);
+    void SetSource(AssetID id, const std::filesystem::path& source);
 
     bool IsLoaded(AssetID id) const;
     AssetStatus GetStatus(AssetID id) const;
@@ -174,7 +177,8 @@ std::shared_ptr<T> AssetManager2::Get(AssetID id)
 }
 
 template <typename T>
-AssetHandle<T> AssetManager2::RegisterAsset(std::shared_ptr<T> asset, AssetType type, const std::string& name, const std::string& key)
+AssetHandle<T> AssetManager2::RegisterAsset(std::shared_ptr<T> asset, AssetType type, const std::string& name, const std::string& key,
+                                            const std::filesystem::path& source)
 {
     if (!asset)
         return {};
@@ -189,6 +193,8 @@ AssetHandle<T> AssetManager2::RegisterAsset(std::shared_ptr<T> asset, AssetType 
     meta.type = type;
     meta.name = name;
     meta.status = AssetStatus::Loaded;
+    if (!source.empty())
+        meta.source = source;
 
     return AssetHandle<T>(this, id);
 }

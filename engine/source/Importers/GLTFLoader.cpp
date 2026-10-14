@@ -18,6 +18,7 @@
 
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
+#include <Mariana/Importers/MaterialFile.hpp>
 #include <Mariana/Geometry/MeshBuilder.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/Components.hpp>
@@ -756,7 +757,11 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
         texture->CreateTexture(image.width, image.height, srgb ? TextureFormat::RGBA8UnormSrgb : TextureFormat::RGBA8Unorm,
                                false, false, false, Texture::MipLevelCount(image.width, image.height));
         texture->UploadTextureWithMips(rgba.data(), rgba.size(), image.width, image.height);
-        return assets.RegisterAsset<Texture>(texture, AssetType::Texture, subName(image.name, "image", imageIndex), key);
+        // An image in its own file (not embedded) is the texture's source.
+        std::filesystem::path source;
+        if (!image.uri.empty() && image.uri.rfind("data:", 0) != 0)
+            source = file.parent_path() / image.uri;
+        return assets.RegisterAsset<Texture>(texture, AssetType::Texture, subName(image.name, "image", imageIndex), key, source);
     };
 
     // A texture's glTF sampler; repeat and trilinear when it has none (or leaves filters open).
@@ -796,6 +801,15 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
         if (AssetHandle<MaterialAsset> existing = assets.Find<MaterialAsset>(key); existing.IsValid()) {
             materials[i] = existing;
             continue;
+        }
+
+        // Materials extracted to .material files (ExtractMaterials) replace the glTF's own.
+        const std::filesystem::path extracted = ExtractedMaterialFile(file, i, model.materials[i].name);
+        std::error_code exists;
+        if (std::filesystem::exists(extracted, exists)) {
+            materials[i] = assets.Load<MaterialAsset>(extracted);
+            if (materials[i].IsValid())
+                continue;
         }
 
         const tinygltf::Material& mat = model.materials[i];
@@ -921,6 +935,146 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
     }
 
     return prefab;
+}
+
+namespace
+{
+    bool ReadModel(const std::filesystem::path& file, tinygltf::Model& model, std::string& error)
+    {
+        tinygltf::TinyGLTF loader;
+        std::string warn;
+        std::string extension = file.extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const bool ok = extension == ".gltf"
+            ? loader.LoadASCIIFromFile(&model, &error, &warn, file.string())
+            : loader.LoadBinaryFromFile(&model, &error, &warn, file.string());
+        if (!ok && error.empty())
+            error = "Failed to parse glTF: " + file.string();
+        return ok;
+    }
+
+    // The glTF last read for extraction, so writing several of its images parses it once.
+    struct ExtractionCache
+    {
+        std::string key;
+        tinygltf::Model model;
+    };
+
+    ExtractionCache& Extraction()
+    {
+        static ExtractionCache cache;
+        return cache;
+    }
+
+    const tinygltf::Model* ExtractionModel(const std::filesystem::path& file, std::string& error)
+    {
+        ExtractionCache& cache = Extraction();
+        const std::string key = AssetManager2::MakeKey(file);
+        if (cache.key != key)
+        {
+            cache.key.clear();
+            cache.model = tinygltf::Model();
+            if (!ReadModel(file, cache.model, error))
+                return nullptr;
+            cache.key = key;
+        }
+        return &cache.model;
+    }
+
+    // The file a glTF sub-asset key ("<file key>#<kind>/...") came from: the prefab's own path
+    // when it is known (keeps its case), else the key's file part.
+    std::filesystem::path SourceFile(AssetManager2& assets, const std::string& fileKey)
+    {
+        if (const AssetMetadata* prefab = assets.GetMetadata(assets.FindID(fileKey)); prefab && !prefab->path.empty())
+            return prefab->path;
+        return fileKey;
+    }
+}
+
+std::filesystem::path GLTF::GLTFLoader::ExtractImage(AssetManager2& assets, AssetID texture, const std::filesystem::path& folder, std::string& error)
+{
+    const AssetMetadata* meta = assets.GetMetadata(texture);
+    if (!meta)
+        return {};
+    if (!meta->source.empty())
+        return meta->source;
+
+    // Only images embedded in a glTF can be written out: "<file key>#image/<index>/<color space>".
+    const size_t at = meta->key.rfind("#image/");
+    if (at == std::string::npos)
+        return {};
+    const std::filesystem::path gltf = SourceFile(assets, meta->key.substr(0, at));
+    const int imageIndex = std::atoi(meta->key.c_str() + at + 7);
+
+    const tinygltf::Model* model = ExtractionModel(gltf, error);
+    if (!model || imageIndex < 0 || imageIndex >= (int)model->images.size())
+        return {};
+    const tinygltf::Image& image = model->images[imageIndex];
+    std::vector<uint8_t> rgba;
+    if (!ToRGBA8(image, rgba))
+    {
+        error = "Unsupported image format for image " + std::to_string(imageIndex) + " in " + gltf.string();
+        return {};
+    }
+
+    std::error_code ec;
+    std::filesystem::create_directories(folder, ec);
+    const std::filesystem::path out = folder / (gltf.stem().string() + "_image" + std::to_string(imageIndex) + ".png");
+    if (!stbi_write_png(out.string().c_str(), image.width, image.height, 4, rgba.data(), image.width * 4))
+    {
+        error = "Could not write " + out.string();
+        return {};
+    }
+    assets.SetSource(texture, out);
+    return out;
+}
+
+std::filesystem::path GLTF::GLTFLoader::ExtractedMaterialFile(const std::filesystem::path& file, size_t index, const std::string& name)
+{
+    std::string safe = name.empty() ? std::string("material") : name;
+    for (char& c : safe)
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_')
+            c = '_';
+    return file.parent_path() / (file.stem().string() + ".materials") / (std::to_string(index) + "_" + safe + ".material");
+}
+
+bool GLTF::GLTFLoader::ExtractMaterials(AssetManager2& assets, const std::filesystem::path& file, std::string& error)
+{
+    const tinygltf::Model* model = ExtractionModel(file, error);
+    if (!model)
+        return false;
+
+    const std::string fileKey = AssetManager2::MakeKey(file);
+    size_t written = 0;
+    for (size_t i = 0; i < model->materials.size(); ++i)
+    {
+        const std::filesystem::path target = ExtractedMaterialFile(file, i, model->materials[i].name);
+        // The glTF's own material, or the one already loaded from its extracted file.
+        AssetHandle<MaterialAsset> material = assets.Find<MaterialAsset>(fileKey + "#material/" + std::to_string(i));
+        if (!material.IsValid())
+            material = assets.Find<MaterialAsset>(AssetManager2::MakeKey(target));
+        if (!material.IsValid())
+        {
+            error += std::string(error.empty() ? "" : "\n") + "Material " + std::to_string(i) + " isn't loaded; spawn the model first";
+            continue;
+        }
+
+        std::string saveError;
+        if (!MaterialFile::Save(*material.Get(), assets, target, saveError))
+        {
+            error = saveError;
+            return false;
+        }
+        if (!saveError.empty())
+            error += std::string(error.empty() ? "" : "\n") + saveError;
+        assets.SetSource(material.GetID(), target);
+        ++written;
+    }
+
+    // The parsed glTF (with its decoded images) isn't needed any more.
+    Extraction() = ExtractionCache();
+    Logger::Info("Extracted " + std::to_string(written) + " materials of " + file.string());
+    return true;
 }
 
 void GLTF::GLTFLoader::RegisterLoader(AssetManager2& assets)
