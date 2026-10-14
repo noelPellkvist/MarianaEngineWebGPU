@@ -2,6 +2,7 @@
 #include <Mariana/Application.hpp>
 #include <Mariana/Rendering/Renderer.hpp>
 #include <Editor/GUI.hpp>
+#include <Editor/UndoStack.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Editor/Windows/EditorWindow.hpp>
 #include <Mariana/Rendering/SceneRenderer.hpp>
@@ -31,6 +32,7 @@ class EditorApp : public Application
 
     private:
         GUI gui;
+        UndoStack undo;
         std::unordered_map<std::string, std::unique_ptr<EditorWindow>> EditorWindows;
         InspectorWindow* inspectorWindow = nullptr;
         // Declared first: the scene renderer and the effects remove their passes from its graph.

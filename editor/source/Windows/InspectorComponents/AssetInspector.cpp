@@ -164,7 +164,7 @@ namespace
 namespace InspectorComponents
 {
     void DrawAssetInspector(AssetID id, AssetManager2& assets, const Scene& scene,
-                            const OpenAsset& openAsset, const SelectEntity& selectEntity)
+                            const OpenAsset& openAsset, const SelectEntity& selectEntity, UndoStack& undo)
     {
         const AssetMetadata* meta = assets.GetMetadata(id);
         if (!meta)
@@ -200,7 +200,7 @@ namespace InspectorComponents
                     openAsset(copy.GetID());
                 }
                 ImGui::SetItemTooltip("A new material with the same settings (assign it in a Mesh Renderer's slot).");
-                DrawMaterialEditor(material, assets, openAsset);
+                DrawMaterialEditor(material, assets, openAsset, undo);
                 MaterialAsset* raw = material.Get().get();
                 DrawEntityList("Used by", FindEntities(scene, [&](Entity e) {
                     const MeshComponent* mesh = e.TryGet<MeshComponent>();

@@ -9,13 +9,14 @@
 #include <unordered_map>
 
 class AssetManager2;
+class UndoStack;
 
 // Shows the selected entity's components and materials, or an asset (material, texture, mesh,
 // ...) opened from there or from the Loaded Assets window, with a way back to the entity.
 class InspectorWindow final : public EditorWindow
 {
 public:
-    InspectorWindow(GUI& gui, AssetManager2& assets, const Scene& scene);
+    InspectorWindow(GUI& gui, AssetManager2& assets, const Scene& scene, UndoStack& undo);
 
     void Draw() override;
     void SetInspectedEntity(const Scene& scene, Entity entity);
@@ -28,6 +29,7 @@ private:
     using ComponentDrawer = std::function<void(Entity&)>;
 
     AssetManager2& m_assets;
+    UndoStack& m_undo;
     const Scene* m_scene = nullptr;
     AssetID m_asset; // shown instead of the entity while valid
     std::function<void(Entity)> m_selectEntity;

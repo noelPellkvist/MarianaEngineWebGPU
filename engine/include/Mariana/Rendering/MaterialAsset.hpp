@@ -24,6 +24,8 @@ struct PBRMaterialProperties
 
     // Bit i set: texture i (see MaterialTexture) reads TEXCOORD_1; set through MaterialAsset::SetTexture.
     uint32_t uvSets{0};
+
+    bool operator==(const PBRMaterialProperties&) const = default;
 };
 
 // The textures a PBR material can use, in binding order.

@@ -179,7 +179,7 @@ void EditorApp::OnStart()
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
     EditorWindows["Assets"] = std::make_unique<AssetsExplorer>(gui, MARIANA_PROJECT_DIR);
-    auto inspector = std::make_unique<InspectorWindow>(gui, assets, scene);
+    auto inspector = std::make_unique<InspectorWindow>(gui, assets, scene, undo);
     inspectorWindow = inspector.get();
     inspector->SetSelectEntity([this](Entity entity) {
         DeselectEntity();
@@ -273,6 +273,13 @@ void EditorApp::OnUpdate(float deltaTime)
 void EditorApp::OnGUI()
 {
     gui.PreUpdateGUI();
+
+    // Global, so a focused text field keeps Ctrl+Z for itself.
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal))
+        undo.Undo();
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal) ||
+        ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal))
+        undo.Redo();
     if(selectedEntityID != static_cast<uint64_t>(-1) && selectedEntity.Has<WorldXform>())
     {
         WorldXform& form = *selectedEntity.Get<WorldXform>();
@@ -420,8 +427,10 @@ void EditorApp::DrawTopMenu()
 
         if (ImGui::BeginMenu("Edit"))
         {
-            if (ImGui::MenuItem("Undo", "Ctrl+Z")) {/* TODO */}
-            if (ImGui::MenuItem("Redo", "Ctrl+Y")) {/* TODO */}
+            if (ImGui::MenuItem(undo.CanUndo() ? ("Undo " + undo.UndoName()).c_str() : "Undo", "Ctrl+Z", false, undo.CanUndo()))
+                undo.Undo();
+            if (ImGui::MenuItem(undo.CanRedo() ? ("Redo " + undo.RedoName()).c_str() : "Redo", "Ctrl+Y", false, undo.CanRedo()))
+                undo.Redo();
             ImGui::Separator();
             if (ImGui::MenuItem("Cut", "Ctrl+X")) {/* TODO */}
             if (ImGui::MenuItem("Copy", "Ctrl+C")) {/* TODO */}

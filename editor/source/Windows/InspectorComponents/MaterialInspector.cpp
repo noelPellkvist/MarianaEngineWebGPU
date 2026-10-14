@@ -1,6 +1,7 @@
 #include <Editor/Windows/InspectorComponents/MaterialInspector.hpp>
 
 #include <Editor/GUI.hpp>
+#include <Editor/UndoStack.hpp>
 #include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Importers/GLTFLoader.hpp>
@@ -11,6 +12,7 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstring>
 #include <filesystem>
@@ -100,6 +102,8 @@ namespace
     // `from` at `to` instead.
     void ReplaceMaterial(Entity entity, bool descendants, const Scene& scene, const MaterialAsset* from, const AssetHandle<MaterialAsset>& to)
     {
+        if (!entity.IsValid())
+            return;
         auto replace = [&](Entity e) {
             MeshComponent* mesh = e.Has<MeshComponent>() ? e.Get<MeshComponent>() : nullptr;
             if (!mesh)
@@ -307,12 +311,13 @@ namespace
 
 namespace InspectorComponents
 {
-    void DrawMaterialEditor(const AssetHandle<MaterialAsset>& handle, AssetManager2& assets, const OpenAsset& openAsset)
+    void DrawMaterialEditor(const AssetHandle<MaterialAsset>& handle, AssetManager2& assets, const OpenAsset& openAsset, UndoStack& undo)
     {
         if (!handle.Get())
             return;
         MaterialAsset& material = *handle.Get();
         DrawMaterialFile(handle, assets);
+        const MaterialState before = MaterialState::Of(material);
 
         PBRMaterialProperties& p = material.properties;
         bool dirty = false;
@@ -338,9 +343,68 @@ namespace InspectorComponents
         ImGui::SeparatorText("Textures");
         for (uint32_t t = 0; t < static_cast<uint32_t>(MaterialTexture::Count); ++t)
             DrawTextureSlot(material, static_cast<MaterialTexture>(t), assets, openAsset);
+
+        RecordMaterialEdit(handle, before, undo, ImGui::IsAnyItemActive());
     }
 
-    void DrawEntityMaterials(Entity entity, const Scene& scene, AssetManager2& assets, const OpenAsset& openAsset)
+    MaterialState MaterialState::Of(const MaterialAsset& material)
+    {
+        MaterialState state;
+        state.properties = material.properties;
+        state.doubleSided = material.doubleSided;
+        state.alphaMode = material.GetAlphaMode();
+        for (size_t t = 0; t < state.textures.size(); ++t)
+            state.textures[t] = material.GetTexture(static_cast<MaterialTexture>(t));
+        return state;
+    }
+
+    void MaterialState::ApplyTo(MaterialAsset& material) const
+    {
+        for (size_t t = 0; t < textures.size(); ++t)
+            material.SetTexture(static_cast<MaterialTexture>(t), textures[t].texture, textures[t].sampler, textures[t].uvSet);
+        material.SetAlphaMode(alphaMode, properties.alphaCutoff > 0.0f ? properties.alphaCutoff : 0.5f);
+        material.properties = properties;
+        material.doubleSided = doubleSided;
+        material.MarkDirty();
+    }
+
+    bool MaterialState::operator==(const MaterialState& other) const
+    {
+        if (!(properties == other.properties) || doubleSided != other.doubleSided || alphaMode != other.alphaMode)
+            return false;
+        for (size_t t = 0; t < textures.size(); ++t)
+        {
+            if (textures[t].texture.Get() != other.textures[t].texture.Get() || !(textures[t].sampler == other.textures[t].sampler) ||
+                textures[t].uvSet != other.textures[t].uvSet)
+                return false;
+        }
+        return true;
+    }
+
+    void RecordMaterialEdit(const AssetHandle<MaterialAsset>& handle, const MaterialState& before, UndoStack& undo, bool widgetHeld)
+    {
+        if (!handle.Get())
+            return;
+        // Changes collect here while a widget is held and become one step once nothing is.
+        static std::unordered_map<const MaterialAsset*, MaterialState> pending;
+        const MaterialAsset* material = handle.Get().get();
+        const MaterialState after = MaterialState::Of(*material);
+        if (!(after == before))
+            pending.emplace(material, before);
+        auto it = pending.find(material);
+        if (it == pending.end() || widgetHeld)
+            return;
+        if (!(it->second == after))
+        {
+            const AssetMetadata* meta = handle.GetMetadata();
+            undo.Push("Edit " + (meta ? meta->name : std::string("material")),
+                      [handle, state = it->second]() { if (handle.Get()) state.ApplyTo(*handle.Get()); },
+                      [handle, state = after]() { if (handle.Get()) state.ApplyTo(*handle.Get()); });
+        }
+        pending.erase(it);
+    }
+
+    void DrawEntityMaterials(Entity entity, const Scene& scene, AssetManager2& assets, const OpenAsset& openAsset, UndoStack& undo)
     {
         // The entity's own materials, or for one without a mesh (a model's root) those below it.
         std::vector<AssetHandle<MaterialAsset>> materials;
@@ -400,13 +464,20 @@ namespace InspectorComponents
                     ImGui::SetItemTooltip("Gives %s its own copy, so editing it leaves the other users alone.",
                                           ownMesh ? "this mesh" : "the meshes below this entity");
                 }
-                DrawMaterialEditor(handle, assets, openAsset);
+                DrawMaterialEditor(handle, assets, openAsset, undo);
             }
             ImGui::PopID();
         }
 
         if (makeUnique.Get())
-            MakeMaterialUnique(entity, !ownMesh, scene, assets, makeUnique);
+        {
+            const AssetHandle<MaterialAsset> copy = MakeMaterialUnique(entity, !ownMesh, scene, assets, makeUnique);
+            const Scene* scenePtr = &scene;
+            const bool descendants = !ownMesh;
+            undo.Push("Make material unique",
+                      [=]() { ReplaceMaterial(entity, descendants, *scenePtr, copy.Get().get(), makeUnique); },
+                      [=]() { ReplaceMaterial(entity, descendants, *scenePtr, makeUnique.Get().get(), copy); });
+        }
     }
 
     AssetHandle<MaterialAsset> MakeMaterialUnique(Entity entity, bool includeDescendants, const Scene& scene,

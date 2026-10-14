@@ -13,8 +13,8 @@
 #include <string>
 #include <vector>
 
-InspectorWindow::InspectorWindow(GUI& gui, AssetManager2& assets, const Scene& scene)
-    : EditorWindow("Inspector", gui, true), m_assets(assets), m_scene(&scene)
+InspectorWindow::InspectorWindow(GUI& gui, AssetManager2& assets, const Scene& scene, UndoStack& undo)
+    : EditorWindow("Inspector", gui, true), m_assets(assets), m_undo(undo), m_scene(&scene)
 {
     RegisterComponentDrawers();
 }
@@ -37,7 +37,7 @@ void InspectorWindow::RegisterComponentDrawers()
 {
     m_componentDrawers["LocalTRS"] = &InspectorComponents::DrawLocalTRS;
     m_componentDrawers["AnimationPlayer"] = &InspectorComponents::DrawAnimationComponent;
-    m_componentDrawers["MeshComponent"] = [this](Entity& entity) { InspectorComponents::DrawMeshComponent(entity, m_assets); };
+    m_componentDrawers["MeshComponent"] = [this](Entity& entity) { InspectorComponents::DrawMeshComponent(entity, m_assets, m_undo); };
 }
 
 void InspectorWindow::Draw()
@@ -56,7 +56,7 @@ void InspectorWindow::Draw()
             const AssetID shown = m_asset;
             InspectorComponents::DrawAssetInspector(shown, m_assets, *m_scene,
                 [this](AssetID id) { m_asset = id; },
-                [this](Entity entity) { if (m_selectEntity) m_selectEntity(entity); });
+                [this](Entity entity) { if (m_selectEntity) m_selectEntity(entity); }, m_undo);
         }
         else if (!hasEntity)
             ImGui::Text("Select an entity to show it here");
@@ -92,7 +92,7 @@ void InspectorWindow::DrawEntityInspector()
             drawer->second(m_entity);
     });
 
-    InspectorComponents::DrawEntityMaterials(m_entity, *m_scene, m_assets, [this](AssetID id) { m_asset = id; });
+    InspectorComponents::DrawEntityMaterials(m_entity, *m_scene, m_assets, [this](AssetID id) { m_asset = id; }, m_undo);
 
     DrawHiddenComponentsAndTags(m_entity);
 }

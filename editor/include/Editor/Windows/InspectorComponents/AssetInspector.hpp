@@ -5,6 +5,8 @@
 
 #include <functional>
 
+class UndoStack;
+
 namespace InspectorComponents
 {
     // Opens an asset in the inspector (materials, textures, meshes, ...).
@@ -15,5 +17,5 @@ namespace InspectorComponents
     // The inspector's asset view: what the asset is, then by type the material editor, a texture
     // viewer (zoom, mip, channels) or mesh/animation info, and what in the scene uses it.
     void DrawAssetInspector(AssetID id, AssetManager2& assets, const Scene& scene,
-                            const OpenAsset& openAsset, const SelectEntity& selectEntity);
+                            const OpenAsset& openAsset, const SelectEntity& selectEntity, UndoStack& undo);
 }

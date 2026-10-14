@@ -64,6 +64,8 @@ struct SamplerSettings
     SamplerFilter minFilter = SamplerFilter::Linear;
     SamplerFilter mipmapFilter = SamplerFilter::Linear;
     bool mipmaps = true; // false: only the full-size level is sampled
+
+    bool operator==(const SamplerSettings&) const = default;
 };
 
 enum class ShaderResourceType {

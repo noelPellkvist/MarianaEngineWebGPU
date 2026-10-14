@@ -1,4 +1,5 @@
 #include <Editor/Windows/InspectorComponents/MeshComponent.hpp>
+#include <Editor/UndoStack.hpp>
 
 #include <Mariana/Rendering/MaterialAsset.hpp>
 #include <Mariana/Graphics/Mesh.hpp>
@@ -17,16 +18,24 @@ namespace
     }
 
     // Picks the material a slot draws with: any loaded material, or the default one (empty).
-    void DrawMaterialSlot(MeshComponent& meshComponent, uint32_t slot, AssetManager2& assets)
+    void DrawMaterialSlot(Entity entity, MeshComponent& meshComponent, uint32_t slot, AssetManager2& assets, UndoStack& undo)
     {
         const AssetHandle<MaterialAsset> current = slot < meshComponent.materials.size() ? meshComponent.materials[slot] : AssetHandle<MaterialAsset>{};
         const char* preview = current.Get() ? AssetName(current.GetMetadata()) : "Default Material";
 
         struct Choice { AssetID id; const MaterialAsset* material; std::string name; };
+        auto setSlot = [entity, slot](const AssetHandle<MaterialAsset>& handle) {
+            Entity e = entity;
+            if (!e.IsValid() || !e.Has<MeshComponent>())
+                return;
+            MeshComponent& component = *e.Get<MeshComponent>();
+            if (component.materials.size() <= slot)
+                component.materials.resize(slot + 1);
+            component.materials[slot] = handle;
+        };
         auto assign = [&](AssetHandle<MaterialAsset> handle) {
-            if (meshComponent.materials.size() <= slot)
-                meshComponent.materials.resize(slot + 1);
-            meshComponent.materials[slot] = std::move(handle);
+            undo.Push("Assign material", [setSlot, old = current]() { setSlot(old); }, [setSlot, handle]() { setSlot(handle); });
+            setSlot(handle);
         };
 
         const std::string label = "Element " + std::to_string(slot);
@@ -55,7 +64,7 @@ namespace
 
 namespace InspectorComponents
 {
-    void DrawMeshComponent(Entity& entity, AssetManager2& assets)
+    void DrawMeshComponent(Entity& entity, AssetManager2& assets, UndoStack& undo)
     {
         if (!entity.Has<MeshComponent>())
             return;
@@ -78,10 +87,19 @@ namespace InspectorComponents
         bool castShadows = entity.HasTag<ShadowCasterTag>();
         if (ImGui::Checkbox("Cast Shadows", &castShadows))
         {
-            if (castShadows)
-                entity.AddTag<ShadowCasterTag>();
-            else
-                entity.RemoveTag<ShadowCasterTag>();
+            auto setCasting = [target = entity](bool on) {
+                Entity e = target;
+                if (!e.IsValid())
+                    return;
+                if (on)
+                    e.AddTag<ShadowCasterTag>();
+                else
+                    e.RemoveTag<ShadowCasterTag>();
+            };
+            undo.Push(castShadows ? "Cast shadows" : "Stop casting shadows",
+                      [setCasting, castShadows]() { setCasting(!castShadows); },
+                      [setCasting, castShadows]() { setCasting(castShadows); });
+            setCasting(castShadows);
         }
 
         if (ImGui::TreeNode("Mesh Info"))
@@ -103,7 +121,7 @@ namespace InspectorComponents
         for (uint32_t slot : slots)
         {
             ImGui::PushID(static_cast<int>(slot));
-            DrawMaterialSlot(meshComponent, slot, assets);
+            DrawMaterialSlot(entity, meshComponent, slot, assets, undo);
             ImGui::PopID();
         }
     }
