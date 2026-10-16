@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <Mariana/Assets/AssetManager.hpp>
 
@@ -30,6 +31,15 @@ namespace MaterialFile
     // one embedded in a glTF is first written as a PNG next to `file`. A texture with no image file
     // is left out and reported in `error` (the save still succeeds).
     bool Save(const MaterialAsset& material, AssetManager2& assets, const std::filesystem::path& file, std::string& error);
+
+    // The image files a .material file uses and the color space each is read in (what Load passes
+    // to ImageImporter), without loading anything: for decoding them ahead, e.g. on another thread.
+    struct ImageRef
+    {
+        std::filesystem::path file;
+        bool srgb = false;
+    };
+    std::vector<ImageRef> Images(const std::filesystem::path& file, std::string& error);
 
     // Makes AssetManager2::Load<MaterialAsset>() handle .material files.
     void RegisterLoader(AssetManager2& assets);

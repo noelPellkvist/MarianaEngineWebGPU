@@ -1,19 +1,18 @@
 #pragma once
 
 #include <Editor/Windows/EditorWindow.hpp>
-#include <Mariana/Graphics/Texture.hpp>
 
 #include <filesystem>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
+
+class ThumbnailCache;
 
 class AssetsExplorer final : public EditorWindow
 {
 public:
-    // Browses `root` (the project's content).
-    AssetsExplorer(GUI& gui, std::filesystem::path root);
+    // Browses `root` (the project's content), with thumbnails from `thumbnails`.
+    AssetsExplorer(GUI& gui, std::filesystem::path root, ThumbnailCache& thumbnails);
     void Draw() override;
 
 private:
@@ -31,8 +30,7 @@ private:
     };
 
     std::filesystem::path m_root;
-    std::unordered_map<std::string, Texture> AssetsTextures;
-    std::unordered_set<std::string> m_failedThumbnails;
+    ThumbnailCache& m_thumbnails;
     std::vector<Entry> m_entries;
     std::filesystem::path m_entriesDir;
     std::filesystem::path m_entriesRelative;
@@ -40,5 +38,4 @@ private:
 
     void DrawAssetsWindow();
     void ScanDirectory(const std::filesystem::path& dir, const std::filesystem::path& root);
-    bool LoadFileTexture(const std::string& path);
 };

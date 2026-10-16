@@ -1,4 +1,5 @@
 #include <Editor/Windows/AssetsExplorer.hpp>
+#include <Editor/ThumbnailCache.hpp>
 
 #include <imgui.h>
 #include <filesystem>
@@ -19,10 +20,9 @@ inline bool IsImageExtension(const std::string& ext) {
     return std::find(allowed.begin(), allowed.end(), e) != allowed.end();
 }
 
-AssetsExplorer::AssetsExplorer(GUI& gui, std::filesystem::path root)
-    : EditorWindow("Assets", gui, true), m_root(std::move(root))
+AssetsExplorer::AssetsExplorer(GUI& gui, std::filesystem::path root, ThumbnailCache& thumbnails)
+    : EditorWindow("Assets", gui, true), m_root(std::move(root)), m_thumbnails(thumbnails)
 {
-    // Thumbnails are loaded lazily as their folder is shown, not all at startup.
 }
 
 void AssetsExplorer::Draw()
@@ -35,23 +35,6 @@ void AssetsExplorer::Draw()
         DrawAssetsWindow();
     }
     ImGui::End();
-}
-
-bool AssetsExplorer::LoadFileTexture(const std::string& path)
-{
-    try
-    {
-        Texture newTexture;
-        // UNORM on purpose: ImGui draws in sRGB space, so thumbnails must not be decoded to linear.
-        newTexture.LoadTexture(path, TextureFormat::RGBA8Unorm, 128, 128);
-        AssetsTextures[path] = newTexture;
-        return true;
-    }
-    catch (...)
-    {
-        Logger::Error("Failed to load image from this path: " + path);
-        return false;
-    }
 }
 
 void AssetsExplorer::ScanDirectory(const fs::path& dir, const fs::path& root)
@@ -137,7 +120,6 @@ void AssetsExplorer::DrawAssetsWindow()
     ImGui::Separator();
 
     const std::vector<Entry>& items = m_entries;
-    int thumbnailsLoaded = 0;
 
     // Attempt to find the icon font (assumes you added it after main font)
     static ImFont* s_iconFont = nullptr;
@@ -249,46 +231,24 @@ void AssetsExplorer::DrawAssetsWindow()
             }
             else
             {
-                // --- file: attempt to draw texture thumbnail ---
-                try {
-                    const std::string& localKey = en.localKey;
-
-                    // Load the thumbnail the first time it's shown, at most one per frame so
-                    // opening a big folder doesn't stall.
-                    if (en.isImage && thumbnailsLoaded == 0 &&
-                        !AssetsTextures.contains(localKey) && !m_failedThumbnails.contains(localKey)) {
-                        ++thumbnailsLoaded;
-                        if (!LoadFileTexture(localKey))
-                            m_failedThumbnails.insert(localKey);
-                    }
-
-                    // Look up in AssetsTextures (assumes EditorApp::AssetsTextures exists)
-                    auto it = AssetsTextures.find(localKey);
-                    if (it != AssetsTextures.end()) {
-                        // Position cursor at thumbMin then draw texture of size tileSize x tileSize
-                        ImGui::SetCursorScreenPos(thumbMin);
-
-                        // IMPORTANT: gui.DrawTexture signature was given as gui.DrawTexture(texture, width, height)
-                        // adapt this call if your API differs (e.g. needs pointer/reference)
-                        m_gui.DrawTexture(it->second, (int)tileSize, (int)tileSize);
-
-                        // after drawing, reset cursor to avoid interfering with label placement below
-                        ImGui::SetCursorScreenPos(ImVec2(rMin.x, rMin.y + padding + tileSize + 0.0f));
-                    } else {
-                        // optional: draw a small file-type glyph or placeholder if texture missing
-                        // Example: draw file-extension text faintly centered
-                        const std::string& ext = en.extension;
-                        if (!ext.empty()) {
-                            ImVec2 extSz = ImGui::CalcTextSize(ext.c_str());
-                            float x = thumbMin.x + ((thumbMax.x - thumbMin.x) - extSz.x) * 0.5f;
-                            float y = thumbMin.y + ((thumbMax.y - thumbMin.y) - extSz.y) * 0.5f;
-                            ImGui::SetCursorScreenPos(ImVec2(x, y));
-                            ImGui::TextDisabled("%s", ext.c_str());
-                        }
-                    }
-                } catch (...) {
-                    // ignore any path errors, leave thumbnail empty
+                // The thumbnail fitted into the tile (keeping its aspect), or the extension until there is one.
+                if (Texture* thumbnail = m_thumbnails.Get(en.localKey)) {
+                    const float w = (float)thumbnail->GetWidth();
+                    const float h = (float)thumbnail->GetHeight();
+                    const float fit = tileSize / std::max(w, h);
+                    const ImVec2 size(w * fit, h * fit);
+                    const ImVec2 at(thumbMin.x + (tileSize - size.x) * 0.5f, thumbMin.y + (tileSize - size.y) * 0.5f);
+                    dl->AddImage(m_gui.TextureId(*thumbnail), at, ImVec2(at.x + size.x, at.y + size.y));
+                } else if (!en.extension.empty()) {
+                    const std::string& ext = en.extension;
+                    ImVec2 extSz = ImGui::CalcTextSize(ext.c_str());
+                    float x = thumbMin.x + ((thumbMax.x - thumbMin.x) - extSz.x) * 0.5f;
+                    float y = thumbMin.y + ((thumbMax.y - thumbMin.y) - extSz.y) * 0.5f;
+                    dl->AddText(ImVec2(x, y), ImGui::GetColorU32(ImGuiCol_TextDisabled), ext.c_str());
                 }
+                // Being made or remade: a small dot in the corner.
+                if (m_thumbnails.IsPending(en.localKey))
+                    dl->AddCircleFilled(ImVec2(thumbMax.x - 5.0f, thumbMin.y + 5.0f), 3.0f, ImGui::GetColorU32(ImGuiCol_PlotHistogram));
             }
 
 

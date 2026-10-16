@@ -1,4 +1,5 @@
 #include <Editor/EditorApp.hpp>
+#include <Editor/ThumbnailCache.hpp>
 #include <Mariana/Foundation/FileReader.hpp>
 #include <Editor/EditorCameraController.hpp>
 #include <Mariana/Importers/GLTFLoader.hpp>
@@ -178,7 +179,8 @@ void EditorApp::OnStart()
     gui.InitGui(m_Window);
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
-    EditorWindows["Assets"] = std::make_unique<AssetsExplorer>(gui, MARIANA_PROJECT_DIR);
+    thumbnails = std::make_unique<ThumbnailCache>(MARIANA_PROJECT_DIR, input);
+    EditorWindows["Assets"] = std::make_unique<AssetsExplorer>(gui, MARIANA_PROJECT_DIR, *thumbnails);
     auto inspector = std::make_unique<InspectorWindow>(gui, assets, scene, undo);
     inspectorWindow = inspector.get();
     inspector->SetSelectEntity([this](Entity entity) {
@@ -214,6 +216,8 @@ void EditorApp::OnStart()
 
 void EditorApp::OnUpdate(float deltaTime)
 {
+    thumbnails->Update();
+
     if (!ImGui::GetIO().WantTextInput)
     {
         if (input.IsKeyPressed(Key::KEY_1))

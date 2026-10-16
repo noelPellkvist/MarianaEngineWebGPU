@@ -120,11 +120,12 @@ namespace Geometry
     }
 }
 
-std::shared_ptr<IMesh> BuildMesh(std::vector<MeshSection> sections)
+MeshData PrepareMesh(std::vector<MeshSection> sections)
 {
-    std::vector<StandardVertex> vertices;
-    std::vector<uint32_t> indices;
-    std::vector<Submesh> submeshes;
+    MeshData data;
+    std::vector<StandardVertex>& vertices = data.vertices;
+    std::vector<uint32_t>& indices = data.indices;
+    std::vector<Submesh>& submeshes = data.submeshes;
 
     for (MeshSection& section : sections)
     {
@@ -162,23 +163,33 @@ std::shared_ptr<IMesh> BuildMesh(std::vector<MeshSection> sections)
             indices.push_back(i + baseVertex);
     }
 
-    if (vertices.empty() || indices.empty())
+    return data;
+}
+
+std::shared_ptr<IMesh> UploadMesh(MeshData data)
+{
+    if (data.Empty())
         return nullptr;
 
     std::shared_ptr<IMesh> mesh;
-    if (vertices.size() <= 65536)
+    if (data.vertices.size() <= 65536)
     {
         // Every index fits in 16 bits: half the index memory and bandwidth.
-        std::vector<uint16_t> shortIndices(indices.begin(), indices.end());
-        mesh = std::make_shared<Mesh<StandardVertex, uint16_t>>(std::move(vertices), std::move(shortIndices));
+        std::vector<uint16_t> shortIndices(data.indices.begin(), data.indices.end());
+        mesh = std::make_shared<Mesh<StandardVertex, uint16_t>>(std::move(data.vertices), std::move(shortIndices));
     }
     else
     {
-        mesh = std::make_shared<Mesh<StandardVertex, uint32_t>>(std::move(vertices), std::move(indices));
+        mesh = std::make_shared<Mesh<StandardVertex, uint32_t>>(std::move(data.vertices), std::move(data.indices));
     }
-    mesh->submeshes = std::move(submeshes);
+    mesh->submeshes = std::move(data.submeshes);
     mesh->BuildMesh();
     // The GPU has its own copy now; only the counts and bounds are kept on the CPU.
     mesh->Clear();
     return mesh;
+}
+
+std::shared_ptr<IMesh> BuildMesh(std::vector<MeshSection> sections)
+{
+    return UploadMesh(PrepareMesh(std::move(sections)));
 }

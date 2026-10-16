@@ -28,6 +28,7 @@ struct SceneRendererSettings
     bool shadows = true;
     float shadowDistance = 80.0f;  // shadows fade out this far from the camera
     uint32_t shadowMapSize = 2048; // texels per side of each cascade's depth map
+    bool sky = true;               // the sky as the background (it lights the scene either way)
 
     bool operator==(const SceneRendererSettings&) const = default;
 };
@@ -69,6 +70,9 @@ public:
     bool writeEntityIds = true;
     // Redraws every shadow cascade (the cache can't see e.g. edited geometry).
     void InvalidateShadows() { shadowsDirty = true; }
+    // Uploads every transform again and redraws the shadows: after Scene::Clear, when slots are
+    // reused by new entities.
+    void InvalidateTransforms() { uploadedTransformVersions.clear(); shadowsDirty = true; }
 
     Buffer& CameraBuffer() { return pipeline.cameraBuffer; }
     // What submeshes without a (valid) material draw with.

@@ -4,6 +4,7 @@
 #include <Mariana/Graphics/Material.hpp>
 #include <Mariana/Graphics/Mesh.hpp>
 #include <Mariana/Graphics/Shader.hpp>
+#include <Mariana/Graphics/Texture.hpp>
 #include <webgpu/webgpu_cpp.h>
 
 Renderer::Renderer()
@@ -45,6 +46,14 @@ void Renderer::Render(const Overlay& overlay)
     if (overlay)
       RenderOverlay(backbuffer, encoder, overlay);
 
+    wgpu::CommandBuffer commands = encoder.Finish();
+    device.GetQueue().Submit(1, &commands);
+}
+
+void Renderer::RenderToTexture(Texture& target)
+{
+    wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
+    graph.Execute(static_cast<void*>(&encoder), target.GetTextureView());
     wgpu::CommandBuffer commands = encoder.Finish();
     device.GetQueue().Submit(1, &commands);
 }

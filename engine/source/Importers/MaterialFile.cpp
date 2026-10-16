@@ -72,6 +72,36 @@ namespace
     {
         return mode == AlphaMode::Mask ? "Mask" : mode == AlphaMode::Blend ? "Blend" : "Opaque";
     }
+
+    bool ReadJson(const std::filesystem::path& file, Json& json, std::string& error)
+    {
+        try
+        {
+            std::ifstream stream(file, std::ios::binary);
+            if (!stream)
+            {
+                error = "Could not open " + file.string();
+                return false;
+            }
+            std::ostringstream text;
+            text << stream.rdbuf();
+            json = Json::parse(text.str());
+            return true;
+        }
+        catch (const std::exception& e)
+        {
+            error = file.string() + ": " + e.what();
+            return false;
+        }
+    }
+
+    // The image file a texture entry names: relative to the material, or a resource path.
+    std::filesystem::path ImageFile(const std::filesystem::path& file, const std::string& image)
+    {
+        if (image.empty())
+            return {};
+        return image[0] == '/' ? FileSystem::Resolve(image) : (file.parent_path() / image).lexically_normal();
+    }
 }
 
 namespace MaterialFile
@@ -79,23 +109,8 @@ namespace MaterialFile
     std::shared_ptr<MaterialAsset> Load(AssetManager2& assets, const std::filesystem::path& file, std::string& error)
     {
         Json json;
-        try
-        {
-            std::ifstream stream(file, std::ios::binary);
-            if (!stream)
-            {
-                error = "Could not open " + file.string();
-                return nullptr;
-            }
-            std::ostringstream text;
-            text << stream.rdbuf();
-            json = Json::parse(text.str());
-        }
-        catch (const std::exception& e)
-        {
-            error = file.string() + ": " + e.what();
+        if (!ReadJson(file, json, error))
             return nullptr;
-        }
 
         auto material = std::make_shared<MaterialAsset>();
         PBRMaterialProperties& p = material->properties;
@@ -122,7 +137,7 @@ namespace MaterialFile
                 const std::string image = entry->value("image", std::string());
                 if (image.empty())
                     continue;
-                const std::filesystem::path imageFile = image[0] == '/' ? FileSystem::Resolve(image) : file.parent_path() / image;
+                const std::filesystem::path imageFile = ImageFile(file, image);
                 AssetHandle<Texture> texture = imageFile.empty() ? AssetHandle<Texture>{} : ImageImporter::LoadTexture(assets, imageFile, IsColorSlot(slot));
                 if (!texture.IsValid())
                     Logger::Warning(file.string() + ": could not load " + image);
@@ -138,6 +153,27 @@ namespace MaterialFile
             }
         }
         return material;
+    }
+
+    std::vector<ImageRef> Images(const std::filesystem::path& file, std::string& error)
+    {
+        std::vector<ImageRef> images;
+        Json json;
+        if (!ReadJson(file, json, error))
+            return images;
+        const auto textures = json.find("textures");
+        if (textures == json.end() || !textures->is_object())
+            return images;
+        for (uint32_t t = 0; t < static_cast<uint32_t>(MaterialTexture::Count); ++t)
+        {
+            const auto entry = textures->find(kSlotKeys[t]);
+            if (entry == textures->end() || !entry->is_object())
+                continue;
+            const std::filesystem::path imageFile = ImageFile(file, entry->value("image", std::string()));
+            if (!imageFile.empty())
+                images.push_back({ imageFile, IsColorSlot(static_cast<MaterialTexture>(t)) });
+        }
+        return images;
     }
 
     bool Save(const MaterialAsset& material, AssetManager2& assets, const std::filesystem::path& file, std::string& error)

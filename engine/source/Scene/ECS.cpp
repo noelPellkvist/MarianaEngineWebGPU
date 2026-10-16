@@ -405,6 +405,13 @@ void Scene::_destroy(uint64_t id) {
 
     _p->ecs.entity((flecs::entity_t)id).destruct();
 }
+void Scene::Clear() {
+    std::vector<uint64_t> roots;
+    _forEachRootOpaque([](void* ctx, uint64_t id, Scene*) { static_cast<std::vector<uint64_t>*>(ctx)->push_back(id); }, &roots);
+    for (uint64_t id : roots) _destroy(id);
+    _p->next_trs_id = 0;
+}
+
 void Scene::_update(float) { _p->ecs.progress(); }
 bool Scene::_isAlive(uint64_t id) const { return id && ecs_is_alive(_p->ecs.c_ptr(), (ecs_entity_t)id); }
 uint64_t Scene::_getAliveId(uint64_t id) const {

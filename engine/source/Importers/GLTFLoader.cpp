@@ -17,6 +17,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Foundation/Image.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
 #include <Mariana/Importers/MaterialFile.hpp>
 #include <Mariana/Geometry/MeshBuilder.hpp>
@@ -416,15 +417,15 @@ bool ToRGBA8(const tinygltf::Image& image, std::vector<uint8_t>& out)
 
 #pragma endregion
 
-// One GPU mesh from all primitives of a glTF mesh. Each primitive becomes a submesh whose
-// materialIndex is the primitive's index, i.e. its slot in MeshComponent::materials.
-std::shared_ptr<IMesh> LoadEntireMesh(const tinygltf::Model& model, const tinygltf::Mesh& rawMesh)
+// One mesh from all primitives of a glTF mesh, ready to upload. Each primitive becomes a submesh
+// whose materialIndex is the primitive's index, i.e. its slot in MeshComponent::materials.
+MeshData PrepareEntireMesh(const tinygltf::Model& model, const tinygltf::Mesh& rawMesh)
 {
     std::vector<MeshSection> sections;
     sections.reserve(rawMesh.primitives.size());
     for (size_t primIndex = 0; primIndex < rawMesh.primitives.size(); ++primIndex)
         sections.push_back(LoadPrimitive(model, rawMesh.primitives[primIndex], static_cast<uint32_t>(primIndex)));
-    return BuildMesh(std::move(sections));
+    return PrepareMesh(std::move(sections));
 }
 
 struct LoadedMesh
@@ -679,47 +680,160 @@ Animation LoadAnimation(const tinygltf::Model& model, const tinygltf::Animation&
     return animation.Build();
 }
 
-std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const std::filesystem::path& file)
+namespace GLTF
 {
-    tinygltf::Model model;
-    tinygltf::TinyGLTF loader;
-    std::string err;
+    struct ParsedGLTF
+    {
+        std::filesystem::path file;
+        tinygltf::Model model;              // without its decoded images, which are in `images`
+        int sceneIndex = 0;
+        std::vector<Image::Pixels> images;  // per glTF image, RGBA8; empty when unsupported
+        std::vector<MeshData> meshes;       // per glTF mesh; empty when it couldn't be read
+        std::vector<std::string> warnings;  // logged by LoadGLTF
+    };
+}
+
+namespace
+{
+    bool ReadModel(const std::filesystem::path& file, tinygltf::Model& model, std::string& error, std::string* warnings = nullptr, uint32_t maxImageSize = 0)
+    {
+        tinygltf::TinyGLTF loader;
+        if (maxImageSize > 0)
+        {
+            // Each image is shrunk as soon as it is decoded, so a big model never holds all of its
+            // images at full size.
+            loader.SetImageLoader([maxImageSize](tinygltf::Image* image, const int index, std::string* err, std::string* warn,
+                                                 int width, int height, const unsigned char* bytes, int size, void* user) {
+                if (!tinygltf::LoadImageData(image, index, err, warn, width, height, bytes, size, user))
+                    return false;
+                Image::Pixels pixels;
+                if (!ToRGBA8(*image, pixels.rgba))
+                    return true; // left as it is; Parse reports it
+                pixels.width = image->width;
+                pixels.height = image->height;
+                pixels = Image::Downscale(std::move(pixels), maxImageSize);
+                image->width = pixels.width;
+                image->height = pixels.height;
+                image->component = 4;
+                image->bits = 8;
+                image->pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
+                image->image = std::move(pixels.rgba);
+                return true;
+            }, nullptr);
+        }
+        std::string warn;
+        std::string extension = file.extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const bool ok = extension == ".gltf"
+            ? loader.LoadASCIIFromFile(&model, &error, &warn, file.string())
+            : loader.LoadBinaryFromFile(&model, &error, &warn, file.string());
+        if (!ok && error.empty())
+            error = "Failed to parse glTF: " + file.string();
+        if (warnings)
+            *warnings = warn;
+        return ok;
+    }
+
+    // A file a glTF refers to by URI (nothing for data: URIs), relative to the glTF.
+    std::filesystem::path ExternalFile(const std::filesystem::path& file, const std::string& uri)
+    {
+        if (uri.empty() || uri.rfind("data:", 0) == 0)
+            return {};
+        std::string decoded;
+        if (!tinygltf::URIDecode(uri, &decoded, nullptr))
+            decoded = uri;
+        return (file.parent_path() / std::filesystem::path(std::u8string(decoded.begin(), decoded.end()))).lexically_normal();
+    }
+}
+
+std::shared_ptr<GLTF::ParsedGLTF> GLTF::GLTFLoader::Parse(const std::filesystem::path& file, std::string& error, const ParseOptions& options)
+{
+    auto parsed = std::make_shared<ParsedGLTF>();
+    parsed->file = file;
+    tinygltf::Model& model = parsed->model;
+
     std::string warn;
-
-    const std::string filename = file.string();
-    std::string extension = file.extension().string();
-    std::transform(extension.begin(), extension.end(), extension.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-
-    const bool ret = extension == ".gltf"
-        ? loader.LoadASCIIFromFile(&model, &err, &warn, filename)
-        : loader.LoadBinaryFromFile(&model, &err, &warn, filename);
-
-    if (!warn.empty()) {
-      Logger::Warning(warn);
-    }
-
-    if (!err.empty()) {
-      Logger::Error(err);
-      return nullptr;
-    }
-
-    if (!ret) {
-      Logger::Error("Failed to parse glTF: " + filename);
-      return nullptr;
-    }
+    if (!ReadModel(file, model, error, &warn, options.maxImageSize))
+        return nullptr;
+    if (!warn.empty())
+        parsed->warnings.push_back(warn);
 
     if (model.scenes.empty()) {
-      Logger::Error("glTF has no scenes: " + filename);
-      return nullptr;
+        error = "glTF has no scenes: " + file.string();
+        return nullptr;
+    }
+    parsed->sceneIndex = (model.defaultScene >= 0 && model.defaultScene < (int)model.scenes.size()) ? model.defaultScene : 0;
+    if (model.scenes[parsed->sceneIndex].nodes.empty()) {
+        error = "glTF scene has no nodes: " + file.string();
+        return nullptr;
     }
 
-    const int sceneIndex = (model.defaultScene >= 0 && model.defaultScene < (int)model.scenes.size()) ? model.defaultScene : 0;
-    const tinygltf::Scene& gltfScene = model.scenes[sceneIndex];
-    if (gltfScene.nodes.empty()) {
-      Logger::Error("glTF scene has no nodes: " + filename);
-      return nullptr;
+    // Images as RGBA8 (shared by both color spaces), the decoded originals freed as they go.
+    parsed->images.resize(model.images.size());
+    for (size_t i = 0; i < model.images.size(); ++i)
+    {
+        tinygltf::Image& image = model.images[i];
+        Image::Pixels& pixels = parsed->images[i];
+        if (ToRGBA8(image, pixels.rgba)) {
+            pixels.width = image.width;
+            pixels.height = image.height;
+            if (options.maxImageSize > 0)
+                pixels = Image::Downscale(std::move(pixels), options.maxImageSize);
+        } else {
+            pixels = {};
+            parsed->warnings.push_back("Unsupported image format for image " + std::to_string(i) + " in " + file.string());
+        }
+        std::vector<unsigned char>().swap(image.image);
     }
+
+    parsed->meshes.resize(model.meshes.size());
+    for (size_t i = 0; i < model.meshes.size(); ++i)
+    {
+        try {
+            parsed->meshes[i] = PrepareEntireMesh(model, model.meshes[i]);
+        } catch (const std::exception& e) {
+            parsed->warnings.push_back("Skipping mesh " + std::to_string(i) + " in " + file.string() + ": " + e.what());
+        }
+    }
+    return parsed;
+}
+
+std::vector<std::filesystem::path> GLTF::GLTFLoader::Dependencies(const ParsedGLTF& parsed)
+{
+    std::vector<std::filesystem::path> files;
+    for (const tinygltf::Buffer& buffer : parsed.model.buffers)
+        if (std::filesystem::path external = ExternalFile(parsed.file, buffer.uri); !external.empty())
+            files.push_back(external);
+    for (const tinygltf::Image& image : parsed.model.images)
+        if (std::filesystem::path external = ExternalFile(parsed.file, image.uri); !external.empty())
+            files.push_back(external);
+    for (size_t i = 0; i < parsed.model.materials.size(); ++i)
+        files.push_back(ExtractedMaterialFile(parsed.file, i, parsed.model.materials[i].name));
+    std::sort(files.begin(), files.end());
+    files.erase(std::unique(files.begin(), files.end()), files.end());
+    return files;
+}
+
+std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const std::filesystem::path& file)
+{
+    std::string error;
+    std::shared_ptr<ParsedGLTF> parsed = Parse(file, error);
+    if (!parsed) {
+        Logger::Error(error);
+        return nullptr;
+    }
+    return LoadGLTF(assets, *parsed);
+}
+
+std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, ParsedGLTF& parsed)
+{
+    for (const std::string& warning : parsed.warnings)
+        Logger::Warning(warning);
+
+    const std::filesystem::path& file = parsed.file;
+    const tinygltf::Model& model = parsed.model;
+    const tinygltf::Scene& gltfScene = model.scenes[parsed.sceneIndex];
+    const std::string filename = file.string();
 
     const std::string fileKey = AssetManager2::MakeKey(file);
     const std::string fileName = file.stem().string();
@@ -746,22 +860,17 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
             return existing;
 
         const tinygltf::Image& image = model.images[imageIndex];
-        std::vector<uint8_t> rgba;
-        if (!ToRGBA8(image, rgba)) {
-            Logger::Warning("Unsupported image format for image " + std::to_string(imageIndex) + " in " + filename);
+        const Image::Pixels& pixels = parsed.images[imageIndex];
+        if (pixels.Empty())
             return {};
-        }
 
         // Mipmapped: minified textures sample from small levels instead of thrashing the cache.
         auto texture = std::make_shared<Texture>();
-        texture->CreateTexture(image.width, image.height, srgb ? TextureFormat::RGBA8UnormSrgb : TextureFormat::RGBA8Unorm,
-                               false, false, false, Texture::MipLevelCount(image.width, image.height));
-        texture->UploadTextureWithMips(rgba.data(), rgba.size(), image.width, image.height);
+        texture->CreateTexture(pixels.width, pixels.height, srgb ? TextureFormat::RGBA8UnormSrgb : TextureFormat::RGBA8Unorm,
+                               false, false, false, Texture::MipLevelCount(pixels.width, pixels.height));
+        texture->UploadTextureWithMips(pixels.rgba.data(), pixels.rgba.size(), pixels.width, pixels.height);
         // An image in its own file (not embedded) is the texture's source.
-        std::filesystem::path source;
-        if (!image.uri.empty() && image.uri.rfind("data:", 0) != 0)
-            source = file.parent_path() / image.uri;
-        return assets.RegisterAsset<Texture>(texture, AssetType::Texture, subName(image.name, "image", imageIndex), key, source);
+        return assets.RegisterAsset<Texture>(texture, AssetType::Texture, subName(image.name, "image", imageIndex), key, ExternalFile(file, image.uri));
     };
 
     // A texture's glTF sampler; repeat and trilinear when it has none (or leaves filters open).
@@ -870,7 +979,7 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
             continue;
         }
 
-        if (std::shared_ptr<IMesh> mesh = LoadEntireMesh(model, rawMesh))
+        if (std::shared_ptr<IMesh> mesh = UploadMesh(std::move(parsed.meshes[i])))
             meshes[i].mesh = assets.RegisterAsset<IMesh>(mesh, AssetType::Mesh, subName(rawMesh.name, "mesh", i), key);
     }
 
@@ -939,20 +1048,6 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, const 
 
 namespace
 {
-    bool ReadModel(const std::filesystem::path& file, tinygltf::Model& model, std::string& error)
-    {
-        tinygltf::TinyGLTF loader;
-        std::string warn;
-        std::string extension = file.extension().string();
-        std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        const bool ok = extension == ".gltf"
-            ? loader.LoadASCIIFromFile(&model, &error, &warn, file.string())
-            : loader.LoadBinaryFromFile(&model, &error, &warn, file.string());
-        if (!ok && error.empty())
-            error = "Failed to parse glTF: " + file.string();
-        return ok;
-    }
-
     // The glTF last read for extraction, so writing several of its images parses it once.
     struct ExtractionCache
     {

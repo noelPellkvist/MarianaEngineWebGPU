@@ -1,0 +1,15 @@
+{
+  "name": "Thumbnail Tonemap",
+  "stage": "PostProcess",
+  "final": true,
+  "passes": [
+    {
+      "name": "Tonemap",
+      "shader": "/Thumbnails/tonemap.wgsl",
+      "inputs": {
+        "scene": "Input"
+      },
+      "output": "Output"
+    }
+  ]
+}

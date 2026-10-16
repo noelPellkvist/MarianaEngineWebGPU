@@ -2,6 +2,8 @@
 #include <Mariana/Rendering/RenderGraph.hpp>
 #include <functional>
 
+class Texture;
+
 // Draws a frame: executes the render graph (whatever writes "Backbuffer" ends up on screen), then
 // an optional overlay (e.g. a UI) on top of it.
 class Renderer
@@ -18,4 +20,7 @@ class Renderer
         RenderGraph graph;
 
         void Render(const Overlay& overlay = {});
+        // Draws a frame into `target` instead of the screen (offscreen rendering, e.g. previews):
+        // a render texture of the graph's backbuffer format and output size.
+        void RenderToTexture(Texture& target);
 };

@@ -238,6 +238,12 @@ struct Texture::Impl
     wgpu::Buffer readbackBuffer;
     std::atomic<int> readbackState{ReadbackIdle};
     std::atomic<uint64_t> readbackValue{~uint64_t{0}};
+
+    // Image readback (RequestImageReadback): rows padded to 256 bytes in the buffer.
+    wgpu::Buffer imageReadbackBuffer;
+    uint64_t imageReadbackSize = 0;
+    uint32_t imageReadbackRowPitch = 0;
+    std::atomic<int> imageReadbackState{ReadbackIdle};
 };
 
 static constexpr uint64_t kRowPitch   = 256;
@@ -611,6 +617,65 @@ void Texture::RequestPixelReadback(int x, int y)
             impl.readbackState.store(ReadbackReady); // unmapped by TryGetPixelReadback
         }
     );
+}
+
+void Texture::RequestImageReadback()
+{
+    auto& impl = *_impl;
+    if (impl.imageReadbackState.load() != ReadbackIdle || !impl.m_Texture)
+        return;
+
+    const uint32_t width = static_cast<uint32_t>(m_Width);
+    const uint32_t height = static_cast<uint32_t>(m_Height);
+    const uint32_t rowPitch = (width * 4 + 255) / 256 * 256;
+    const uint64_t size = static_cast<uint64_t>(rowPitch) * height;
+    if (!impl.imageReadbackBuffer || impl.imageReadbackSize != size)
+    {
+        wgpu::BufferDescriptor desc{};
+        desc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
+        desc.size = size;
+        impl.imageReadbackBuffer = device.CreateBuffer(&desc);
+        impl.imageReadbackSize = size;
+    }
+    impl.imageReadbackRowPitch = rowPitch;
+
+    wgpu::TexelCopyTextureInfo src{};
+    src.texture = impl.m_Texture;
+    src.aspect = wgpu::TextureAspect::All;
+    wgpu::TexelCopyBufferInfo dst{};
+    dst.buffer = impl.imageReadbackBuffer;
+    dst.layout.bytesPerRow = rowPitch;
+    dst.layout.rowsPerImage = height;
+    wgpu::Extent3D extent{ width, height, 1 };
+
+    wgpu::CommandEncoder enc = device.CreateCommandEncoder();
+    enc.CopyTextureToBuffer(&src, &dst, &extent);
+    wgpu::CommandBuffer cb = enc.Finish();
+    device.GetQueue().Submit(1, &cb);
+
+    impl.imageReadbackState.store(ReadbackPending);
+    std::shared_ptr<Impl> keepAlive = _impl;
+    (void)impl.imageReadbackBuffer.MapAsync(
+        wgpu::MapMode::Read, 0, size, wgpu::CallbackMode::AllowSpontaneous,
+        [keepAlive](wgpu::MapAsyncStatus status, wgpu::StringView) {
+            keepAlive->imageReadbackState.store(status == wgpu::MapAsyncStatus::Success ? ReadbackReady : ReadbackIdle);
+        });
+}
+
+bool Texture::TryGetImageReadback(std::vector<uint8_t>& rgba)
+{
+    auto& impl = *_impl;
+    if (impl.imageReadbackState.load() != ReadbackReady)
+        return false;
+
+    const size_t row = static_cast<size_t>(m_Width) * 4;
+    rgba.resize(row * m_Height);
+    if (const auto* mapped = static_cast<const uint8_t*>(impl.imageReadbackBuffer.GetConstMappedRange(0, impl.imageReadbackSize)))
+        for (int y = 0; y < m_Height; ++y)
+            std::memcpy(rgba.data() + row * y, mapped + static_cast<size_t>(impl.imageReadbackRowPitch) * y, row);
+    impl.imageReadbackBuffer.Unmap();
+    impl.imageReadbackState.store(ReadbackIdle);
+    return true;
 }
 
 bool Texture::TryGetPixelReadback(uint64_t& value)

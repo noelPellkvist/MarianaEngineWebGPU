@@ -24,6 +24,8 @@ function(mariana_web_app target)
     "-sASYNCIFY=1"
     "-sUSE_GLFW=3"
     "SHELL:-sFORCE_FILESYSTEM=1"
+    # Editor caches (e.g. thumbnails) stay out of the package.
+    "SHELL:--exclude-file */.mariana"
   )
   foreach(path IN LISTS MARIANA_ENGINE_RESOURCES ARG_PRELOAD)
     if(IS_DIRECTORY "${path}")

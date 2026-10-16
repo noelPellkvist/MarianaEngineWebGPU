@@ -97,6 +97,7 @@ bool RenderPipelineDesc::Load(const std::string& path, RenderPipelineDesc& out, 
             out.scene.shadows = scene->value("shadows", out.scene.shadows);
             out.scene.shadowDistance = scene->value("shadowDistance", out.scene.shadowDistance);
             out.scene.shadowMapSize = scene->value("shadowMapSize", out.scene.shadowMapSize);
+            out.scene.sky = scene->value("sky", out.scene.sky);
         }
 
         if (const auto effects = file.find("effects"); effects != file.end())
@@ -144,7 +145,7 @@ bool RenderPipelineDesc::Save(const std::string& path, std::string& error) const
     Json file;
     file["name"] = name;
     file["exposure"] = Clean(exposure);
-    file["scene"] = Json{ { "shadows", scene.shadows }, { "shadowDistance", Clean(scene.shadowDistance) }, { "shadowMapSize", scene.shadowMapSize } };
+    file["scene"] = Json{ { "shadows", scene.shadows }, { "shadowDistance", Clean(scene.shadowDistance) }, { "shadowMapSize", scene.shadowMapSize }, { "sky", scene.sky } };
 
     Json list = Json::array();
     for (const Effect& effect : effects)

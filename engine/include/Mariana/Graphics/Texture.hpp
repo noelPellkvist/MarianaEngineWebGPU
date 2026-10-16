@@ -142,6 +142,10 @@ class Texture
         // is in flight at a time; poll TryGetPixelReadback until it returns true.
         void RequestPixelReadback(int x, int y);
         bool TryGetPixelReadback(uint64_t& value);
+        // Asynchronously reads mip 0 of an RGBA8 texture back to the CPU (rows top to bottom,
+        // width * 4 bytes each). One request at a time; poll TryGetImageReadback until it returns true.
+        void RequestImageReadback();
+        bool TryGetImageReadback(std::vector<uint8_t>& rgba);
 
         void* GetTexture();
         void* GetTextureView();

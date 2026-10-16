@@ -15,6 +15,7 @@
 #include <unordered_map>
 
 class InspectorWindow;
+class ThumbnailCache;
 
 // The editor: windows, picking and the gizmo around a scene drawn by the engine's renderer.
 class EditorApp : public Application
@@ -33,6 +34,8 @@ class EditorApp : public Application
     private:
         GUI gui;
         UndoStack undo;
+        // Outlives the windows that show its thumbnails.
+        std::unique_ptr<ThumbnailCache> thumbnails;
         std::unordered_map<std::string, std::unique_ptr<EditorWindow>> EditorWindows;
         InspectorWindow* inspectorWindow = nullptr;
         // Declared first: the scene renderer and the effects remove their passes from its graph.

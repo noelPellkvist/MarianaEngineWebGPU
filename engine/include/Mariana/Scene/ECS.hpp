@@ -230,6 +230,9 @@ public:
     Entity Instantiate(const char* name = nullptr);
     Entity Instantiate(const Prefab& prefab, const char* name = nullptr);
     void Destroy(Entity e);
+    // Destroys every entity and hands out transform slots (WorldXform::id) from 0 again; whoever
+    // keeps state per slot must drop it (SceneRenderer::InvalidateTransforms).
+    void Clear();
     void Update(float dt);
     void UpdateComponentRegistry();
 

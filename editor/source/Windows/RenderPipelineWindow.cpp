@@ -128,6 +128,7 @@ void RenderPipelineWindow::DrawSceneSettings()
         ImGui::EndCombo();
     }
     ImGui::EndDisabled();
+    changed |= ImGui::Checkbox("Sky Background", &settings.sky);
     if (changed)
         m_sceneRenderer.SetSettings(settings);
     ImGui::TextDisabled("Anti-aliasing: 4x MSAA, alpha to coverage on alpha-tested materials");

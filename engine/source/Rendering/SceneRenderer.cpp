@@ -760,7 +760,8 @@ void SceneRenderer::RecordForward(Renderpass& pass)
     }
 
     // Drawn last: it sits at the far plane, so the depth test skips every pixel already covered.
-    if (skyMesh)
+    // Without it the background stays clear (0, alpha 0).
+    if (skyMesh && settings.sky)
     {
         pass.SetShader2(skyboxShader);
         pass.SetMesh(skyMesh.get());

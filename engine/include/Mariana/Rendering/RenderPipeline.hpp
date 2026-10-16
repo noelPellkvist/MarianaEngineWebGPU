@@ -16,7 +16,7 @@ class ICamera;
 //   {
 //     "name": "Default",
 //     "exposure": 1.5,
-//     "scene": { "shadows": true, "shadowDistance": 80, "shadowMapSize": 2048 },
+//     "scene": { "shadows": true, "shadowDistance": 80, "shadowMapSize": 2048, "sky": true },
 //     "effects": [
 //       { "effect": "/Effects/Bloom.effect", "enabled": true, "parameters": { "intensity": 1.0 } }, ...
 //     ]

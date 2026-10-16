@@ -1,0 +1,25 @@
+{
+  "name": "Thumbnail",
+  "exposure": 1.5,
+  "scene": {
+    "shadows": true,
+    "shadowDistance": 6.0,
+    "shadowMapSize": 1024,
+    "sky": false
+  },
+  "effects": [
+    {
+      "effect": "/Effects/GTAO.effect",
+      "enabled": true,
+      "parameters": {
+        "radius": 0.2,
+        "power": 1.5
+      }
+    },
+    {
+      "effect": "/Thumbnails/Tonemap.effect",
+      "enabled": true,
+      "parameters": {}
+    }
+  ]
+}
