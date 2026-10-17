@@ -336,7 +336,8 @@ void SceneRenderer::BuildShaders(Renderpass& shadow, Renderpass& prepass, Render
     skyboxShader.Group(0)
     .AddBuffer("CameraInfo", 0, pipeline.cameraBuffer)
     .AddTexture("CubeMap", 1, TextureType_Cube)
-    .AddSampler("Sampler", 2);
+    .AddSampler("Sampler", 2)
+    .AddBuffer("UBO", 3, pipeline.uboBuffer);
     skyboxShader.SetTexture("CubeMap", *skyCubemap.Get());
     skyboxShader.SetVertexStructLayout(vertexLayout);
     skyboxShader.SetWGSL(FileReader::LoadRawString("/Shaders/skybox.wgsl"));
@@ -544,7 +545,7 @@ void SceneRenderer::ApplyLighting()
 {
     const glm::vec3 lightDir = lighting.LightDirection();
     const glm::vec4 sunColor(lighting.sunColor * lighting.sunIntensity, 1.0f);
-    const glm::vec4 skyParams(lighting.skyIntensity, lighting.reflectionIntensity, 0.0f, 0.0f);
+    const glm::vec4 skyParams(lighting.skyIntensity, lighting.reflectionIntensity, glm::radians(lighting.skyRotation), 0.0f);
     if (lightDir == ubo.lightDir && sunColor == ubo.sunColor && skyParams == ubo.skyParams)
         return;
 

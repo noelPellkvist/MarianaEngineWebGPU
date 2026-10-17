@@ -92,3 +92,12 @@ std::array<glm::vec4, 9> ComputeSkyIrradianceSH(const std::vector<std::vector<ui
         result[i] = glm::vec4(sh[i] * (normalize * kCosineLobe[i] * kBasis[i]), 0.0f);
     return result;
 }
+
+glm::vec3 SkyBrightestDirection(const std::array<glm::vec4, 9>& sh)
+{
+    // test.wgsl evaluates the linear band as sh[1] * y + sh[2] * z + sh[3] * x.
+    auto luminance = [](const glm::vec4& c) { return 0.2126f * c.x + 0.7152f * c.y + 0.0722f * c.z; };
+    const glm::vec3 direction(luminance(sh[3]), luminance(sh[1]), luminance(sh[2]));
+    const float length = glm::length(direction);
+    return length > 1e-6f ? direction / length : glm::vec3(0.0f, 1.0f, 0.0f);
+}

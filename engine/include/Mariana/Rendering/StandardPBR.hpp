@@ -19,7 +19,7 @@ struct UBO {
   glm::vec4 cascadeTexel{0.0f};  // world size of one shadow texel in each cascade
   glm::vec4 sunColor{1.0f};      // rgb = color * intensity
   std::array<glm::vec4, 9> skySH{}; // diffuse sky light, see SkyLight.hpp
-  glm::vec4 skyParams{0.0f};     // x = sky diffuse intensity, y = sky reflection intensity
+  glm::vec4 skyParams{0.0f};     // x = sky diffuse intensity, y = sky reflection intensity, z = sky rotation (radians)
 };
 
 // Sun and sky, edited in the Lighting window; EditorApp turns them into the UBO.
@@ -31,6 +31,7 @@ struct LightingSettings
     float sunIntensity = 1.0f;
     float skyIntensity = 1.0f;        // diffuse light from the sky
     float reflectionIntensity = 1.0f; // the sky reflected by glossy surfaces
+    float skyRotation = 0.0f;         // degrees the sky (its light, reflections and background) is turned around +y, like an azimuth
 
     // The direction the sunlight travels in.
     glm::vec3 LightDirection() const

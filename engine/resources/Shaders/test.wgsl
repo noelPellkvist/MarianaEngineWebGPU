@@ -31,7 +31,7 @@ struct UBO {
     cascadeTexel: vec4f,  // world size of one shadow texel in each cascade
     sunColor: vec4f,      // rgb = color * intensity
     skySH: array<vec4f, 9>, // diffuse sky light (SkyLight.hpp)
-    skyParams: vec4f,     // x = sky diffuse intensity, y = sky reflection intensity
+    skyParams: vec4f,     // x = sky diffuse intensity, y = sky reflection intensity, z = sky rotation (radians)
 };
 
 struct ModelData {
@@ -211,8 +211,16 @@ fn shadowFactor(worldPos: vec3f, N: vec3f, NoL: f32, viewDepth: f32) -> f32 {
 
 // ===================== sky light =====================
 
+// A world direction as a direction in the sky (which is turned by skyParams.z around +y).
+fn toSky(d: vec3f) -> vec3f {
+    let c = cos(UniformBufferObject.skyParams.z);
+    let s = sin(UniformBufferObject.skyParams.z);
+    return vec3f(d.x * c - d.z * s, d.y, d.x * s + d.z * c);
+}
+
 // Irradiance from the sky around normal n, divided by pi (times albedo = diffuse color).
-fn skyIrradiance(n: vec3f) -> vec3f {
+fn skyIrradiance(worldN: vec3f) -> vec3f {
+    let n = toSky(worldN);
     let sh = UniformBufferObject.skySH;
     let e = sh[0].rgb
           + sh[1].rgb * n.y + sh[2].rgb * n.z + sh[3].rgb * n.x
@@ -228,7 +236,7 @@ fn skyReflection(R: vec3f, perceptualRoughness: f32) -> vec3f {
     let a = perceptualRoughness * perceptualRoughness;
     let maxLod = f32(textureNumLevels(skyCube) - 1u);
     let lod = clamp(log2(a * f32(textureDimensions(skyCube).x)) + 0.35, 0.0, maxLod);
-    let sharp = textureSampleLevel(skyCube, skySampler, R, lod).rgb;
+    let sharp = textureSampleLevel(skyCube, skySampler, toSky(R), lod).rgb;
     return mix(sharp, skyIrradiance(R), smoothstep(0.6, 1.0, perceptualRoughness));
 }
 

@@ -45,8 +45,9 @@ struct ThumbnailSource
 // Renders models and materials (on a sphere) into small images with the engine's renderer: a
 // Renderer, Scene, SceneRenderer and EffectStack of its own (and an AssetManager2, so nothing is
 // shared with the editor's scene) drawing offscreen with /Thumbnails/Thumbnail.pipeline. The
-// subject is scaled into a unit sphere and seen from its front (+z), lit from the side, on a
-// transparent background. GPU work: main thread only, one thumbnail at a time.
+// subject is scaled into a unit sphere and seen from its front (+z), lit from the front by the
+// sun and the sky's brightest side (the sky is turned to put it there), on a transparent
+// background. GPU work: main thread only, one thumbnail at a time.
 class ThumbnailRenderer
 {
 public:

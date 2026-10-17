@@ -17,7 +17,7 @@ namespace fs = std::filesystem;
 namespace
 {
     // Bump to remake every stored thumbnail (when the way they look changes).
-    constexpr int kIndexVersion = 1;
+    constexpr int kIndexVersion = 2;
     // A changed file is left alone this long, so files still being written (copied, exported)
     // are read once they are complete.
     constexpr double kSettleSeconds = 0.5;

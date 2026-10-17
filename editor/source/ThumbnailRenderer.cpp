@@ -25,6 +25,9 @@ namespace fs = std::filesystem;
 namespace
 {
     const char* const kPipeline = "/Thumbnails/Thumbnail.pipeline";
+    // Where the key light stands (degrees around +y, 0 = +z): in front of the subject, on the
+    // other side from the camera (about +27), so lit and shaded sides both show.
+    constexpr float kKeyAzimuth = -30.0f;
 }
 
 // Looks at the unit sphere around the origin the subject is scaled into: from the front (+z,
@@ -126,13 +129,17 @@ ThumbnailRenderer::ThumbnailRenderer(IInput& input, uint32_t size)
     MaterialFile::RegisterLoader(m_Assets);
 
     m_SceneRenderer.writeEntityIds = false;
-    // From the front left, so the camera (front right) sees both lit and shaded sides.
-    m_SceneRenderer.lighting.sunAzimuth = 320.0f;
-    m_SceneRenderer.lighting.sunElevation = 40.0f;
 
     m_Renderer.graph.SetBackbufferFormat(TextureFormat::RGBA8Unorm);
     m_Renderer.graph.SetOutputSize(size, size);
     m_SceneRenderer.Init(m_Renderer.graph);
+
+    // The sky is turned so its brightest side is the key light's (the default sky is brightest
+    // toward -z, which would light models from behind), and the sun stands there too.
+    const glm::vec3 sky = m_SceneRenderer.SkyDirection();
+    m_SceneRenderer.lighting.skyRotation = kKeyAzimuth - glm::degrees(std::atan2(sky.x, sky.z));
+    m_SceneRenderer.lighting.sunAzimuth = kKeyAzimuth;
+    m_SceneRenderer.lighting.sunElevation = 45.0f;
 
     RenderPipelineDesc pipeline;
     std::string error;

@@ -11,6 +11,7 @@
 #include <Mariana/Graphics/Mesh.hpp>
 #include <Mariana/Graphics/Texture.hpp>
 #include <Mariana/Rendering/StandardPBR.hpp>
+#include <Mariana/Rendering/SkyLight.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Rendering/RenderGraph.hpp>
@@ -75,6 +76,8 @@ public:
     void InvalidateTransforms() { uploadedTransformVersions.clear(); shadowsDirty = true; }
 
     Buffer& CameraBuffer() { return pipeline.cameraBuffer; }
+    // Where the sky's light comes from most (its brightest side), before `lighting.skyRotation`.
+    glm::vec3 SkyDirection() const { return SkyBrightestDirection(ubo.skySH); }
     // What submeshes without a (valid) material draw with.
     const AssetHandle<MaterialAsset>& DefaultMaterial() const { return defaultMaterial; }
 

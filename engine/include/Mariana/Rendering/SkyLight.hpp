@@ -9,3 +9,7 @@
 // test.wgsl is the diffuse color. `faces` are sRGB RGBA8, `size` pixels square, in cube order
 // (+X, -X, +Y, -Y, +Z, -Z) and oriented the way the GPU samples a cubemap.
 std::array<glm::vec4, 9> ComputeSkyIrradianceSH(const std::vector<std::vector<uint8_t>>& faces, int size);
+
+// The direction the most light comes from (the luminance gradient of the linear band), unit length;
+// +y when the sky is the same all around.
+glm::vec3 SkyBrightestDirection(const std::array<glm::vec4, 9>& sh);

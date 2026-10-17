@@ -28,9 +28,21 @@ struct CameraInfoData {
   position: vec3f,
   exposure: f32,
 };
+// Same layout as in test.wgsl (StandardPBR.hpp); only skyParams.z (the sky's rotation) is read.
+struct UBO {
+    lightDir: vec3f,
+    cascadeVP: array<mat4x4<f32>, 4>,
+    cascadeSplits: vec4f,
+    cascadeTexel: vec4f,
+    sunColor: vec4f,
+    skySH: array<vec4f, 9>,
+    skyParams: vec4f,
+};
+
 @group(0) @binding(0) var<uniform> camInfo: CameraInfoData;
 @group(0) @binding(1) var albedo: texture_cube<f32>;
 @group(0) @binding(2) var textureSampler: sampler;
+@group(0) @binding(3) var<uniform> UniformBufferObject: UBO;
 
 
 
@@ -90,7 +102,11 @@ fn inverseTonemapACES(y: vec3f) -> vec3f {
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> FragOut {
-    let dir = normalize(input.world_pos);
+    // Turned like the sky light in test.wgsl (toSky).
+    let worldDir = normalize(input.world_pos);
+    let c = cos(UniformBufferObject.skyParams.z);
+    let s = sin(UniformBufferObject.skyParams.z);
+    let dir = vec3f(worldDir.x * c - worldDir.z * s, worldDir.y, worldDir.x * s + worldDir.z * c);
 
     // The cubemap is sRGB, so sampling returns linear color. Level 0: the mips are only for blurry
     // reflections (test.wgsl).

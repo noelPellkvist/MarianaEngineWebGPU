@@ -24,6 +24,7 @@ void LightingWindow::Draw()
         ImGui::SeparatorText("Sky");
         ImGui::DragFloat("Diffuse", &m_lighting.skyIntensity, 0.01f, 0.0f, 10.0f, "%.2f");
         ImGui::DragFloat("Reflections", &m_lighting.reflectionIntensity, 0.01f, 0.0f, 10.0f, "%.2f");
+        ImGui::SliderFloat("Rotation", &m_lighting.skyRotation, 0.0f, 360.0f, "%.0f deg");
     }
     ImGui::End();
 }
