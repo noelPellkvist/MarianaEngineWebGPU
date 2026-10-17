@@ -71,35 +71,24 @@ struct DrawData
     uint32_t boneOffset{~0u}; // first joint matrix in boneBuffer, ~0u = not skinned
 };
 
+// The scene's data on the GPU, shared by every view of it (SceneRenderer): the transforms,
+// material constants and joint matrices the shaders index.
 class StandardPBRPipeline
 {
         private:
-        void BuildBuffers();
-
-        UBO ubo{};
         TransformData transformData{};
         PBRMaterialProperties materialData{};
-        CameraInfo cameraInfo{};
         BoneData boneData{};
-        DrawData drawData{};
-        ShadowCascadeData cascadeData{};
-        StandardVertex v{};
 
-        UniformBufferLayout uboLayout;
         StorageArrayLayout transformLayout;
         StorageArrayLayout materialsLayout;
-        UniformBufferLayout camLayout;
         StorageArrayLayout boneLayout;
-        StorageArrayLayout drawLayout;
-        UniformBufferLayout cascadeLayout;
-        VertexBufferLayout vertexLayout;
 
         std::vector<std::byte> transformStaging; // CPU copy of the packed transform array
         std::vector<uint32_t> dirtyTransforms;
 
     public:
         static constexpr uint32_t kMaxTransforms = 131072;
-        static constexpr uint32_t kMaxDraws = 131072;
         static constexpr uint32_t kMaxBones = 131072;
 
         StandardPBRPipeline();
@@ -113,13 +102,33 @@ class StandardPBRPipeline
         void QueueTransform(uint32_t index, const TransformData& data);
         void FlushTransforms();
 
-        Buffer uboBuffer;
         Buffer transformBuffer;
         Buffer materialsBuffer;
-        Buffer cameraBuffer;
         Buffer boneBuffer;
+    };
+
+// What each view of the scene has of its own (SceneView): the UBO (lighting and its shadow
+// cascades), its camera, the per-instance data of its draws and its cascades' matrices.
+class StandardPBRView
+{
+        private:
+        UBO ubo{};
+        CameraInfo cameraInfo{};
+        DrawData drawData{};
+        ShadowCascadeData cascadeData{};
+
+        UniformBufferLayout uboLayout;
+        UniformBufferLayout camLayout;
+        StorageArrayLayout drawLayout;
+        UniformBufferLayout cascadeLayout;
+
+    public:
+        static constexpr uint32_t kMaxDraws = 131072;
+
+        StandardPBRView();
+
+        Buffer uboBuffer;
+        Buffer cameraBuffer;
         Buffer drawBuffer;
         Buffer shadowCascadeBuffer;
-
-
     };

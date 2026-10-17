@@ -8,6 +8,7 @@
 #include <Mariana/Rendering/MaterialAsset.hpp>
 #include <Mariana/Rendering/RenderPipeline.hpp>
 #include <Mariana/Rendering/Components.hpp>
+#include <Mariana/Rendering/SceneView.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Scene/Prefab.hpp>
 #include <Mariana/Animation/AnimationPlayer.hpp>
@@ -21,6 +22,7 @@
 #include <Editor/Windows/LoadedAssetsWindow.hpp>
 #include <Editor/Windows/RenderPipelineWindow.hpp>
 #include <Editor/Windows/LightingWindow.hpp>
+#include <Editor/Windows/ViewportWindow.hpp>
 
 #include <sstream>
 #include <imgui.h>
@@ -81,7 +83,7 @@ static ImGuizmo::OPERATION CurrentGizmoOperation = ImGuizmo::TRANSLATE;
 
 EditorApp::EditorApp() : Application({ .title = "Mariana Engine Editor", .width = 1366, .height = 768, .iconPath = "/logo.png" }),
 sceneRenderer(scene, assets),
-effects(renderer.graph, sceneRenderer.CameraBuffer())
+gameCamera(input)
 {
     AnimationPlayer::RegisterComponents();
     SceneRenderer::RegisterComponents();
@@ -89,26 +91,28 @@ effects(renderer.graph, sceneRenderer.CameraBuffer())
     scene.UpdateComponentRegistry();
 
     cam = std::make_unique<EditorCameraController>(input);
-    cam->SetViewportSize(m_Window.GetWidth(), m_Window.GetHeight());
 
-    // The scene renderer adds the scene passes; effects add ambient occlusion and the post-process
-    // chain that ends on the screen.
-    renderer.graph.SetBackbufferFormat(m_Window.GetWindowFormat());
-    renderer.graph.SetOutputSize(m_Window.GetWidth(), m_Window.GetHeight());
-    sceneRenderer.Init(renderer.graph);
+    // The scene view's graph has the scene passes, ambient occlusion and the post-process chain
+    // that ends in the image the Scene window shows (sized to it).
+    sceneRenderer.Init();
+    sceneView = std::make_unique<ViewRenderer>(sceneRenderer, true);
     GLTF::GLTFLoader::RegisterLoader(assets);
     MaterialFile::RegisterLoader(assets);
 
     // The effects, their settings, the exposure and the shadow settings come from a pipeline file.
+    // The game view copies the scene view's.
     RenderPipelineDesc pipeline;
     std::string pipelineError;
     if (RenderPipelineDesc::Load(kDefaultPipeline, pipeline, pipelineError))
-        pipeline.Apply(effects, sceneRenderer, cam.get());
+        pipeline.Apply(sceneView->Effects(), sceneRenderer, cam.get());
     else
         Logger::Error("Could not load the render pipeline: " + pipelineError);
 
     animationSystem = scene.CreateSystem<AnimationPlayer>([](Entity e, AnimationPlayer& player, float dt) {
         player.Update(e, dt);
+    });
+    cameraSystem = scene.CreateSystem<CameraComponent, WorldXform>([this](Entity e, CameraComponent&, WorldXform&, float) {
+        sceneCameras.push_back(e);
     });
 
     scene.Update(0.f);
@@ -128,10 +132,8 @@ void EditorApp::OnWindowResized(int w, int h)
     if (w <= 0 || h <= 0)
         return;
 
+    // Only the UI is drawn on the screen; the views follow their windows' sizes.
     m_Window.GetSurface();
-    cam->SetViewportSize(w, h);
-    // The graph recreates every screen-sized texture before the next frame.
-    renderer.graph.SetOutputSize(w, h);
 }
 
 void EditorApp::SpawnPrefab(const fs::path& path)
@@ -173,6 +175,25 @@ Entity EditorApp::SpawnPrimitive(BuiltinMesh shape, const char* name)
     return spawned;
 }
 
+Entity EditorApp::SpawnCamera()
+{
+    // The view matrix's inverse holds the camera's right, up and forward axes; an entity's camera
+    // looks along its +z, so the same rotation makes it see what the editor camera sees.
+    const CameraInfo info = cam->GetCameraInfo();
+    const glm::quat rotation = glm::normalize(glm::quat_cast(glm::mat3(info.invView)));
+
+    Entity spawned = scene.Instantiate("Camera");
+    spawned.SetPosition(info.pos.x, info.pos.y, info.pos.z);
+    spawned.SetRotationQuat(rotation.x, rotation.y, rotation.z, rotation.w);
+    CameraComponent camera;
+    camera.fov = cam->FieldOfView();
+    spawned.Add<CameraComponent>(camera);
+    scene.Update(0.0f);
+    DeselectEntity();
+    SelectEntity(spawned.RawId());
+    return spawned;
+}
+
 void EditorApp::OnStart()
 {
     Logger::Info("Starting");
@@ -192,7 +213,7 @@ void EditorApp::OnStart()
         inspectorWindow->InspectAsset(id);
         EditorWindows["Inspector"]->SetOpen(true);
     });
-    EditorWindows["Render Pipeline"] = std::make_unique<RenderPipelineWindow>(gui, effects, sceneRenderer, *cam, kDefaultPipeline);
+    EditorWindows["Render Pipeline"] = std::make_unique<RenderPipelineWindow>(gui, sceneView->Effects(), sceneRenderer, *cam, kDefaultPipeline);
     EditorWindows["Lighting"] = std::make_unique<LightingWindow>(gui, sceneRenderer.lighting);
     EditorWindows["Hierarchy"] = std::make_unique<HierarchyWindow>(
         gui,
@@ -206,6 +227,17 @@ void EditorApp::OnStart()
             SpawnPrefab(gltfPath);
         });
 
+    auto sceneViewport = std::make_unique<ViewportWindow>("Scene", gui);
+    sceneWindow = sceneViewport.get();
+    sceneWindow->image = [this]() { return sceneView->Image(); };
+    sceneWindow->overlay = [this](ViewportWindow& window) { DrawSceneOverlay(window); };
+    EditorWindows["Scene"] = std::move(sceneViewport);
+    auto gameViewport = std::make_unique<ViewportWindow>("Game", gui);
+    gameWindow = gameViewport.get();
+    gameWindow->image = [this]() -> Texture* { return gameView && !sceneCameras.empty() ? gameView->Image() : nullptr; };
+    gameWindow->emptyText = "No camera in the scene";
+    EditorWindows["Game"] = std::move(gameViewport);
+
     if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get())) {
         editorCam->SetPosition({-10.0f, 3.0f, -10.0f});
         editorCam->SetYawPitch(glm::half_pi<float>() / 2, -glm::half_pi<float>() / 5);
@@ -217,6 +249,17 @@ void EditorApp::OnStart()
 void EditorApp::OnUpdate(float deltaTime)
 {
     thumbnails->Update();
+
+    // The views take the sizes their windows had last frame, before this frame's UI shows them.
+    if (sceneView->Resize(sceneWindow->PixelSize()))
+        cam->SetViewportSize(sceneView->Size().x, sceneView->Size().y);
+    if (!gameView && gameWindow->IsVisible())
+        gameView = std::make_unique<ViewRenderer>(sceneRenderer, false);
+    if (gameView)
+        gameView->Resize(gameWindow->PixelSize());
+    // The editor camera only answers to the mouse over the Scene window.
+    if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get()))
+        editorCam->SetHovered(sceneWindow->IsHovered());
 
     if (!ImGui::GetIO().WantTextInput)
     {
@@ -249,20 +292,10 @@ void EditorApp::OnUpdate(float deltaTime)
             Logger::Info("Unloaded " + std::to_string(unloaded) + " unused assets");
     }
     
-    // Picking reads the id under the cursor back only when clicking; the answer arrives a frame
-    // or two later. Clicks on UI or the gizmo don't pick.
-    double x, y;
-    input.GetMousePosition(x, y);
-    Texture& pickTarget = renderer.graph.GetTexture(SceneRenderer::kEntityIds);
-    if (input.IsMouseButtonPressed(MouseButton::Left) &&
-        !ImGui::GetIO().WantCaptureMouse && !ImGuizmo::IsOver() && !ImGuizmo::IsUsing() &&
-        x > 0 && y > 0 && x < m_Window.GetWidth() && y < m_Window.GetHeight())
-    {
-        pickTarget.RequestPixelReadback(static_cast<int>(x), static_cast<int>(y));
-    }
-
+    // A click in the Scene window asked for the id under it (DrawSceneOverlay); it arrives a frame
+    // or two later.
     uint64_t pickedID;
-    if (pickTarget.TryGetPixelReadback(pickedID))
+    if (sceneView->Graph().GetTexture(SceneView::kEntityIds).TryGetPixelReadback(pickedID))
     {
         // 0: nothing was drawn there (the prepass clears to 0, and flecs never uses id 0).
         DeselectEntity();
@@ -272,11 +305,15 @@ void EditorApp::OnUpdate(float deltaTime)
 
     // Transforms changed here are propagated once, in OnRender.
     animationSystem.Run(deltaTime);
+
+    sceneCameras.clear();
+    cameraSystem.Run();
 }
 
 void EditorApp::OnGUI()
 {
     gui.PreUpdateGUI();
+    ImGuizmo::BeginFrame();
 
     // Global, so a focused text field keeps Ctrl+Z for itself.
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal))
@@ -284,12 +321,31 @@ void EditorApp::OnGUI()
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal) ||
         ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal))
         undo.Redo();
-    if(selectedEntityID != static_cast<uint64_t>(-1) && selectedEntity.Has<WorldXform>())
+
+    DrawTopMenu();
+    // The views in a fixed order, Scene last: the first time they dock, it ends up the open tab.
+    for (auto& [name, window] : EditorWindows)
+    {
+        if (window.get() != sceneWindow && window.get() != gameWindow)
+            window->Draw();
+    }
+    gameWindow->Draw();
+    sceneWindow->Draw();
+}
+
+void EditorApp::DrawSceneOverlay(ViewportWindow& window)
+{
+    DrawCameraFrustums(window);
+
+    bool gizmoHit = false;
+    if (selectedEntityID != static_cast<uint64_t>(-1) && selectedEntity.Has<WorldXform>())
     {
         WorldXform& form = *selectedEntity.Get<WorldXform>();
         glm::mat4 world = glm::make_mat4(form.model);
 
-        if (DrawGizmo(world, cam->View(), cam->Projection()))
+        const bool manipulated = DrawGizmo(world, cam->View(), cam->Projection(), window);
+        gizmoHit = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
+        if (manipulated)
         {
             glm::mat4 local = world;
             Entity parent = scene.Parent(selectedEntity);
@@ -317,10 +373,77 @@ void EditorApp::OnGUI()
         }
     }
 
-    DrawTopMenu();
-    for (auto& [name, window] : EditorWindows)
+    // A click that misses the gizmo picks what is under it (SceneView::kEntityIds; OnUpdate takes the answer).
+    if (window.IsHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !gizmoHit)
     {
-        window->Draw();
+        const ImVec2 mouse = ImGui::GetMousePos();
+        const glm::ivec2 pixel = window.ToPixel(glm::vec2(mouse.x, mouse.y), sceneView->Size());
+        if (pixel.x >= 0 && pixel.y >= 0 && pixel.x < static_cast<int>(sceneView->Size().x) && pixel.y < static_cast<int>(sceneView->Size().y))
+            sceneView->Graph().GetTexture(SceneView::kEntityIds).RequestPixelReadback(pixel.x, pixel.y);
+    }
+}
+
+void EditorApp::DrawCameraFrustums(const ViewportWindow& window)
+{
+    // Each camera as a short pyramid along its view (the Game window's aspect), the one it shows
+    // brighter and the selected one highlighted.
+    const glm::vec2 min = window.ImageMin();
+    const glm::vec2 extent = window.ImageMax() - min;
+    const glm::mat4 viewProj = cam->Projection() * cam->View();
+    const float aspect = gameView && gameView->Size().y > 0 ? static_cast<float>(gameView->Size().x) / gameView->Size().y : 16.0f / 9.0f;
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+    for (size_t i = 0; i < sceneCameras.size(); ++i)
+    {
+        Entity entity = sceneCameras[i];
+        const WorldXform* world = entity.TryGet<WorldXform>();
+        const CameraComponent* camera = entity.TryGet<CameraComponent>();
+        if (!world || !camera)
+            continue;
+
+        const glm::mat4 model = glm::make_mat4(world->model);
+        const glm::vec3 origin(model[3]);
+        const glm::vec3 right = glm::normalize(glm::vec3(model[0]));
+        const glm::vec3 up = glm::normalize(glm::vec3(model[1]));
+        const glm::vec3 forward = glm::normalize(glm::vec3(model[2]));
+        const float depth = 1.0f;
+        const float halfHeight = std::tan(glm::radians(camera->fov) * 0.5f) * depth;
+        const float halfWidth = halfHeight * aspect;
+
+        const glm::vec3 points[5] = {
+            origin,
+            origin + forward * depth - right * halfWidth + up * halfHeight,
+            origin + forward * depth + right * halfWidth + up * halfHeight,
+            origin + forward * depth + right * halfWidth - up * halfHeight,
+            origin + forward * depth - right * halfWidth - up * halfHeight,
+        };
+        ImVec2 screen[5];
+        bool visible = true;
+        for (int p = 0; p < 5 && visible; ++p)
+        {
+            const glm::vec4 clip = viewProj * glm::vec4(points[p], 1.0f);
+            visible = clip.w > 1e-3f;
+            const glm::vec2 ndc = glm::vec2(clip) / clip.w;
+            screen[p] = ImVec2(min.x + (ndc.x * 0.5f + 0.5f) * extent.x, min.y + (0.5f - ndc.y * 0.5f) * extent.y);
+        }
+        if (!visible)
+            continue;
+
+        const bool selected = selectedEntity.IsValid() && entity.RawId() == selectedEntity.RawId();
+        const ImU32 color = selected ? IM_COL32(255, 200, 60, 255) : i == 0 ? IM_COL32(255, 255, 255, 220) : IM_COL32(200, 200, 200, 120);
+        for (int p = 1; p <= 4; ++p)
+        {
+            drawList->AddLine(screen[0], screen[p], color, 1.5f);
+            drawList->AddLine(screen[p], screen[p % 4 + 1], color, 1.5f);
+        }
+        // Which way is up.
+        const glm::vec4 topClip = viewProj * glm::vec4(origin + forward * depth + up * halfHeight * 1.4f, 1.0f);
+        if (topClip.w > 1e-3f)
+        {
+            const glm::vec2 ndc = glm::vec2(topClip) / topClip.w;
+            const ImVec2 top(min.x + (ndc.x * 0.5f + 0.5f) * extent.x, min.y + (0.5f - ndc.y * 0.5f) * extent.y);
+            drawList->AddTriangleFilled(screen[1], screen[2], top, color);
+        }
     }
 }
 
@@ -447,11 +570,15 @@ void EditorApp::DrawTopMenu()
             if (ImGui::MenuItem("Cube")) SpawnPrimitive(BuiltinMesh::Cube, "Cube");
             if (ImGui::MenuItem("Sphere")) SpawnPrimitive(BuiltinMesh::Sphere, "Sphere");
             if (ImGui::MenuItem("Plane")) SpawnPrimitive(BuiltinMesh::Plane, "Plane");
+            ImGui::Separator();
+            if (ImGui::MenuItem("Camera")) SpawnCamera();
             ImGui::EndMenu();
         }
 
         if (ImGui::BeginMenu("Window"))
         {
+            if (ImGui::MenuItem("Scene")) { sceneWindow->SetOpen(!sceneWindow->IsOpen()); }
+            if (ImGui::MenuItem("Game")) { gameWindow->SetOpen(!gameWindow->IsOpen()); }
             if (ImGui::MenuItem("Assets")) { EditorWindows["Assets"]->SetOpen(!EditorWindows["Assets"]->IsOpen()); }
             if (ImGui::MenuItem("Hierarchy")) { EditorWindows["Hierarchy"]->SetOpen(!EditorWindows["Hierarchy"]->IsOpen()); }
             if (ImGui::MenuItem("Inspector")) { EditorWindows["Inspector"]->SetOpen(!EditorWindows["Inspector"]->IsOpen()); }
@@ -475,21 +602,14 @@ void EditorApp::DrawTopMenu()
     }
 }
 
-bool EditorApp::DrawGizmo(glm::mat4& transform, const glm::mat4& view, const glm::mat4& proj)
+bool EditorApp::DrawGizmo(glm::mat4& transform, const glm::mat4& view, const glm::mat4& proj, const ViewportWindow& window)
 {
-    ImGuizmo::BeginFrame();
     ImGuizmo::SetOrthographic(false);
-
-    // 1. draw OUTSIDE any imgui window
-    ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
-
-    // 2. cover the entire app window
-    ImGuizmo::SetRect(
-        0,
-        0,
-        ImGui::GetIO().DisplaySize.x,
-        ImGui::GetIO().DisplaySize.y
-    );
+    // In the Scene window, over its image.
+    ImGuizmo::SetDrawlist();
+    const glm::vec2 min = window.ImageMin();
+    const glm::vec2 size = window.ImageMax() - min;
+    ImGuizmo::SetRect(min.x, min.y, size.x, size.y);
 
     float matrix[16];
     memcpy(matrix, glm::value_ptr(transform), sizeof(matrix));
@@ -510,9 +630,26 @@ bool EditorApp::DrawGizmo(glm::mat4& transform, const glm::mat4& view, const glm
 void EditorApp::OnRender()
 {
     scene.Update(0.0f);
-    sceneRenderer.Prepare(*cam);
-    effects.Update();
-    renderer.Render([this](void* pass) { gui.PostUpdateGUI(static_cast<wgpu::RenderPassEncoder*>(pass)); });
+
+    // Only the views whose windows show are drawn; the scene's data is uploaded once for both.
+    const Entity gameCameraEntity = sceneCameras.empty() ? Entity{} : sceneCameras.front();
+    const bool drawScene = sceneWindow->IsVisible() && sceneView->Image();
+    const bool drawGame = gameWindow->IsVisible() && gameView && gameView->Image() && gameCameraEntity.IsValid();
+    if (drawScene || drawGame)
+        sceneRenderer.Update();
+    if (drawScene)
+        sceneView->Render(*cam);
+    if (drawGame)
+    {
+        // As the game sees it: the camera's view with the editor's pipeline and exposure.
+        gameView->MirrorEffects(sceneView->Effects());
+        gameCamera.Follow(*gameCameraEntity.TryGet<WorldXform>(), *gameCameraEntity.TryGet<CameraComponent>());
+        gameCamera.SetViewportSize(gameView->Size().x, gameView->Size().y);
+        gameCamera.SetExposure(cam->Exposure());
+        gameCamera.UpdateBuffer();
+        gameView->Render(gameCamera);
+    }
+    Renderer::RenderOverlay([this](void* pass) { gui.PostUpdateGUI(static_cast<wgpu::RenderPassEncoder*>(pass)); });
 }
 
 void EditorApp::OnShutdown()

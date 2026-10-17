@@ -16,3 +16,11 @@ struct MeshComponent {
 
 // The entity's mesh casts shadows.
 struct ShadowCasterTag {};
+
+// A camera in the scene. It looks along its entity's +z axis with +y up (SceneCamera); the
+// projection is perspective.
+struct CameraComponent {
+    float fov = 60.0f;      // vertical, degrees
+    float nearClip = 0.1f;
+    float farClip = 500.0f;
+};

@@ -89,6 +89,7 @@ public:
     ~EffectInstance();
 
     const EffectDefinition& Definition() const { return *m_Definition; }
+    const std::shared_ptr<const EffectDefinition>& SharedDefinition() const { return m_Definition; }
     const std::string& Name() const { return m_Definition->name; }
 
     bool enabled = true;
@@ -135,6 +136,8 @@ public:
 
     // Loads an effect file and appends it; nullptr (and an error in the log) if it can't be loaded.
     EffectInstance* Add(const std::string& path);
+    // Appends an effect whose file is already loaded (e.g. one another stack uses).
+    EffectInstance* Add(std::shared_ptr<const EffectDefinition> definition);
     void Remove(EffectInstance* effect);
     // Removes every effect (the screen then shows SceneColor through the plain present).
     void Clear();

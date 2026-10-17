@@ -54,6 +54,8 @@ void Application::MainLoop()
     float dt = std::chrono::duration<float>(clock::now() - t0).count();
     t0 = clock::now();
 
+    m_Window.FollowCanvas();
+
     //first thing that happens in the loop is we get the time at the start of the frame
     OnUpdate(dt);
     if (cam)

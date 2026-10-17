@@ -120,7 +120,8 @@ ThumbnailSource ThumbnailSource::Prepare(Kind kind, const fs::path& file, uint32
 ThumbnailRenderer::ThumbnailRenderer(IInput& input, uint32_t size)
     : m_Size(size),
       m_SceneRenderer(m_Scene, m_Assets),
-      m_Effects(m_Renderer.graph, m_SceneRenderer.CameraBuffer()),
+      m_View(m_SceneRenderer),
+      m_Effects(m_Renderer.graph, m_View.CameraBuffer()),
       m_Camera(std::make_unique<Camera>(input))
 {
     AnimationPlayer::RegisterComponents();
@@ -128,11 +129,12 @@ ThumbnailRenderer::ThumbnailRenderer(IInput& input, uint32_t size)
     m_Scene.UpdateComponentRegistry();
     MaterialFile::RegisterLoader(m_Assets);
 
-    m_SceneRenderer.writeEntityIds = false;
 
     m_Renderer.graph.SetBackbufferFormat(TextureFormat::RGBA8Unorm);
     m_Renderer.graph.SetOutputSize(size, size);
-    m_SceneRenderer.Init(m_Renderer.graph);
+    m_SceneRenderer.Init();
+    m_View.writeEntityIds = false;
+    m_View.Init(m_Renderer.graph);
 
     // The sky is turned so its brightest side is the key light's (the default sky is brightest
     // toward -z, which would light models from behind), and the sun stands there too.
@@ -217,11 +219,11 @@ bool ThumbnailRenderer::Render(ThumbnailSource& source, std::string& error)
         return false;
     }
 
-    // Animated models show the first frame of their first clip. Prepare poses the skins, whose
+    // Animated models show the first frame of their first clip. Update poses the skins, whose
     // bounds the framing needs.
     m_AnimationSystem.Run(0.0f);
     m_Scene.Update(0.0f);
-    m_SceneRenderer.Prepare(*m_Camera);
+    m_SceneRenderer.Update();
     m_Bounds = {};
     m_BoundsSystem.Run();
     if (m_Bounds.IsEmpty())
@@ -242,7 +244,8 @@ bool ThumbnailRenderer::Render(ThumbnailSource& source, std::string& error)
     m_Camera->Fit(fitted);
 
     m_SceneRenderer.InvalidateShadows();
-    m_SceneRenderer.Prepare(*m_Camera);
+    m_SceneRenderer.Update();
+    m_View.Prepare(*m_Camera);
     m_Effects.Update();
     m_Renderer.RenderToTexture(m_Target);
     m_Target.RequestImageReadback();

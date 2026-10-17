@@ -94,7 +94,8 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
     : Application(config.window),
       config(config),
       sceneRenderer(scene, assets),
-      effects(renderer.graph, sceneRenderer.CameraBuffer())
+      sceneView(sceneRenderer),
+      effects(renderer.graph, sceneView.CameraBuffer())
 {
     AnimationPlayer::RegisterComponents();
     SceneRenderer::RegisterComponents();
@@ -105,8 +106,9 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
 
     renderer.graph.SetBackbufferFormat(m_Window.GetWindowFormat());
     renderer.graph.SetOutputSize(m_Window.GetWidth(), m_Window.GetHeight());
-    sceneRenderer.writeEntityIds = false; // nothing picks
-    sceneRenderer.Init(renderer.graph);
+    sceneRenderer.Init();
+    sceneView.writeEntityIds = false; // nothing picks
+    sceneView.Init(renderer.graph);
     GLTF::GLTFLoader::RegisterLoader(assets);
     MaterialFile::RegisterLoader(assets);
 
@@ -158,7 +160,8 @@ void PlayerApp::OnUpdate(float deltaTime)
 void PlayerApp::OnRender()
 {
     scene.Update(0.0f);
-    sceneRenderer.Prepare(*cam);
+    sceneRenderer.Update();
+    sceneView.Prepare(*cam);
     effects.Update();
     renderer.Render();
 }

@@ -2,6 +2,7 @@
 #include <Mariana/Application.hpp>
 #include <Mariana/Rendering/Renderer.hpp>
 #include <Mariana/Rendering/SceneRenderer.hpp>
+#include <Mariana/Rendering/SceneView.hpp>
 #include <Mariana/Rendering/Effect.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
@@ -66,10 +67,11 @@ protected:
 
 private:
     PlayerConfig config;
-    // Declared first: the scene renderer and the effects remove their passes from its graph.
+    // Declared first: the scene view and the effects remove their passes from its graph.
     Renderer renderer;
     Scene scene;
     SceneRenderer sceneRenderer;
+    SceneView sceneView;
     EffectStack effects;
     // Systems query `scene`, so they are declared after it to be destroyed first.
     System animationSystem;

@@ -448,6 +448,13 @@ EffectInstance* EffectStack::Add(const std::string& path)
         Logger::Error("Could not load effect " + error);
         return nullptr;
     }
+    return Add(std::shared_ptr<const EffectDefinition>(std::move(definition)));
+}
+
+EffectInstance* EffectStack::Add(std::shared_ptr<const EffectDefinition> definition)
+{
+    if (!definition)
+        return nullptr;
     m_Effects.push_back(std::make_unique<EffectInstance>(std::move(definition)));
     m_Dirty = true;
     return m_Effects.back().get();

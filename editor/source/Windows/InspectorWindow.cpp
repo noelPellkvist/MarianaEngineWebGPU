@@ -1,6 +1,7 @@
 #include <Editor/Windows/InspectorWindow.hpp>
 
 #include <Editor/Windows/InspectorComponents/AnimationComponent.hpp>
+#include <Editor/Windows/InspectorComponents/CameraComponent.hpp>
 #include <Editor/Windows/InspectorComponents/LocalTRS.hpp>
 #include <Editor/Windows/InspectorComponents/MeshComponent.hpp>
 #include <Editor/Windows/InspectorComponents/MaterialInspector.hpp>
@@ -37,6 +38,7 @@ void InspectorWindow::RegisterComponentDrawers()
 {
     m_componentDrawers["LocalTRS"] = &InspectorComponents::DrawLocalTRS;
     m_componentDrawers["AnimationPlayer"] = &InspectorComponents::DrawAnimationComponent;
+    m_componentDrawers["CameraComponent"] = &InspectorComponents::DrawCameraComponent;
     m_componentDrawers["MeshComponent"] = [this](Entity& entity) { InspectorComponents::DrawMeshComponent(entity, m_assets, m_undo); };
 }
 

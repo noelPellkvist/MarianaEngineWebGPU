@@ -3,9 +3,7 @@
 #include <cstring>
 
 StandardPBRPipeline::StandardPBRPipeline()
-    : uboLayout(false, ubo, ubo.lightDir, ubo.cascadeVP, ubo.cascadeSplits, ubo.cascadeTexel,
-          ubo.sunColor, ubo.skySH, ubo.skyParams),
-      transformLayout(kMaxTransforms, transformData,
+    : transformLayout(kMaxTransforms, transformData,
           transformData.modelMatrix,
           transformData.normalMatrix,
           transformData.entityID),
@@ -18,6 +16,23 @@ StandardPBRPipeline::StandardPBRPipeline()
           materialData.emissiveFactor,
           materialData.alphaCutoff,
           materialData.uvSets),
+      boneLayout(kMaxBones, boneData, boneData.model),
+      transformBuffer(transformLayout),
+      materialsBuffer(materialsLayout),
+      boneBuffer(boneLayout)
+{
+    transformBuffer.Build();
+    materialsBuffer.Build();
+    boneBuffer.Build();
+}
+
+StandardPBRPipeline::~StandardPBRPipeline()
+{
+}
+
+StandardPBRView::StandardPBRView()
+    : uboLayout(false, ubo, ubo.lightDir, ubo.cascadeVP, ubo.cascadeSplits, ubo.cascadeTexel,
+          ubo.sunColor, ubo.skySH, ubo.skyParams),
       camLayout(false, cameraInfo,
           cameraInfo.proj,
           cameraInfo.view,
@@ -27,36 +42,19 @@ StandardPBRPipeline::StandardPBRPipeline()
           cameraInfo.invViewProj,
           cameraInfo.pos,
           cameraInfo.exposure),
-      boneLayout(kMaxBones, boneData, boneData.model),
       drawLayout(kMaxDraws, drawData, drawData.transformIndex, drawData.materialIndex, drawData.boneOffset),
       cascadeLayout(true, cascadeData, cascadeData.viewProj),
-      vertexLayout{v, v.position, v.normal, v.tangent, v.texcoord0, v.texcoord1,
-          v.color0, v.boneIndices, v.boneWeights},
       uboBuffer(uboLayout),
-      transformBuffer(transformLayout),
-      materialsBuffer(materialsLayout),
       cameraBuffer(camLayout),
-      boneBuffer(boneLayout),
       drawBuffer(drawLayout),
       shadowCascadeBuffer(cascadeLayout)
 {
-    BuildBuffers();
-}
-
-StandardPBRPipeline::~StandardPBRPipeline()
-{
-}
-
-void StandardPBRPipeline::BuildBuffers()
-{
     uboBuffer.Build();
-    transformBuffer.Build();
-    materialsBuffer.Build();
     cameraBuffer.Build();
-    boneBuffer.Build();
     drawBuffer.Build();
     shadowCascadeBuffer.Build();
 }
+
 void StandardPBRPipeline::UploadDirtyMaterials(AssetManager2& assets)
 {
     assets.ForEach<MaterialAsset>([this](AssetID, MaterialAsset& material) {

@@ -23,4 +23,7 @@ class Renderer
         // Draws a frame into `target` instead of the screen (offscreen rendering, e.g. previews):
         // a render texture of the graph's backbuffer format and output size.
         void RenderToTexture(Texture& target);
+        // Puts only the overlay on the screen, over a cleared background: for apps whose graphs
+        // all render into textures (the editor shows its views as images in its UI).
+        static void RenderOverlay(const Overlay& overlay);
 };

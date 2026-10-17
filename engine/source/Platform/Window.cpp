@@ -3,6 +3,7 @@
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
+#include <emscripten/html5.h>
 #endif
 #include "Graphics/Init.hpp"
 #include <stb_image.h>
@@ -66,6 +67,18 @@ void Window::FramebufferSizeCallback(GLFWwindow* window, int width, int height)
     if (self->m_ResizeCallback) {
         self->m_ResizeCallback(width, height);
     }
+}
+
+void Window::FollowCanvas()
+{
+#if defined(__EMSCRIPTEN__)
+    int canvasWidth = 0, canvasHeight = 0;
+    emscripten_get_canvas_element_size("#canvas", &canvasWidth, &canvasHeight);
+    int width = 0, height = 0;
+    glfwGetWindowSize(m_Window, &width, &height);
+    if (canvasWidth > 0 && canvasHeight > 0 && (canvasWidth != width || canvasHeight != height))
+        glfwSetWindowSize(m_Window, canvasWidth, canvasHeight);
+#endif
 }
 
 void Window::ToggleFullscreen()

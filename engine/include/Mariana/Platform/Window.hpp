@@ -22,6 +22,9 @@ class Window {
 
         bool ShouldClose();
         void ToggleFullscreen();
+        // Web: when the page resized the canvas itself (a shell fitting it to the page), resizes the
+        // window to match, so the surface and the UI follow. Once per frame; nothing natively.
+        void FollowCanvas();
 
         const uint32_t GetHeight() { return m_Height; }
         const uint32_t GetWidth() { return m_Width; }

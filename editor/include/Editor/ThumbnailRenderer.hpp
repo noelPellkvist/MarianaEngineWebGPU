@@ -6,6 +6,7 @@
 #include <Mariana/Rendering/ICamera.hpp>
 #include <Mariana/Rendering/Renderer.hpp>
 #include <Mariana/Rendering/SceneRenderer.hpp>
+#include <Mariana/Rendering/SceneView.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
 #include <filesystem>
@@ -43,8 +44,8 @@ struct ThumbnailSource
 };
 
 // Renders models and materials (on a sphere) into small images with the engine's renderer: a
-// Renderer, Scene, SceneRenderer and EffectStack of its own (and an AssetManager2, so nothing is
-// shared with the editor's scene) drawing offscreen with /Thumbnails/Thumbnail.pipeline. The
+// Renderer, Scene, SceneRenderer, SceneView and EffectStack of its own (and an AssetManager2, so
+// nothing is shared with the editor's scene) drawing offscreen with /Thumbnails/Thumbnail.pipeline. The
 // subject is scaled into a unit sphere and seen from its front (+z), lit from the front by the
 // sun and the sky's brightest side (the sky is turned to put it there), on a transparent
 // background. GPU work: main thread only, one thumbnail at a time.
@@ -72,10 +73,11 @@ private:
 
     uint32_t m_Size;
     AssetManager2 m_Assets;
-    // Declared before the scene renderer and effects, which remove their passes from its graph.
+    // Declared before the view and effects, which remove their passes from its graph.
     Renderer m_Renderer;
     Scene m_Scene;
     SceneRenderer m_SceneRenderer;
+    SceneView m_View;
     EffectStack m_Effects;
     std::unique_ptr<Camera> m_Camera;
     Texture m_Target;

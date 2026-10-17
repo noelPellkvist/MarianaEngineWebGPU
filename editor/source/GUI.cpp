@@ -1,5 +1,6 @@
 #include <Editor/GUI.hpp>
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <webgpu/webgpu_cpp.h>
 #include <webgpu/webgpu.h>
 #include <backends/imgui_impl_wgpu.h>
@@ -153,6 +154,8 @@ void GUI::InitGui(Window& window)
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    // Windows move by their title bar only, so dragging in a view (camera, gizmo) never moves it.
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
     // The layout is kept with the editor, wherever it is started from.
     static const std::string iniPath = std::string(MARIANA_EDITOR_DIR) + "/imgui.ini";
     io.IniFilename = iniPath.c_str();
@@ -184,7 +187,13 @@ void GUI::PreUpdateGUI()
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::DockSpaceOverViewport(0, NULL, ImGuiDockNodeFlags_PassthruCentralNode);
+    m_DockSpaceId = ImGui::DockSpaceOverViewport(0, NULL, ImGuiDockNodeFlags_PassthruCentralNode);
+}
+
+ImGuiID GUI::CentralNodeId() const
+{
+    const ImGuiDockNode* node = ImGui::DockBuilderGetCentralNode(m_DockSpaceId);
+    return node ? node->ID : m_DockSpaceId;
 }
 
 void GUI::PostUpdateGUI(wgpu::RenderPassEncoder* renderPass)

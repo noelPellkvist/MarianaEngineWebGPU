@@ -12,15 +12,19 @@ public:
 
     // Call every frame (dt in seconds)
     void OnUpdate(float dt) override {
-        // --- handle RMB lock/unlock like Unity ---
-        if (_input.IsMouseButtonPressed(MouseButton::Right)) {
+        // --- handle RMB lock/unlock like Unity (a look starts over the view, ends anywhere) ---
+        if (_hovered && _input.IsMouseButtonPressed(MouseButton::Right)) {
             _input.SetCursorLocked(true);
             _looking = true;
         }
-        if (_input.IsMouseButtonReleased(MouseButton::Right)) {
+        if (_looking && !_input.IsMouseButtonDown(MouseButton::Right)) {
             _input.SetCursorLocked(false);
             _looking = false;
         }
+        if (_hovered && _input.IsMouseButtonPressed(MouseButton::Middle))
+            _panning = true;
+        if (!_input.IsMouseButtonDown(MouseButton::Middle))
+            _panning = false;
 
         // --- compute basis from yaw/pitch (RH, Y up) ---
         glm::vec3 forward{
@@ -56,7 +60,7 @@ public:
         }
 
         // --- MMB pan (only when not RMB looking, like Unity) ---
-        if (_input.IsMouseButtonDown(MouseButton::Middle) && !_looking) {
+        if (_panning && !_looking) {
             double dx, dy; _input.GetMouseDelta(dx, dy);
             // Pan scale grows with distance to avoid “snail pan” far away
             float dist = std::max(0.001f, glm::length(_pos - _pivot));
@@ -67,7 +71,7 @@ public:
         }
 
         // --- Scroll wheel dolly (zoom) along forward ---
-        {
+        if (_hovered) {
             double sx, sy; _input.GetMouseScrollDelta(sx, sy);
             if (sy != 0.0) {
                 // Exponential dolly speed proportional to scene scale
@@ -80,6 +84,10 @@ public:
         // Build view matrix (LH to match your original code)
         _view = glm::lookAtLH(_pos, _pos + forward, up);
     }
+
+    // Whether the mouse is over the view this camera is shown in: looking, panning and zooming
+    // only start then (a drag already under way goes on wherever the mouse is).
+    void SetHovered(bool hovered) { _hovered = hovered; }
 
     // Configure / query (kept from your original)
     void SetPosition(const glm::vec3& p) { _pos = p; }
@@ -112,4 +120,6 @@ private:
     float _scrollDolly = 0.08f;   // world-units per scroll notch (scaled by dist)
 
     bool _looking = false;
+    bool _panning = false;
+    bool _hovered = false;
 };
