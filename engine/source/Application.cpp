@@ -55,6 +55,7 @@ void Application::MainLoop()
     t0 = clock::now();
 
     m_Window.FollowCanvas();
+    gameClock.Tick(dt);
 
     //first thing that happens in the loop is we get the time at the start of the frame
     OnUpdate(dt);

@@ -69,6 +69,11 @@ class EditorApp : public Application
         void DeselectEntity();
 
         void DrawTopMenu();
+        // Play/Stop, Pause and Step in the middle of the menu bar, like Unity's toolbar: the game's
+        // clock (gameClock) only runs in play mode, so animations hold still while editing.
+        void DrawPlayControls();
+        void TogglePlay();
+        void TogglePause();
         void DrawMat4(const char* id, float m[16], bool editable = true, float speed = 0.05f, const char* fmt = "%.3f");
         // Over the Scene window's image: the cameras' frustums, the selection's gizmo, picking.
         void DrawSceneOverlay(ViewportWindow& window);

@@ -150,11 +150,13 @@ void PlayerApp::OnStart()
         root.SetScale(spawn.scale, spawn.scale, spawn.scale);
     }
     scene.Update(0.0f);
+    // A player is the game: it plays from the start.
+    gameClock.Play();
 }
 
 void PlayerApp::OnUpdate(float deltaTime)
 {
-    animationSystem.Run(deltaTime);
+    animationSystem.Run(gameClock.DeltaTime());
 }
 
 void PlayerApp::OnRender()

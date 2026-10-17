@@ -303,8 +303,9 @@ void EditorApp::OnUpdate(float deltaTime)
             SelectEntity(pickedID);
     }
 
-    // Transforms changed here are propagated once, in OnRender.
-    animationSystem.Run(deltaTime);
+    // Game time: animations only move while the game plays. Transforms changed here are propagated
+    // once, in OnRender.
+    animationSystem.Run(gameClock.DeltaTime());
 
     sceneCameras.clear();
     cameraSystem.Run();
@@ -321,6 +322,13 @@ void EditorApp::OnGUI()
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal) ||
         ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal))
         undo.Redo();
+    // Unity's play shortcuts.
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_P, ImGuiInputFlags_RouteGlobal))
+        TogglePlay();
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_P, ImGuiInputFlags_RouteGlobal))
+        TogglePause();
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Alt | ImGuiKey_P, ImGuiInputFlags_RouteGlobal))
+        gameClock.Step();
 
     DrawTopMenu();
     // The views in a fixed order, Scene last: the first time they dock, it ends up the open tab.
@@ -598,8 +606,64 @@ void EditorApp::DrawTopMenu()
             ImGui::EndMenu();
         }
 
+        DrawPlayControls();
+
         ImGui::EndMainMenuBar();
     }
+}
+
+void EditorApp::DrawPlayControls()
+{
+    // Nerd Font glyphs, as UTF-8 (play U+F04B, stop U+F04D, pause U+F04C, step forward U+F051).
+    const char* const kPlay = "\xef\x81\x8b";
+    const char* const kStop = "\xef\x81\x8d";
+    const char* const kPause = "\xef\x81\x8c";
+    const char* const kStep = "\xef\x81\x91";
+
+    const float buttonWidth = ImGui::GetFrameHeight() * 1.6f;
+    const float width = buttonWidth * 3.0f + ImGui::GetStyle().ItemSpacing.x * 2.0f;
+    ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(), (ImGui::GetWindowWidth() - width) * 0.5f));
+
+    // A button drawn pressed while its state is on.
+    auto button = [&](const char* glyph, const char* id, bool on, const char* tooltip) {
+        if (on)
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+        ImGui::PushID(id);
+        const bool pressed = ImGui::Button(glyph, ImVec2(buttonWidth, 0.0f));
+        ImGui::PopID();
+        if (on)
+            ImGui::PopStyleColor();
+        ImGui::SetItemTooltip("%s", tooltip);
+        return pressed;
+    };
+
+    const bool playing = gameClock.IsPlaying();
+    if (button(playing ? kStop : kPlay, "Play", playing, playing ? "Stop (Ctrl+P)" : "Play (Ctrl+P)"))
+        TogglePlay();
+    ImGui::BeginDisabled(!playing);
+    if (button(kPause, "Pause", gameClock.IsPaused(), gameClock.IsPaused() ? "Resume (Ctrl+Shift+P)" : "Pause (Ctrl+Shift+P)"))
+        TogglePause();
+    if (button(kStep, "Step", false, "Step one frame (Ctrl+Alt+P)"))
+        gameClock.Step();
+    ImGui::EndDisabled();
+    if (playing)
+        ImGui::TextDisabled("%.2f s", gameClock.Time());
+}
+
+void EditorApp::TogglePlay()
+{
+    if (gameClock.IsPlaying())
+        gameClock.Stop();
+    else
+        gameClock.Play();
+}
+
+void EditorApp::TogglePause()
+{
+    if (gameClock.IsPaused())
+        gameClock.Play();
+    else
+        gameClock.Pause();
 }
 
 bool EditorApp::DrawGizmo(glm::mat4& transform, const glm::mat4& view, const glm::mat4& proj, const ViewportWindow& window)

@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <Mariana/Foundation/GameClock.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Platform/Window.hpp>
 #include <Mariana/Graphics/Renderpass.hpp>
@@ -8,8 +9,9 @@
 #include <Mariana/Platform/IInput.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
 
-// The base of an app (the editor, a game): window, input, assets and the main loop, which calls
-// OnUpdate, updates `cam`, then OnGUI and OnRender every frame. The app chooses its window.
+// The base of an app (the editor, a game): window, input, assets, the game clock and the main loop,
+// which ticks the clock, calls OnUpdate, updates `cam`, then OnGUI and OnRender every frame. The app
+// chooses its window. OnUpdate gets the real frame time; game systems step with gameClock.DeltaTime().
 class Application
 {
     public:
@@ -35,6 +37,8 @@ class Application
         // Declared in the base class so it outlives everything a derived app owns (scenes,
         // components) that may still hold asset handles.
         AssetManager2 assets;
+        // Runs only while the game plays (the app calls Play; the editor from its toolbar).
+        GameClock gameClock;
 
     private:
         bool m_Running;
