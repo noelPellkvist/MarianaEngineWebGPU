@@ -25,6 +25,14 @@ std::vector<float> BoneMask::Resolve(const Skeleton& skeleton) const
     return weights;
 }
 
+int AnimationNode::FindState(std::string_view state) const
+{
+    for (size_t i = 0; i < states.size(); ++i)
+        if (states[i] == state)
+            return static_cast<int>(i);
+    return -1;
+}
+
 int AnimationGraph::FindParameter(std::string_view name) const
 {
     for (size_t i = 0; i < parameters.size(); ++i)
@@ -99,6 +107,45 @@ bool AnimationGraph::Validate(std::string& error) const
                 return false;
             }
             break;
+        case AnimationNodeType::StateMachine:
+        {
+            inputs = node.states.size();
+            const int states = static_cast<int>(inputs);
+            if (states == 0 || node.inputs.size() != inputs)
+            {
+                error = describe(i) + " needs a node per state";
+                return false;
+            }
+            if (node.entryState < 0 || node.entryState >= states)
+            {
+                error = describe(i) + " has no entry state";
+                return false;
+            }
+            for (size_t t = 0; t < node.transitions.size(); ++t)
+            {
+                const AnimationTransition& transition = node.transitions[t];
+                const std::string which = describe(i) + " transition " + std::to_string(t);
+                if (transition.from < -1 || transition.from >= states || transition.to < 0 || transition.to >= states)
+                {
+                    error = which + " goes between states it doesn't have";
+                    return false;
+                }
+                if (transition.conditions.empty() && transition.exitTime < 0.0f)
+                {
+                    error = which + " needs a condition or an exit time";
+                    return false;
+                }
+                for (const AnimationCondition& condition : transition.conditions)
+                {
+                    if (condition.parameter < 0 || condition.parameter >= static_cast<int>(parameters.size()))
+                    {
+                        error = which + " tests a parameter that doesn't exist";
+                        return false;
+                    }
+                }
+            }
+            break;
+        }
         default:
             if (node.weight.parameter >= 0 && !floatParameter(node.weight.parameter))
             {
@@ -236,6 +283,53 @@ int AnimationGraph::Builder::Layer(int base, int layer, BoneMask mask, Animation
     return Add(std::move(node));
 }
 
+int AnimationGraph::Builder::StateMachine(std::vector<std::pair<std::string, int>> states, int entryState)
+{
+    AnimationNode node;
+    node.type = AnimationNodeType::StateMachine;
+    node.name = "State Machine";
+    node.entryState = entryState;
+    for (auto& [state, input] : states)
+    {
+        node.states.push_back(std::move(state));
+        node.inputs.push_back(input);
+    }
+    return Add(std::move(node));
+}
+
+AnimationTransition& AnimationGraph::Builder::Transition(int machine, std::string_view from, std::string_view to, float duration,
+                                                         std::vector<AnimationCondition> conditions)
+{
+    static AnimationTransition unused;
+    if (machine < 0 || machine >= static_cast<int>(m_Graph.nodes.size()) || m_Graph.nodes[machine].type != AnimationNodeType::StateMachine)
+    {
+        m_Error = "a transition was added to a node that isn't a state machine";
+        return unused = {};
+    }
+
+    AnimationNode& node = m_Graph.nodes[machine];
+    AnimationTransition transition;
+    transition.from = from.empty() ? -1 : node.FindState(from);
+    transition.to = node.FindState(to);
+    transition.duration = duration;
+    transition.conditions = std::move(conditions);
+    if ((!from.empty() && transition.from < 0) || transition.to < 0)
+    {
+        m_Error = "a transition of " + node.name + " names a state it doesn't have (" + std::string(from) + " -> " + std::string(to) + ")";
+        return unused = {};
+    }
+    node.transitions.push_back(std::move(transition));
+    return node.transitions.back();
+}
+
+AnimationCondition AnimationGraph::Builder::When(std::string_view parameter, ConditionMode mode, float threshold) const
+{
+    const int index = m_Graph.FindParameter(parameter);
+    if (index < 0)
+        Logger::Warning("Animation graph: no parameter " + std::string(parameter));
+    return { index, mode, threshold };
+}
+
 AnimationGraph::Builder& AnimationGraph::Builder::Name(int node, std::string name)
 {
     if (node >= 0 && node < static_cast<int>(m_Graph.nodes.size()))
@@ -251,8 +345,8 @@ AnimationGraph::Builder& AnimationGraph::Builder::Output(int node)
 
 std::shared_ptr<AnimationGraph> AnimationGraph::Builder::Build()
 {
-    std::string error;
-    if (!m_Graph.Validate(error))
+    std::string error = m_Error;
+    if (!error.empty() || !m_Graph.Validate(error))
     {
         Logger::Error("Animation graph: " + error);
         return nullptr;

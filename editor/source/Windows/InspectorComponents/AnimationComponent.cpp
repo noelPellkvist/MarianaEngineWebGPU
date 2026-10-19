@@ -17,6 +17,7 @@ namespace
         case AnimationNodeType::Blend1D:  return "Blend 1D";
         case AnimationNodeType::Additive: return "Additive";
         case AnimationNodeType::Layer:    return "Layer";
+        case AnimationNodeType::StateMachine: return "State Machine";
         }
         return "?";
     }
@@ -129,7 +130,22 @@ namespace
         }
     }
 
-    void DrawNode(const Animator& animator, const AnimationGraph& graph, int index, int depth)
+    // What a state machine is doing: its state, or the transition under way with how far it got.
+    std::string MachineText(const Animator& animator, const AnimationNode& node, int index)
+    {
+        if (index >= static_cast<int>(animator.Machines().size()) || animator.Machines()[index].active.empty())
+            return {};
+        const std::vector<Animator::ActiveState>& active = animator.Machines()[index].active;
+        auto name = [&](int state) { return state >= 0 && state < static_cast<int>(node.states.size()) ? node.states[state] : std::string("?"); };
+        const Animator::ActiveState& current = active.back();
+        if (active.size() == 1 || current.fade >= 1.0f)
+            return name(current.state);
+        char progress[16];
+        std::snprintf(progress, sizeof(progress), " %d%%", static_cast<int>(current.fade * 100.0f + 0.5f));
+        return name(active[active.size() - 2].state) + " -> " + name(current.state) + progress;
+    }
+
+    void DrawNode(const Animator& animator, const AnimationGraph& graph, int index, int depth, const char* label = nullptr)
     {
         if (index < 0 || index >= static_cast<int>(graph.nodes.size()) || depth > 32)
             return;
@@ -143,20 +159,26 @@ namespace
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
         if (leaf)
             flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-        const bool open = ImGui::TreeNodeEx("##node", flags, "%s", node.name.c_str());
+        const bool open = label ? ImGui::TreeNodeEx("##node", flags, "%s: %s", label, node.name.c_str())
+                                : ImGui::TreeNodeEx("##node", flags, "%s", node.name.c_str());
         ImGui::SameLine();
         ImGui::TextDisabled("%s", NodeTypeName(node.type));
 
         ImGui::TableNextColumn();
-        char text[48] = {};
+        char text[64] = {};
         if (state && node.type == AnimationNodeType::Clip)
             std::snprintf(text, sizeof(text), "%.2f  @ %.2f s", state->weight, state->time);
+        if (node.type == AnimationNodeType::StateMachine)
+            std::snprintf(text, sizeof(text), "%s", MachineText(animator, node, index).c_str());
         WeightBar(state ? state->weight : 0.0f, text[0] ? text : nullptr);
 
         if (open && !leaf)
         {
-            for (int input : node.inputs)
-                DrawNode(animator, graph, input, depth + 1);
+            for (size_t i = 0; i < node.inputs.size(); ++i)
+            {
+                const bool isState = node.type == AnimationNodeType::StateMachine && i < node.states.size();
+                DrawNode(animator, graph, node.inputs[i], depth + 1, isState ? node.states[i].c_str() : nullptr);
+            }
             ImGui::TreePop();
         }
         ImGui::PopID();

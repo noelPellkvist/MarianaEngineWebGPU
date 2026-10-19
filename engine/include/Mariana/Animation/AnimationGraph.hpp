@@ -41,11 +41,37 @@ struct BoneMask
     std::vector<float> Resolve(const Skeleton& skeleton) const;
 };
 
-enum class AnimationNodeType { Clip, Blend, Blend1D, Additive, Layer };
+enum class AnimationNodeType { Clip, Blend, Blend1D, Additive, Layer, StateMachine };
 enum class LayerMode { Override, Additive };
 // What an additive input is relative to: its clip's first frame (only for a Clip input), or the
 // skeleton's rest pose.
 enum class AdditiveReference { FirstFrame, Rest };
+
+// A test of a parameter: If/IfNot for bools and triggers (a trigger is reset by the transition that
+// uses it), the others compare a float with `threshold`.
+enum class ConditionMode { If, IfNot, Greater, Less, Equals, NotEquals };
+struct AnimationCondition
+{
+    int parameter = -1;
+    ConditionMode mode = ConditionMode::If;
+    float threshold = 0.0f;
+};
+
+// When a state machine moves from one state to another, and how long the cross-fade takes.
+struct AnimationTransition
+{
+    int from = -1; // a state of the machine; -1 = from any state (but not to itself)
+    int to = 0;
+    float duration = 0.25f;
+    // Not before the state it leaves has played this much of its normalized time (1 = the end of its
+    // first loop); < 0 = whenever the conditions hold.
+    float exitTime = -1.0f;
+    // While it fades, transitions out of `to` (and from any state) may start; otherwise none can
+    // until it's done.
+    bool interruptible = false;
+    // All must hold. A transition needs conditions, an exit time or both.
+    std::vector<AnimationCondition> conditions;
+};
 
 // One node of a graph. Which fields matter depends on its type.
 struct AnimationNode
@@ -74,6 +100,15 @@ struct AnimationNode
     BoneMask mask;
     // Additive, and Layer in Additive mode.
     AdditiveReference reference = AdditiveReference::FirstFrame;
+
+    // StateMachine: a state per input, named by `states`, starting in `entryState`. Transitions are
+    // tried in order each update; the first whose conditions hold starts. Entering a state plays its
+    // clips (and state machines) from the start.
+    std::vector<std::string> states;
+    std::vector<AnimationTransition> transitions;
+    int entryState = 0;
+
+    int FindState(std::string_view state) const;
 };
 
 // How an Animator mixes its clips: parameters, and nodes whose `output` is the pose. Plain data,
@@ -101,6 +136,11 @@ public:
 //                                   { b.Clip("Run", { 1.0f, true, "move" }), 1.0f } });
 //   b.Output(b.Layer(move, b.Clip("Wave"), BoneMask{ { { "Spine1" } } }));
 //   std::shared_ptr<AnimationGraph> graph = b.Build();
+// State machines name their states and add transitions by those names:
+//   b.Bool("grounded", true); b.Trigger("jump");
+//   int body = b.StateMachine({ { "Move", move }, { "Jump", b.Clip("Jump", { 1.0f, false }) } });
+//   b.Transition(body, "", "Jump", 0.1f, { b.When("jump") });
+//   b.Transition(body, "Jump", "Move", 0.2f, { b.When("grounded") }).exitTime = 0.8f;
 class AnimationGraph::Builder
 {
 public:
@@ -122,6 +162,14 @@ public:
     int Blend1D(std::string_view parameter, std::vector<std::pair<int, float>> inputs);
     int Additive(int base, int additive, AnimationWeight weight = {}, AdditiveReference reference = AdditiveReference::FirstFrame);
     int Layer(int base, int layer, BoneMask mask, AnimationWeight weight = {}, LayerMode mode = LayerMode::Override);
+    // States as (name, node).
+    int StateMachine(std::vector<std::pair<std::string, int>> states, int entryState = 0);
+    // A transition of `machine` between states named `from` ("" = any state) and `to`; tweak the
+    // returned one for an exit time or interruptions.
+    AnimationTransition& Transition(int machine, std::string_view from, std::string_view to, float duration,
+                                    std::vector<AnimationCondition> conditions = {});
+    // A condition on a parameter added before.
+    AnimationCondition When(std::string_view parameter, ConditionMode mode = ConditionMode::If, float threshold = 0.0f) const;
 
     // Nodes are named after their clip or type; Name changes that.
     Builder& Name(int node, std::string name);
@@ -135,4 +183,5 @@ private:
     int Add(AnimationNode node);
 
     AnimationGraph m_Graph;
+    std::string m_Error;
 };

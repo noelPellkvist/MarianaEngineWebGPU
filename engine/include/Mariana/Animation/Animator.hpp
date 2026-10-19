@@ -83,6 +83,28 @@ struct Animator
     };
     const std::vector<NodeState>& Nodes() const { return m_Nodes; }
 
+    // Per graph node; for state machines, the states in the mix, oldest first. The newest is the
+    // current state: `fade` goes 0 -> 1 while its transition runs, `weight` is each one's share and
+    // `normalizedTime` how far its clips got (1 = one loop of them).
+    struct ActiveState
+    {
+        int state = 0;
+        float fade = 1.0f;
+        float fadeDuration = 0.0f;
+        float weight = 1.0f;
+        float normalizedTime = 0.0f;
+        bool interruptible = true;
+    };
+    struct MachineState
+    {
+        std::vector<ActiveState> active;
+    };
+    const std::vector<MachineState>& Machines() const { return m_Machines; }
+
+    // Moves the first state machine with a state of that name to it, cross-fading over `seconds`
+    // (0 = at once), whatever its transitions say. False when no state has the name.
+    bool CrossFadeState(std::string_view state, float seconds);
+
     // Advances time by dt (if playing) and poses the bones below `root`.
     void Update(Entity root, float dt);
 
@@ -107,6 +129,10 @@ private:
 
     void AdvanceClips(float dt);
     void AdvanceGraph(float dt);
+    void UpdateMachine(int node, float delta);
+    void StartState(int node, int state, float duration, bool interruptible);
+    void EnterState(int node, int state);
+    bool ConditionsHold(const AnimationTransition& transition) const;
     void Weigh(int node, float weight);
     float WeightOf(const AnimationWeight& weight) const;
     void Segment(const AnimationNode& node, int& a, int& b, float& t) const;
@@ -134,6 +160,9 @@ private:
     std::vector<SyncGroup> m_SyncGroups;
     std::vector<std::vector<float>> m_Masks; // per Layer node
     std::vector<Pose> m_References;          // per additive node
+    std::vector<MachineState> m_Machines;    // per state machine node
+    std::vector<std::vector<std::vector<int>>> m_StateNodes; // per state machine node, per state: the nodes below it
+    std::vector<std::pair<std::string, float>> m_PendingStates; // CrossFadeState before the graph was bound
     std::vector<Pose> m_Scratch;
     Pose m_Pose;
     std::vector<float> m_State;   // what the pose was made from (clips, times, parameters)
