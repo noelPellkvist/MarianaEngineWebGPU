@@ -87,6 +87,7 @@ enum class AssetType : uint8_t
     Animation,
     Skin,
     Skeleton,
+    AnimationGraph,
     Script,
     Prefab,
     Unknown
@@ -105,6 +106,7 @@ inline const char* AssetTypeName(AssetType type)
         case AssetType::Animation: return "Animation";
         case AssetType::Skin:      return "Skin";
         case AssetType::Skeleton:  return "Skeleton";
+        case AssetType::AnimationGraph: return "Animation Graph";
         case AssetType::Script:    return "Script";
         case AssetType::Prefab:    return "Prefab";
         default:                   return "Unknown";

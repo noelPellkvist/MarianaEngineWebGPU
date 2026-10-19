@@ -1,26 +1,31 @@
 #pragma once
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Animation/AnimationClip.hpp>
+#include <Mariana/Animation/AnimationGraph.hpp>
 #include <Mariana/Animation/Pose.hpp>
 #include <Mariana/Animation/Skeleton.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 // Animates a model: goes on its root (the glTF loader's wrapper entity) and moves the bones below
-// it, the entities whose AnimationTargetEntity is a bone of `skeleton`. Its clips sample into a
-// pose, which is written to the bones' LocalTRS: only the channels some clip animates, and only
-// values that changed. Other models below it (another Animator, or an entity that isn't a bone)
-// are left alone.
+// it, the entities whose AnimationTargetEntity is a bone of `skeleton`. With a `graph`, the graph
+// mixes its clips into the pose (its parameters set with SetFloat/SetBool/SetTrigger); without one,
+// the clips started with Play and CrossFade do. The pose is written to the bones' LocalTRS: only the
+// channels some clip animates, and only values that changed. Other models below it (another
+// Animator, or an entity that isn't a bone) are left alone.
 struct Animator
 {
     AssetHandle<Skeleton> skeleton;
     std::vector<AssetHandle<AnimationClip>> clips;
+    AssetHandle<AnimationGraph> graph;
     float speed = 1.0f;
     bool playing = true;
 
     Animator() = default;
-    // Copies the settings and what plays; the bones it found belong to the source's entities.
+    // Copies the settings, parameters and what plays; the bones it found belong to the source's
+    // entities.
     Animator(const Animator& other);
     Animator& operator=(const Animator& other);
     Animator(Animator&&) = default;
@@ -31,15 +36,52 @@ struct Animator
     // Updates every Animator of the scene by the delta given to System::Run (game time).
     static System CreateSystem(Scene& scene);
 
-    // Plays clips[clip] from the start.
+    // Clips without a graph. Play starts clips[clip] from the start at once; CrossFade fades it in
+    // over `seconds` while what played fades out (and keeps playing until it's gone).
+    int FindClip(std::string_view name) const;
     void Play(int clip, bool loop = true);
+    void CrossFade(int clip, float seconds, bool loop = true);
 
-    int CurrentClip() const { return m_Clip; }
+    // The clip played or faded to last.
+    int CurrentClip() const;
     const std::shared_ptr<AnimationClip>& GetCurrentClip() const;
-    float Time() const { return m_Time; }
-    void SetTime(float time) { m_Time = time; }
-    bool Loop() const { return m_Loop; }
-    void SetLoop(bool loop) { m_Loop = loop; }
+    float Time() const;
+    void SetTime(float time);
+    bool Loop() const;
+    void SetLoop(bool loop);
+
+    // Each clip still in the mix, oldest first. `fade` goes 0 -> 1 while it fades in; `weight` is its
+    // share of the pose.
+    struct ClipState
+    {
+        int clip = -1;
+        float time = 0.0f;
+        bool loop = true;
+        float fade = 1.0f;
+        float fadeDuration = 0.0f;
+        float weight = 1.0f;
+    };
+    const std::vector<ClipState>& Playing() const { return m_Playing; }
+
+    // Graph parameters by name (unknown names are ignored, and read 0), or by index into the graph's.
+    void SetFloat(std::string_view name, float value);
+    void SetBool(std::string_view name, bool value);
+    void SetTrigger(std::string_view name);
+    void ResetTrigger(std::string_view name);
+    float GetFloat(std::string_view name) const;
+    bool GetBool(std::string_view name) const;
+    float GetParameter(int index) const;
+    void SetParameter(int index, float value);
+
+    // Per graph node, as of the last update: its share of the pose, and for clips the clip
+    // (index into `clips`, -1 = not found) and its time.
+    struct NodeState
+    {
+        float weight = 0.0f;
+        float time = 0.0f;
+        int clip = -1;
+    };
+    const std::vector<NodeState>& Nodes() const { return m_Nodes; }
 
     // Advances time by dt (if playing) and poses the bones below `root`.
     void Update(Entity root, float dt);
@@ -51,22 +93,51 @@ struct Animator
     size_t BoundTracks() const;
 
 private:
-    void Bind(Entity root);
+    struct SyncGroup
+    {
+        std::string name;
+        std::vector<int> members; // clip nodes
+        float phase = 0.0f;       // normalized time
+    };
+
     bool NeedsBind() const;
+    void Bind(Entity root);
+    void BindGraph(const AnimationGraph& definition);
+    void EnsureParameters() const;
+
+    void AdvanceClips(float dt);
+    void AdvanceGraph(float dt);
+    void Weigh(int node, float weight);
+    float WeightOf(const AnimationWeight& weight) const;
+    void Segment(const AnimationNode& node, int& a, int& b, float& t) const;
+    void SampleInto(int clip, float time, Pose& pose) const;
+    void EvaluateClips();
+    void EvaluateNode(int node, Pose& out, size_t depth);
+    Pose& Scratch(size_t depth);
+    bool StateChanged(bool useGraph);
     void WriteBones();
 
-    int m_Clip = -1;
-    float m_Time = 0.0f;
-    bool m_Loop = true;
+    std::vector<ClipState> m_Playing;
+    mutable const AnimationGraph* m_ParameterGraph = nullptr;
+    mutable std::vector<float> m_Parameters;
 
-    // Found by Bind for the current skeleton and clips (not copied).
+    // Found by Bind for the current skeleton, clips and graph (not copied).
     const Skeleton* m_BoundSkeleton = nullptr;
+    const AnimationGraph* m_BoundGraph = nullptr;
     std::vector<const AnimationClip*> m_BoundClips;
     std::vector<ClipBinding> m_Bindings; // per clip
     std::vector<Entity> m_Bones;         // per bone, invalid where the bone has no entity
     std::vector<uint8_t> m_Channels;     // per bone, which of T/R/S some clip animates
     size_t m_BoundBones = 0;
+    std::vector<NodeState> m_Nodes;
+    std::vector<int> m_SyncGroupOf;      // per node, -1 = none
+    std::vector<SyncGroup> m_SyncGroups;
+    std::vector<std::vector<float>> m_Masks; // per Layer node
+    std::vector<Pose> m_References;          // per additive node
+    std::vector<Pose> m_Scratch;
     Pose m_Pose;
-    int m_AppliedClip = -1;
-    float m_AppliedTime = -1.0f;
+    std::vector<float> m_State;   // what the pose was made from (clips, times, parameters)
+    std::vector<float> m_Applied; // the same for the pose written last
+    bool m_Bound = false;
+    bool m_GraphValid = false;
 };

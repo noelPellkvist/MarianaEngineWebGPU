@@ -25,5 +25,14 @@ struct Pose
 void SampleClip(const AnimationClip& clip, const ClipBinding& binding, float time, Pose& pose);
 
 // out = a moved toward b by `weight` (0 = a, 1 = b): translations and scales lerped, rotations
-// nlerped along the shorter arc. out may be a or b; the three must have the same bone count.
+// nlerped along the shorter arc. out may be a or b; the poses must have the same bone count.
 void BlendPoses(const Pose& a, const Pose& b, float weight, Pose& out);
+// The same with each bone's weight scaled by `mask` (one per bone, BoneMask::Resolve).
+void BlendPoses(const Pose& a, const Pose& b, float weight, const std::vector<float>& mask, Pose& out);
+
+// Additive poses: out = how `pose` differs from `reference` (translation and scale offsets, the
+// rotation that takes the reference's to the pose's), to be added to another pose.
+void MakeAdditive(const Pose& pose, const Pose& reference, Pose& out);
+// out = base with `weight` of `additive` added on top (optionally per bone by `mask`).
+void ApplyAdditive(const Pose& base, const Pose& additive, float weight, Pose& out);
+void ApplyAdditive(const Pose& base, const Pose& additive, float weight, const std::vector<float>& mask, Pose& out);
