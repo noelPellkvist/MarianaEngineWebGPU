@@ -1,6 +1,6 @@
 #include <Editor/ThumbnailRenderer.hpp>
 
-#include <Mariana/Animation/AnimationPlayer.hpp>
+#include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Animation/Skin.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Importers/GLTFLoader.hpp>
@@ -124,7 +124,7 @@ ThumbnailRenderer::ThumbnailRenderer(IInput& input, uint32_t size)
       m_Effects(m_Renderer.graph, m_View.CameraBuffer()),
       m_Camera(std::make_unique<Camera>(input))
 {
-    AnimationPlayer::RegisterComponents();
+    Animator::RegisterComponents();
     SceneRenderer::RegisterComponents();
     m_Scene.UpdateComponentRegistry();
     MaterialFile::RegisterLoader(m_Assets);
@@ -152,9 +152,7 @@ ThumbnailRenderer::ThumbnailRenderer(IInput& input, uint32_t size)
 
     m_Target.CreateRenderTexture(TextureFormat::RGBA8Unorm, static_cast<int>(size), static_cast<int>(size), false);
 
-    m_AnimationSystem = m_Scene.CreateSystem<AnimationPlayer>([](Entity e, AnimationPlayer& player, float dt) {
-        player.Update(e, dt);
-    });
+    m_AnimationSystem = Animator::CreateSystem(m_Scene);
     // World bounds of everything drawn: posed skins by their joints, the rest by their mesh.
     m_BoundsSystem = m_Scene.CreateSystem<MeshComponent, WorldXform>([this](Entity entity, MeshComponent& mesh, WorldXform& world, float) {
         if (const SkinComponent* skin = entity.TryGet<SkinComponent>(); skin && !skin->bounds.IsEmpty())

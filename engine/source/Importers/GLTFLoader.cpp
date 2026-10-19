@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <cstring>
 #include <cmath>
@@ -23,8 +24,8 @@
 #include <Mariana/Geometry/MeshBuilder.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/Components.hpp>
-#include <Mariana/Animation/Animation.hpp>
-#include <Mariana/Animation/AnimationPlayer.hpp>
+#include <Mariana/Animation/AnimationClip.hpp>
+#include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Animation/Skin.hpp>
 
 
@@ -440,10 +441,9 @@ std::string NodeName(const tinygltf::Model& model, int nodeIndex)
     return name.empty() ? "Node " + std::to_string(nodeIndex) : name;
 }
 
-void BuildEntityFromNode(Prefab& p, Entity e, const tinygltf::Model& model, int nodeIndex, const std::vector<LoadedMesh>& meshes,
-                         const std::vector<AssetHandle<Skin>>& skins)
+// A node's local transform: its TRS, or its matrix split into one.
+BoneTransform NodeTransform(const tinygltf::Node& n)
 {
-    const tinygltf::Node& n = model.nodes[nodeIndex];
     glm::vec3 translation(0.0f);
     glm::quat   rotation(1.0f, 0.0f, 0.0f, 0.0f);
     glm::vec3 scale(1.0f);
@@ -488,9 +488,17 @@ void BuildEntityFromNode(Prefab& p, Entity e, const tinygltf::Model& model, int 
         );
     }
 
-    e.SetPosition(translation.x, translation.y, translation.z);
-    e.SetRotationQuat(rotation.x, rotation.y, rotation.z, rotation.w);
-    e.SetScale(scale.x, scale.y, scale.z);
+    return { translation, rotation, scale };
+}
+
+void BuildEntityFromNode(Prefab& p, Entity e, const tinygltf::Model& model, int nodeIndex, const std::vector<LoadedMesh>& meshes,
+                         const std::vector<AssetHandle<Skin>>& skins)
+{
+    const tinygltf::Node& n = model.nodes[nodeIndex];
+    const BoneTransform transform = NodeTransform(n);
+    e.SetPosition(transform.translation.x, transform.translation.y, transform.translation.z);
+    e.SetRotationQuat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+    e.SetScale(transform.scale.x, transform.scale.y, transform.scale.z);
     e.Add<AnimationTargetEntity>({ (uint32_t)nodeIndex });
 
     if (n.mesh >= 0 && n.mesh < (int)meshes.size() && meshes[n.mesh].mesh.IsValid())
@@ -507,177 +515,83 @@ void BuildEntityFromNode(Prefab& p, Entity e, const tinygltf::Model& model, int 
     }
 }
 
-Animation LoadAnimation(const tinygltf::Model& model, const tinygltf::Animation& rawAnim)
+// A clip with a track per animated node, named like the node. Morph target weights aren't
+// supported and are skipped.
+AnimationClip LoadAnimation(const tinygltf::Model& model, const tinygltf::Animation& rawAnim, const std::string& source)
 {
-    Animation animation(rawAnim.name.empty() ? "UnnamedAnimation" : rawAnim.name);
+    AnimationClip clip(rawAnim.name.empty() ? "UnnamedAnimation" : rawAnim.name);
+    clip.source = source;
+    std::unordered_map<int, size_t> trackOfNode;
 
     for (const tinygltf::AnimationChannel& rawChannel : rawAnim.channels)
     {
-        AnimationChannel channel;
+        const std::string& path = rawChannel.target_path;
+        const bool rotation = path == "rotation";
+        if (!rotation && path != "translation" && path != "scale")
+            continue;
+        const int node = rawChannel.target_node;
+        if (node < 0 || node >= (int)model.nodes.size())
+            continue;
 
-        channel.targetNodeIndex = rawChannel.target_node;
-
-        if (rawChannel.target_path == "translation")
-        {
-            channel.type = AnimationChannelType::Translation;
-        }
-        else if (rawChannel.target_path == "rotation")
-        {
-            channel.type = AnimationChannelType::Rotation;
-        }
-        else if (rawChannel.target_path == "scale")
-        {
-            channel.type = AnimationChannelType::Scale;
-        }
-        else if (rawChannel.target_path == "weights")
-        {
-            channel.type = AnimationChannelType::Weights;
-        }
-
-        int samplerIndex = rawChannel.sampler;
-        if (samplerIndex < 0 || samplerIndex >= rawAnim.samplers.size())
-        {
+        if (rawChannel.sampler < 0 || rawChannel.sampler >= (int)rawAnim.samplers.size())
             throw std::runtime_error("Invalid sampler index in animation channel");
-        }
+        const tinygltf::AnimationSampler& rawSampler = rawAnim.samplers[rawChannel.sampler];
 
-        const tinygltf::AnimationSampler& rawSampler = rawAnim.samplers[samplerIndex];
-
-        const std::string& interp = rawSampler.interpolation;
-        if (interp == "LINEAR")
-        {
-            channel.interpolation = AnimationInterpolationType::Linear;
-        }
-        else if (interp == "STEP")
-        {
-            channel.interpolation = AnimationInterpolationType::Step;
-        }
-        else if (interp == "CUBICSPLINE")
-        {
-            channel.interpolation = AnimationInterpolationType::CubicSpline;
-        }
+        AnimationCurve curve;
+        if (rawSampler.interpolation == "LINEAR")
+            curve.interpolation = Interpolation::Linear;
+        else if (rawSampler.interpolation == "STEP")
+            curve.interpolation = Interpolation::Step;
+        else if (rawSampler.interpolation == "CUBICSPLINE")
+            curve.interpolation = Interpolation::CubicSpline;
         else
-        {
             throw std::runtime_error("Unsupported interpolation type in animation sampler");
-        }
 
-        if (rawSampler.input < 0 || rawSampler.input >= model.accessors.size()) {
+        if (rawSampler.input < 0 || rawSampler.input >= (int)model.accessors.size())
             throw std::runtime_error("Invalid input accessor index in animation sampler");
-        }
-        if (rawSampler.output < 0 || rawSampler.output >= model.accessors.size()) {
+        if (rawSampler.output < 0 || rawSampler.output >= (int)model.accessors.size())
             throw std::runtime_error("Invalid output accessor index in animation sampler");
-        }
-
-        const tinygltf::Accessor& inputAccessor = model.accessors[rawSampler.input];
         const tinygltf::Accessor& outputAccessor = model.accessors[rawSampler.output];
+        if (outputAccessor.type != (rotation ? TINYGLTF_TYPE_VEC4 : TINYGLTF_TYPE_VEC3))
+            throw std::runtime_error(rotation ? "Rotation output accessor must be VEC4" : "Translation/Scale output accessor must be VEC3");
 
-        std::vector<float> keyframeTimes = ReadAccessor<float>(model, inputAccessor);
-        const size_t keyframeCount = keyframeTimes.size();
-        channel.keyFrames.resize(keyframeCount);
-
-        for (size_t i = 0; i < keyframeCount; ++i) {
-            channel.keyFrames[i].time = keyframeTimes[i];
-        }
-
-        if (channel.type == AnimationChannelType::Rotation) {
-            if (outputAccessor.type != TINYGLTF_TYPE_VEC4) {
-                throw std::runtime_error("Rotation output accessor must be VEC4");
-            }
-        } else if (channel.type == AnimationChannelType::Translation || channel.type == AnimationChannelType::Scale) {
-            if (outputAccessor.type != TINYGLTF_TYPE_VEC3) {
-                throw std::runtime_error("Translation/Scale output accessor must be VEC3");
-            }
-        } else if (channel.type == AnimationChannelType::Weights) {
-            if (outputAccessor.type != TINYGLTF_TYPE_SCALAR) {
-                throw std::runtime_error("Weights output accessor must be SCALAR");
-            }
-        }
-
-        if (channel.interpolation == AnimationInterpolationType::Linear ||
-            channel.interpolation == AnimationInterpolationType::Step)
+        curve.times = ReadAccessor<float>(model, model.accessors[rawSampler.input]);
+        std::vector<glm::vec4> values = ReadAccessor<glm::vec4>(model, outputAccessor);
+        const size_t keys = curve.times.size();
+        if (curve.interpolation == Interpolation::CubicSpline)
         {
-            if (channel.type == AnimationChannelType::Weights) {
-                std::vector<float> values = ReadAccessor<float>(model, outputAccessor);
-                if (keyframeCount == 0 || values.size() % keyframeCount != 0) {
-                    throw std::runtime_error("Weights output accessor size mismatch");
-                }
-                const size_t weightsPerFrame = values.size() / keyframeCount;
-                for (size_t i = 0; i < keyframeCount; ++i) {
-                    auto begin = values.begin() + i * weightsPerFrame;
-                    auto end = begin + weightsPerFrame;
-                    channel.keyFrames[i].data.assign(begin, end);
-                }
-            } else {
-                const size_t componentCount = tinygltf::GetNumComponentsInType(outputAccessor.type);
-                std::vector<glm::vec4> values = ReadAccessor<glm::vec4>(model, outputAccessor);
-                if (values.size() != keyframeCount) {
-                    throw std::runtime_error("Animation output accessor size mismatch");
-                }
-                for (size_t i = 0; i < keyframeCount; ++i) {
-                    channel.keyFrames[i].data.clear();
-                    channel.keyFrames[i].data.reserve(componentCount);
-                    for (size_t c = 0; c < componentCount; ++c) {
-                        channel.keyFrames[i].data.push_back(values[i][c]);
-                    }
-                }
-            }
-        }
-        else if (channel.interpolation == AnimationInterpolationType::CubicSpline)
-        {
-            if (channel.type == AnimationChannelType::Weights) {
-                std::vector<float> values = ReadAccessor<float>(model, outputAccessor);
-                if (keyframeCount == 0 || values.size() % (keyframeCount * 3) != 0) {
-                    throw std::runtime_error("Weights cubic spline output accessor size mismatch");
-                }
-                const size_t weightsPerFrame = values.size() / (keyframeCount * 3);
-                for (size_t i = 0; i < keyframeCount; ++i) {
-                    const size_t base = i * weightsPerFrame * 3;
-                    channel.keyFrames[i].inTangent.assign(
-                        values.begin() + base,
-                        values.begin() + base + weightsPerFrame
-                    );
-                    channel.keyFrames[i].data.assign(
-                        values.begin() + base + weightsPerFrame,
-                        values.begin() + base + weightsPerFrame * 2
-                    );
-                    channel.keyFrames[i].outTangent.assign(
-                        values.begin() + base + weightsPerFrame * 2,
-                        values.begin() + base + weightsPerFrame * 3
-                    );
-                }
-            } else {
-                const size_t componentCount = tinygltf::GetNumComponentsInType(outputAccessor.type);
-                std::vector<glm::vec4> values = ReadAccessor<glm::vec4>(model, outputAccessor);
-                if (values.size() != keyframeCount * 3) {
-                    throw std::runtime_error("Animation cubic spline output accessor size mismatch");
-                }
-                for (size_t i = 0; i < keyframeCount; ++i) {
-                    const glm::vec4 in = values[i * 3 + 0];
-                    const glm::vec4 val = values[i * 3 + 1];
-                    const glm::vec4 out = values[i * 3 + 2];
-
-                    channel.keyFrames[i].inTangent.clear();
-                    channel.keyFrames[i].data.clear();
-                    channel.keyFrames[i].outTangent.clear();
-                    channel.keyFrames[i].inTangent.reserve(componentCount);
-                    channel.keyFrames[i].data.reserve(componentCount);
-                    channel.keyFrames[i].outTangent.reserve(componentCount);
-
-                    for (size_t c = 0; c < componentCount; ++c) {
-                        channel.keyFrames[i].inTangent.push_back(in[c]);
-                        channel.keyFrames[i].data.push_back(val[c]);
-                        channel.keyFrames[i].outTangent.push_back(out[c]);
-                    }
-                }
+            // Each key is an in-tangent, the value and an out-tangent.
+            if (values.size() != keys * 3)
+                throw std::runtime_error("Animation cubic spline output accessor size mismatch");
+            curve.values.resize(keys);
+            curve.inTangents.resize(keys);
+            curve.outTangents.resize(keys);
+            for (size_t i = 0; i < keys; ++i)
+            {
+                curve.inTangents[i] = values[i * 3 + 0];
+                curve.values[i] = values[i * 3 + 1];
+                curve.outTangents[i] = values[i * 3 + 2];
             }
         }
         else
         {
-            throw std::runtime_error("Unsupported interpolation type in animation sampler");
+            if (values.size() != keys)
+                throw std::runtime_error("Animation output accessor size mismatch");
+            curve.values = std::move(values);
         }
-        animation.AddChannel(channel);
+
+        const auto [it, added] = trackOfNode.try_emplace(node, clip.tracks.size());
+        if (added)
+        {
+            AnimationTrack& track = clip.tracks.emplace_back();
+            track.bone = NodeName(model, node);
+            track.node = static_cast<uint32_t>(node);
+        }
+        AnimationTrack& track = clip.tracks[it->second];
+        (rotation ? track.rotation : path == "translation" ? track.translation : track.scale) = std::move(curve);
     }
-    animation.SetNodeCount(model.nodes.size()); 
-    return animation.Build();
+    clip.Build();
+    return clip;
 }
 
 namespace GLTF
@@ -1006,15 +920,41 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, Parsed
         skins[i] = assets.RegisterAsset<Skin>(skin, AssetType::Skin, subName(rawSkin.name, "skin", i), key);
     }
 
-    std::vector<AssetHandle<Animation>> clips;
+    // The bones of animated or skinned models: the scene's nodes, parents first.
+    AssetHandle<Skeleton> skeleton;
+    if (!model.animations.empty() || !model.skins.empty())
+    {
+        const std::string key = fileKey + "#skeleton";
+        skeleton = assets.Find<Skeleton>(key);
+        if (!skeleton.IsValid())
+        {
+            auto bones = std::make_shared<Skeleton>();
+            bones->source = fileKey;
+            std::vector<bool> added(model.nodes.size(), false);
+            auto addNode = [&](auto& self, int node, int parent) -> void {
+                if (node < 0 || node >= (int)model.nodes.size() || added[node])
+                    return;
+                added[node] = true;
+                const int bone = (int)bones->BoneCount();
+                bones->AddBone({ NodeName(model, node), parent, (uint32_t)node, NodeTransform(model.nodes[node]) });
+                for (int child : model.nodes[node].children)
+                    self(self, child, bone);
+            };
+            for (int node : gltfScene.nodes)
+                addNode(addNode, node, -1);
+            skeleton = assets.RegisterAsset<Skeleton>(bones, AssetType::Skeleton, fileName + "/skeleton", key);
+        }
+    }
+
+    std::vector<AssetHandle<AnimationClip>> clips;
     for (size_t i = 0; i < model.animations.size(); ++i)
     {
         const std::string key = subKey("animation", i);
-        AssetHandle<Animation> clip = assets.Find<Animation>(key);
+        AssetHandle<AnimationClip> clip = assets.Find<AnimationClip>(key);
         if (!clip.IsValid()) {
             try {
-                auto animation = std::make_shared<Animation>(LoadAnimation(model, model.animations[i]));
-                clip = assets.RegisterAsset<Animation>(animation, AssetType::Animation, subName(animation->GetName(), "animation", i), key);
+                auto animation = std::make_shared<AnimationClip>(LoadAnimation(model, model.animations[i], fileKey));
+                clip = assets.RegisterAsset<AnimationClip>(animation, AssetType::Animation, subName(animation->GetName(), "animation", i), key);
             } catch (const std::exception& e) {
                 Logger::Warning("Skipping animation " + std::to_string(i) + " in " + filename + ": " + e.what());
                 continue;
@@ -1028,11 +968,13 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, Parsed
     auto prefab = std::make_shared<Prefab>(fileName.c_str());
     Entity root = prefab->Root();
 
-    if (!clips.empty()) {
-        AnimationPlayer player;
-        player.clips = std::move(clips);
-        player.currentClip = 0;
-        root.Add<AnimationPlayer>(player);
+    // Animated models play their first clip, looping.
+    if (!clips.empty() && skeleton.IsValid()) {
+        Animator animator;
+        animator.skeleton = skeleton;
+        animator.clips = std::move(clips);
+        animator.Play(0);
+        root.Add<Animator>(animator);
     }
 
     for (int nodeIndex : gltfScene.nodes)

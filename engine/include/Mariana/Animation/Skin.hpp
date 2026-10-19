@@ -19,7 +19,7 @@ struct SkinComponent
 {
     AssetHandle<Skin> skin;
 
-    // Resolved on first use (same order as Skin::jointNodes), like AnimationPlayer's targets.
+    // Resolved on first use (same order as Skin::jointNodes), like an Animator's bones.
     std::vector<Entity> joints;
     // Where this frame's joint matrices start in the bone buffer, set by the skinning pass.
     uint32_t boneOffset = ~0u;

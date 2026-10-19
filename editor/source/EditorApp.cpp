@@ -11,7 +11,7 @@
 #include <Mariana/Rendering/SceneView.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Scene/Prefab.hpp>
-#include <Mariana/Animation/AnimationPlayer.hpp>
+#include <Mariana/Animation/Animator.hpp>
 
 #include "ImGuizmo.h"
 
@@ -85,7 +85,7 @@ EditorApp::EditorApp() : Application({ .title = "Mariana Engine Editor", .width 
 sceneRenderer(scene, assets),
 gameCamera(input)
 {
-    AnimationPlayer::RegisterComponents();
+    Animator::RegisterComponents();
     SceneRenderer::RegisterComponents();
 
     scene.UpdateComponentRegistry();
@@ -108,9 +108,7 @@ gameCamera(input)
     else
         Logger::Error("Could not load the render pipeline: " + pipelineError);
 
-    animationSystem = scene.CreateSystem<AnimationPlayer>([](Entity e, AnimationPlayer& player, float dt) {
-        player.Update(e, dt);
-    });
+    animationSystem = Animator::CreateSystem(scene);
     cameraSystem = scene.CreateSystem<CameraComponent, WorldXform>([this](Entity e, CameraComponent&, WorldXform&, float) {
         sceneCameras.push_back(e);
     });

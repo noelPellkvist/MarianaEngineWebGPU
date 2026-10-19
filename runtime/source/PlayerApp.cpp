@@ -1,6 +1,6 @@
 #include <Player/PlayerApp.hpp>
 
-#include <Mariana/Animation/AnimationPlayer.hpp>
+#include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Foundation/FileReader.hpp>
 #include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/Logger.hpp>
@@ -97,7 +97,7 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
       sceneView(sceneRenderer),
       effects(renderer.graph, sceneView.CameraBuffer())
 {
-    AnimationPlayer::RegisterComponents();
+    Animator::RegisterComponents();
     SceneRenderer::RegisterComponents();
     scene.UpdateComponentRegistry();
 
@@ -119,9 +119,7 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
     else
         Logger::Error("Could not load the render pipeline: " + error);
 
-    animationSystem = scene.CreateSystem<AnimationPlayer>([](Entity e, AnimationPlayer& player, float dt) {
-        player.Update(e, dt);
-    });
+    animationSystem = Animator::CreateSystem(scene);
 
     m_Window.RegisterResizeCallback([this](int w, int h) { OnWindowResized(w, h); });
 }

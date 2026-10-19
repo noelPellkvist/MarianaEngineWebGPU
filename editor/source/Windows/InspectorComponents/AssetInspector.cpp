@@ -2,7 +2,7 @@
 
 #include <Editor/GUI.hpp>
 #include <Editor/Windows/InspectorComponents/MaterialInspector.hpp>
-#include <Mariana/Animation/Animation.hpp>
+#include <Mariana/Animation/AnimationClip.hpp>
 #include <Mariana/Graphics/Mesh.hpp>
 #include <Mariana/Graphics/Texture.hpp>
 #include <Mariana/Rendering/Components.hpp>
@@ -225,11 +225,11 @@ namespace InspectorComponents
             }
             case AssetType::Animation:
             {
-                AssetHandle<Animation> animation = assets.LoadAsset<Animation>(id);
+                AssetHandle<AnimationClip> animation = assets.LoadAsset<AnimationClip>(id);
                 if (animation.Get())
                 {
                     ImGui::Text("Duration: %.2f s", animation.Get()->GetDuration());
-                    ImGui::Text("Channels: %zu", animation.Get()->GetChannelCount());
+                    ImGui::Text("Tracks: %zu", animation.Get()->tracks.size());
                 }
                 break;
             }

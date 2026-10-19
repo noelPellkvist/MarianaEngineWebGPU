@@ -1,7 +1,7 @@
 #include <Mariana/Rendering/SceneRenderer.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Animation/Skin.hpp>
-#include <Mariana/Animation/AnimationPlayer.hpp>
+#include <Mariana/Animation/Skeleton.hpp>
 #include <Mariana/Foundation/FileReader.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Geometry/Primitives.hpp>
