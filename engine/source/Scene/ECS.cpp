@@ -2,6 +2,7 @@
 #include <Mariana/Scene/Prefab.hpp>
 #include <flecs.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <typeindex>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
@@ -410,6 +411,115 @@ void Scene::Clear() {
     _forEachRootOpaque([](void* ctx, uint64_t id, Scene*) { static_cast<std::vector<uint64_t>*>(ctx)->push_back(id); }, &roots);
     for (uint64_t id : roots) _destroy(id);
     _p->next_trs_id = 0;
+}
+
+namespace {
+// Components that follow from others (a snapshot leaves them out; they are recomputed).
+bool IsDerivedComponent(const char* name) {
+    return std::strcmp(name, "WorldXform") == 0 || std::strcmp(name, "_XformCache") == 0 || std::strcmp(name, "XformCache") == 0
+        || std::strcmp(name, "_TransformClock") == 0 || std::strcmp(name, "TransformClock") == 0;
+}
+}
+
+struct SceneSnapshot::Impl {
+    // An entity of the scene: its id, its parent's (0 = a root), its copy and its transform slot.
+    struct Record {
+        uint64_t original = 0;
+        uint64_t parent = 0;
+        uint64_t copy = 0;
+        uint32_t slot = ~0u;
+    };
+    Scene copies;
+    std::vector<Record> records; // parents before children
+    uint32_t nextSlot = 0;
+};
+
+SceneSnapshot::SceneSnapshot() = default;
+SceneSnapshot::~SceneSnapshot() = default;
+SceneSnapshot::SceneSnapshot(SceneSnapshot&&) noexcept = default;
+SceneSnapshot& SceneSnapshot::operator=(SceneSnapshot&&) noexcept = default;
+bool SceneSnapshot::IsEmpty() const { return !_p || _p->records.empty(); }
+std::size_t SceneSnapshot::EntityCount() const { return _p ? _p->records.size() : 0; }
+
+SceneSnapshot Scene::Snapshot() const {
+    SceneSnapshot snapshot;
+    snapshot._p = std::make_unique<SceneSnapshot::Impl>();
+    SceneSnapshot::Impl& data = *snapshot._p;
+    data.copies.UpdateComponentRegistry();
+    data.nextSlot = _p->next_trs_id;
+
+    auto collect = [](void* ctx, uint64_t id, Scene*) { static_cast<std::vector<uint64_t>*>(ctx)->push_back(id); };
+    auto visit = [&](auto& self, uint64_t id, uint64_t parent) -> void {
+        Entity entity = FromId(id);
+        const WorldXform* world = entity.TryGet<WorldXform>();
+        const uint64_t copy = data.copies._create(nullptr);
+        ForEachComponent(entity, [&](const ComponentView& c) {
+            if (!c.name || !*c.name || IsDerivedComponent(c.name)) return;
+            data.copies._addById(copy, data.copies._ensureComponentByName(c.name, c.size, c.align), c.data, c.size, c.align);
+        });
+        data.records.push_back({ id, parent, copy, world ? world->id : ~0u });
+
+        std::vector<uint64_t> children;
+        _forEachChildOpaque(id, collect, &children);
+        for (uint64_t child : children) self(self, child, id);
+    };
+    std::vector<uint64_t> roots;
+    _forEachRootOpaque(collect, &roots);
+    for (uint64_t root : roots) visit(visit, root, 0);
+    return snapshot;
+}
+
+void Scene::Restore(const SceneSnapshot& snapshot) {
+    if (!snapshot._p) return;
+    const SceneSnapshot::Impl& data = *snapshot._p;
+    ecs_world_t* w = _p->ecs.c_ptr();
+    auto collect = [](void* ctx, uint64_t id, Scene*) { static_cast<std::vector<uint64_t>*>(ctx)->push_back(id); };
+
+    // The snapshot's entities are detached first, so destroying what was made since (which may
+    // have become their parent) doesn't take them along.
+    std::unordered_set<uint64_t> kept;
+    for (const auto& r : data.records) {
+        kept.insert(r.original);
+        if (_isAlive(r.original)) ecs_remove_pair(w, (ecs_entity_t)r.original, EcsChildOf, EcsWildcard);
+    }
+    std::vector<uint64_t> all;
+    std::vector<uint64_t> pending;
+    _forEachRootOpaque(collect, &pending);
+    while (!pending.empty()) {
+        const uint64_t id = pending.back();
+        pending.pop_back();
+        all.push_back(id);
+        _forEachChildOpaque(id, collect, &pending);
+    }
+    for (uint64_t id : all)
+        if (!kept.count(id)) _destroy(id);
+
+    // Destroyed entities come back under their old ids (unless their index was taken since).
+    std::unordered_map<uint64_t, uint64_t> ids;
+    for (const auto& r : data.records) {
+        ecs_entity_t id = (ecs_entity_t)r.original;
+        if (!ecs_is_alive(w, id)) {
+            if (ecs_get_alive(w, id) == 0) ecs_make_alive(w, id);
+            else id = ecs_new(w);
+        }
+        ids[r.original] = (uint64_t)id;
+    }
+
+    const ecs_entity_t worldId = _p->ensureComponent(ECS::detail::TypeSlot<WorldXform>(), typeid(WorldXform), sizeof(WorldXform), alignof(WorldXform));
+    _p->next_trs_id = data.nextSlot;
+    for (const auto& r : data.records) {
+        const uint64_t id = ids[r.original];
+        ecs_clear(w, (ecs_entity_t)id);
+        data.copies.ForEachComponent(data.copies.FromId(r.copy), [&](const ComponentView& c) {
+            if (!c.name || !*c.name || IsDerivedComponent(c.name)) return;
+            _addById(id, _ensureComponentByName(c.name, c.size, c.align), c.data, c.size, c.align);
+        });
+        WorldXform world{};
+        world.id = r.slot != ~0u ? r.slot : _p->next_trs_id++;
+        ecs_set_id(w, (ecs_entity_t)id, worldId, sizeof(WorldXform), &world);
+        flecs::entity(_p->ecs, (ecs_entity_t)id).set<XformCache>({});
+        if (r.parent) ecs_add_pair(w, (ecs_entity_t)id, EcsChildOf, (ecs_entity_t)ids[r.parent]);
+    }
 }
 
 void Scene::_update(float) { _p->ecs.progress(); }

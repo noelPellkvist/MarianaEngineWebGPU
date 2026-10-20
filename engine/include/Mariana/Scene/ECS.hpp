@@ -175,6 +175,24 @@ private:
 
 class Prefab;
 
+// A copy of a scene's entities (their components, hierarchy and transform slots) made by
+// Scene::Snapshot, for Scene::Restore to put back: the editor keeps one from Play to Stop.
+class SceneSnapshot {
+public:
+    SceneSnapshot();
+    ~SceneSnapshot();
+    SceneSnapshot(SceneSnapshot&&) noexcept;
+    SceneSnapshot& operator=(SceneSnapshot&&) noexcept;
+
+    bool IsEmpty() const;
+    std::size_t EntityCount() const;
+
+private:
+    friend class Scene;
+    struct Impl;
+    std::unique_ptr<Impl> _p;
+};
+
 class Entity {
 public:
     Entity() = default;
@@ -235,6 +253,13 @@ public:
     void Clear();
     void Update(float dt);
     void UpdateComponentRegistry();
+
+    // Snapshot copies every entity; Restore makes the scene what it was then: the same entity ids
+    // (destroyed ones come back), components, hierarchy and transform slots, and entities made since
+    // are destroyed. Transforms are recomputed on the next Update; whoever keeps state per slot must
+    // drop it (SceneRenderer::InvalidateTransforms).
+    SceneSnapshot Snapshot() const;
+    void Restore(const SceneSnapshot& snapshot);
 
     template<class Fn>
     void ForEachChild(Entity parent, Fn&& fn);

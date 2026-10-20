@@ -58,6 +58,10 @@ class EditorApp : public Application
         System cameraSystem;
         uint64_t selectedEntityID = -1;
         Entity selectedEntity;
+        // The scene and undo history as they were when Play was pressed; Stop puts them back.
+        SceneSnapshot playSnapshot;
+        UndoStack playUndo;
+        bool restoreOnStop = false;
 
         void OnWindowResized(int w, int h);
         void SpawnPrefab(const std::filesystem::path& path);
@@ -74,6 +78,9 @@ class EditorApp : public Application
         void DrawPlayControls();
         void TogglePlay();
         void TogglePause();
+        // Stop: the scene goes back to what it was on Play (what changed while playing is undone;
+        // edits to assets, like materials, stay).
+        void RestoreScene();
         void DrawMat4(const char* id, float m[16], bool editable = true, float speed = 0.05f, const char* fmt = "%.3f");
         // Over the Scene window's image: the cameras' frustums, the selection's gizmo, picking.
         void DrawSceneOverlay(ViewportWindow& window);

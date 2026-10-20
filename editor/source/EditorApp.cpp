@@ -653,9 +653,41 @@ void EditorApp::DrawPlayControls()
 void EditorApp::TogglePlay()
 {
     if (gameClock.IsPlaying())
+    {
         gameClock.Stop();
+        RestoreScene();
+    }
     else
+    {
+        playSnapshot = scene.Snapshot();
+        playUndo = undo;
+        restoreOnStop = true;
         gameClock.Play();
+    }
+}
+
+void EditorApp::RestoreScene()
+{
+    if (!restoreOnStop)
+        return;
+    restoreOnStop = false;
+
+    scene.Restore(playSnapshot);
+    playSnapshot = SceneSnapshot();
+    scene.Update(0.0f);
+    sceneRenderer.InvalidateTransforms();
+
+    // The selection may have been made while playing.
+    if (!selectedEntity.IsValid())
+    {
+        selectedEntityID = -1;
+        selectedEntity = Entity{};
+        inspectorWindow->ClearInspectedEntity();
+    }
+    undo = std::move(playUndo);
+    playUndo = UndoStack();
+    // What only the snapshot or the play session held on to.
+    assets.UnloadUnused();
 }
 
 void EditorApp::TogglePause()
