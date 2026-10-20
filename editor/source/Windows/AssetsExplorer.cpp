@@ -273,8 +273,8 @@ void AssetsExplorer::DrawAssetsWindow()
             if (clicked) selectedPath = en.pathString;
             if (dblClick) {
                 if (en.isDir) { current = en.path; selectedPath.clear(); }
-                else {
-                    // file open callback can go here
+                else if (onOpen) {
+                    onOpen(en.path);
                 }
             }
 
@@ -282,6 +282,18 @@ void AssetsExplorer::DrawAssetsWindow()
             col = (col + 1) % columns;
         }
         ImGui::EndTable();
+    }
+
+    if (!createActions.empty() && ImGui::BeginPopupContextWindow("##assets_create", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+    {
+        ImGui::TextDisabled("Create here");
+        for (const CreateAction& action : createActions)
+            if (ImGui::MenuItem(action.label.c_str()) && action.create)
+            {
+                action.create(current);
+                m_lastScan = -1.0;
+            }
+        ImGui::EndPopup();
     }
 
     ImGui::EndChild();

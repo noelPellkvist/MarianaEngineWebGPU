@@ -117,6 +117,9 @@ struct Animator
     // Advances time by dt (if playing) and poses the bones below `root`.
     void Update(Entity root, float dt);
 
+    // Why its graph isn't used (it doesn't validate), or empty.
+    const std::string& GraphError() const { return m_GraphError; }
+
     // The last pose written, by skeleton bone.
     const Pose& GetPose() const { return m_Pose; }
     // Bones that have an entity below the root, and tracks of the current clip that found a bone.
@@ -156,6 +159,8 @@ private:
 
     std::vector<ClipState> m_Playing;
     mutable const AnimationGraph* m_ParameterGraph = nullptr;
+    mutable uint32_t m_ParameterRevision = 0;
+    mutable std::vector<std::string> m_ParameterNames;
     mutable std::vector<float> m_Parameters;
 
     // Found by Bind for the current skeleton, clips and graph (not copied).
@@ -188,4 +193,6 @@ private:
     std::vector<float> m_Applied; // the same for the pose written last
     bool m_Bound = false;
     bool m_GraphValid = false;
+    uint32_t m_BoundRevision = 0;
+    std::string m_GraphError;
 };

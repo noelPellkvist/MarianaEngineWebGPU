@@ -329,7 +329,7 @@ namespace
 
 namespace InspectorComponents
 {
-    void DrawAnimationComponent(Entity& entity, AssetManager2& assets)
+    void DrawAnimationComponent(Entity& entity, AssetManager2& assets, const AnimatorActions& actions)
     {
         if (!entity.Has<Animator>())
             return;
@@ -341,6 +341,18 @@ namespace InspectorComponents
         ImGui::PushID("Animator");
         DrawGraphPicker(animator, assets);
         const AnimationGraph* graph = animator.graph.Get().get();
+        if (graph && actions.editGraph)
+        {
+            if (ImGui::SmallButton("Edit graph"))
+                actions.editGraph(animator.graph);
+            ImGui::SameLine();
+        }
+        if (actions.newGraph && ImGui::SmallButton("New graph"))
+            actions.newGraph(entity);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Makes a state machine with a state per clip, saved in the project's Animations folder");
+        if (graph && !animator.GraphError().empty())
+            ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.3f, 1.0f), "Graph not used yet: %s", animator.GraphError().c_str());
 
         ImGui::Checkbox("Playing", &animator.playing);
         if (!graph)

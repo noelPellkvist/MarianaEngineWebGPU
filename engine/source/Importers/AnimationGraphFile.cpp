@@ -86,11 +86,25 @@ namespace
         std::unordered_map<std::string, int> m_Names;
     };
 
+    Json Point(glm::vec2 p)
+    {
+        return Json::array({ Clean(p.x), Clean(p.y) });
+    }
+
+    glm::vec2 ReadPoint(const Json& object, const char* key, glm::vec2 fallback)
+    {
+        const auto it = object.find(key);
+        if (it == object.end() || !it->is_array() || it->size() != 2 || !(*it)[0].is_number() || !(*it)[1].is_number())
+            return fallback;
+        return glm::vec2((*it)[0].get<float>(), (*it)[1].get<float>());
+    }
+
     Json WriteNode(const AnimationNode& node, const Writer& writer)
     {
         Json json = Json::object();
         json["name"] = node.name;
         json["type"] = kTypeNames[static_cast<int>(node.type)];
+        json["position"] = Point(node.position);
         auto inputs = [&]() {
             Json list = Json::array();
             for (int input : node.inputs)
@@ -157,9 +171,11 @@ namespace
         {
             auto stateName = [&](int state) { return state >= 0 && state < static_cast<int>(node.states.size()) ? Json(node.states[state]) : Json(nullptr); };
             json["entry"] = stateName(node.entryState);
+            json["anyStatePosition"] = Point(node.anyStatePosition);
             Json states = Json::array();
             for (size_t i = 0; i < node.states.size(); ++i)
-                states.push_back({ { "name", node.states[i] }, { "node", writer.Node(i < node.inputs.size() ? node.inputs[i] : -1) } });
+                states.push_back({ { "name", node.states[i] }, { "node", writer.Node(i < node.inputs.size() ? node.inputs[i] : -1) },
+                                   { "position", Point(i < node.statePositions.size() ? node.statePositions[i] : glm::vec2(0.0f)) } });
             json["states"] = states;
 
             Json transitions = Json::array();
@@ -224,6 +240,7 @@ namespace
                     node.inputs.push_back(ReadNode(graph, input));
         };
         auto reference = [&]() { return Text(json, "reference") == "rest" ? AdditiveReference::Rest : AdditiveReference::FirstFrame; };
+        node.position = ReadPoint(json, "position", node.position);
 
         switch (node.type)
         {
@@ -288,7 +305,9 @@ namespace
                 {
                     node.states.push_back(Text(state, "name"));
                     node.inputs.push_back(state.contains("node") ? ReadNode(graph, state["node"]) : -1);
+                    node.statePositions.push_back(ReadPoint(state, "position", glm::vec2(0.0f)));
                 }
+                node.anyStatePosition = ReadPoint(json, "anyStatePosition", node.anyStatePosition);
             }
             const std::string entry = Text(json, "entry");
             node.entryState = entry.empty() ? 0 : node.FindState(entry);
@@ -411,11 +430,9 @@ namespace AnimationGraphFile
         }
 
         graph->output = json.contains("output") ? ReadNode(*graph, json["output"]) : static_cast<int>(graph->nodes.size()) - 1;
-        if (!graph->Validate(error))
-        {
-            error = file.string() + ": " + error;
-            return nullptr;
-        }
+        std::string problem;
+        if (!graph->Validate(problem))
+            Logger::Warning(file.string() + " isn't usable yet: " + problem);
         return graph;
     }
 

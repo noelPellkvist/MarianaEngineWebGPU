@@ -3,6 +3,7 @@
 #include <Editor/Windows/EditorWindow.hpp>
 
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,16 @@ public:
     // Browses `root` (the project's content), with thumbnails from `thumbnails`.
     AssetsExplorer(GUI& gui, std::filesystem::path root, ThumbnailCache& thumbnails);
     void Draw() override;
+
+    // A double-clicked file (folders open in place).
+    std::function<void(const std::filesystem::path&)> onOpen;
+    // What right-clicking the folder offers to make there.
+    struct CreateAction
+    {
+        std::string label;
+        std::function<void(const std::filesystem::path& folder)> create;
+    };
+    std::vector<CreateAction> createActions;
 
 private:
     // A directory listing entry, with everything the grid needs precomputed at scan time.

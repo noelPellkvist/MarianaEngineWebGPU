@@ -31,13 +31,16 @@ class AnimationGraph;
 //     "output": "Body"
 //   }
 // Nodes are referred to by name (or by index). A transition without "from" goes from any state.
+// Nodes and states may have a "position" ([x, y], where the graph editor draws them), and a state
+// machine an "anyStatePosition".
 // Condition modes: if, ifNot, greater, less, equals, notEquals. "clips" are the clips the graph
 // brings (AnimationGraph::clips): a glTF file relative to the .animgraph (or a resource path
 // starting with "/") and its animation by index or by "clip" name. Missing values keep defaults.
 namespace AnimationGraphFile
 {
     // Reads a file (an OS path) into a new graph, loading the clips it lists. nullptr (and `error`)
-    // on failure; a graph that doesn't validate is a failure too.
+    // when it can't be read. A graph that doesn't validate (being made in the editor) still loads,
+    // with a warning; Animators don't use it until it does.
     std::shared_ptr<AnimationGraph> Load(AssetManager2& assets, const std::filesystem::path& file, std::string& error);
 
     // Writes `graph` to `file`; each of its clips is stored by the glTF file it came from.

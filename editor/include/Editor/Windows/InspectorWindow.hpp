@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Editor/Windows/EditorWindow.hpp>
+#include <Editor/Windows/InspectorComponents/AnimationComponent.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
@@ -24,6 +25,8 @@ public:
     void InspectAsset(AssetID id) { m_asset = id; }
     // How the inspector selects an entity (from "used by" lists).
     void SetSelectEntity(std::function<void(Entity)> selectEntity) { m_selectEntity = std::move(selectEntity); }
+    // What the Animator section's graph buttons do.
+    void SetAnimatorActions(InspectorComponents::AnimatorActions actions) { m_animatorActions = std::move(actions); }
 
 private:
     using ComponentDrawer = std::function<void(Entity&)>;
@@ -33,6 +36,7 @@ private:
     const Scene* m_scene = nullptr;
     AssetID m_asset; // shown instead of the entity while valid
     std::function<void(Entity)> m_selectEntity;
+    InspectorComponents::AnimatorActions m_animatorActions;
     Entity m_entity;
     uint64_t m_entityID = static_cast<uint64_t>(-1);
     std::unordered_map<std::string, ComponentDrawer> m_componentDrawers;

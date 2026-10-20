@@ -122,7 +122,17 @@ struct AnimationNode
     std::vector<AnimationTransition> transitions;
     int entryState = 0;
 
+    // Where an editor draws it: the node on the graph's canvas, and a state machine's states and its
+    // "any state" box in the machine's own view.
+    glm::vec2 position{ 0.0f };
+    std::vector<glm::vec2> statePositions;
+    glm::vec2 anyStatePosition{ -220.0f, 0.0f };
+
     int FindState(std::string_view state) const;
+    // A state machine's states: adding one (playing `node`) or removing one with its transitions
+    // (later states move down; the entry state follows).
+    int AddState(std::string state, int node, glm::vec2 position = glm::vec2(0.0f));
+    void RemoveState(int state);
 };
 
 // How an Animator mixes its clips: parameters, and nodes whose `output` is the pose. Plain data,
@@ -143,7 +153,26 @@ public:
     // Inputs, parameters and thresholds valid and no cycles; `error` says what isn't.
     bool Validate(std::string& error) const;
 
+    // Editing keeps references intact: removing a node or parameter disconnects what used it (-1)
+    // and renumbers the later ones. Call MarkChanged after any edit, so Animators using the graph
+    // bind it again (Revision).
+    int AddNode(AnimationNode node);
+    void RemoveNode(int node);
+    void RemoveParameter(int parameter);
+    void MarkChanged() { ++m_Revision; }
+    uint32_t Revision() const { return m_Revision; }
+    // Becomes a copy of `other` (an undo step, say) as a new revision of this graph.
+    void ReplaceWith(const AnimationGraph& other)
+    {
+        const uint32_t revision = m_Revision;
+        *this = other;
+        m_Revision = revision + 1;
+    }
+
     class Builder;
+
+private:
+    uint32_t m_Revision = 0;
 };
 
 // Builds a graph in code; each node function returns the node's index.

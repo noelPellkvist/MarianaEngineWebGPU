@@ -17,6 +17,7 @@
 #include "ImGuizmo.h"
 
 #include <Editor/Windows/Stats.hpp>
+#include <Editor/Windows/AnimationGraphWindow.hpp>
 #include <Editor/Windows/AssetsExplorer.hpp>
 #include <Editor/Windows/HierarchyWindow.hpp>
 #include <Editor/Windows/InspectorWindow.hpp>
@@ -201,9 +202,33 @@ void EditorApp::OnStart()
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
     thumbnails = std::make_unique<ThumbnailCache>(MARIANA_PROJECT_DIR, input);
-    EditorWindows["Assets"] = std::make_unique<AssetsExplorer>(gui, MARIANA_PROJECT_DIR, *thumbnails);
+    auto graphEditor = std::make_unique<AnimationGraphWindow>(gui, assets, undo, scene, MARIANA_PROJECT_DIR);
+    graphWindow = graphEditor.get();
+    EditorWindows["Animation Graph"] = std::move(graphEditor);
+
+    auto assetsExplorer = std::make_unique<AssetsExplorer>(gui, MARIANA_PROJECT_DIR, *thumbnails);
+    assetsExplorer->onOpen = [this](const fs::path& file) {
+        std::string extension = file.extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+        if (extension == ".animgraph")
+            if (AssetHandle<AnimationGraph> graph = assets.Load<AnimationGraph>(file); graph.Get())
+                graphWindow->Open(graph);
+    };
+    assetsExplorer->createActions.push_back({ "Animation Graph", [this](const fs::path& folder) {
+        graphWindow->CreateGraph(folder / "New Animation Graph.animgraph", nullptr);
+    } });
+    EditorWindows["Assets"] = std::move(assetsExplorer);
     auto inspector = std::make_unique<InspectorWindow>(gui, assets, scene, undo);
     inspectorWindow = inspector.get();
+    inspector->SetAnimatorActions({
+        [this](const AssetHandle<AnimationGraph>& graph) { graphWindow->Open(graph); },
+        [this](Entity entity) {
+            Animator* animator = entity.Get<Animator>();
+            const std::string name = entity.GetName();
+            const fs::path file = fs::path(MARIANA_PROJECT_DIR) / "Animations" / ((name.empty() ? std::string("Animator") : name) + ".animgraph");
+            if (AssetHandle<AnimationGraph> graph = graphWindow->CreateGraph(file, animator); graph.Get() && animator)
+                animator->graph = graph;
+        } });
     inspector->SetSelectEntity([this](Entity entity) {
         DeselectEntity();
         SelectEntity(entity.RawId());
@@ -315,6 +340,7 @@ void EditorApp::OnGUI()
 {
     gui.PreUpdateGUI();
     ImGuizmo::BeginFrame();
+    graphWindow->SetPreview(selectedEntity);
 
     // Global, so a focused text field keeps Ctrl+Z for itself.
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal))
@@ -594,6 +620,7 @@ void EditorApp::DrawTopMenu()
             if (ImGui::MenuItem("Loaded Assets")) { EditorWindows["Loaded Assets"]->SetOpen(!EditorWindows["Loaded Assets"]->IsOpen()); }
             if (ImGui::MenuItem("Render Pipeline")) { EditorWindows["Render Pipeline"]->SetOpen(!EditorWindows["Render Pipeline"]->IsOpen()); }
             if (ImGui::MenuItem("Lighting")) { EditorWindows["Lighting"]->SetOpen(!EditorWindows["Lighting"]->IsOpen()); }
+            if (ImGui::MenuItem("Animation Graph")) { graphWindow->SetOpen(!graphWindow->IsOpen()); }
             ImGui::EndMenu();
         }
 

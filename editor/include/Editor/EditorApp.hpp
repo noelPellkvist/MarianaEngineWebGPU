@@ -16,6 +16,7 @@
 #include <vector>
 
 class InspectorWindow;
+class AnimationGraphWindow;
 class ThumbnailCache;
 class ViewportWindow;
 
@@ -42,6 +43,7 @@ class EditorApp : public Application
         std::unique_ptr<ThumbnailCache> thumbnails;
         std::unordered_map<std::string, std::unique_ptr<EditorWindow>> EditorWindows;
         InspectorWindow* inspectorWindow = nullptr;
+        AnimationGraphWindow* graphWindow = nullptr;
         ViewportWindow* sceneWindow = nullptr;
         ViewportWindow* gameWindow = nullptr;
         Scene scene;

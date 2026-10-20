@@ -79,6 +79,8 @@ Animator::Animator(const Animator& other)
       playing(other.playing),
       m_Playing(other.m_Playing),
       m_ParameterGraph(other.m_ParameterGraph),
+      m_ParameterRevision(other.m_ParameterRevision),
+      m_ParameterNames(other.m_ParameterNames),
       m_Parameters(other.m_Parameters),
       m_PendingStates(other.m_PendingStates)
 {
@@ -176,14 +178,29 @@ void Animator::SetLoop(bool loop)
 void Animator::EnsureParameters() const
 {
     const AnimationGraph* definition = graph.Get().get();
-    if (definition == m_ParameterGraph && (!definition || m_Parameters.size() == definition->parameters.size()))
+    if (definition == m_ParameterGraph && (!definition || definition->Revision() == m_ParameterRevision))
         return;
 
-    m_ParameterGraph = definition;
-    m_Parameters.clear();
+    // A graph edited in place keeps the values of the parameters it still has (by name).
+    std::vector<float> values;
+    std::vector<std::string> names;
     if (definition)
+    {
         for (const AnimationParameter& parameter : definition->parameters)
-            m_Parameters.push_back(parameter.defaultValue);
+        {
+            float value = parameter.defaultValue;
+            if (definition == m_ParameterGraph)
+                for (size_t i = 0; i < m_ParameterNames.size() && i < m_Parameters.size(); ++i)
+                    if (m_ParameterNames[i] == parameter.name)
+                        value = m_Parameters[i];
+            values.push_back(value);
+            names.push_back(parameter.name);
+        }
+    }
+    m_ParameterGraph = definition;
+    m_ParameterRevision = definition ? definition->Revision() : 0;
+    m_Parameters = std::move(values);
+    m_ParameterNames = std::move(names);
 }
 
 void Animator::SetFloat(std::string_view name, float value)
@@ -241,6 +258,8 @@ bool Animator::NeedsBind() const
 {
     if (!m_Bound || m_BoundSkeleton != skeleton.Get().get() || m_BoundGraph != graph.Get().get() || static_cast<int>(m_BoundClips.size()) != ClipCount())
         return true;
+    if (graph.Get() && graph.Get()->Revision() != m_BoundRevision)
+        return true;
     for (int i = 0; i < ClipCount(); ++i)
         if (m_BoundClips[i] != GetClip(i)->clip.Get().get())
             return true;
@@ -296,10 +315,9 @@ void Animator::Bind(Entity root)
     visit(visit, root, true);
 
     const AnimationGraph* definition = graph.Get().get();
-    std::string error;
-    m_GraphValid = definition && definition->Validate(error);
-    if (definition && !m_GraphValid)
-        Logger::Error("Animator: its graph can't be used: " + error);
+    m_GraphError.clear();
+    m_GraphValid = definition && definition->Validate(m_GraphError);
+    m_BoundRevision = definition ? definition->Revision() : 0;
     if (m_GraphValid)
         BindGraph(*definition);
     else
@@ -332,6 +350,15 @@ void Animator::BindGraph(const AnimationGraph& definition)
         m_Machines.assign(count, MachineState{});
     }
     m_StateNodes.assign(count, {});
+    for (size_t i = 0; i < count; ++i)
+    {
+        std::vector<ActiveState>& active = m_Machines[i].active;
+        const AnimationNode& node = definition.nodes[i];
+        if (node.type != AnimationNodeType::StateMachine)
+            active.clear();
+        else
+            active.erase(std::remove_if(active.begin(), active.end(), [&](const ActiveState& a) { return a.state >= static_cast<int>(node.states.size()); }), active.end());
+    }
     for (SyncGroup& group : m_SyncGroups)
         group.members.clear();
     m_SyncGroupOf.assign(count, -1);

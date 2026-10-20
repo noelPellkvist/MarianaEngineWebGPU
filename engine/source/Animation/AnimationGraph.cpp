@@ -2,6 +2,7 @@
 #include <Mariana/Animation/Skeleton.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 
+#include <algorithm>
 #include <functional>
 
 std::vector<float> BoneMask::Resolve(const Skeleton& skeleton) const
@@ -31,6 +32,77 @@ int AnimationNode::FindState(std::string_view state) const
         if (states[i] == state)
             return static_cast<int>(i);
     return -1;
+}
+
+int AnimationNode::AddState(std::string state, int node, glm::vec2 position)
+{
+    states.push_back(std::move(state));
+    inputs.push_back(node);
+    statePositions.resize(states.size() - 1, glm::vec2(0.0f));
+    statePositions.push_back(position);
+    return static_cast<int>(states.size()) - 1;
+}
+
+void AnimationNode::RemoveState(int state)
+{
+    if (state < 0 || state >= static_cast<int>(states.size()))
+        return;
+    states.erase(states.begin() + state);
+    if (state < static_cast<int>(inputs.size()))
+        inputs.erase(inputs.begin() + state);
+    if (state < static_cast<int>(statePositions.size()))
+        statePositions.erase(statePositions.begin() + state);
+    transitions.erase(std::remove_if(transitions.begin(), transitions.end(), [&](const AnimationTransition& t) { return t.from == state || t.to == state; }), transitions.end());
+    for (AnimationTransition& t : transitions)
+    {
+        if (t.from > state) --t.from;
+        if (t.to > state) --t.to;
+    }
+    if (entryState > state || entryState >= static_cast<int>(states.size()))
+        entryState = std::max(0, entryState - 1);
+}
+
+int AnimationGraph::AddNode(AnimationNode node)
+{
+    nodes.push_back(std::move(node));
+    if (output < 0)
+        output = static_cast<int>(nodes.size()) - 1;
+    return static_cast<int>(nodes.size()) - 1;
+}
+
+void AnimationGraph::RemoveNode(int index)
+{
+    if (index < 0 || index >= static_cast<int>(nodes.size()))
+        return;
+    nodes.erase(nodes.begin() + index);
+    auto renumber = [&](int& reference) {
+        if (reference == index) reference = -1;
+        else if (reference > index) --reference;
+    };
+    for (AnimationNode& node : nodes)
+        for (int& input : node.inputs)
+            renumber(input);
+    renumber(output);
+}
+
+void AnimationGraph::RemoveParameter(int index)
+{
+    if (index < 0 || index >= static_cast<int>(parameters.size()))
+        return;
+    parameters.erase(parameters.begin() + index);
+    auto renumber = [&](int& reference) {
+        if (reference == index) reference = -1;
+        else if (reference > index) --reference;
+    };
+    for (AnimationNode& node : nodes)
+    {
+        renumber(node.weight.parameter);
+        renumber(node.parameter);
+        renumber(node.parameterY);
+        for (AnimationTransition& transition : node.transitions)
+            for (AnimationCondition& condition : transition.conditions)
+                renumber(condition.parameter);
+    }
 }
 
 int AnimationGraph::FindParameter(std::string_view name) const
@@ -70,7 +142,7 @@ bool AnimationGraph::Validate(std::string& error) const
         {
             if (input < 0 || input >= count)
             {
-                error = describe(i) + " has an input that isn't a node";
+                error = describe(i) + " has an input that isn't connected";
                 return false;
             }
         }
