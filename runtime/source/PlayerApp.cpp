@@ -7,6 +7,7 @@
 #include <Mariana/Importers/GLTFLoader.hpp>
 #include <Mariana/Importers/MaterialFile.hpp>
 #include <Mariana/Importers/AnimationGraphFile.hpp>
+#include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Rendering/RenderPipeline.hpp>
 #include <Mariana/Scene/Prefab.hpp>
 
@@ -100,6 +101,7 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
 {
     Animator::RegisterComponents();
     SceneRenderer::RegisterComponents();
+    PhysicsWorld::RegisterComponents();
     scene.UpdateComponentRegistry();
 
     cam = std::make_unique<PlayerCamera>(input, config.cameraPosition, config.cameraTarget, config.orbitSpeed);
@@ -123,8 +125,16 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
 
     animationSystem = Animator::CreateSystem(scene);
 
+    PhysicsSettings physicsSettings;
+    if (const std::filesystem::path physicsFile = FileSystem::Resolve("/Physics.json"); !physicsFile.empty())
+        if (std::string physicsError; !physicsSettings.Load(physicsFile, physicsError))
+            Logger::Warning(physicsError);
+    physics = std::make_unique<PhysicsWorld>(scene, physicsSettings);
+
     m_Window.RegisterResizeCallback([this](int w, int h) { OnWindowResized(w, h); });
 }
+
+PlayerApp::~PlayerApp() = default;
 
 void PlayerApp::OnStart()
 {
@@ -157,6 +167,7 @@ void PlayerApp::OnStart()
 void PlayerApp::OnUpdate(float deltaTime)
 {
     animationSystem.Run(gameClock.DeltaTime());
+    physics->Step(gameClock.DeltaTime());
 }
 
 void PlayerApp::OnRender()

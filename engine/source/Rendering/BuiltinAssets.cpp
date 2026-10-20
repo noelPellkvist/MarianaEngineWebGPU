@@ -54,13 +54,16 @@ namespace BuiltinAssets
 
     AssetHandle<IMesh> PrimitiveMesh(AssetManager2& assets, BuiltinMesh shape)
     {
-        const char* name = shape == BuiltinMesh::Cube ? "Cube" : shape == BuiltinMesh::Sphere ? "Sphere" : "Plane";
+        const char* const names[] = { "Cube", "Sphere", "Plane", "Cylinder", "Capsule" };
+        const char* name = names[static_cast<int>(shape)];
         const std::string key = std::string("builtin://mesh/") + name;
         if (AssetHandle<IMesh> existing = assets.Find<IMesh>(key); existing.IsValid())
             return existing;
 
         MeshSection section = shape == BuiltinMesh::Cube ? Primitives::Cube(1.0f)
                             : shape == BuiltinMesh::Sphere ? Primitives::Sphere(0.5f)
+                            : shape == BuiltinMesh::Cylinder ? Primitives::Cylinder(0.5f, 1.0f)
+                            : shape == BuiltinMesh::Capsule ? Primitives::Capsule(0.5f, 2.0f)
                             : Primitives::Plane(10.0f, 10);
         std::shared_ptr<IMesh> mesh = BuildMesh({ std::move(section) });
         if (!mesh)

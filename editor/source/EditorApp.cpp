@@ -13,10 +13,13 @@
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Scene/Prefab.hpp>
 #include <Mariana/Animation/Animator.hpp>
+#include <Mariana/Physics/Components.hpp>
+#include <Mariana/Physics/PhysicsWorld.hpp>
 
 #include "ImGuizmo.h"
 
 #include <Editor/Windows/Stats.hpp>
+#include <Editor/Physics/PhysicsEditor.hpp>
 #include <Editor/Windows/AnimationGraphWindow.hpp>
 #include <Editor/Windows/AssetsExplorer.hpp>
 #include <Editor/Windows/HierarchyWindow.hpp>
@@ -89,6 +92,7 @@ gameCamera(input)
 {
     Animator::RegisterComponents();
     SceneRenderer::RegisterComponents();
+    PhysicsWorld::RegisterComponents();
 
     scene.UpdateComponentRegistry();
 
@@ -176,6 +180,54 @@ Entity EditorApp::SpawnPrimitive(BuiltinMesh shape, const char* name)
     return spawned;
 }
 
+Entity EditorApp::SpawnPhysicsShape(BuiltinMesh shape, const char* name, bool dynamic)
+{
+    Entity spawned = SpawnPrimitive(shape, name);
+    if (!spawned.IsValid())
+        return spawned;
+    switch (shape)
+    {
+    case BuiltinMesh::Sphere: spawned.Add<SphereCollider>(SphereCollider{}); break;
+    case BuiltinMesh::Capsule: spawned.Add<CapsuleCollider>(CapsuleCollider{}); break;
+    case BuiltinMesh::Cylinder: spawned.Add<CylinderCollider>(CylinderCollider{}); break;
+    default: spawned.Add<BoxCollider>(BoxCollider{}); break;
+    }
+    PhysicsEditor::FitCollidersToMesh(spawned);
+    if (dynamic)
+        spawned.Add<RigidBody>(RigidBody{});
+    return spawned;
+}
+
+Entity EditorApp::SpawnGround()
+{
+    Entity ground = SpawnPhysicsShape(BuiltinMesh::Plane, "Ground", false);
+    if (!ground.IsValid())
+        return ground;
+    const LocalTRS* trs = ground.TryGet<LocalTRS>();
+    ground.SetPosition(trs->pos[0], 0.0f, trs->pos[2]);
+    ground.SetScaleUniform(3.0f);
+    scene.Update(0.0f);
+    return ground;
+}
+
+void EditorApp::SpawnBoxStack()
+{
+    Entity ground = SpawnGround();
+    if (!ground.IsValid())
+        return;
+    const LocalTRS* base = ground.TryGet<LocalTRS>();
+    const float x = base->pos[0], z = base->pos[2];
+    for (int i = 0; i < 8; ++i)
+    {
+        Entity box = SpawnPhysicsShape(BuiltinMesh::Cube, "Box", true);
+        // Each a little turned, so the tower is a bit wobbly.
+        const glm::quat turn = glm::angleAxis(glm::radians(7.0f * static_cast<float>(i)), glm::vec3(0.0f, 1.0f, 0.0f));
+        box.SetPosition(x, 0.5f + 1.02f * static_cast<float>(i), z);
+        box.SetRotationQuat(turn.x, turn.y, turn.z, turn.w);
+    }
+    scene.Update(0.0f);
+}
+
 Entity EditorApp::SpawnCamera()
 {
     // The view matrix's inverse holds the camera's right, up and forward axes; an entity's camera
@@ -199,6 +251,17 @@ void EditorApp::OnStart()
 {
     Logger::Info("Starting");
     gui.InitGui(m_Window);
+
+    // The project's physics settings, if it has them.
+    const fs::path physicsFile = fs::path(MARIANA_PROJECT_DIR) / "Physics.json";
+    PhysicsSettings physicsSettings;
+    std::error_code exists;
+    if (std::string error; fs::exists(physicsFile, exists) && !physicsSettings.Load(physicsFile, error))
+        Logger::Warning(error);
+    physics = std::make_unique<PhysicsWorld>(scene, physicsSettings);
+    auto physicsEditor = std::make_unique<PhysicsWindow>(gui, *physics, physicsFile);
+    physicsWindow = physicsEditor.get();
+    EditorWindows["Physics"] = std::move(physicsEditor);
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
     thumbnails = std::make_unique<ThumbnailCache>(MARIANA_PROJECT_DIR, input);
@@ -233,6 +296,10 @@ void EditorApp::OnStart()
         DeselectEntity();
         SelectEntity(entity.RawId());
     });
+    PhysicsEditor::RegisterInspector(*inspector, undo, *physics);
+    inspector->AddComponentOption({ "Rendering", "Camera",
+        [](Entity e) { return !e.TryGet<CameraComponent>(); },
+        [](Entity e) { e.Add<CameraComponent>(CameraComponent{}); } });
     EditorWindows["Inspector"] = std::move(inspector);
     EditorWindows["Loaded Assets"] = std::make_unique<LoadedAssetsWindow>(gui, assets, [this](AssetID id) {
         inspectorWindow->InspectAsset(id);
@@ -328,9 +395,11 @@ void EditorApp::OnUpdate(float deltaTime)
             SelectEntity(pickedID);
     }
 
-    // Game time: animations only move while the game plays. Transforms changed here are propagated
-    // once, in OnRender.
+    // Game time: animations and physics only move while the game plays. Transforms changed here are
+    // propagated once, in OnRender.
     animationSystem.Run(gameClock.DeltaTime());
+    if (gameClock.IsPlaying())
+        physics->Step(gameClock.DeltaTime());
 
     sceneCameras.clear();
     cameraSystem.Run();
@@ -370,6 +439,8 @@ void EditorApp::OnGUI()
 void EditorApp::DrawSceneOverlay(ViewportWindow& window)
 {
     DrawCameraFrustums(window);
+    PhysicsEditor::DrawColliders(scene, selectedEntity, physicsWindow->showAllColliders, cam->Projection() * cam->View(),
+                                 window.ImageMin(), window.ImageMax() - window.ImageMin());
 
     bool gizmoHit = false;
     if (selectedEntityID != static_cast<uint64_t>(-1) && selectedEntity.Has<WorldXform>())
@@ -604,8 +675,23 @@ void EditorApp::DrawTopMenu()
             if (ImGui::MenuItem("Cube")) SpawnPrimitive(BuiltinMesh::Cube, "Cube");
             if (ImGui::MenuItem("Sphere")) SpawnPrimitive(BuiltinMesh::Sphere, "Sphere");
             if (ImGui::MenuItem("Plane")) SpawnPrimitive(BuiltinMesh::Plane, "Plane");
+            if (ImGui::MenuItem("Cylinder")) SpawnPrimitive(BuiltinMesh::Cylinder, "Cylinder");
+            if (ImGui::MenuItem("Capsule")) SpawnPrimitive(BuiltinMesh::Capsule, "Capsule");
             ImGui::Separator();
             if (ImGui::MenuItem("Camera")) SpawnCamera();
+            ImGui::Separator();
+            if (ImGui::BeginMenu("Physics"))
+            {
+                if (ImGui::MenuItem("Dynamic Cube")) SpawnPhysicsShape(BuiltinMesh::Cube, "Cube", true);
+                if (ImGui::MenuItem("Dynamic Sphere")) SpawnPhysicsShape(BuiltinMesh::Sphere, "Sphere", true);
+                if (ImGui::MenuItem("Dynamic Capsule")) SpawnPhysicsShape(BuiltinMesh::Capsule, "Capsule", true);
+                if (ImGui::MenuItem("Dynamic Cylinder")) SpawnPhysicsShape(BuiltinMesh::Cylinder, "Cylinder", true);
+                ImGui::Separator();
+                if (ImGui::MenuItem("Static Cube")) SpawnPhysicsShape(BuiltinMesh::Cube, "Static Cube", false);
+                if (ImGui::MenuItem("Ground")) SpawnGround();
+                if (ImGui::MenuItem("Box Stack")) SpawnBoxStack();
+                ImGui::EndMenu();
+            }
             ImGui::EndMenu();
         }
 
@@ -621,6 +707,7 @@ void EditorApp::DrawTopMenu()
             if (ImGui::MenuItem("Render Pipeline")) { EditorWindows["Render Pipeline"]->SetOpen(!EditorWindows["Render Pipeline"]->IsOpen()); }
             if (ImGui::MenuItem("Lighting")) { EditorWindows["Lighting"]->SetOpen(!EditorWindows["Lighting"]->IsOpen()); }
             if (ImGui::MenuItem("Animation Graph")) { graphWindow->SetOpen(!graphWindow->IsOpen()); }
+            if (ImGui::MenuItem("Physics")) { physicsWindow->SetOpen(!physicsWindow->IsOpen()); }
             ImGui::EndMenu();
         }
 
@@ -683,9 +770,12 @@ void EditorApp::TogglePlay()
     {
         gameClock.Stop();
         RestoreScene();
+        physics->Reset();
     }
     else
     {
+        // Bodies are made from the scene as it is now.
+        physics->Reset();
         playSnapshot = scene.Snapshot();
         playUndo = undo;
         restoreOnStop = true;

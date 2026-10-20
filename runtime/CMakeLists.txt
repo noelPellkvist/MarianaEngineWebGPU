@@ -7,7 +7,7 @@ target_include_directories(MarianaPlayer PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
   "${PROJECT_SOURCE_DIR}/external/Loaders"
 )
-target_link_libraries(MarianaPlayer PRIVATE MarianaEngine)
+target_link_libraries(MarianaPlayer PRIVATE MarianaEngine MarianaPhysics)
 
 # The project it runs (the sample one for now).
 set(MARIANA_PLAYER_PROJECT "${PROJECT_SOURCE_DIR}/projects/Sandbox")
@@ -15,12 +15,16 @@ target_compile_definitions(MarianaPlayer PRIVATE MARIANA_PROJECT_DIR="${MARIANA_
 
 if(EMSCRIPTEN)
   # Only what Player.json uses is packaged with the engine's resources: Player.json itself, the
-  # pipeline if the project has its own, and each prefab (a .gltf with the folder holding its
-  # buffers and images; a .glb with its extracted materials, if any). Editing Player.json re-runs this.
+  # project's Physics.json if it has one, the pipeline if the project has its own, and each prefab
+  # (a .gltf with the folder holding its buffers and images; a .glb with its extracted materials, if
+  # any). Editing Player.json re-runs this.
   set(player_json "${MARIANA_PLAYER_PROJECT}/Player.json")
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${player_json}")
   file(READ "${player_json}" player_config)
   set(player_files "${player_json}")
+  if(EXISTS "${MARIANA_PLAYER_PROJECT}/Physics.json")
+    list(APPEND player_files "${MARIANA_PLAYER_PROJECT}/Physics.json")
+  endif()
 
   string(JSON pipeline ERROR_VARIABLE json_error GET "${player_config}" pipeline)
   if(NOT json_error AND EXISTS "${MARIANA_PLAYER_PROJECT}${pipeline}")

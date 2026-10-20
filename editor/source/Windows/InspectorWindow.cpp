@@ -96,7 +96,48 @@ void InspectorWindow::DrawEntityInspector()
 
     InspectorComponents::DrawEntityMaterials(m_entity, *m_scene, m_assets, [this](AssetID id) { m_asset = id; }, m_undo);
 
+    DrawAddComponent();
     DrawHiddenComponentsAndTags(m_entity);
+
+    std::vector<std::function<void()>> deferred = std::move(m_deferred);
+    m_deferred.clear();
+    for (const std::function<void()>& fn : deferred)
+        fn();
+}
+
+void InspectorWindow::DrawAddComponent()
+{
+    if (m_addOptions.empty())
+        return;
+    ImGui::Spacing();
+    if (ImGui::Button("Add Component", ImVec2(-FLT_MIN, 0.0f)))
+        ImGui::OpenPopup("##add_component");
+    if (!ImGui::BeginPopup("##add_component"))
+        return;
+
+    std::vector<std::string> menus;
+    for (const ComponentOption& option : m_addOptions)
+        if (std::find(menus.begin(), menus.end(), option.menu) == menus.end())
+            menus.push_back(option.menu);
+    for (const std::string& menu : menus)
+    {
+        if (!ImGui::BeginMenu(menu.c_str()))
+            continue;
+        for (const ComponentOption& option : m_addOptions)
+        {
+            if (option.menu != menu)
+                continue;
+            const bool available = !option.available || option.available(m_entity);
+            if (ImGui::MenuItem(option.label.c_str(), nullptr, false, available) && option.add)
+            {
+                Entity entity = m_entity;
+                std::function<void(Entity)> add = option.add;
+                Defer([entity, add]() { add(entity); });
+            }
+        }
+        ImGui::EndMenu();
+    }
+    ImGui::EndPopup();
 }
 
 void InspectorWindow::DrawHiddenComponentsAndTags(Entity entity)

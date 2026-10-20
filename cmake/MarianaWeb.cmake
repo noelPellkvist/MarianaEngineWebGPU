@@ -20,7 +20,7 @@ function(mariana_web_app target)
   target_link_options(${target} PRIVATE
     "SHELL:-sALLOW_MEMORY_GROWTH=1"
     "SHELL:-sINITIAL_MEMORY=256MB"
-    "SHELL:-sSTACK_SIZE=262144"
+    "SHELL:-sSTACK_SIZE=1048576"
     "-sASYNCIFY=1"
     "-sUSE_GLFW=3"
     "SHELL:-sFORCE_FILESYSTEM=1"

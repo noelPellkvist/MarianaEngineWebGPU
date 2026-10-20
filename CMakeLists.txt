@@ -28,6 +28,32 @@ if(FLECS_REAL_TARGET)
   )
 endif()
 
+# Jolt Physics (used by MarianaPhysics only). Built as a plain static library: no samples, tests,
+# warnings-as-errors, LTO or GPU compute backends, with the shared MSVC runtime and RTTI like the
+# rest of the project. WASM SIMD on the web (every current browser has it).
+set(ENABLE_ALL_WARNINGS OFF CACHE BOOL "" FORCE)
+set(INTERPROCEDURAL_OPTIMIZATION OFF CACHE BOOL "" FORCE)
+set(USE_STATIC_MSVC_RUNTIME_LIBRARY OFF CACHE BOOL "" FORCE)
+set(FLOATING_POINT_EXCEPTIONS_ENABLED OFF CACHE BOOL "" FORCE)
+set(ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+set(CPP_RTTI_ENABLED ON CACHE BOOL "" FORCE)
+set(JPH_USE_DX12 OFF CACHE BOOL "" FORCE)
+set(JPH_USE_VK OFF CACHE BOOL "" FORCE)
+set(JPH_USE_MTL OFF CACHE BOOL "" FORCE)
+set(JPH_USE_CPU_COMPUTE OFF CACHE BOOL "" FORCE)
+if(EMSCRIPTEN)
+  set(USE_WASM_SIMD ON CACHE BOOL "" FORCE)
+endif()
+
+FetchContent_Declare(
+  JoltPhysics
+  GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
+  GIT_TAG v5.6.0
+  GIT_SHALLOW TRUE
+  SOURCE_SUBDIR Build
+)
+FetchContent_MakeAvailable(JoltPhysics)
+
 # glm
 add_subdirectory(external/glm)
 
@@ -72,7 +98,9 @@ set(MARIANA_ENGINE_RESOURCES "${PROJECT_SOURCE_DIR}/engine/resources")
 
 include(cmake/MarianaWeb.cmake)
 
-# The engine library, then the apps built on it. The engine never depends on an app.
+# The engine library, the physics library on it, then the apps built on them. The engine never
+# depends on an app (or on physics).
 add_subdirectory(engine)
+add_subdirectory(physics)
 add_subdirectory(editor)
 add_subdirectory(runtime)

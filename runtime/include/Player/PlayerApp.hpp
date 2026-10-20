@@ -6,6 +6,7 @@
 #include <Mariana/Rendering/Effect.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <glm/glm.hpp>
@@ -54,11 +55,15 @@ private:
     float orbitSpeed;
 };
 
-// Runs a project without the editor: the scene, its animation and the render pipeline, no UI.
+class PhysicsWorld;
+
+// Runs a project without the editor: the scene, its animation and physics and the render pipeline,
+// no UI.
 class PlayerApp : public Application
 {
 public:
     explicit PlayerApp(const PlayerConfig& config);
+    ~PlayerApp() override;
 
 protected:
     void OnStart() override;
@@ -73,6 +78,8 @@ private:
     SceneRenderer sceneRenderer;
     SceneView sceneView;
     EffectStack effects;
+    // The scene's simulation (with the project's /Physics.json, if it has one), always running.
+    std::unique_ptr<PhysicsWorld> physics;
     // Systems query `scene`, so they are declared after it to be destroyed first.
     System animationSystem;
 

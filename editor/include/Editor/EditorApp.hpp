@@ -17,6 +17,8 @@
 
 class InspectorWindow;
 class AnimationGraphWindow;
+class PhysicsWindow;
+class PhysicsWorld;
 class ThumbnailCache;
 class ViewportWindow;
 
@@ -48,6 +50,9 @@ class EditorApp : public Application
         ViewportWindow* gameWindow = nullptr;
         Scene scene;
         SceneRenderer sceneRenderer;
+        // The scene's simulation: bodies only exist while playing (Play and Stop reset it).
+        std::unique_ptr<PhysicsWorld> physics;
+        PhysicsWindow* physicsWindow = nullptr;
         // The two views of sceneRenderer, drawn only while their windows show. The game view is made
         // the first time its window shows.
         std::unique_ptr<ViewRenderer> sceneView;
@@ -68,6 +73,11 @@ class EditorApp : public Application
         void OnWindowResized(int w, int h);
         void SpawnPrefab(const std::filesystem::path& path);
         Entity SpawnPrimitive(BuiltinMesh shape, const char* name);
+        // A primitive with a collider to match, dynamic or static.
+        Entity SpawnPhysicsShape(BuiltinMesh shape, const char* name, bool dynamic);
+        // A static ground (30 m across) under where shapes spawn, and a tower of dynamic boxes on it.
+        Entity SpawnGround();
+        void SpawnBoxStack();
         // A camera where the editor camera is, looking the same way.
         Entity SpawnCamera();
 

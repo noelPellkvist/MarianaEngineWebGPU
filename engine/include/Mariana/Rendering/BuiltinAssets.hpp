@@ -6,7 +6,7 @@ class MaterialAsset;
 class IMesh;
 
 // The shapes PrimitiveMesh makes (Geometry/Primitives).
-enum class BuiltinMesh { Cube, Sphere, Plane };
+enum class BuiltinMesh { Cube, Sphere, Plane, Cylinder, Capsule };
 
 // Small engine-provided assets, created on first use and registered as persistent.
 namespace BuiltinAssets

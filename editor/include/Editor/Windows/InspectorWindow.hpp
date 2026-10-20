@@ -8,6 +8,7 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class AssetManager2;
 class UndoStack;
@@ -28,9 +29,23 @@ public:
     // What the Animator section's graph buttons do.
     void SetAnimatorActions(InspectorComponents::AnimatorActions actions) { m_animatorActions = std::move(actions); }
 
-private:
+    // Other modules' sections: the drawer of a component (by its registered name), and entries of
+    // the Add Component menu (grouped by `menu`, offered while `available` says so).
     using ComponentDrawer = std::function<void(Entity&)>;
+    void SetComponentDrawer(const std::string& componentName, ComponentDrawer drawer) { m_componentDrawers[componentName] = std::move(drawer); }
+    struct ComponentOption
+    {
+        std::string menu;
+        std::string label;
+        std::function<bool(Entity)> available;
+        std::function<void(Entity)> add;
+    };
+    void AddComponentOption(ComponentOption option) { m_addOptions.push_back(std::move(option)); }
+    // Runs `fn` after the entity's sections are drawn (adding or removing components while they are
+    // listed isn't safe).
+    void Defer(std::function<void()> fn) { m_deferred.push_back(std::move(fn)); }
 
+private:
     AssetManager2& m_assets;
     UndoStack& m_undo;
     const Scene* m_scene = nullptr;
@@ -40,9 +55,12 @@ private:
     Entity m_entity;
     uint64_t m_entityID = static_cast<uint64_t>(-1);
     std::unordered_map<std::string, ComponentDrawer> m_componentDrawers;
+    std::vector<ComponentOption> m_addOptions;
+    std::vector<std::function<void()>> m_deferred;
 
     void RegisterComponentDrawers();
     void DrawEntityInspector();
     void DrawLocalTRS(Entity& entity);
     void DrawHiddenComponentsAndTags(Entity entity);
+    void DrawAddComponent();
 };

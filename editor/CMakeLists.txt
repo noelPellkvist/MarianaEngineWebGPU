@@ -5,7 +5,7 @@ add_executable(MarianaEditor ${MARIANA_EDITOR_SOURCES})
 
 # json.hpp (the thumbnail index)
 target_include_directories(MarianaEditor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/external/Loaders")
-target_link_libraries(MarianaEditor PRIVATE MarianaEngine imgui)
+target_link_libraries(MarianaEditor PRIVATE MarianaEngine MarianaPhysics imgui)
 
 # The editor's own resources (font, icon), the project it opens (the sample one for now) and where
 # it keeps its layout (imgui.ini).

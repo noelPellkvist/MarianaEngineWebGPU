@@ -13,4 +13,9 @@ namespace Primitives
     MeshSection Plane(float size = 1.0f, uint32_t subdivisions = 1);
     // A UV sphere with `segments` around and `rings` from pole to pole.
     MeshSection Sphere(float radius = 0.5f, uint32_t segments = 32, uint32_t rings = 16);
+    // A cylinder along Y, `height` tall, with capped ends.
+    MeshSection Cylinder(float radius = 0.5f, float height = 1.0f, uint32_t segments = 32);
+    // A capsule along Y, `height` tall from tip to tip (at least two radii): a cylinder with
+    // half spheres at its ends, `rings` per half sphere.
+    MeshSection Capsule(float radius = 0.5f, float height = 2.0f, uint32_t segments = 32, uint32_t rings = 8);
 }
