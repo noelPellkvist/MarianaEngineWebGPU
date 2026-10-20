@@ -7,7 +7,11 @@
 #include <Mariana/Importers/GLTFLoader.hpp>
 #include <Mariana/Importers/MaterialFile.hpp>
 #include <Mariana/Importers/AnimationGraphFile.hpp>
+#include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
+#include <Mariana/Rendering/BuiltinAssets.hpp>
+#include <Mariana/Rendering/Components.hpp>
+#include <Mariana/Rendering/MaterialAsset.hpp>
 #include <Mariana/Rendering/RenderPipeline.hpp>
 #include <Mariana/Scene/Prefab.hpp>
 
@@ -15,6 +19,7 @@
 
 #include <cmath>
 #include <filesystem>
+#include <functional>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -56,11 +61,27 @@ bool PlayerConfig::Load(const std::string& path, PlayerConfig& out, std::string&
             {
                 Spawn spawn;
                 spawn.prefab = entry.value("prefab", std::string());
+                spawn.primitive = entry.value("primitive", std::string());
+                spawn.color = ReadVec3(entry, "color", spawn.color);
                 spawn.position = ReadVec3(entry, "position", spawn.position);
                 spawn.rotation = ReadVec3(entry, "rotation", spawn.rotation);
-                spawn.scale = entry.value("scale", spawn.scale);
+                if (const auto scale = entry.find("scale"); scale != entry.end() && scale->is_number())
+                    spawn.scale = glm::vec3(scale->get<float>());
+                else
+                    spawn.scale = ReadVec3(entry, "scale", spawn.scale);
                 spawn.faceCamera = entry.value("faceCamera", spawn.faceCamera);
-                if (!spawn.prefab.empty())
+                if (const auto physics = entry.find("physics"); physics != entry.end() && physics->is_object())
+                {
+                    Physics& p = spawn.physics;
+                    p.enabled = true;
+                    p.body = physics->value("body", p.body);
+                    p.collider = physics->value("collider", p.collider);
+                    p.mass = physics->value("mass", p.mass);
+                    p.friction = physics->value("friction", p.friction);
+                    p.bounciness = physics->value("bounciness", p.bounciness);
+                    p.velocity = ReadVec3(*physics, "velocity", p.velocity);
+                }
+                if (!spawn.prefab.empty() || !spawn.primitive.empty())
                     out.spawns.push_back(spawn);
             }
         }
@@ -136,16 +157,106 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
 
 PlayerApp::~PlayerApp() = default;
 
+Entity PlayerApp::SpawnPrimitive(const PlayerConfig::Spawn& spawn)
+{
+    static const std::pair<const char*, BuiltinMesh> kShapes[] = {
+        { "cube", BuiltinMesh::Cube }, { "sphere", BuiltinMesh::Sphere }, { "plane", BuiltinMesh::Plane },
+        { "cylinder", BuiltinMesh::Cylinder }, { "capsule", BuiltinMesh::Capsule },
+    };
+    for (const auto& [name, shape] : kShapes)
+    {
+        if (spawn.primitive != name)
+            continue;
+        auto material = std::make_shared<MaterialAsset>();
+        material->properties.baseColor = glm::vec4(spawn.color, 1.0f);
+        material->MarkDirty();
+        AssetHandle<MaterialAsset> handle = assets.RegisterAsset<MaterialAsset>(material, AssetType::Material, spawn.primitive + " Material");
+        Entity entity = scene.Instantiate(spawn.primitive.c_str());
+        entity.Add<MeshComponent>(MeshComponent{ BuiltinAssets::PrimitiveMesh(assets, shape), { handle } }).AddTag<ShadowCasterTag>();
+        return entity;
+    }
+    return {};
+}
+
+// The spawn's `physics` block as components: a RigidBody on the root unless it is static, and the
+// colliders (fitted to the root's meshes, or a mesh collider per mesh).
+void PlayerApp::AddPhysics(Entity root, const PlayerConfig::Spawn& spawn)
+{
+    const PlayerConfig::Physics& p = spawn.physics;
+    const bool moving = p.body == "dynamic" || p.body == "kinematic";
+    std::string collider = p.collider;
+    if (collider.empty())
+        collider = !spawn.primitive.empty() ? (spawn.primitive == "plane" || spawn.primitive == "cube" ? "box" : spawn.primitive) : moving ? "convex" : "mesh";
+
+    auto surface = [&](Collider& c) {
+        c.friction = p.friction;
+        c.restitution = p.bounciness;
+    };
+    if (collider == "mesh" || collider == "convex")
+    {
+        std::function<void(Entity)> visit = [&](Entity e) {
+            if (e.TryGet<MeshComponent>())
+            {
+                MeshCollider c;
+                c.convex = collider == "convex";
+                surface(c);
+                e.Add<MeshCollider>(c);
+            }
+            e.ForEachChild(visit);
+        };
+        visit(root);
+    }
+    else if (collider == "box" || collider == "sphere" || collider == "capsule" || collider == "cylinder")
+    {
+        if (collider == "box") { BoxCollider c; surface(c); root.Add<BoxCollider>(c); }
+        if (collider == "sphere") { SphereCollider c; surface(c); root.Add<SphereCollider>(c); }
+        if (collider == "capsule") { CapsuleCollider c; surface(c); root.Add<CapsuleCollider>(c); }
+        if (collider == "cylinder") { CylinderCollider c; surface(c); root.Add<CylinderCollider>(c); }
+        FitColliders(root);
+    }
+    else if (collider != "none")
+    {
+        Logger::Warning("Player.json: unknown collider \"" + collider + "\"");
+    }
+
+    if (moving)
+    {
+        RigidBody body;
+        body.motion = p.body == "dynamic" ? MotionType::Dynamic : MotionType::Kinematic;
+        body.mass = std::max(p.mass, 0.0f);
+        body.startVelocity = p.velocity;
+        root.Add<RigidBody>(body);
+    }
+    else if (p.body != "static")
+    {
+        Logger::Warning("Player.json: unknown body \"" + p.body + "\"");
+    }
+}
+
 void PlayerApp::OnStart()
 {
     for (const PlayerConfig::Spawn& spawn : config.spawns)
     {
-        const std::filesystem::path file = FileSystem::Resolve(spawn.prefab);
-        std::shared_ptr<Prefab> prefab = file.empty() ? nullptr : assets.Load<Prefab>(file).Get();
-        if (!prefab)
+        Entity root;
+        if (!spawn.primitive.empty())
         {
-            Logger::Error("Could not spawn " + spawn.prefab);
-            continue;
+            root = SpawnPrimitive(spawn);
+            if (!root.IsValid())
+            {
+                Logger::Error("Unknown primitive " + spawn.primitive);
+                continue;
+            }
+        }
+        else
+        {
+            const std::filesystem::path file = FileSystem::Resolve(spawn.prefab);
+            std::shared_ptr<Prefab> prefab = file.empty() ? nullptr : assets.Load<Prefab>(file).Get();
+            if (!prefab)
+            {
+                Logger::Error("Could not spawn " + spawn.prefab);
+                continue;
+            }
+            root = scene.Instantiate(*prefab, file.stem().string().c_str());
         }
         glm::quat rotation = glm::quat(glm::radians(spawn.rotation));
         if (spawn.faceCamera)
@@ -154,10 +265,14 @@ void PlayerApp::OnStart()
             rotation = glm::angleAxis(std::atan2(toCamera.x, toCamera.z), glm::vec3(0.0f, 1.0f, 0.0f));
         }
 
-        Entity root = scene.Instantiate(*prefab, file.stem().string().c_str());
         root.SetPosition(spawn.position.x, spawn.position.y, spawn.position.z);
         root.SetRotationQuat(rotation.x, rotation.y, rotation.z, rotation.w);
-        root.SetScale(spawn.scale, spawn.scale, spawn.scale);
+        root.SetScale(spawn.scale.x, spawn.scale.y, spawn.scale.z);
+        if (spawn.physics.enabled)
+        {
+            scene.Update(0.0f); // fitting reads the meshes' world transforms
+            AddPhysics(root, spawn);
+        }
     }
     scene.Update(0.0f);
     // A player is the game: it plays from the start.

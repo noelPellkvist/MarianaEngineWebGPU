@@ -1,22 +1,12 @@
-#include <Mariana/Physics/PhysicsWorld.hpp>
-#include <Mariana/Physics/ColliderGeometry.hpp>
-#include <Mariana/Foundation/Logger.hpp>
+#include "WorldImpl.hpp"
 
-#include "JoltCommon.hpp"
+#include <Mariana/Foundation/Logger.hpp>
 
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/JobSystemSingleThreaded.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
-#include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyLock.h>
-#include <Jolt/Physics/Collision/Shape/BoxShape.h>
-#include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
-#include <Jolt/Physics/Collision/Shape/CylinderShape.h>
-#include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
-#include <Jolt/Physics/Collision/Shape/SphereShape.h>
-#include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
-#include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/RegisterTypes.h>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -26,15 +16,13 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
-#include <unordered_map>
-#include <vector>
 
 using namespace PhysicsInternal;
 
 namespace
 {
-    // Jolt's global state (allocator hooks, the type factory) is set up by the first world and torn
-    // down by the last.
+    // Jolt's global state (allocator hooks, the type factory, the debug renderer) is set up by the
+    // first world and torn down by the last.
     int g_JoltWorlds = 0;
 
     void JoltTrace(const char* format, ...)
@@ -64,46 +52,17 @@ namespace
         JPH_IF_ENABLE_ASSERTS(JPH::AssertFailed = JoltAssertFailed;)
         JPH::Factory::sInstance = new JPH::Factory();
         JPH::RegisterTypes();
+        AcquireDebugRenderer();
     }
 
     void ReleaseJolt()
     {
         if (--g_JoltWorlds > 0)
             return;
+        ReleaseDebugRenderer();
         JPH::UnregisterTypes();
         delete JPH::Factory::sInstance;
         JPH::Factory::sInstance = nullptr;
-    }
-
-    glm::mat4 LocalMatrix(const LocalTRS& t)
-    {
-        glm::mat4 m = glm::mat4_cast(glm::quat(t.rot_quat[3], t.rot_quat[0], t.rot_quat[1], t.rot_quat[2]));
-        m[0] *= t.scl[0];
-        m[1] *= t.scl[1];
-        m[2] *= t.scl[2];
-        m[3] = glm::vec4(t.pos[0], t.pos[1], t.pos[2], 1.0f);
-        return m;
-    }
-
-    // The entity's world transform from the LocalTRS chain (WorldXform may not be updated yet for
-    // entities made this frame).
-    glm::mat4 WorldMatrix(const Scene& scene, Entity entity)
-    {
-        glm::mat4 m(1.0f);
-        for (Entity e = entity; e.IsValid(); e = scene.Parent(e))
-            if (const LocalTRS* t = e.TryGet<LocalTRS>())
-                m = LocalMatrix(*t) * m;
-        return m;
-    }
-
-    // Translation and rotation of a transform, without its scale.
-    void SplitPose(const glm::mat4& m, glm::vec3& position, glm::quat& rotation)
-    {
-        position = glm::vec3(m[3]);
-        glm::mat3 axes(glm::normalize(glm::vec3(m[0])), glm::normalize(glm::vec3(m[1])), glm::normalize(glm::vec3(m[2])));
-        if (glm::determinant(axes) < 0.0f)
-            axes[0] = -axes[0];
-        rotation = glm::normalize(glm::quat_cast(axes));
     }
 
     // FNV-1a over what a body is made from: when it changes, the body is made again.
@@ -128,6 +87,8 @@ namespace
         h.Add(g.halfExtents);
         h.Add(g.radius);
         h.Add(g.halfHeight);
+        h.Add(g.mesh.get());
+        h.Add(g.scale);
         h.Add(g.collider->friction);
         h.Add(g.collider->restitution);
         h.Add(g.collider->density);
@@ -147,485 +108,645 @@ namespace
         h.Add(b.layer);
     }
 
-    JPH::ShapeRefC Created(const JPH::ShapeSettings::ShapeResult& result)
-    {
-        if (result.HasError())
-        {
-            Logger::Warning(std::string("Physics: a shape couldn't be made: ") + result.GetError().c_str());
-            return nullptr;
-        }
-        return result.Get();
-    }
-
-    JPH::ShapeRefC MakePrimitive(const ColliderGeometry& g)
-    {
-        JPH::RefConst<JPH::PhysicsMaterial> material = new ColliderMaterial(g.collider->friction, g.collider->restitution);
-        const float density = std::max(g.collider->density, 1e-3f);
-        switch (g.shape)
-        {
-        case ColliderShape::Box:
-        {
-            const JPH::Vec3 half = ToJolt(g.halfExtents);
-            JPH::BoxShapeSettings settings(half, std::min(JPH::cDefaultConvexRadius, 0.5f * half.ReduceMin()), material);
-            settings.SetEmbedded();
-            settings.SetDensity(density);
-            return Created(settings.Create());
-        }
-        case ColliderShape::Sphere:
-        {
-            JPH::SphereShapeSettings settings(g.radius, material);
-            settings.SetEmbedded();
-            settings.SetDensity(density);
-            return Created(settings.Create());
-        }
-        case ColliderShape::Capsule:
-        {
-            if (g.halfHeight <= 1e-4f)
-            {
-                JPH::SphereShapeSettings settings(g.radius, material);
-                settings.SetEmbedded();
-                settings.SetDensity(density);
-                return Created(settings.Create());
-            }
-            JPH::CapsuleShapeSettings settings(g.halfHeight, g.radius, material);
-            settings.SetEmbedded();
-            settings.SetDensity(density);
-            return Created(settings.Create());
-        }
-        case ColliderShape::Cylinder:
-        {
-            JPH::CylinderShapeSettings settings(g.halfHeight, g.radius, std::min(JPH::cDefaultConvexRadius, 0.5f * std::min(g.halfHeight, g.radius)), material);
-            settings.SetEmbedded();
-            settings.SetDensity(density);
-            return Created(settings.Create());
-        }
-        }
-        return nullptr;
-    }
-
-    // One collider as is, one moved off the body's origin, or several as a compound.
-    JPH::ShapeRefC MakeShape(const std::vector<ColliderGeometry>& parts)
-    {
-        if (parts.size() == 1)
-        {
-            JPH::ShapeRefC shape = MakePrimitive(parts[0]);
-            const bool offset = glm::length(parts[0].position) > 1e-6f || std::abs(std::abs(parts[0].rotation.w) - 1.0f) > 1e-6f;
-            if (!shape || !offset)
-                return shape;
-            JPH::RotatedTranslatedShapeSettings settings(ToJolt(parts[0].position), ToJolt(parts[0].rotation), shape);
-            settings.SetEmbedded();
-            return Created(settings.Create());
-        }
-        JPH::StaticCompoundShapeSettings compound;
-        compound.SetEmbedded();
-        for (const ColliderGeometry& part : parts)
-            if (JPH::ShapeRefC shape = MakePrimitive(part))
-                compound.AddShape(ToJolt(part.position), ToJolt(part.rotation), shape);
-        return Created(compound.Create());
-    }
-
     JPH::EMotionType ToJolt(MotionType motion)
     {
         return motion == MotionType::Dynamic ? JPH::EMotionType::Dynamic : motion == MotionType::Kinematic ? JPH::EMotionType::Kinematic : JPH::EMotionType::Static;
     }
 }
 
-struct PhysicsWorld::Impl
+namespace PhysicsInternal
 {
-    // A body to have: an entity with a RigidBody (its colliders and its children's), or with
-    // colliders and no RigidBody above it (a static body of its own colliders).
-    struct Candidate
+    glm::mat4 LocalMatrix(const LocalTRS& t)
     {
-        Entity owner;
-        bool hasBody = false;
-        RigidBody body;
-        glm::mat4 world{ 1.0f };
-        std::vector<ColliderGeometry> solid;    // relative to the owner's position and rotation
-        std::vector<ColliderGeometry> triggers;
-    };
-
-    struct Record
-    {
-        JPH::BodyID body;   // the solid colliders (or the triggers when there are only those)
-        JPH::BodyID sensor; // the triggers of a body that has solid colliders too, following it
-        uint64_t signature = 0;
-        MotionType motion = MotionType::Static;
-        glm::vec3 position{ 0.0f };
-        glm::quat rotation{ 1.0f, 0.0f, 0.0f, 0.0f };
-        uint32_t writtenVersion = ~0u; // the owner's LocalTRS.version after the body last moved it
-        bool seen = false;
-    };
-
-    Scene& scene;
-    PhysicsSettings settings;
-    BroadPhaseLayers broadPhase;
-    ObjectVsBroadPhase objectVsBroadPhase;
-    ObjectPairs objectPairs;
-    std::unique_ptr<JPH::TempAllocatorImpl> temp;
-    std::unique_ptr<JPH::JobSystem> jobs;
-    std::unique_ptr<JPH::PhysicsSystem> system;
-    float accumulator = 0.0f;
-    std::unordered_map<uint64_t, Record> records;
-    std::vector<Candidate> candidates;
-
-    Impl(Scene& scene, const PhysicsSettings& initial) : scene(scene), settings(initial)
-    {
-        AcquireJolt();
-        temp = std::make_unique<JPH::TempAllocatorImpl>(16 * 1024 * 1024);
-#if defined(__EMSCRIPTEN__)
-        jobs = std::make_unique<JPH::JobSystemSingleThreaded>(JPH::cMaxPhysicsJobs);
-#else
-        jobs = std::make_unique<JPH::JobSystemThreadPool>(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers);
-#endif
-        CreateSystem();
+        glm::mat4 m = glm::mat4_cast(glm::quat(t.rot_quat[3], t.rot_quat[0], t.rot_quat[1], t.rot_quat[2]));
+        m[0] *= t.scl[0];
+        m[1] *= t.scl[1];
+        m[2] *= t.scl[2];
+        m[3] = glm::vec4(t.pos[0], t.pos[1], t.pos[2], 1.0f);
+        return m;
     }
 
-    ~Impl()
+    glm::mat4 WorldMatrix(const Scene& scene, Entity entity)
     {
-        RemoveAll();
-        system.reset();
-        jobs.reset();
-        temp.reset();
-        ReleaseJolt();
+        glm::mat4 m(1.0f);
+        for (Entity e = entity; e.IsValid(); e = scene.Parent(e))
+            if (const LocalTRS* t = e.TryGet<LocalTRS>())
+                m = LocalMatrix(*t) * m;
+        return m;
     }
 
-    // A new system each time the bodies are all dropped: one with no history (its broad phase,
-    // body ids, caches) simulates the same scene the same way every time.
-    void CreateSystem()
+    void SplitPose(const glm::mat4& m, glm::vec3& position, glm::quat& rotation)
     {
-        system = std::make_unique<JPH::PhysicsSystem>();
-        system->Init(65536, 0, 65536, 16384, broadPhase, objectVsBroadPhase, objectPairs);
-        system->SetCombineFriction(CombineFriction);
-        system->SetCombineRestitution(CombineRestitution);
-        Apply();
+        position = glm::vec3(m[3]);
+        glm::mat3 axes(glm::normalize(glm::vec3(m[0])), glm::normalize(glm::vec3(m[1])), glm::normalize(glm::vec3(m[2])));
+        if (glm::determinant(axes) < 0.0f)
+            axes[0] = -axes[0];
+        rotation = glm::normalize(glm::quat_cast(axes));
     }
 
-    void Apply()
+    void SetWorldPose(const Scene& scene, Entity entity, LocalTRS& trs, glm::vec3 position, glm::quat rotation)
     {
-        system->SetGravity(ToJolt(settings.gravity));
-        objectPairs.Set(settings);
-    }
-
-    void RemoveBody(JPH::BodyID& id)
-    {
-        if (id.IsInvalid())
-            return;
-        JPH::BodyInterface& bodies = system->GetBodyInterface();
-        bodies.RemoveBody(id);
-        bodies.DestroyBody(id);
-        id = JPH::BodyID();
-    }
-
-    void RemoveAll()
-    {
-        for (auto& [id, record] : records)
+        const Entity parent = scene.Parent(entity);
+        if (parent.IsValid())
         {
-            RemoveBody(record.body);
-            RemoveBody(record.sensor);
+            // Into the parent's space (its scale left out of the rotation).
+            const glm::mat4 parentWorld = WorldMatrix(scene, parent);
+            const glm::mat4 local = glm::inverse(parentWorld) * (glm::translate(glm::mat4(1.0f), position) * glm::mat4_cast(rotation));
+            SplitPose(local, position, rotation);
         }
-        records.clear();
-        accumulator = 0.0f;
+
+        const float values[7] = { position.x, position.y, position.z, rotation.x, rotation.y, rotation.z, rotation.w };
+        float* targets[7] = { &trs.pos[0], &trs.pos[1], &trs.pos[2], &trs.rot_quat[0], &trs.rot_quat[1], &trs.rot_quat[2], &trs.rot_quat[3] };
+        bool changed = false;
+        for (int i = 0; i < 7; ++i)
+        {
+            if (*targets[i] != values[i])
+            {
+                *targets[i] = values[i];
+                changed = true;
+            }
+        }
+        if (changed)
+            ++trs.version;
     }
 
-    // Every body the scene asks for, from its hierarchy. Shapes are placed relative to their body
-    // from the LocalTRS values below it (and the scale above it), so they don't change as it moves.
-    void Collect()
+    void ContactCollector::OnContactAdded(const JPH::Body& body1, const JPH::Body& body2, const JPH::ContactManifold& manifold, JPH::ContactSettings&)
     {
-        candidates.clear();
-        std::function<void(Entity, const glm::mat4&, const glm::vec3&, int, const glm::mat4&)> walk =
-            [&](Entity e, const glm::mat4& parentWorld, const glm::vec3& parentScale, int owner, const glm::mat4& parentRelative) {
-                const LocalTRS* trs = e.TryGet<LocalTRS>();
-                const glm::mat4 local = trs ? LocalMatrix(*trs) : glm::mat4(1.0f);
-                const glm::mat4 world = parentWorld * local;
-                const glm::vec3 scale = trs ? parentScale * glm::vec3(trs->scl[0], trs->scl[1], trs->scl[2]) : parentScale;
-                glm::mat4 relative = parentRelative * local;
+        Added contact;
+        contact.body1 = body1.GetID();
+        contact.body2 = body2.GetID();
+        contact.subShapes = SubShapePairKey(manifold.mSubShapeID1, manifold.mSubShapeID2);
+        // The trigger first; the manifold's normal points from body 1 to body 2.
+        const bool flip = body2.IsSensor() && !body1.IsSensor();
+        const JPH::Body& a = flip ? body2 : body1;
+        const JPH::Body& b = flip ? body1 : body2;
+        contact.entityA = a.GetUserData();
+        contact.entityB = b.GetUserData();
+        contact.trigger = a.IsSensor() || b.IsSensor();
+        const JPH::Vec3 normal = flip ? -manifold.mWorldSpaceNormal : manifold.mWorldSpaceNormal;
+        const JPH::RVec3 point = manifold.GetWorldSpaceContactPointOn1(0);
+        contact.point = ToGlm(JPH::Vec3(point));
+        contact.normal = ToGlm(normal);
+        contact.speed = (a.GetPointVelocity(point) - b.GetPointVelocity(point)).Dot(normal);
+        std::lock_guard lock(m_Mutex);
+        m_Added.push_back(contact);
+    }
 
-                if (const RigidBody* body = e.TryGet<RigidBody>())
+    void ContactCollector::OnContactRemoved(const JPH::SubShapeIDPair& pair)
+    {
+        std::lock_guard lock(m_Mutex);
+        m_Removed.push_back(pair);
+    }
+
+    void ContactCollector::Take(std::vector<Added>& added, std::vector<JPH::SubShapeIDPair>& removed)
+    {
+        {
+            std::lock_guard lock(m_Mutex);
+            added.swap(m_Added);
+            removed.swap(m_Removed);
+            m_Added.clear();
+            m_Removed.clear();
+        }
+        auto ids = [](JPH::BodyID x, JPH::BodyID y, JPH::SubShapeID sx, JPH::SubShapeID sy) {
+            return std::tuple(x.GetIndexAndSequenceNumber(), y.GetIndexAndSequenceNumber(), sx.GetValue(), sy.GetValue());
+        };
+        std::sort(added.begin(), added.end(), [](const Added& l, const Added& r) {
+            return std::tuple(l.body1.GetIndexAndSequenceNumber(), l.body2.GetIndexAndSequenceNumber(), l.subShapes) <
+                   std::tuple(r.body1.GetIndexAndSequenceNumber(), r.body2.GetIndexAndSequenceNumber(), r.subShapes);
+        });
+        std::sort(removed.begin(), removed.end(), [&](const JPH::SubShapeIDPair& l, const JPH::SubShapeIDPair& r) {
+            return ids(l.GetBody1ID(), l.GetBody2ID(), l.GetSubShapeID1(), l.GetSubShapeID2()) < ids(r.GetBody1ID(), r.GetBody2ID(), r.GetSubShapeID1(), r.GetSubShapeID2());
+        });
+    }
+
+    void ContactCollector::Clear()
+    {
+        std::lock_guard lock(m_Mutex);
+        m_Added.clear();
+        m_Removed.clear();
+    }
+}
+
+PhysicsWorld::Impl::Impl(Scene& scene, const PhysicsSettings& initial) : scene(scene), settings(initial)
+{
+    AcquireJolt();
+    temp = std::make_unique<JPH::TempAllocatorImpl>(16 * 1024 * 1024);
+#if defined(__EMSCRIPTEN__)
+    jobs = std::make_unique<JPH::JobSystemSingleThreaded>(JPH::cMaxPhysicsJobs);
+#else
+    jobs = std::make_unique<JPH::JobSystemThreadPool>(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers);
+#endif
+    CreateSystem();
+}
+
+PhysicsWorld::Impl::~Impl()
+{
+    RemoveAll();
+    system.reset();
+    shapes = ShapeCache();
+    jobs.reset();
+    temp.reset();
+    ReleaseJolt();
+}
+
+// A new system each time the bodies are all dropped: one with no history (its broad phase, body
+// ids, caches) simulates the same scene the same way every time.
+void PhysicsWorld::Impl::CreateSystem()
+{
+    system = std::make_unique<JPH::PhysicsSystem>();
+    system->Init(65536, 0, 65536, 16384, broadPhase, objectVsBroadPhase, objectPairs);
+    system->SetCombineFriction(CombineFriction);
+    system->SetCombineRestitution(CombineRestitution);
+    system->SetContactListener(&contacts);
+    Apply();
+}
+
+void PhysicsWorld::Impl::Apply()
+{
+    system->SetGravity(PhysicsInternal::ToJolt(settings.gravity));
+    objectPairs.Set(settings);
+}
+
+void PhysicsWorld::Impl::RemoveBody(JPH::BodyID& id)
+{
+    if (id.IsInvalid())
+        return;
+    JPH::BodyInterface& bodies = system->GetBodyInterface();
+    bodies.RemoveBody(id);
+    bodies.DestroyBody(id);
+    removedBodies.push_back(id.GetIndexAndSequenceNumber());
+    id = JPH::BodyID();
+}
+
+void PhysicsWorld::Impl::RemoveAll()
+{
+    for (auto& [id, record] : records)
+    {
+        RemoveBody(record.body);
+        RemoveBody(record.sensor);
+    }
+    records.clear();
+    pending.clear();
+    bodyEntities.clear();
+    removedBodies.clear();
+    touching.clear();
+    events.clear();
+    contactLines.clear();
+    contacts.Clear();
+    accumulator = 0.0f;
+}
+
+// Every body the scene asks for, from its hierarchy. Shapes are placed relative to their body from
+// the LocalTRS values below it (and the scale above it), so they don't change as it moves.
+void PhysicsWorld::Impl::Collect()
+{
+    candidates.clear();
+    std::function<void(Entity, const glm::mat4&, const glm::vec3&, int, const glm::mat4&)> walk =
+        [&](Entity e, const glm::mat4& parentWorld, const glm::vec3& parentScale, int owner, const glm::mat4& parentRelative) {
+            const LocalTRS* trs = e.TryGet<LocalTRS>();
+            const glm::mat4 local = trs ? LocalMatrix(*trs) : glm::mat4(1.0f);
+            const glm::mat4 world = parentWorld * local;
+            const glm::vec3 scale = trs ? parentScale * glm::vec3(trs->scl[0], trs->scl[1], trs->scl[2]) : parentScale;
+            glm::mat4 relative = parentRelative * local;
+
+            if (const RigidBody* body = e.TryGet<RigidBody>())
+            {
+                Candidate candidate;
+                candidate.owner = e;
+                candidate.hasBody = true;
+                candidate.body = *body;
+                candidate.world = world;
+                candidates.push_back(std::move(candidate));
+                owner = static_cast<int>(candidates.size()) - 1;
+                relative = glm::scale(glm::mat4(1.0f), scale);
+            }
+
+            if (HasCollider(e))
+            {
+                int target = owner;
+                glm::mat4 placement = relative;
+                if (target < 0)
                 {
                     Candidate candidate;
                     candidate.owner = e;
-                    candidate.hasBody = true;
-                    candidate.body = *body;
                     candidate.world = world;
                     candidates.push_back(std::move(candidate));
-                    owner = static_cast<int>(candidates.size()) - 1;
-                    relative = glm::scale(glm::mat4(1.0f), scale);
+                    target = static_cast<int>(candidates.size()) - 1;
+                    placement = glm::scale(glm::mat4(1.0f), scale);
                 }
-
-                if (HasCollider(e))
-                {
-                    int target = owner;
-                    glm::mat4 placement = relative;
-                    if (target < 0)
-                    {
-                        Candidate candidate;
-                        candidate.owner = e;
-                        candidate.world = world;
-                        candidates.push_back(std::move(candidate));
-                        target = static_cast<int>(candidates.size()) - 1;
-                        placement = glm::scale(glm::mat4(1.0f), scale);
-                    }
-                    ForEachCollider(e, placement, [&](const ColliderGeometry& g) {
-                        (g.collider->isTrigger ? candidates[target].triggers : candidates[target].solid).push_back(g);
-                    });
-                }
-
-                e.ForEachChild([&](Entity child) { walk(child, world, scale, owner, relative); });
-            };
-        scene.ForEachRoot([&](Entity root) { walk(root, glm::mat4(1.0f), glm::vec3(1.0f), -1, glm::mat4(1.0f)); });
-        // Bodies are made in the order of their entities, not of the scene's storage (which a
-        // restored scene may have shuffled).
-        std::stable_sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) { return a.owner.RawId() < b.owner.RawId(); });
-    }
-
-    JPH::BodyID Create(const Candidate& c, const std::vector<ColliderGeometry>& parts, bool sensor, const glm::vec3& position, const glm::quat& rotation)
-    {
-        JPH::ShapeRefC shape = MakeShape(parts);
-        if (!shape)
-            return JPH::BodyID();
-
-        MotionType motion = c.hasBody ? c.body.motion : MotionType::Static;
-        uint8_t locked = c.hasBody ? c.body.lockedAxes : 0;
-        if (motion == MotionType::Dynamic && (locked & 63) == 63)
-            motion = MotionType::Kinematic; // nothing left to move: Jolt can't simulate that
-        // The triggers of a body with solid colliders follow it.
-        if (sensor && motion == MotionType::Dynamic)
-            motion = MotionType::Kinematic;
-
-        JPH::BodyCreationSettings s(shape, ToJolt(position), ToJolt(rotation), ToJolt(motion), MakeLayer(c.hasBody ? c.body.layer : 0, motion != MotionType::Static));
-        s.mUserData = c.owner.RawId();
-        s.mIsSensor = parts.front().collider->isTrigger;
-        s.mCollideKinematicVsNonDynamic = s.mIsSensor; // triggers notice static and kinematic bodies too
-        s.mFriction = parts.front().collider->friction;
-        s.mRestitution = parts.front().collider->restitution;
-        if (c.hasBody)
-        {
-            const RigidBody& b = c.body;
-            s.mLinearDamping = std::max(b.linearDamping, 0.0f);
-            s.mAngularDamping = std::max(b.angularDamping, 0.0f);
-            s.mGravityFactor = b.gravityFactor;
-            s.mMotionQuality = b.continuous ? JPH::EMotionQuality::LinearCast : JPH::EMotionQuality::Discrete;
-            s.mAllowSleeping = b.allowSleeping;
-            if (motion == MotionType::Dynamic)
-            {
-                s.mAllowedDOFs = static_cast<JPH::EAllowedDOFs>(63 & ~locked);
-                if (b.mass > 0.0f)
-                {
-                    s.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-                    s.mMassPropertiesOverride.mMass = b.mass;
-                }
-                s.mLinearVelocity = ToJolt(b.startVelocity);
-                s.mAngularVelocity = ToJolt(b.startAngularVelocity);
+                ForEachCollider(e, placement, [&](const ColliderGeometry& g) {
+                    (g.collider->isTrigger ? candidates[target].triggers : candidates[target].solid).push_back(g);
+                });
             }
+
+            e.ForEachChild([&](Entity child) { walk(child, world, scale, owner, relative); });
+        };
+    scene.ForEachRoot([&](Entity root) { walk(root, glm::mat4(1.0f), glm::vec3(1.0f), -1, glm::mat4(1.0f)); });
+    // Bodies are made in the order of their entities, not of the scene's storage (which a restored
+    // scene may have shuffled).
+    std::stable_sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) { return a.owner.RawId() < b.owner.RawId(); });
+}
+
+JPH::BodyID PhysicsWorld::Impl::Create(const Candidate& c, std::vector<ColliderGeometry> parts, bool sensor, const glm::vec3& position, const glm::quat& rotation)
+{
+    MotionType motion = c.hasBody ? c.body.motion : MotionType::Static;
+    uint8_t locked = c.hasBody ? c.body.lockedAxes : 0;
+    if (motion == MotionType::Dynamic && (locked & 63) == 63)
+        motion = MotionType::Kinematic; // nothing left to move: Jolt can't simulate that
+    // The triggers of a body with solid colliders follow it.
+    if (sensor && motion == MotionType::Dynamic)
+        motion = MotionType::Kinematic;
+
+    bool hasMesh = false;
+    for (ColliderGeometry& g : parts)
+    {
+        if (g.shape != ColliderShape::Mesh)
+            continue;
+        if (motion == MotionType::Dynamic)
+        {
+            // Jolt can't simulate a moving triangle mesh against others: its hull will do.
+            g.shape = ColliderShape::ConvexHull;
+            if (warnedDynamicMesh.insert(c.owner.RawId()).second)
+                Logger::Warning(std::string("Physics: ") + c.owner.GetName() + " is dynamic, so its mesh collider is used as a convex hull");
         }
-        return system->GetBodyInterface().CreateAndAddBody(s, motion == MotionType::Static ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
+        else
+        {
+            hasMesh = true;
+        }
     }
 
-    void Sync()
+    JPH::ShapeRefC shape = MakeShape(parts, shapes);
+    if (!shape)
+        return JPH::BodyID();
+
+    JPH::BodyCreationSettings s(shape, PhysicsInternal::ToJolt(position), PhysicsInternal::ToJolt(rotation), ToJolt(motion), MakeLayer(c.hasBody ? c.body.layer : 0, motion != MotionType::Static));
+    s.mUserData = c.owner.RawId();
+    s.mIsSensor = parts.front().collider->isTrigger;
+    s.mCollideKinematicVsNonDynamic = s.mIsSensor; // triggers notice static and kinematic bodies too
+    s.mFriction = parts.front().collider->friction;
+    s.mRestitution = parts.front().collider->restitution;
+    if (hasMesh && motion == MotionType::Kinematic)
     {
-        Collect();
-        JPH::BodyInterface& bodies = system->GetBodyInterface();
-        for (auto& [id, record] : records)
-            record.seen = false;
-
-        size_t created = 0;
-        for (const Candidate& c : candidates)
+        // A triangle mesh has no volume to weigh; a kinematic body still needs some mass.
+        s.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
+        s.mMassPropertiesOverride.mMass = 1.0f;
+        s.mMassPropertiesOverride.mInertia = JPH::Mat44::sIdentity();
+    }
+    if (c.hasBody)
+    {
+        const RigidBody& b = c.body;
+        s.mLinearDamping = std::max(b.linearDamping, 0.0f);
+        s.mAngularDamping = std::max(b.angularDamping, 0.0f);
+        s.mGravityFactor = b.gravityFactor;
+        s.mMotionQuality = b.continuous ? JPH::EMotionQuality::LinearCast : JPH::EMotionQuality::Discrete;
+        s.mAllowSleeping = b.allowSleeping;
+        if (motion == MotionType::Dynamic)
         {
-            if (c.solid.empty() && c.triggers.empty())
-                continue;
-
-            Hasher hash;
-            hash.Add(c.hasBody);
-            if (c.hasBody)
-                HashBody(hash, c.body);
-            for (const ColliderGeometry& g : c.solid)
-                HashGeometry(hash, g);
-            for (const ColliderGeometry& g : c.triggers)
-                HashGeometry(hash, g);
-
-            glm::vec3 position;
-            glm::quat rotation;
-            SplitPose(c.world, position, rotation);
-            const LocalTRS* trs = c.owner.TryGet<LocalTRS>();
-
-            auto found = records.find(c.owner.RawId());
-            // A body made again keeps moving as it did.
-            bool keepVelocity = false;
-            JPH::Vec3 linearVelocity = JPH::Vec3::sZero(), angularVelocity = JPH::Vec3::sZero();
-            if (found != records.end() && found->second.signature != hash.value)
+            s.mAllowedDOFs = static_cast<JPH::EAllowedDOFs>(63 & ~locked);
+            if (b.mass > 0.0f)
             {
-                if (found->second.motion == MotionType::Dynamic && !found->second.body.IsInvalid())
-                {
-                    keepVelocity = true;
-                    bodies.GetLinearAndAngularVelocity(found->second.body, linearVelocity, angularVelocity);
-                }
-                RemoveBody(found->second.body);
-                RemoveBody(found->second.sensor);
-                records.erase(found);
-                found = records.end();
+                s.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+                s.mMassPropertiesOverride.mMass = b.mass;
             }
+            s.mLinearVelocity = PhysicsInternal::ToJolt(b.startVelocity);
+            s.mAngularVelocity = PhysicsInternal::ToJolt(b.startAngularVelocity);
+        }
+    }
+    const JPH::BodyID id = system->GetBodyInterface().CreateAndAddBody(s, motion == MotionType::Static ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
+    if (!id.IsInvalid())
+        bodyEntities[id.GetIndexAndSequenceNumber()] = c.owner.RawId();
+    return id;
+}
 
-            if (found == records.end())
-            {
-                Record record;
-                record.signature = hash.value;
-                record.motion = c.hasBody ? c.body.motion : MotionType::Static;
-                record.position = position;
-                record.rotation = rotation;
-                record.writtenVersion = trs ? trs->version : ~0u;
-                if (!c.solid.empty())
-                {
-                    record.body = Create(c, c.solid, false, position, rotation);
-                    if (!c.triggers.empty())
-                        record.sensor = Create(c, c.triggers, true, position, rotation);
-                }
-                else
-                {
-                    record.body = Create(c, c.triggers, false, position, rotation);
-                }
-                if (keepVelocity && record.motion == MotionType::Dynamic && !record.body.IsInvalid())
-                    bodies.SetLinearAndAngularVelocity(record.body, linearVelocity, angularVelocity);
-                record.seen = true;
-                records.emplace(c.owner.RawId(), record);
-                ++created;
-                continue;
-            }
+void PhysicsWorld::Impl::Sync()
+{
+    Collect();
+    JPH::BodyInterface& bodies = system->GetBodyInterface();
+    for (auto& [id, record] : records)
+        record.seen = false;
 
-            Record& record = found->second;
-            record.seen = true;
-            switch (record.motion)
+    size_t created = 0;
+    for (const Candidate& c : candidates)
+    {
+        if (c.solid.empty() && c.triggers.empty())
+            continue;
+
+        Hasher hash;
+        hash.Add(c.hasBody);
+        if (c.hasBody)
+            HashBody(hash, c.body);
+        for (const ColliderGeometry& g : c.solid)
+            HashGeometry(hash, g);
+        for (const ColliderGeometry& g : c.triggers)
+            HashGeometry(hash, g);
+
+        glm::vec3 position;
+        glm::quat rotation;
+        SplitPose(c.world, position, rotation);
+        const LocalTRS* trs = c.owner.TryGet<LocalTRS>();
+
+        auto found = records.find(c.owner.RawId());
+        // A body made again keeps moving as it did.
+        bool keepVelocity = false;
+        JPH::Vec3 linearVelocity = JPH::Vec3::sZero(), angularVelocity = JPH::Vec3::sZero();
+        if (found != records.end() && found->second.signature != hash.value)
+        {
+            if (found->second.motion == MotionType::Dynamic && !found->second.body.IsInvalid())
             {
-            case MotionType::Static:
-                // Moved by the editor or by code.
-                if (position != record.position || rotation != record.rotation)
-                {
-                    bodies.SetPositionAndRotation(record.body, ToJolt(position), ToJolt(rotation), JPH::EActivation::DontActivate);
-                    if (!record.sensor.IsInvalid())
-                        bodies.SetPositionAndRotation(record.sensor, ToJolt(position), ToJolt(rotation), JPH::EActivation::DontActivate);
-                }
-                break;
-            case MotionType::Kinematic:
-                break; // moved toward the entity each step
-            case MotionType::Dynamic:
-                // Moved by something other than the simulation: put the body there.
-                if (trs && trs->version != record.writtenVersion)
-                {
-                    bodies.SetPositionAndRotation(record.body, ToJolt(position), ToJolt(rotation), JPH::EActivation::Activate);
-                    record.writtenVersion = trs->version;
-                }
-                break;
+                keepVelocity = true;
+                bodies.GetLinearAndAngularVelocity(found->second.body, linearVelocity, angularVelocity);
             }
+            RemoveBody(found->second.body);
+            RemoveBody(found->second.sensor);
+            records.erase(found);
+            found = records.end();
+        }
+
+        if (found == records.end())
+        {
+            Record record;
+            record.signature = hash.value;
+            record.motion = c.hasBody ? c.body.motion : MotionType::Static;
             record.position = position;
             record.rotation = rotation;
-        }
-
-        for (auto it = records.begin(); it != records.end();)
-        {
-            if (it->second.seen)
+            record.writtenVersion = trs ? trs->version : ~0u;
+            if (!c.solid.empty())
             {
-                ++it;
-                continue;
+                record.body = Create(c, c.solid, false, position, rotation);
+                if (!c.triggers.empty())
+                    record.sensor = Create(c, c.triggers, true, position, rotation);
             }
-            RemoveBody(it->second.body);
-            RemoveBody(it->second.sensor);
-            it = records.erase(it);
+            else
+            {
+                record.body = Create(c, c.triggers, false, position, rotation);
+            }
+            if (keepVelocity && record.motion == MotionType::Dynamic && !record.body.IsInvalid())
+                bodies.SetLinearAndAngularVelocity(record.body, linearVelocity, angularVelocity);
+            record.seen = true;
+            records.emplace(c.owner.RawId(), record);
+            ++created;
+            continue;
         }
 
-        if (created > 16)
-            system->OptimizeBroadPhase();
+        Record& record = found->second;
+        record.seen = true;
+        switch (record.motion)
+        {
+        case MotionType::Static:
+            // Moved by the editor or by code.
+            if (position != record.position || rotation != record.rotation)
+            {
+                bodies.SetPositionAndRotation(record.body, PhysicsInternal::ToJolt(position), PhysicsInternal::ToJolt(rotation), JPH::EActivation::DontActivate);
+                if (!record.sensor.IsInvalid())
+                    bodies.SetPositionAndRotation(record.sensor, PhysicsInternal::ToJolt(position), PhysicsInternal::ToJolt(rotation), JPH::EActivation::DontActivate);
+            }
+            break;
+        case MotionType::Kinematic:
+            break; // moved toward the entity each step
+        case MotionType::Dynamic:
+            // Moved by something other than the simulation: put the body there.
+            if (trs && trs->version != record.writtenVersion)
+            {
+                bodies.SetPositionAndRotation(record.body, PhysicsInternal::ToJolt(position), PhysicsInternal::ToJolt(rotation), JPH::EActivation::Activate);
+                record.writtenVersion = trs->version;
+            }
+            break;
+        }
+        record.position = position;
+        record.rotation = rotation;
     }
 
-    void MoveKinematics(float dt)
+    for (auto it = records.begin(); it != records.end();)
     {
-        JPH::BodyInterface& bodies = system->GetBodyInterface();
-        for (auto& [id, record] : records)
+        if (it->second.seen)
         {
-            if (record.motion == MotionType::Kinematic && !record.body.IsInvalid())
-                bodies.MoveKinematic(record.body, ToJolt(record.position), ToJolt(record.rotation), dt);
+            ++it;
+            continue;
+        }
+        RemoveBody(it->second.body);
+        RemoveBody(it->second.sensor);
+        pending.erase(it->first);
+        it = records.erase(it);
+    }
+
+    if (created > 16)
+        system->OptimizeBroadPhase();
+}
+
+void PhysicsWorld::Impl::MoveKinematics(float dt)
+{
+    JPH::BodyInterface& bodies = system->GetBodyInterface();
+    for (auto& [id, record] : records)
+    {
+        if (record.motion == MotionType::Kinematic && !record.body.IsInvalid())
+            bodies.MoveKinematic(record.body, PhysicsInternal::ToJolt(record.position), PhysicsInternal::ToJolt(record.rotation), dt);
+    }
+}
+
+// Jolt clears forces after every step, so they are given again before each one.
+void PhysicsWorld::Impl::ApplyPending(bool impulses)
+{
+    JPH::BodyInterface& bodies = system->GetBodyInterface();
+    for (const auto& [id, p] : pending)
+    {
+        const auto found = records.find(id);
+        if (found == records.end() || found->second.motion != MotionType::Dynamic || found->second.body.IsInvalid())
+            continue;
+        const JPH::BodyID body = found->second.body;
+        if (p.force != glm::vec3(0.0f))
+            bodies.AddForce(body, PhysicsInternal::ToJolt(p.force));
+        if (p.torque != glm::vec3(0.0f))
+            bodies.AddTorque(body, PhysicsInternal::ToJolt(p.torque));
+        for (const auto& [force, point] : p.pointForces)
+            bodies.AddForce(body, PhysicsInternal::ToJolt(force), JPH::RVec3(PhysicsInternal::ToJolt(point)));
+        if (!impulses)
+            continue;
+        if (p.impulse != glm::vec3(0.0f))
+            bodies.AddImpulse(body, PhysicsInternal::ToJolt(p.impulse));
+        if (p.angularImpulse != glm::vec3(0.0f))
+            bodies.AddAngularImpulse(body, PhysicsInternal::ToJolt(p.angularImpulse));
+        for (const auto& [impulse, point] : p.pointImpulses)
+            bodies.AddImpulse(body, PhysicsInternal::ToJolt(impulse), JPH::RVec3(PhysicsInternal::ToJolt(point)));
+    }
+}
+
+// Jolt's per sub-shape contacts become one Begin and one End per pair of bodies. Jolt also drops the
+// contacts of a body that falls asleep; those are kept until it wakes and they aren't found again.
+void PhysicsWorld::Impl::ProcessContacts()
+{
+    std::vector<ContactCollector::Added> added;
+    std::vector<JPH::SubShapeIDPair> removed;
+    contacts.Take(added, removed);
+    const JPH::BodyInterface& bodies = system->GetBodyInterface();
+    auto sleeping = [&](JPH::BodyID id) { return bodies.IsAdded(id) && !bodies.IsActive(id) && bodies.GetMotionType(id) != JPH::EMotionType::Static; };
+    auto awake = [&](JPH::BodyID id) { return bodies.IsAdded(id) && (bodies.IsActive(id) || bodies.GetMotionType(id) == JPH::EMotionType::Static); };
+
+    for (const ContactCollector::Added& c : added)
+    {
+        Touching& t = touching[BodyPairKey(c.body1, c.body2)];
+        if (t.Empty())
+        {
+            t.body1 = c.body1;
+            t.body2 = c.body2;
+            t.a = c.entityA;
+            t.b = c.entityB;
+            t.trigger = c.trigger;
+            ContactEvent e;
+            e.type = ContactEvent::Type::Begin;
+            e.a = scene.FromId(c.entityA);
+            e.b = scene.FromId(c.entityB);
+            e.trigger = c.trigger;
+            e.point = c.point;
+            e.normal = c.normal;
+            e.speed = c.speed;
+            events.push_back(e);
+        }
+        t.asleep.erase(c.subShapes);
+        t.live.insert(c.subShapes);
+    }
+
+    auto end = [&](const Touching& t) {
+        ContactEvent e;
+        e.type = ContactEvent::Type::End;
+        e.a = scene.FromId(t.a);
+        e.b = scene.FromId(t.b);
+        e.trigger = t.trigger;
+        events.push_back(e);
+    };
+    for (const JPH::SubShapeIDPair& r : removed)
+    {
+        const auto found = touching.find(BodyPairKey(r.GetBody1ID(), r.GetBody2ID()));
+        if (found == touching.end())
+            continue;
+        Touching& t = found->second;
+        const uint64_t subShapes = SubShapePairKey(r.GetSubShapeID1(), r.GetSubShapeID2());
+        if (t.live.erase(subShapes) && (sleeping(r.GetBody1ID()) || sleeping(r.GetBody2ID())))
+            t.asleep[subShapes] = 0;
+        if (t.Empty())
+        {
+            end(t);
+            touching.erase(found);
         }
     }
 
-    // Dynamic bodies move their entities (in their parent's space); triggers follow their bodies.
-    void WriteBack()
+    // Contacts kept through a sleep: once both bodies have been awake for two steps without Jolt
+    // finding them again, they are over. Bodies removed before this step end theirs now.
+    std::unordered_set<uint32_t> gone(removedBodies.begin(), removedBodies.end());
+    std::vector<uint64_t> ended;
+    for (auto& [key, t] : touching)
     {
-        JPH::BodyInterface& bodies = system->GetBodyInterface();
-        for (auto& [id, record] : records)
+        if (gone.count(t.body1.GetIndexAndSequenceNumber()) || gone.count(t.body2.GetIndexAndSequenceNumber()))
         {
-            if (record.body.IsInvalid())
-                continue;
-            if (!record.sensor.IsInvalid())
-            {
-                JPH::RVec3 p;
-                JPH::Quat q;
-                bodies.GetPositionAndRotation(record.body, p, q);
-                bodies.SetPositionAndRotation(record.sensor, p, q, JPH::EActivation::DontActivate);
-            }
-            if (record.motion != MotionType::Dynamic || !bodies.IsActive(record.body))
-                continue;
+            ended.push_back(key);
+            continue;
+        }
+        if (t.asleep.empty() || !awake(t.body1) || !awake(t.body2))
+            continue;
+        for (auto it = t.asleep.begin(); it != t.asleep.end();)
+            it = ++it->second >= 2 ? t.asleep.erase(it) : std::next(it);
+        if (t.Empty())
+            ended.push_back(key);
+    }
+    std::sort(ended.begin(), ended.end());
+    for (uint64_t key : ended)
+    {
+        end(touching[key]);
+        touching.erase(key);
+    }
+    for (uint32_t id : removedBodies)
+        bodyEntities.erase(id);
+    removedBodies.clear();
+}
 
-            Entity entity = scene.FromId(id);
-            LocalTRS* trs = entity.IsValid() ? entity.Get<LocalTRS>() : nullptr;
-            if (!trs)
-                continue;
-
+// Dynamic bodies move their entities (in their parent's space); triggers follow their bodies.
+void PhysicsWorld::Impl::WriteBack()
+{
+    JPH::BodyInterface& bodies = system->GetBodyInterface();
+    for (auto& [id, record] : records)
+    {
+        if (record.body.IsInvalid())
+            continue;
+        if (!record.sensor.IsInvalid())
+        {
             JPH::RVec3 p;
             JPH::Quat q;
             bodies.GetPositionAndRotation(record.body, p, q);
-            glm::vec3 position = ToGlm(p);
-            glm::quat rotation = ToGlm(q);
-            record.position = position;
-            record.rotation = rotation;
-
-            const Entity parent = scene.Parent(entity);
-            if (parent.IsValid())
-            {
-                // Into the parent's space (its scale left out of the rotation).
-                const glm::mat4 parentWorld = WorldMatrix(scene, parent);
-                const glm::mat4 local = glm::inverse(parentWorld) * (glm::translate(glm::mat4(1.0f), position) * glm::mat4_cast(rotation));
-                SplitPose(local, position, rotation);
-            }
-
-            const float values[7] = { position.x, position.y, position.z, rotation.x, rotation.y, rotation.z, rotation.w };
-            float* targets[7] = { &trs->pos[0], &trs->pos[1], &trs->pos[2], &trs->rot_quat[0], &trs->rot_quat[1], &trs->rot_quat[2], &trs->rot_quat[3] };
-            bool changed = false;
-            for (int i = 0; i < 7; ++i)
-            {
-                if (*targets[i] != values[i])
-                {
-                    *targets[i] = values[i];
-                    changed = true;
-                }
-            }
-            if (changed)
-                ++trs->version;
-            record.writtenVersion = trs->version;
+            bodies.SetPositionAndRotation(record.sensor, p, q, JPH::EActivation::DontActivate);
         }
-    }
+        if (record.motion != MotionType::Dynamic || !bodies.IsActive(record.body))
+            continue;
 
-    void Step(float dt)
+        Entity entity = scene.FromId(id);
+        LocalTRS* trs = entity.IsValid() ? entity.Get<LocalTRS>() : nullptr;
+        if (!trs)
+            continue;
+
+        JPH::RVec3 p;
+        JPH::Quat q;
+        bodies.GetPositionAndRotation(record.body, p, q);
+        record.position = ToGlm(p);
+        record.rotation = ToGlm(q);
+        SetWorldPose(scene, entity, *trs, record.position, record.rotation);
+        record.writtenVersion = trs->version;
+    }
+}
+
+void PhysicsWorld::Impl::Step(float dt)
+{
+    events.clear();
+    Sync();
+    if (dt <= 0.0f)
+        return;
+
+    const float step = std::max(settings.fixedTimestep, 1e-4f);
+    accumulator += dt;
+    int steps = 0;
+    // A small tolerance so a frame of exactly one step (the editor's Step button) runs one.
+    while (accumulator + 1e-6f >= step && steps < settings.maxStepsPerFrame)
     {
-        Sync();
-        if (dt <= 0.0f)
-            return;
-
-        const float step = std::max(settings.fixedTimestep, 1e-4f);
-        accumulator += dt;
-        int steps = 0;
-        // A small tolerance so a frame of exactly one step (the editor's Step button) runs one.
-        while (accumulator + 1e-6f >= step && steps < settings.maxStepsPerFrame)
+        if (steps == 0 && drawContacts)
         {
-            MoveKinematics(step);
-            system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
-            accumulator -= step;
-            ++steps;
+            contactLines.clear();
+            BeginStepDrawing(&contactLines, maxContactLines);
         }
-        if (steps == settings.maxStepsPerFrame && accumulator >= step)
-            accumulator = 0.0f; // too far behind: let the simulation run slow instead of piling up
-        accumulator = std::max(accumulator, 0.0f);
-        if (steps > 0)
-            WriteBack();
+        MoveKinematics(step);
+        ApplyPending(steps == 0);
+        system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
+        ProcessContacts();
+        accumulator -= step;
+        ++steps;
     }
-};
+    if (drawContacts)
+        EndStepDrawing();
+    if (steps == settings.maxStepsPerFrame && accumulator >= step)
+        accumulator = 0.0f; // too far behind: let the simulation run slow instead of piling up
+    accumulator = std::max(accumulator, 0.0f);
+    if (steps > 0)
+    {
+        pending.clear();
+        WriteBack();
+    }
+}
+
+JPH::BodyID PhysicsWorld::Impl::BodyOf(Entity entity) const
+{
+    const auto found = records.find(entity.RawId());
+    return found == records.end() ? JPH::BodyID() : found->second.body;
+}
+
+Entity PhysicsWorld::Impl::EntityOf(JPH::BodyID body) const
+{
+    const auto found = bodyEntities.find(body.GetIndexAndSequenceNumber());
+    return found == bodyEntities.end() ? Entity{} : scene.FromId(found->second);
+}
+
+PhysicsWorld::Impl::Pending* PhysicsWorld::Impl::PendingFor(Entity entity)
+{
+    const RigidBody* body = entity.IsValid() ? entity.TryGet<RigidBody>() : nullptr;
+    if (!body || body->motion != MotionType::Dynamic || (body->lockedAxes & 63) == 63)
+        return nullptr;
+    return &pending[entity.RawId()];
+}
 
 void PhysicsWorld::RegisterComponents()
 {
@@ -634,6 +755,7 @@ void PhysicsWorld::RegisterComponents()
     ECS::RegisterComponent<SphereCollider>("SphereCollider");
     ECS::RegisterComponent<CapsuleCollider>("CapsuleCollider");
     ECS::RegisterComponent<CylinderCollider>("CylinderCollider");
+    ECS::RegisterComponent<MeshCollider>("MeshCollider");
 }
 
 PhysicsWorld::PhysicsWorld(Scene& scene, const PhysicsSettings& settings)
@@ -663,6 +785,7 @@ void PhysicsWorld::Reset()
 {
     m_Impl->RemoveAll();
     m_Impl->CreateSystem();
+    m_Impl->shapes.Prune();
 }
 
 size_t PhysicsWorld::BodyCount() const
@@ -693,4 +816,17 @@ bool PhysicsWorld::GetBodyInfo(Entity entity, BodyInfo& info) const
     const JPH::MotionProperties* motion = body.GetMotionPropertiesUnchecked();
     info.mass = body.IsDynamic() && motion && motion->GetInverseMass() > 0.0f ? 1.0f / motion->GetInverseMass() : 0.0f;
     return true;
+}
+
+const std::vector<ContactEvent>& PhysicsWorld::Events() const
+{
+    return m_Impl->events;
+}
+
+bool PhysicsWorld::IsTouching(Entity a, Entity b) const
+{
+    for (const auto& [key, t] : m_Impl->touching)
+        if ((t.a == a.RawId() && t.b == b.RawId()) || (t.a == b.RawId() && t.b == a.RawId()))
+            return true;
+    return false;
 }

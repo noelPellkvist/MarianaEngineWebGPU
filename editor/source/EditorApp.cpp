@@ -296,7 +296,7 @@ void EditorApp::OnStart()
         DeselectEntity();
         SelectEntity(entity.RawId());
     });
-    PhysicsEditor::RegisterInspector(*inspector, undo, *physics);
+    PhysicsEditor::RegisterInspector(*inspector, undo, *physics, assets);
     inspector->AddComponentOption({ "Rendering", "Camera",
         [](Entity e) { return !e.TryGet<CameraComponent>(); },
         [](Entity e) { e.Add<CameraComponent>(CameraComponent{}); } });
@@ -441,6 +441,15 @@ void EditorApp::DrawSceneOverlay(ViewportWindow& window)
     DrawCameraFrustums(window);
     PhysicsEditor::DrawColliders(scene, selectedEntity, physicsWindow->showAllColliders, cam->Projection() * cam->View(),
                                  window.ImageMin(), window.ImageMax() - window.ImageMin());
+    // Jolt's own view of the simulation, while there is one.
+    PhysicsDebugDraw debugDraw = physicsWindow->debugDrawSettings;
+    if (!physicsWindow->debugDraw || !gameClock.IsPlaying())
+        debugDraw.shapes = debugDraw.contacts = debugDraw.velocities = debugDraw.centerOfMass = debugDraw.boundingBoxes = false;
+    debugDraw.cameraPosition = cam->GetCameraInfo().pos;
+    debugLines.clear();
+    physics->DebugDraw(debugDraw, debugLines);
+    physicsWindow->debugLines = debugLines.size();
+    PhysicsEditor::DrawDebugLines(debugLines, cam->Projection() * cam->View(), window.ImageMin(), window.ImageMax() - window.ImageMin());
 
     bool gizmoHit = false;
     if (selectedEntityID != static_cast<uint64_t>(-1) && selectedEntity.Has<WorldXform>())

@@ -25,6 +25,15 @@ struct Bounds
     void Add(const glm::vec3& p) { min = glm::min(min, p); max = glm::max(max, p); }
 };
 
+// What physics needs of a mesh once the GPU has it: the vertex positions and the triangles of its
+// triangle submeshes (lines and points left out). Kept on the CPU by UploadMesh, shared, never
+// changed afterwards.
+struct MeshCollisionData
+{
+    std::vector<glm::vec3> positions;
+    std::vector<uint32_t> triangles; // three indices into positions each
+};
+
 
 class IMesh
 {
@@ -57,6 +66,10 @@ class IMesh
         // vertices' boneIndices (empty when nothing is weighted). Moved by its joint, each box still
         // contains those vertices, so together they bound the posed mesh.
         std::vector<Bounds> jointBounds;
+
+        // Positions and triangles for mesh colliders (UploadMesh fills it; nullptr for meshes made
+        // another way, or without triangles).
+        std::shared_ptr<const MeshCollisionData> collision;
 
     protected:
         size_t m_VertexCount = 0;

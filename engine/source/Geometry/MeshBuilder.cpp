@@ -171,6 +171,19 @@ std::shared_ptr<IMesh> UploadMesh(MeshData data)
     if (data.Empty())
         return nullptr;
 
+    // Physics keeps its own copy of the triangles (12 bytes a vertex plus the indices).
+    auto collision = std::make_shared<MeshCollisionData>();
+    for (const Submesh& submesh : data.submeshes)
+        if (submesh.topology == PrimitiveTopology::Triangles)
+            collision->triangles.insert(collision->triangles.end(), data.indices.begin() + submesh.startIndex,
+                                        data.indices.begin() + submesh.startIndex + (submesh.indexCount / 3) * 3);
+    if (!collision->triangles.empty())
+    {
+        collision->positions.reserve(data.vertices.size());
+        for (const StandardVertex& v : data.vertices)
+            collision->positions.push_back(glm::vec3(v.position));
+    }
+
     std::shared_ptr<IMesh> mesh;
     if (data.vertices.size() <= 65536)
     {
@@ -183,6 +196,8 @@ std::shared_ptr<IMesh> UploadMesh(MeshData data)
         mesh = std::make_shared<Mesh<StandardVertex, uint32_t>>(std::move(data.vertices), std::move(data.indices));
     }
     mesh->submeshes = std::move(data.submeshes);
+    if (!collision->triangles.empty())
+        mesh->collision = std::move(collision);
     mesh->BuildMesh();
     // The GPU has its own copy now; only the counts and bounds are kept on the CPU.
     mesh->Clear();

@@ -3,6 +3,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include <Mariana/Assets/AssetManager.hpp>
+
+class IMesh;
+
 enum class MotionType : uint8_t { Static, Kinematic, Dynamic };
 
 // Axes a dynamic body can't move along or turn about (RigidBody::lockedAxes), in world space.
@@ -64,4 +68,14 @@ struct CylinderCollider : Collider
 {
     float radius = 0.5f;
     float height = 1.0f;
+};
+
+// A mesh's triangles as a collider (`mesh`, or the entity's MeshComponent mesh when that is empty),
+// or with `convex` their convex hull. Triangle meshes are for what doesn't move on its own (levels,
+// static and kinematic bodies); on a dynamic body they are used as convex hulls. Scaled with the
+// entity, in the mesh's own axes.
+struct MeshCollider : Collider
+{
+    AssetHandle<IMesh> mesh;
+    bool convex = false;
 };

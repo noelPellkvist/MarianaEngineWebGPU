@@ -17,20 +17,41 @@
 //     "pipeline": "/Pipelines/Default.pipeline",
 //     "camera": { "position": [0, 2, -5], "target": [0, 1, 0], "orbitSpeed": 0 },
 //     "spawn": [ { "prefab": "/Models/Sponza/Sponza.gltf", "position": [0, 0, 0], "rotation": [0, 0, 0],
-//                  "scale": 1, "faceCamera": false }, ... ]
+//                  "scale": 1, "faceCamera": false, "physics": { "collider": "mesh" } },
+//                { "primitive": "sphere", "color": [1, 0.3, 0.2], "position": [0, 5, 0],
+//                  "physics": { "body": "dynamic", "mass": 2, "bounciness": 0.5 } }, ... ]
 //   }
-// Everything is optional; paths are resource paths (FileSystem). `rotation` is Euler angles in
-// degrees; `faceCamera` instead turns the prefab about +Y so its front (+Z, as glTF assets face)
-// points at the camera's starting position.
+// Everything is optional; paths are resource paths (FileSystem). A spawn is a `prefab` or a
+// `primitive` (cube, sphere, plane, cylinder, capsule; tinted by `color`). `rotation` is Euler angles
+// in degrees; `scale` a number or [x, y, z]; `faceCamera` instead turns it about +Y so its front (+Z,
+// as glTF assets face) points at the camera's starting position. `physics` makes it a body: `body`
+// static (default), kinematic or dynamic; `collider` box, sphere, capsule or cylinder (one on the
+// root, fitted to the meshes), mesh or convex (a mesh collider on every mesh), or none; it defaults to
+// a primitive's own shape, else mesh for static bodies and convex for moving ones. `mass` (kg, 0 =
+// from density), `friction`, `bounciness` and `velocity` (m/s) are optional too.
 struct PlayerConfig
 {
+    struct Physics
+    {
+        bool enabled = false;
+        std::string body = "static";
+        std::string collider; // empty: the default for the spawn
+        float mass = 1.0f;
+        float friction = 0.5f;
+        float bounciness = 0.0f;
+        glm::vec3 velocity{0.0f};
+    };
+
     struct Spawn
     {
         std::string prefab;
+        std::string primitive;
+        glm::vec3 color{1.0f};
         glm::vec3 position{0.0f};
         glm::vec3 rotation{0.0f}; // Euler degrees
-        float scale = 1.0f;
+        glm::vec3 scale{1.0f};
         bool faceCamera = false;
+        Physics physics;
     };
 
     WindowSettings window{ "Mariana Player", 1280, 720, "" };
@@ -84,4 +105,6 @@ private:
     System animationSystem;
 
     void OnWindowResized(int width, int height);
+    Entity SpawnPrimitive(const PlayerConfig::Spawn& spawn);
+    void AddPhysics(Entity root, const PlayerConfig::Spawn& spawn);
 };

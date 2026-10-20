@@ -2,6 +2,7 @@
 
 #include <Editor/UndoStack.hpp>
 #include <Editor/Windows/InspectorWindow.hpp>
+#include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Graphics/Mesh.hpp>
 #include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
@@ -124,10 +125,28 @@ namespace
 
     bool FitButton(Entity entity)
     {
-        const MeshComponent* mesh = entity.TryGet<MeshComponent>();
-        if (!mesh || !mesh->mesh.Get() || !mesh->mesh.Get()->hasBounds)
+        if (MeshBounds(entity).IsEmpty())
             return false;
         return ImGui::SmallButton("Fit to mesh");
+    }
+
+    // Every entity at or below `entity` that has a mesh but no mesh collider.
+    std::vector<Entity> WithoutMeshColliders(Entity entity)
+    {
+        std::vector<Entity> found;
+        std::function<void(Entity)> visit = [&](Entity e) {
+            if (e.TryGet<MeshComponent>() && !e.TryGet<MeshCollider>())
+                found.push_back(e);
+            e.ForEachChild(visit);
+        };
+        visit(entity);
+        return found;
+    }
+
+    std::string MeshName(AssetManager2& assets, const AssetHandle<IMesh>& mesh)
+    {
+        const AssetMetadata* meta = mesh.IsValid() ? assets.GetMetadata(mesh.GetID()) : nullptr;
+        return meta ? meta->name : std::string("(unnamed)");
     }
 
     // The body's state while the simulation runs.
@@ -209,6 +228,25 @@ namespace
             painter.Arc(g.position, y, z, g.radius, 0.0f, twoPi, color, 32);
             painter.Arc(g.position, z, x, g.radius, 0.0f, twoPi, color, 32);
             break;
+        case ColliderShape::Mesh:
+        case ColliderShape::ConvexHull:
+        {
+            // The mesh's bounds; the shape itself is drawn by the debug view while playing.
+            if (g.meshBounds.IsEmpty())
+                break;
+            glm::vec3 corners[8];
+            for (int i = 0; i < 8; ++i)
+            {
+                const glm::vec3 local((i & 1) ? g.meshBounds.max.x : g.meshBounds.min.x, (i & 2) ? g.meshBounds.max.y : g.meshBounds.min.y, (i & 4) ? g.meshBounds.max.z : g.meshBounds.min.z);
+                corners[i] = g.position + g.rotation * (g.scale * local);
+            }
+            const ImU32 meshColor = g.collider->isTrigger ? color : (g.shape == ColliderShape::Mesh ? IM_COL32(110, 235, 130, 140) : IM_COL32(235, 200, 110, 200));
+            for (int i = 0; i < 8; ++i)
+                for (int bit : { 1, 2, 4 })
+                    if (!(i & bit))
+                        painter.Line(corners[i], corners[i | bit], meshColor);
+            break;
+        }
         case ColliderShape::Capsule:
         case ColliderShape::Cylinder:
         {
@@ -235,46 +273,10 @@ namespace PhysicsEditor
 {
     bool FitCollidersToMesh(Entity entity)
     {
-        const MeshComponent* mesh = entity.TryGet<MeshComponent>();
-        if (!mesh || !mesh->mesh.Get() || !mesh->mesh.Get()->hasBounds)
-            return false;
-        const glm::vec3 min = mesh->mesh.Get()->boundsMin, max = mesh->mesh.Get()->boundsMax;
-        glm::vec3 size = max - min, center = (min + max) * 0.5f;
-        // A flat mesh (a ground plane) gets a slab below its surface.
-        for (int axis = 0; axis < 3; ++axis)
-        {
-            if (size[axis] < 1e-3f)
-            {
-                size[axis] = 0.1f;
-                center[axis] -= 0.05f;
-            }
-        }
-        if (BoxCollider* box = entity.Get<BoxCollider>())
-        {
-            box->size = size;
-            box->center = center;
-        }
-        if (SphereCollider* sphere = entity.Get<SphereCollider>())
-        {
-            sphere->radius = 0.5f * std::max({ size.x, size.y, size.z });
-            sphere->center = center;
-        }
-        if (CapsuleCollider* capsule = entity.Get<CapsuleCollider>())
-        {
-            capsule->radius = 0.5f * std::max(size.x, size.z);
-            capsule->height = std::max(size.y, 2.0f * capsule->radius);
-            capsule->center = center;
-        }
-        if (CylinderCollider* cylinder = entity.Get<CylinderCollider>())
-        {
-            cylinder->radius = 0.5f * std::max(size.x, size.z);
-            cylinder->height = size.y;
-            cylinder->center = center;
-        }
-        return true;
+        return FitColliders(entity);
     }
 
-    void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, const PhysicsWorld& world)
+    void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, const PhysicsWorld& world, AssetManager2& assets)
     {
         inspector.SetComponentDrawer("RigidBody", [&inspector, &undo, &world](Entity& entity) {
             ImGui::PushID("RigidBody");
@@ -428,6 +430,57 @@ namespace PhysicsEditor
         roundShape(CapsuleTag{}, "CapsuleCollider", "Capsule Collider", "Edit Capsule Collider");
         roundShape(CylinderTag{}, "CylinderCollider", "Cylinder Collider", "Edit Cylinder Collider");
 
+        inspector.SetComponentDrawer("MeshCollider", [&inspector, &undo, &assets](Entity& entity) {
+            ImGui::PushID("MeshCollider");
+            if (Section<MeshCollider>(inspector, undo, entity, "Mesh Collider"))
+            {
+                EditComponent<MeshCollider>(entity, undo, "Edit Mesh Collider", [&](MeshCollider& c) {
+                    bool changed = false;
+                    const MeshComponent* renderer = entity.TryGet<MeshComponent>();
+                    const std::string current = c.mesh.IsValid() ? MeshName(assets, c.mesh)
+                                              : renderer && renderer->mesh.IsValid() ? "Mesh Renderer's (" + MeshName(assets, renderer->mesh) + ")"
+                                              : std::string("None");
+                    if (ImGui::BeginCombo("Mesh", current.c_str()))
+                    {
+                        if (ImGui::Selectable("Mesh Renderer's", !c.mesh.IsValid()))
+                        {
+                            c.mesh = AssetHandle<IMesh>();
+                            changed = true;
+                        }
+                        assets.ForEach<IMesh>([&](AssetID id, IMesh& mesh) {
+                            if (!mesh.collision)
+                                return;
+                            const AssetMetadata* meta = assets.GetMetadata(id);
+                            ImGui::PushID(&mesh);
+                            if (ImGui::Selectable(meta ? meta->name.c_str() : "(unnamed)", c.mesh.IsValid() && c.mesh.GetID() == id))
+                            {
+                                c.mesh = assets.LoadAsset<IMesh>(id);
+                                changed = true;
+                            }
+                            ImGui::PopID();
+                        });
+                        ImGui::EndCombo();
+                    }
+                    changed |= ImGui::Checkbox("Convex", &c.convex);
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Collide as the convex hull of the mesh (the only way it can be dynamic)");
+                    if (const IMesh* mesh = ColliderMesh(entity, c))
+                    {
+                        if (mesh->collision)
+                            ImGui::TextDisabled("%zu triangles, %zu vertices", mesh->collision->triangles.size() / 3, mesh->collision->positions.size());
+                        else
+                            ImGui::TextDisabled("This mesh has no triangles to collide with");
+                    }
+                    const RigidBody* body = entity.TryGet<RigidBody>();
+                    if (!c.convex && body && body->motion == MotionType::Dynamic)
+                        ImGui::TextDisabled("Used as a convex hull on a dynamic body");
+                    changed |= DrawColliderCommon(c);
+                    return changed;
+                });
+            }
+            ImGui::PopID();
+        });
+
         inspector.AddComponentOption({ "Physics", "Rigid Body",
             [](Entity e) { return !e.TryGet<RigidBody>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Rigid Body", RigidBody{}); } });
@@ -443,6 +496,20 @@ namespace PhysicsEditor
         inspector.AddComponentOption({ "Physics", "Cylinder Collider",
             [](Entity e) { return !e.TryGet<CylinderCollider>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Cylinder Collider", CylinderCollider{}); } });
+        inspector.AddComponentOption({ "Physics", "Mesh Collider",
+            [](Entity e) { return !e.TryGet<MeshCollider>(); },
+            [&undo](Entity e) { AddWithUndo(undo, e, "Mesh Collider", MeshCollider{}); } });
+        // A model made solid at once (a level, say): a mesh collider on everything with a mesh.
+        inspector.AddComponentOption({ "Physics", "Mesh Colliders on Children",
+            [](Entity e) { return !WithoutMeshColliders(e).empty(); },
+            [&undo](Entity e) {
+                const std::vector<Entity> targets = WithoutMeshColliders(e);
+                for (Entity target : targets)
+                    target.Add<MeshCollider>(MeshCollider{});
+                undo.Push("Add Mesh Colliders",
+                    [targets]() mutable { for (Entity t : targets) if (t.IsValid()) t.Remove<MeshCollider>(); },
+                    [targets]() mutable { for (Entity t : targets) if (t.IsValid() && !t.TryGet<MeshCollider>()) t.Add<MeshCollider>(MeshCollider{}); });
+            } });
     }
 
     void DrawColliders(const Scene& scene, Entity selected, bool all, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize)
@@ -467,6 +534,30 @@ namespace PhysicsEditor
             scene.ForEachDescendant(selected, draw);
         }
     }
+
+    void DrawDebugLines(const std::vector<DebugLine>& lines, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize)
+    {
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        constexpr float kNear = 1e-3f;
+        for (const DebugLine& line : lines)
+        {
+            glm::vec4 a = viewProj * glm::vec4(line.from, 1.0f);
+            glm::vec4 b = viewProj * glm::vec4(line.to, 1.0f);
+            if (a.w < kNear && b.w < kNear)
+                continue;
+            if (a.w < kNear)
+                a = glm::mix(a, b, (kNear - a.w) / (b.w - a.w));
+            else if (b.w < kNear)
+                b = glm::mix(b, a, (kNear - b.w) / (a.w - b.w));
+            const glm::vec2 na = glm::vec2(a) / a.w, nb = glm::vec2(b) / b.w;
+            // Lines wholly off one side of the image aren't drawn.
+            if ((na.x < -1.0f && nb.x < -1.0f) || (na.x > 1.0f && nb.x > 1.0f) || (na.y < -1.0f && nb.y < -1.0f) || (na.y > 1.0f && nb.y > 1.0f))
+                continue;
+            const ImVec2 sa(imageMin.x + (na.x * 0.5f + 0.5f) * imageSize.x, imageMin.y + (0.5f - na.y * 0.5f) * imageSize.y);
+            const ImVec2 sb(imageMin.x + (nb.x * 0.5f + 0.5f) * imageSize.x, imageMin.y + (0.5f - nb.y * 0.5f) * imageSize.y);
+            drawList->AddLine(sa, sb, line.color | IM_COL32(0, 0, 0, 255), 1.0f);
+        }
+    }
 }
 
 PhysicsWindow::PhysicsWindow(GUI& gui, PhysicsWorld& world, std::filesystem::path settingsFile)
@@ -486,6 +577,23 @@ void PhysicsWindow::Draw()
 
         ImGui::Checkbox("Show all colliders", &showAllColliders);
         ImGui::TextDisabled("%zu bodies, %zu moving", m_World.BodyCount(), m_World.ActiveBodyCount());
+
+        ImGui::SeparatorText("Debug view (while playing)");
+        ImGui::Checkbox("Draw the simulation", &debugDraw);
+        if (debugDraw)
+        {
+            PhysicsDebugDraw& d = debugDrawSettings;
+            ImGui::Checkbox("Shapes", &d.shapes);
+            ImGui::SameLine();
+            ImGui::Checkbox("Awake / asleep colours", &d.sleepColors);
+            ImGui::Checkbox("Contacts", &d.contacts);
+            ImGui::SameLine();
+            ImGui::Checkbox("Velocities", &d.velocities);
+            ImGui::Checkbox("Centers of mass", &d.centerOfMass);
+            ImGui::SameLine();
+            ImGui::Checkbox("Bounding boxes", &d.boundingBoxes);
+            ImGui::TextDisabled("%zu lines%s", debugLines, debugLines >= d.maxLines ? " (the most drawn)" : "");
+        }
 
         ImGui::SeparatorText("Simulation");
         changed |= ImGui::DragFloat3("Gravity", glm::value_ptr(settings.gravity), 0.05f);
