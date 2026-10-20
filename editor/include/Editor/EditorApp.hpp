@@ -79,6 +79,10 @@ class EditorApp : public Application
         // A static ground (30 m across) under where shapes spawn, and a tower of dynamic boxes on it.
         Entity SpawnGround();
         void SpawnBoxStack();
+        // A drivable car, motorcycle or tank (with a chase camera if the scene has none), and a
+        // ground with ramps to drive on.
+        Entity SpawnVehicle(VehicleType type);
+        Entity SpawnPlayground();
         // A camera where the editor camera is, looking the same way.
         Entity SpawnCamera();
 

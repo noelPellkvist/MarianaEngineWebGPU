@@ -2,10 +2,13 @@
 #include <Mariana/Physics/Components.hpp>
 #include <Mariana/Physics/PhysicsSettings.hpp>
 #include <Mariana/Physics/Queries.hpp>
+#include <Mariana/Physics/Vehicle.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
 #include <memory>
 #include <vector>
+
+class IInput;
 
 // What the simulation has for an entity's body (PhysicsWorld::GetBodyInfo).
 struct BodyInfo
@@ -68,7 +71,8 @@ public:
     PhysicsWorld(const PhysicsWorld&) = delete;
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
 
-    // RigidBody and the colliders; call before Scene::UpdateComponentRegistry.
+    // RigidBody, the colliders, Vehicle, VehicleWheel, PlayerControl and FollowCamera; call before
+    // Scene::UpdateComponentRegistry.
     static void RegisterComponents();
 
     const PhysicsSettings& Settings() const;
@@ -116,6 +120,12 @@ public:
     // Contacts that began or ended during the last Step call.
     const std::vector<ContactEvent>& Events() const;
     bool IsTouching(Entity a, Entity b) const;
+
+    // A vehicle's state while it runs (false when the entity has none).
+    bool GetVehicleInfo(Entity entity, VehicleInfo& info) const;
+    // Sets the Vehicle inputs of every entity with a PlayerControl from the keyboard (call each frame
+    // before Step, with the game time, while the player may drive).
+    void UpdatePlayerControls(const IInput& input, float dt);
 
     // Lines picturing the simulation, added to `lines`.
     void DebugDraw(const PhysicsDebugDraw& settings, std::vector<DebugLine>& lines);

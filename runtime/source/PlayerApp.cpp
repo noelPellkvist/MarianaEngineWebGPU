@@ -9,6 +9,7 @@
 #include <Mariana/Importers/AnimationGraphFile.hpp>
 #include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
+#include <Mariana/Physics/VehiclePresets.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
@@ -22,6 +23,7 @@
 #include <functional>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace
 {
@@ -54,6 +56,9 @@ bool PlayerConfig::Load(const std::string& path, PlayerConfig& out, std::string&
             out.cameraPosition = ReadVec3(*camera, "position", out.cameraPosition);
             out.cameraTarget = ReadVec3(*camera, "target", out.cameraTarget);
             out.orbitSpeed = camera->value("orbitSpeed", out.orbitSpeed);
+            out.follow = camera->value("follow", out.follow);
+            out.chase.distance = camera->value("distance", out.chase.distance);
+            out.chase.height = camera->value("height", out.chase.height);
         }
         if (const auto spawns = file.find("spawn"); spawns != file.end() && spawns->is_array())
         {
@@ -62,6 +67,7 @@ bool PlayerConfig::Load(const std::string& path, PlayerConfig& out, std::string&
                 Spawn spawn;
                 spawn.prefab = entry.value("prefab", std::string());
                 spawn.primitive = entry.value("primitive", std::string());
+                spawn.preset = entry.value("preset", std::string());
                 spawn.color = ReadVec3(entry, "color", spawn.color);
                 spawn.position = ReadVec3(entry, "position", spawn.position);
                 spawn.rotation = ReadVec3(entry, "rotation", spawn.rotation);
@@ -81,7 +87,7 @@ bool PlayerConfig::Load(const std::string& path, PlayerConfig& out, std::string&
                     p.bounciness = physics->value("bounciness", p.bounciness);
                     p.velocity = ReadVec3(*physics, "velocity", p.velocity);
                 }
-                if (!spawn.prefab.empty() || !spawn.primitive.empty())
+                if (!spawn.prefab.empty() || !spawn.primitive.empty() || !spawn.preset.empty())
                     out.spawns.push_back(spawn);
             }
         }
@@ -165,15 +171,8 @@ Entity PlayerApp::SpawnPrimitive(const PlayerConfig::Spawn& spawn)
     };
     for (const auto& [name, shape] : kShapes)
     {
-        if (spawn.primitive != name)
-            continue;
-        auto material = std::make_shared<MaterialAsset>();
-        material->properties.baseColor = glm::vec4(spawn.color, 1.0f);
-        material->MarkDirty();
-        AssetHandle<MaterialAsset> handle = assets.RegisterAsset<MaterialAsset>(material, AssetType::Material, spawn.primitive + " Material");
-        Entity entity = scene.Instantiate(spawn.primitive.c_str());
-        entity.Add<MeshComponent>(MeshComponent{ BuiltinAssets::PrimitiveMesh(assets, shape), { handle } }).AddTag<ShadowCasterTag>();
-        return entity;
+        if (spawn.primitive == name)
+            return BuiltinAssets::InstantiatePrimitive(scene, assets, shape, name, spawn.color);
     }
     return {};
 }
@@ -238,6 +237,20 @@ void PlayerApp::OnStart()
     for (const PlayerConfig::Spawn& spawn : config.spawns)
     {
         Entity root;
+        if (!spawn.preset.empty())
+        {
+            const glm::quat turn = glm::quat(glm::radians(spawn.rotation));
+            if (spawn.preset == "car" || spawn.preset == "motorcycle" || spawn.preset == "tank")
+            {
+                const VehicleType type = spawn.preset == "car" ? VehicleType::Wheeled : spawn.preset == "motorcycle" ? VehicleType::Motorcycle : VehicleType::Tracked;
+                VehiclePresets::Spawn(scene, assets, type, spawn.position, turn);
+            }
+            else if (spawn.preset == "playground")
+                VehiclePresets::SpawnPlayground(scene, assets, spawn.position);
+            else
+                Logger::Error("Unknown preset " + spawn.preset);
+            continue;
+        }
         if (!spawn.primitive.empty())
         {
             root = SpawnPrimitive(spawn);
@@ -282,7 +295,26 @@ void PlayerApp::OnStart()
 void PlayerApp::OnUpdate(float deltaTime)
 {
     animationSystem.Run(gameClock.DeltaTime());
+    physics->UpdatePlayerControls(input, gameClock.DeltaTime());
     physics->Step(gameClock.DeltaTime());
+    UpdateFollowCameras(scene, gameClock.DeltaTime());
+
+    // The camera chases the driven vehicle.
+    if (config.follow)
+    {
+        Entity driven;
+        std::function<void(Entity)> find = [&](Entity e) {
+            if (!driven.IsValid() && e.TryGet<PlayerControl>())
+                driven = e;
+            e.ForEachChild(find);
+        };
+        scene.ForEachRoot([&](Entity root) { find(root); });
+        if (const WorldXform* world = driven.IsValid() ? driven.TryGet<WorldXform>() : nullptr)
+        {
+            chase.Update(glm::make_mat4(world->model), config.chase, deltaTime);
+            static_cast<PlayerCamera*>(cam.get())->Place(chase.position, chase.lookAt);
+        }
+    }
 }
 
 void PlayerApp::OnRender()

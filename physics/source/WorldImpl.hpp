@@ -3,6 +3,7 @@
 // DebugDraw.cpp read it).
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/ColliderGeometry.hpp>
+#include <Mariana/Physics/Vehicle.hpp>
 
 #include "JoltCommon.hpp"
 #include "Shapes.hpp"
@@ -11,6 +12,7 @@
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Collision/ContactListener.h>
 #include <Jolt/Physics/PhysicsSystem.h>
+#include <Jolt/Physics/Vehicle/VehicleConstraint.h>
 
 #include <memory>
 #include <mutex>
@@ -114,6 +116,31 @@ struct PhysicsWorld::Impl
 
     // Two bodies in contact: the sub-shape pairs touching, and those Jolt stopped reporting because
     // a body fell asleep (still touching; dropped when it wakes up and the contact isn't found again).
+    // A vehicle constraint on a chassis body, and the wheels it moves.
+    struct VehicleRecord
+    {
+        struct Wheel
+        {
+            uint64_t entity = 0;
+            JPH::Vec3 modelRight = JPH::Vec3::sAxisX(), modelUp = JPH::Vec3::sAxisY(); // the wheel entity's axes that map to the axle and up
+        };
+        JPH::Ref<JPH::VehicleConstraint> constraint;
+        JPH::BodyID body;
+        VehicleType type = VehicleType::Wheeled;
+        uint64_t signature = 0;
+        std::vector<Wheel> wheels;
+        bool seen = false;
+    };
+
+    // Where a wheel entity sits when its suspension is fully out: its LocalTRS before the vehicle
+    // moved it (and the version it left), so its own moves are told apart from the edits of others.
+    struct WheelRest
+    {
+        glm::vec3 position{ 0.0f };
+        glm::quat rotation{ 1.0f, 0.0f, 0.0f, 0.0f };
+        uint32_t writtenVersion = ~0u;
+    };
+
     struct Touching
     {
         JPH::BodyID body1, body2;
@@ -145,6 +172,8 @@ struct PhysicsWorld::Impl
     std::unordered_map<uint64_t, Touching> touching; // per BodyPairKey
     std::vector<ContactEvent> events;
     std::unordered_set<uint64_t> warnedDynamicMesh;
+    std::unordered_map<uint64_t, VehicleRecord> vehicles; // per chassis entity
+    std::unordered_map<uint64_t, WheelRest> wheelRests;   // per wheel entity
     // Debug drawing of contacts: wanted by the last DebugDraw call, drawn by Jolt during steps.
     bool drawContacts = false;
     size_t maxContactLines = 0;
@@ -162,6 +191,10 @@ struct PhysicsWorld::Impl
     void Sync();
     void MoveKinematics(float dt);
     void ApplyPending(bool impulses);
+    void SyncVehicles();
+    void RemoveVehicle(VehicleRecord& record);
+    void DriveVehicles();
+    void WriteWheels();
     void ProcessContacts();
     void WriteBack();
     void Step(float dt);

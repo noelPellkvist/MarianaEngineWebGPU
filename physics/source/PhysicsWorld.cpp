@@ -1,12 +1,14 @@
 #include "WorldImpl.hpp"
 
 #include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Physics/Controllers.hpp>
 
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/JobSystemSingleThreaded.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyLock.h>
+#include <Jolt/Physics/Collision/Shape/OffsetCenterOfMassShape.h>
 #include <Jolt/RegisterTypes.h>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -106,6 +108,7 @@ namespace
         h.Add(b.allowSleeping);
         h.Add(b.lockedAxes);
         h.Add(b.layer);
+        h.Add(b.centerOfMass);
     }
 
     JPH::EMotionType ToJolt(MotionType motion)
@@ -280,6 +283,10 @@ void PhysicsWorld::Impl::RemoveBody(JPH::BodyID& id)
 
 void PhysicsWorld::Impl::RemoveAll()
 {
+    for (auto& [id, vehicle] : vehicles)
+        RemoveVehicle(vehicle);
+    vehicles.clear();
+    wheelRests.clear();
     for (auto& [id, record] : records)
     {
         RemoveBody(record.body);
@@ -303,6 +310,8 @@ void PhysicsWorld::Impl::Collect()
     candidates.clear();
     std::function<void(Entity, const glm::mat4&, const glm::vec3&, int, const glm::mat4&)> walk =
         [&](Entity e, const glm::mat4& parentWorld, const glm::vec3& parentScale, int owner, const glm::mat4& parentRelative) {
+            if (e.TryGet<VehicleWheel>())
+                return; // a vehicle's wheel (and what is on it) is no part of the chassis
             const LocalTRS* trs = e.TryGet<LocalTRS>();
             const glm::mat4 local = trs ? LocalMatrix(*trs) : glm::mat4(1.0f);
             const glm::mat4 world = parentWorld * local;
@@ -378,6 +387,14 @@ JPH::BodyID PhysicsWorld::Impl::Create(const Candidate& c, std::vector<ColliderG
     JPH::ShapeRefC shape = MakeShape(parts, shapes);
     if (!shape)
         return JPH::BodyID();
+    if (c.hasBody && motion == MotionType::Dynamic && c.body.centerOfMass != glm::vec3(0.0f))
+    {
+        JPH::OffsetCenterOfMassShapeSettings offset(PhysicsInternal::ToJolt(c.body.centerOfMass), shape);
+        offset.SetEmbedded();
+        const JPH::ShapeSettings::ShapeResult result = offset.Create();
+        if (result.IsValid())
+            shape = result.Get();
+    }
 
     JPH::BodyCreationSettings s(shape, PhysicsInternal::ToJolt(position), PhysicsInternal::ToJolt(rotation), ToJolt(motion), MakeLayer(c.hasBody ? c.body.layer : 0, motion != MotionType::Static));
     s.mUserData = c.owner.RawId();
@@ -456,6 +473,11 @@ void PhysicsWorld::Impl::Sync()
                 keepVelocity = true;
                 bodies.GetLinearAndAngularVelocity(found->second.body, linearVelocity, angularVelocity);
             }
+            if (auto vehicle = vehicles.find(c.owner.RawId()); vehicle != vehicles.end())
+            {
+                RemoveVehicle(vehicle->second); // made again on the new body below
+                vehicles.erase(vehicle);
+            }
             RemoveBody(found->second.body);
             RemoveBody(found->second.sensor);
             records.erase(found);
@@ -523,6 +545,11 @@ void PhysicsWorld::Impl::Sync()
             ++it;
             continue;
         }
+        if (auto vehicle = vehicles.find(it->first); vehicle != vehicles.end())
+        {
+            RemoveVehicle(vehicle->second);
+            vehicles.erase(vehicle);
+        }
         RemoveBody(it->second.body);
         RemoveBody(it->second.sensor);
         pending.erase(it->first);
@@ -531,6 +558,7 @@ void PhysicsWorld::Impl::Sync()
 
     if (created > 16)
         system->OptimizeBroadPhase();
+    SyncVehicles();
 }
 
 void PhysicsWorld::Impl::MoveKinematics(float dt)
@@ -711,6 +739,7 @@ void PhysicsWorld::Impl::Step(float dt)
         }
         MoveKinematics(step);
         ApplyPending(steps == 0);
+        DriveVehicles();
         system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
         ProcessContacts();
         accumulator -= step;
@@ -725,6 +754,7 @@ void PhysicsWorld::Impl::Step(float dt)
     {
         pending.clear();
         WriteBack();
+        WriteWheels();
     }
 }
 
@@ -756,6 +786,10 @@ void PhysicsWorld::RegisterComponents()
     ECS::RegisterComponent<CapsuleCollider>("CapsuleCollider");
     ECS::RegisterComponent<CylinderCollider>("CylinderCollider");
     ECS::RegisterComponent<MeshCollider>("MeshCollider");
+    ECS::RegisterComponent<Vehicle>("Vehicle");
+    ECS::RegisterComponent<VehicleWheel>("VehicleWheel");
+    ECS::RegisterComponent<PlayerControl>("PlayerControl");
+    ECS::RegisterComponent<FollowCamera>("FollowCamera");
 }
 
 PhysicsWorld::PhysicsWorld(Scene& scene, const PhysicsSettings& settings)

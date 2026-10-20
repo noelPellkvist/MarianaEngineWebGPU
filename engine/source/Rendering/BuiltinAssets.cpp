@@ -1,4 +1,5 @@
 #include <Mariana/Rendering/BuiltinAssets.hpp>
+#include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
 #include <Mariana/Geometry/Primitives.hpp>
 
@@ -69,5 +70,19 @@ namespace BuiltinAssets
         if (!mesh)
             return {};
         return assets.RegisterAsset<IMesh>(mesh, AssetType::Mesh, name, key);
+    }
+
+    Entity InstantiatePrimitive(Scene& scene, AssetManager2& assets, BuiltinMesh shape, const char* name, const glm::vec3& color)
+    {
+        AssetHandle<IMesh> mesh = PrimitiveMesh(assets, shape);
+        if (!mesh.IsValid())
+            return {};
+        auto material = std::make_shared<MaterialAsset>();
+        material->properties.baseColor = glm::vec4(color, 1.0f);
+        material->MarkDirty();
+        AssetHandle<MaterialAsset> handle = assets.RegisterAsset<MaterialAsset>(material, AssetType::Material, std::string(name) + " Material");
+        Entity entity = scene.Instantiate(name);
+        entity.Add<MeshComponent>(MeshComponent{ mesh, { handle } }).AddTag<ShadowCasterTag>();
+        return entity;
     }
 }

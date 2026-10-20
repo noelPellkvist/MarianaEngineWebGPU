@@ -14,7 +14,9 @@
 #include <Mariana/Scene/Prefab.hpp>
 #include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Physics/Components.hpp>
+#include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
+#include <Mariana/Physics/VehiclePresets.hpp>
 
 #include "ImGuizmo.h"
 
@@ -160,20 +162,14 @@ void EditorApp::SpawnPrefab(const fs::path& path)
 
 Entity EditorApp::SpawnPrimitive(BuiltinMesh shape, const char* name)
 {
-    AssetHandle<IMesh> mesh = BuiltinAssets::PrimitiveMesh(assets, shape);
-    if (!mesh.IsValid())
+    Entity spawned = BuiltinAssets::InstantiatePrimitive(scene, assets, shape, name);
+    if (!spawned.IsValid())
         return {};
-
-    // Each spawned shape gets its own material, so editing one leaves the others alone.
-    AssetHandle<MaterialAsset> material = assets.RegisterAsset<MaterialAsset>(std::make_shared<MaterialAsset>(), AssetType::Material, std::string(name) + " Material");
 
     // A few metres in front of the camera.
     const CameraInfo info = cam->GetCameraInfo();
     const glm::vec3 position = info.pos + glm::normalize(glm::vec3(info.invView[2])) * 5.0f;
-
-    Entity spawned = scene.Instantiate(name);
     spawned.SetPosition(position.x, position.y, position.z);
-    spawned.Add<MeshComponent>(MeshComponent{ mesh, { material } }).AddTag<ShadowCasterTag>();
     scene.Update(0.0f);
     DeselectEntity();
     SelectEntity(spawned.RawId());
@@ -226,6 +222,45 @@ void EditorApp::SpawnBoxStack()
         box.SetRotationQuat(turn.x, turn.y, turn.z, turn.w);
     }
     scene.Update(0.0f);
+}
+
+Entity EditorApp::SpawnVehicle(VehicleType type)
+{
+    // In front of the camera on the ground (or whatever is below), facing away from it.
+    const CameraInfo info = cam->GetCameraInfo();
+    glm::vec3 forward = glm::vec3(info.invView[2]);
+    forward.y = 0.0f;
+    forward = glm::length(forward) > 1e-4f ? glm::normalize(forward) : glm::vec3(0.0f, 0.0f, 1.0f);
+    glm::vec3 position = info.pos + forward * 8.0f;
+    position.y = 1.5f;
+    const glm::quat facing = glm::angleAxis(std::atan2(forward.x, forward.z), glm::vec3(0.0f, 1.0f, 0.0f));
+    Entity vehicle = VehiclePresets::Spawn(scene, assets, type, position, facing);
+
+    // A chase camera for the Game view, unless the scene has one.
+    bool following = false;
+    scene.ForEachRoot([&](Entity root) {
+        if (root.TryGet<FollowCamera>())
+            following = true;
+        scene.ForEachDescendant(root, [&](Entity e) { if (e.TryGet<FollowCamera>()) following = true; });
+    });
+    if (!following)
+    {
+        Entity camera = SpawnCamera();
+        camera.Add<FollowCamera>(FollowCamera{});
+        camera.SetName("Chase Camera");
+    }
+    scene.Update(0.0f);
+    DeselectEntity();
+    SelectEntity(vehicle.RawId());
+    return vehicle;
+}
+
+Entity EditorApp::SpawnPlayground()
+{
+    const CameraInfo info = cam->GetCameraInfo();
+    Entity playground = VehiclePresets::SpawnPlayground(scene, assets, glm::vec3(info.pos.x, 0.0f, info.pos.z));
+    scene.Update(0.0f);
+    return playground;
 }
 
 Entity EditorApp::SpawnCamera()
@@ -399,7 +434,13 @@ void EditorApp::OnUpdate(float deltaTime)
     // propagated once, in OnRender.
     animationSystem.Run(gameClock.DeltaTime());
     if (gameClock.IsPlaying())
+    {
+        // The keys drive the game unless something else has them (typing, flying the editor camera).
+        if (!ImGui::GetIO().WantTextInput && !input.IsMouseButtonDown(MouseButton::Right))
+            physics->UpdatePlayerControls(input, gameClock.DeltaTime());
         physics->Step(gameClock.DeltaTime());
+        UpdateFollowCameras(scene, gameClock.DeltaTime());
+    }
 
     sceneCameras.clear();
     cameraSystem.Run();
@@ -699,6 +740,15 @@ void EditorApp::DrawTopMenu()
                 if (ImGui::MenuItem("Static Cube")) SpawnPhysicsShape(BuiltinMesh::Cube, "Static Cube", false);
                 if (ImGui::MenuItem("Ground")) SpawnGround();
                 if (ImGui::MenuItem("Box Stack")) SpawnBoxStack();
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Vehicle"))
+            {
+                if (ImGui::MenuItem("Car")) SpawnVehicle(VehicleType::Wheeled);
+                if (ImGui::MenuItem("Motorcycle")) SpawnVehicle(VehicleType::Motorcycle);
+                if (ImGui::MenuItem("Tank")) SpawnVehicle(VehicleType::Tracked);
+                ImGui::Separator();
+                if (ImGui::MenuItem("Playground")) SpawnPlayground();
                 ImGui::EndMenu();
             }
             ImGui::EndMenu();

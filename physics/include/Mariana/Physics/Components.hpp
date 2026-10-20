@@ -33,6 +33,7 @@ struct RigidBody
     uint32_t layer = 0;           // index into PhysicsSettings::layers
     glm::vec3 startVelocity{ 0.0f };        // world space m/s, given when the body is made
     glm::vec3 startAngularVelocity{ 0.0f }; // world space rad/s
+    glm::vec3 centerOfMass{ 0.0f };         // moves the colliders' center of mass (body space; low = steadier cars)
 };
 
 // What every collider has: where it sits on its entity (scaled with it) and how its surface acts.

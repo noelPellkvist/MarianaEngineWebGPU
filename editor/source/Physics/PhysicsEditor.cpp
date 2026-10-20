@@ -5,6 +5,7 @@
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Graphics/Mesh.hpp>
 #include <Mariana/Physics/ColliderGeometry.hpp>
+#include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <imgui.h>
@@ -205,6 +206,21 @@ namespace
         }
     };
 
+    // A vehicle wheel: its tyre's circle and edges where it hangs, and the suspension travel up from it.
+    void DrawWheel(const Painter& painter, const glm::mat4& world, const VehicleWheel& w)
+    {
+        const ImU32 color = IM_COL32(255, 200, 80, 230);
+        const glm::vec3 center(world[3]);
+        // The axle is the wheel's X; its up the Y.
+        const glm::vec3 axle = glm::normalize(glm::vec3(world[0])), up = glm::normalize(glm::vec3(world[1])), forward = glm::normalize(glm::vec3(world[2]));
+        const float twoPi = glm::two_pi<float>();
+        for (float side : { -0.5f, 0.5f })
+            painter.Arc(center + axle * (side * w.width), up, forward, w.radius, 0.0f, twoPi, color, 32);
+        for (const glm::vec3& edge : { up, -up, forward, -forward })
+            painter.Line(center + edge * w.radius - axle * (0.5f * w.width), center + edge * w.radius + axle * (0.5f * w.width), color);
+        painter.Line(center, center + up * (w.suspensionMax - w.suspensionMin), IM_COL32(255, 120, 60, 230));
+    }
+
     void DrawGeometry(const Painter& painter, const ColliderGeometry& g)
     {
         const ImU32 color = g.collider->isTrigger ? IM_COL32(90, 210, 255, 220) : IM_COL32(110, 235, 130, 220);
@@ -335,6 +351,9 @@ namespace PhysicsEditor
                         }
                         changed |= DragVec3("Start Velocity", b.startVelocity, 0.05f);
                         changed |= DragVec3("Start Spin", b.startAngularVelocity, 0.05f);
+                        changed |= DragVec3("Center of Mass", b.centerOfMass, 0.01f);
+                        if (ImGui::IsItemHovered())
+                            ImGui::SetTooltip("Moves the center of mass (body space); lower makes vehicles steadier");
                     }
 
                     const std::vector<std::string>& layers = world.Settings().layers;
@@ -481,6 +500,149 @@ namespace PhysicsEditor
             ImGui::PopID();
         });
 
+        inspector.SetComponentDrawer("Vehicle", [&inspector, &undo, &world](Entity& entity) {
+            ImGui::PushID("Vehicle");
+            if (Section<Vehicle>(inspector, undo, entity, "Vehicle"))
+            {
+                EditComponent<Vehicle>(entity, undo, "Edit Vehicle", [&](Vehicle& v) {
+                    bool changed = false;
+                    const char* types[] = { "Wheeled", "Motorcycle", "Tracked" };
+                    int type = static_cast<int>(v.type);
+                    if (ImGui::Combo("Type", &type, types, 3)) { v.type = static_cast<VehicleType>(type); changed = true; }
+                    const char* collisions[] = { "Ray", "Sphere", "Cylinder" };
+                    int collision = static_cast<int>(v.collision);
+                    if (ImGui::Combo("Wheel Collision", &collision, collisions, 3)) { v.collision = static_cast<WheelCollision>(collision); changed = true; }
+                    if (v.type == VehicleType::Wheeled)
+                    {
+                        const char* drives[] = { "Front", "Rear", "All" };
+                        int drive = static_cast<int>(v.drive);
+                        if (ImGui::Combo("Drive", &drive, drives, 3)) { v.drive = static_cast<VehicleDrive>(drive); changed = true; }
+                    }
+                    if (ImGui::TreeNode("Engine and Gearbox"))
+                    {
+                        changed |= ImGui::DragFloat("Torque", &v.engineTorque, 5.0f, 0.0f, 20000.0f, "%.0f Nm");
+                        changed |= ImGui::DragFloat("Min RPM", &v.minRPM, 10.0f, 1.0f, 30000.0f, "%.0f");
+                        changed |= ImGui::DragFloat("Max RPM", &v.maxRPM, 10.0f, 1.0f, 30000.0f, "%.0f");
+                        changed |= ImGui::Checkbox("Automatic", &v.automatic);
+                        if (v.automatic)
+                        {
+                            changed |= ImGui::DragFloat("Shift Up RPM", &v.shiftUpRPM, 10.0f, 0.0f, 30000.0f, "%.0f");
+                            changed |= ImGui::DragFloat("Shift Down RPM", &v.shiftDownRPM, 10.0f, 0.0f, 30000.0f, "%.0f");
+                        }
+                        changed |= ImGui::DragFloat("Clutch", &v.clutchStrength, 0.1f, 0.0f, 100.0f, "%.1f");
+                        for (size_t i = 0; i < v.gearRatios.size(); ++i)
+                        {
+                            ImGui::PushID(static_cast<int>(i));
+                            changed |= ImGui::DragFloat(("Gear " + std::to_string(i + 1)).c_str(), &v.gearRatios[i], 0.01f, 0.05f, 20.0f, "%.2f");
+                            ImGui::PopID();
+                        }
+                        if (ImGui::SmallButton("+ Gear")) { v.gearRatios.push_back(v.gearRatios.empty() ? 1.0f : v.gearRatios.back() * 0.8f); changed = true; }
+                        ImGui::SameLine();
+                        if (v.gearRatios.size() > 1 && ImGui::SmallButton("- Gear")) { v.gearRatios.pop_back(); changed = true; }
+                        changed |= ImGui::DragFloat("Reverse", &v.reverseRatio, 0.01f, -20.0f, -0.05f, "%.2f");
+                        changed |= ImGui::DragFloat("Final Drive", &v.differentialRatio, 0.01f, 0.1f, 50.0f, "%.2f");
+                        ImGui::TreePop();
+                    }
+                    if (v.type != VehicleType::Tracked)
+                        changed |= ImGui::DragFloat("Limited Slip", &v.limitedSlipRatio, 0.01f, 0.0f, 10.0f, v.limitedSlipRatio > 1.0f ? "%.2f" : "open");
+                    if (v.type == VehicleType::Wheeled)
+                        changed |= ImGui::DragFloat("Anti-roll", &v.antiRollStiffness, 10.0f, 0.0f, 100000.0f, "%.0f N/m");
+                    if (v.type == VehicleType::Motorcycle)
+                        changed |= ImGui::SliderFloat("Max Lean", &v.maxLeanAngle, 0.0f, 80.0f, "%.0f deg");
+                    changed |= ImGui::SliderFloat("Max Tilt", &v.maxPitchRollAngle, 0.0f, 180.0f, "%.0f deg");
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("How far it may pitch or roll before it is held up (180 = never)");
+
+                    ImGui::SeparatorText("Driver");
+                    changed |= ImGui::SliderFloat("Throttle", &v.throttle, -1.0f, 1.0f, "%.2f");
+                    changed |= ImGui::SliderFloat("Steering", &v.steering, -1.0f, 1.0f, "%.2f");
+                    changed |= ImGui::SliderFloat("Brake", &v.brake, 0.0f, 1.0f, "%.2f");
+                    changed |= ImGui::SliderFloat("Hand Brake", &v.handBrake, 0.0f, 1.0f, "%.2f");
+                    if (!v.automatic)
+                        changed |= ImGui::SliderInt("Gear", &v.gear, -1, static_cast<int>(v.gearRatios.size()));
+                    return changed;
+                });
+                VehicleInfo info;
+                if (world.GetVehicleInfo(entity, info))
+                {
+                    ImGui::TextDisabled("%.0f km/h, %.0f rpm, gear %d", info.speed * 3.6f, info.rpm, info.gear);
+                    for (size_t i = 0; i < info.wheels.size(); ++i)
+                    {
+                        const VehicleInfo::Wheel& w = info.wheels[i];
+                        ImGui::TextDisabled("  wheel %zu: %s, suspension %.0f%%, steer %.0f, slip %.2f / %.0f deg", i + 1, w.contact ? "on ground" : "in air",
+                                            w.suspension * 100.0f, w.steerAngle, w.longitudinalSlip, w.lateralSlip);
+                    }
+                }
+                else
+                {
+                    ImGui::TextDisabled("Drives while playing (needs a dynamic Rigid Body and Vehicle Wheels below)");
+                }
+            }
+            ImGui::PopID();
+        });
+
+        inspector.SetComponentDrawer("VehicleWheel", [&inspector, &undo](Entity& entity) {
+            ImGui::PushID("VehicleWheel");
+            if (Section<VehicleWheel>(inspector, undo, entity, "Vehicle Wheel"))
+            {
+                EditComponent<VehicleWheel>(entity, undo, "Edit Vehicle Wheel", [&](VehicleWheel& w) {
+                    bool changed = false;
+                    changed |= ImGui::DragFloat("Radius", &w.radius, 0.005f, 0.01f, 5.0f, "%.3f m");
+                    changed |= ImGui::DragFloat("Width", &w.width, 0.005f, 0.01f, 5.0f, "%.3f m");
+                    changed |= ImGui::DragFloat("Suspension Min", &w.suspensionMin, 0.005f, 0.0f, 5.0f, "%.3f m");
+                    changed |= ImGui::DragFloat("Suspension Max", &w.suspensionMax, 0.005f, 0.0f, 5.0f, "%.3f m");
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Travel from the attachment point; the wheel's place is where it hangs at the max");
+                    changed |= ImGui::DragFloat("Spring", &w.suspensionFrequency, 0.01f, 0.01f, 20.0f, "%.2f Hz");
+                    changed |= ImGui::DragFloat("Damping", &w.suspensionDamping, 0.01f, 0.0f, 5.0f, "%.2f");
+                    changed |= ImGui::SliderFloat("Max Steer", &w.maxSteerAngle, 0.0f, 89.0f, "%.0f deg");
+                    changed |= ImGui::SliderFloat("Caster", &w.casterAngle, -60.0f, 60.0f, "%.0f deg");
+                    changed |= ImGui::DragFloat("Brake", &w.maxBrakeTorque, 10.0f, 0.0f, 100000.0f, "%.0f Nm");
+                    changed |= ImGui::DragFloat("Hand Brake", &w.maxHandBrakeTorque, 10.0f, 0.0f, 100000.0f, "%.0f Nm");
+                    changed |= ImGui::DragFloat("Grip", &w.grip, 0.01f, 0.0f, 10.0f, "%.2f");
+                    return changed;
+                });
+            }
+            ImGui::PopID();
+        });
+
+        inspector.SetComponentDrawer("PlayerControl", [&inspector, &undo](Entity& entity) {
+            ImGui::PushID("PlayerControl");
+            if (Section<PlayerControl>(inspector, undo, entity, "Player Control"))
+            {
+                EditComponent<PlayerControl>(entity, undo, "Edit Player Control", [&](PlayerControl& c) {
+                    bool changed = ImGui::Checkbox("Enabled", &c.enabled);
+                    changed |= ImGui::DragFloat("Steer Speed", &c.steerSpeed, 0.05f, 0.1f, 20.0f, "%.2f");
+                    return changed;
+                });
+                ImGui::TextDisabled("W/S or Up/Down drive, A/D or Left/Right steer, Space hand brake");
+            }
+            ImGui::PopID();
+        });
+
+        inspector.SetComponentDrawer("FollowCamera", [&inspector, &undo](Entity& entity) {
+            ImGui::PushID("FollowCamera");
+            if (Section<FollowCamera>(inspector, undo, entity, "Follow Camera"))
+            {
+                EditComponent<FollowCamera>(entity, undo, "Edit Follow Camera", [&](FollowCamera& c) {
+                    char target[128] = {};
+                    std::snprintf(target, sizeof(target), "%s", c.target.c_str());
+                    bool changed = false;
+                    if (ImGui::InputTextWithHint("Target", "the player-controlled one", target, sizeof(target)))
+                    {
+                        c.target = target;
+                        changed = true;
+                    }
+                    changed |= ImGui::DragFloat("Distance", &c.distance, 0.05f, 0.0f, 500.0f, "%.2f m");
+                    changed |= ImGui::DragFloat("Height", &c.height, 0.05f, -100.0f, 100.0f, "%.2f m");
+                    changed |= ImGui::DragFloat("Look Height", &c.lookHeight, 0.05f, -100.0f, 100.0f, "%.2f m");
+                    changed |= ImGui::DragFloat("Stiffness", &c.stiffness, 0.05f, 0.0f, 100.0f, "%.2f");
+                    return changed;
+                });
+            }
+            ImGui::PopID();
+        });
+
         inspector.AddComponentOption({ "Physics", "Rigid Body",
             [](Entity e) { return !e.TryGet<RigidBody>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Rigid Body", RigidBody{}); } });
@@ -499,6 +661,18 @@ namespace PhysicsEditor
         inspector.AddComponentOption({ "Physics", "Mesh Collider",
             [](Entity e) { return !e.TryGet<MeshCollider>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Mesh Collider", MeshCollider{}); } });
+        inspector.AddComponentOption({ "Vehicles", "Vehicle",
+            [](Entity e) { return !e.TryGet<Vehicle>(); },
+            [&undo](Entity e) { AddWithUndo(undo, e, "Vehicle", Vehicle{}); } });
+        inspector.AddComponentOption({ "Vehicles", "Vehicle Wheel",
+            [](Entity e) { return !e.TryGet<VehicleWheel>(); },
+            [&undo](Entity e) { AddWithUndo(undo, e, "Vehicle Wheel", VehicleWheel{}); } });
+        inspector.AddComponentOption({ "Vehicles", "Player Control",
+            [](Entity e) { return !e.TryGet<PlayerControl>(); },
+            [&undo](Entity e) { AddWithUndo(undo, e, "Player Control", PlayerControl{}); } });
+        inspector.AddComponentOption({ "Vehicles", "Follow Camera",
+            [](Entity e) { return !e.TryGet<FollowCamera>(); },
+            [&undo](Entity e) { AddWithUndo(undo, e, "Follow Camera", FollowCamera{}); } });
         // A model made solid at once (a level, say): a mesh collider on everything with a mesh.
         inspector.AddComponentOption({ "Physics", "Mesh Colliders on Children",
             [](Entity e) { return !WithoutMeshColliders(e).empty(); },
@@ -517,9 +691,15 @@ namespace PhysicsEditor
         const Painter painter{ ImGui::GetWindowDrawList(), viewProj, imageMin, imageSize };
         auto draw = [&](Entity entity) {
             const WorldXform* world = entity.TryGet<WorldXform>();
-            if (!world || !HasCollider(entity))
+            if (!world)
                 return;
-            ForEachCollider(entity, glm::make_mat4(world->model), [&](const ColliderGeometry& g) { DrawGeometry(painter, g); });
+            if (const VehicleWheel* wheel = entity.TryGet<VehicleWheel>())
+            {
+                DrawWheel(painter, glm::make_mat4(world->model), *wheel);
+                return;
+            }
+            if (HasCollider(entity))
+                ForEachCollider(entity, glm::make_mat4(world->model), [&](const ColliderGeometry& g) { DrawGeometry(painter, g); });
         };
         if (all)
         {

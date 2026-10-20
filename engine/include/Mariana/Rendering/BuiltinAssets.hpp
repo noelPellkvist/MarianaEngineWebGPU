@@ -1,6 +1,9 @@
 #pragma once
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Graphics/Texture.hpp>
+#include <Mariana/Scene/ECS.hpp>
+
+#include <glm/glm.hpp>
 
 class MaterialAsset;
 class IMesh;
@@ -22,4 +25,8 @@ namespace BuiltinAssets
 
     // A 1 m cube, a 1 m wide sphere or a 10 m ground plane, shared by everything that uses it.
     AssetHandle<IMesh> PrimitiveMesh(AssetManager2& assets, BuiltinMesh shape);
+
+    // A new entity drawing a primitive with a material of its own (so editing one leaves the
+    // others alone) in `color`, casting shadows. Invalid when the mesh couldn't be made.
+    Entity InstantiatePrimitive(Scene& scene, AssetManager2& assets, BuiltinMesh shape, const char* name, const glm::vec3& color = glm::vec3(1.0f));
 }
