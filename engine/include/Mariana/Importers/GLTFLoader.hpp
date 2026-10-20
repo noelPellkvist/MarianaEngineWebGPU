@@ -7,6 +7,7 @@
 
 #include <Mariana/Scene/Prefab.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
+#include <Mariana/Animation/AnimationGraph.hpp>
 
 namespace GLTF
 {
@@ -45,6 +46,13 @@ class GLTFLoader
 
         // Makes AssetManager2::Load<Prefab>() handle .gltf and .glb files.
         static void RegisterLoader(AssetManager2& assets);
+
+        // The animations of a glTF file as clips named like them (what its prefab's Animator has),
+        // loading the file if it isn't loaded: a model's clips, or an animation-only file used as a
+        // clip library (its clips bind to other models' bones by name).
+        static std::vector<NamedClip> LoadClips(AssetManager2& assets, const std::filesystem::path& file);
+        // The glTF file and animation index a clip was loaded from; false for clips from elsewhere.
+        static bool ClipSource(AssetManager2& assets, AssetID clip, std::filesystem::path& file, size_t& index);
 
         // The image file of a texture: its AssetMetadata::source, or for an image embedded in a
         // glTF this loader read, a PNG written into `folder` (which then becomes its source).

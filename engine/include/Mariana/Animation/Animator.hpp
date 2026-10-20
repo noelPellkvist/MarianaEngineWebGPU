@@ -18,7 +18,8 @@
 struct Animator
 {
     AssetHandle<Skeleton> skeleton;
-    std::vector<AssetHandle<AnimationClip>> clips;
+    // Its own clips, by the names graphs use (the glTF loader names them like the file's animations).
+    std::vector<NamedClip> clips;
     AssetHandle<AnimationGraph> graph;
     float speed = 1.0f;
     bool playing = true;
@@ -36,9 +37,14 @@ struct Animator
     // Updates every Animator of the scene by the delta given to System::Run (game time).
     static System CreateSystem(Scene& scene);
 
+    // A clip by name: its own first, then the graph's (indices past `clips`). -1 when there is none.
+    int FindClip(std::string_view name) const;
+    // Its clips and then the graph's: what FindClip and NodeState::clip index.
+    int ClipCount() const;
+    const NamedClip* GetClip(int index) const;
+
     // Clips without a graph. Play starts clips[clip] from the start at once; CrossFade fades it in
     // over `seconds` while what played fades out (and keeps playing until it's gone).
-    int FindClip(std::string_view name) const;
     void Play(int clip, bool loop = true);
     void CrossFade(int clip, float seconds, bool loop = true);
 
@@ -104,6 +110,9 @@ struct Animator
     // Moves the first state machine with a state of that name to it, cross-fading over `seconds`
     // (0 = at once), whatever its transitions say. False when no state has the name.
     bool CrossFadeState(std::string_view state, float seconds);
+    // Shows a state at a normalized time (0..1 = its first loop) without playing: it becomes the
+    // current state at once, and the machine holds it (no transitions) until the game plays.
+    bool PreviewState(std::string_view state, float normalizedTime);
 
     // Advances time by dt (if playing) and poses the bones below `root`.
     void Update(Entity root, float dt);
@@ -132,6 +141,8 @@ private:
     void UpdateMachine(int node, float delta);
     void StartState(int node, int state, float duration, bool interruptible);
     void EnterState(int node, int state);
+    void SetStateTime(int node, int state, float normalizedTime);
+    void Weights2D(int node);
     bool ConditionsHold(const AnimationTransition& transition) const;
     void Weigh(int node, float weight);
     float WeightOf(const AnimationWeight& weight) const;
@@ -162,7 +173,15 @@ private:
     std::vector<Pose> m_References;          // per additive node
     std::vector<MachineState> m_Machines;    // per state machine node
     std::vector<std::vector<std::vector<int>>> m_StateNodes; // per state machine node, per state: the nodes below it
-    std::vector<std::pair<std::string, float>> m_PendingStates; // CrossFadeState before the graph was bound
+    std::vector<std::vector<float>> m_BlendWeights; // per Blend2D node, a weight per input
+    struct PendingState
+    {
+        std::string state;
+        float seconds = 0.0f;
+        float normalizedTime = -1.0f; // PreviewState
+    };
+    std::vector<PendingState> m_PendingStates; // asked for before the graph was bound
+    bool m_Preview = false;
     std::vector<Pose> m_Scratch;
     Pose m_Pose;
     std::vector<float> m_State;   // what the pose was made from (clips, times, parameters)

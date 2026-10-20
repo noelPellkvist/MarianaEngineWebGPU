@@ -4,6 +4,7 @@
 #include <Editor/EditorCameraController.hpp>
 #include <Mariana/Importers/GLTFLoader.hpp>
 #include <Mariana/Importers/MaterialFile.hpp>
+#include <Mariana/Importers/AnimationGraphFile.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
 #include <Mariana/Rendering/RenderPipeline.hpp>
@@ -98,6 +99,7 @@ gameCamera(input)
     sceneView = std::make_unique<ViewRenderer>(sceneRenderer, true);
     GLTF::GLTFLoader::RegisterLoader(assets);
     MaterialFile::RegisterLoader(assets);
+    AnimationGraphFile::RegisterLoader(assets);
 
     // The effects, their settings, the exposure and the shadow settings come from a pipeline file.
     // The game view copies the scene view's.

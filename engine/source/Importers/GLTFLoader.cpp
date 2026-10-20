@@ -946,7 +946,7 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, Parsed
         }
     }
 
-    std::vector<AssetHandle<AnimationClip>> clips;
+    std::vector<NamedClip> clips;
     for (size_t i = 0; i < model.animations.size(); ++i)
     {
         const std::string key = subKey("animation", i);
@@ -960,7 +960,11 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, Parsed
                 continue;
             }
         }
-        clips.push_back(clip);
+        // Named like the animation; a name used before gets the index.
+        std::string name = clip.Get() ? clip.Get()->GetName() : "Animation " + std::to_string(i);
+        if (std::any_of(clips.begin(), clips.end(), [&](const NamedClip& c) { return c.name == name; }))
+            name += " " + std::to_string(i);
+        clips.push_back({ std::move(name), clip });
     }
 
     // The prefab root is an extra entity above the glTF scene's nodes, so an instance can be
@@ -1120,4 +1124,32 @@ void GLTF::GLTFLoader::RegisterLoader(AssetManager2& assets)
         [](AssetManager2& manager, const AssetMetadata& meta) {
             return LoadGLTF(manager, meta.path);
         });
+}
+
+std::vector<NamedClip> GLTF::GLTFLoader::LoadClips(AssetManager2& assets, const std::filesystem::path& file)
+{
+    AssetHandle<Prefab> prefab = assets.Load<Prefab>(file);
+    if (!prefab.Get())
+        return {};
+    const Animator* animator = prefab.Get()->Root().TryGet<Animator>();
+    return animator ? animator->clips : std::vector<NamedClip>{};
+}
+
+bool GLTF::GLTFLoader::ClipSource(AssetManager2& assets, AssetID clip, std::filesystem::path& file, size_t& index)
+{
+    const AssetMetadata* meta = assets.GetMetadata(clip);
+    const std::string marker = "#animation/";
+    const size_t at = meta ? meta->key.rfind(marker) : std::string::npos;
+    if (at == std::string::npos)
+        return false;
+    try
+    {
+        index = std::stoul(meta->key.substr(at + marker.size()));
+    }
+    catch (const std::exception&)
+    {
+        return false;
+    }
+    file = SourceFile(assets, meta->key.substr(0, at));
+    return true;
 }

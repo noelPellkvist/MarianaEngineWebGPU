@@ -6,6 +6,7 @@
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Importers/GLTFLoader.hpp>
 #include <Mariana/Importers/MaterialFile.hpp>
+#include <Mariana/Importers/AnimationGraphFile.hpp>
 #include <Mariana/Rendering/RenderPipeline.hpp>
 #include <Mariana/Scene/Prefab.hpp>
 
@@ -111,6 +112,7 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
     sceneView.Init(renderer.graph);
     GLTF::GLTFLoader::RegisterLoader(assets);
     MaterialFile::RegisterLoader(assets);
+    AnimationGraphFile::RegisterLoader(assets);
 
     RenderPipelineDesc pipeline;
     std::string error;

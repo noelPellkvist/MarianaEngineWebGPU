@@ -1,11 +1,21 @@
 #pragma once
+#include <Mariana/Animation/AnimationClip.hpp>
+#include <Mariana/Assets/AssetManager.hpp>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <glm/vec2.hpp>
 
 class Skeleton;
+
+// A clip under the name graphs refer to it by (what an Animator and a graph hold).
+struct NamedClip
+{
+    std::string name;
+    AssetHandle<AnimationClip> clip;
+};
 
 enum class AnimationParameterType { Float, Bool, Trigger };
 
@@ -41,7 +51,7 @@ struct BoneMask
     std::vector<float> Resolve(const Skeleton& skeleton) const;
 };
 
-enum class AnimationNodeType { Clip, Blend, Blend1D, Additive, Layer, StateMachine };
+enum class AnimationNodeType { Clip, Blend, Blend1D, Blend2D, Additive, Layer, StateMachine };
 enum class LayerMode { Override, Additive };
 // What an additive input is relative to: its clip's first frame (only for a Clip input), or the
 // skeleton's rest pose.
@@ -94,6 +104,10 @@ struct AnimationNode
     // Blend1D: the inputs placed along a float parameter, at ascending thresholds (one per input).
     int parameter = -1;
     std::vector<float> thresholds;
+    // Blend2D: the inputs placed at points on two float parameters (`parameter` across, `parameterY`
+    // up), weighted by gradient bands (freeform cartesian).
+    int parameterY = -1;
+    std::vector<glm::vec2> positions;
 
     // Layer: the layer replaces the base (Override) or is added to it (Additive), on the masked bones.
     LayerMode layerMode = LayerMode::Override;
@@ -112,14 +126,17 @@ struct AnimationNode
 };
 
 // How an Animator mixes its clips: parameters, and nodes whose `output` is the pose. Plain data,
-// so code (Builder), files and editors make the same thing. Clips are referred to by name, so one
-// graph serves every model whose Animator has clips of those names. An asset (AssetType::AnimationGraph).
+// so code (Builder), files (AnimationGraphFile) and editors make the same thing. Clip nodes name a
+// clip: one of the Animator's, else one the graph brings in `clips` (from other files, bound to the
+// model's bones by name), so one graph serves every model with those bones. An asset
+// (AssetType::AnimationGraph).
 class AnimationGraph
 {
 public:
     std::vector<AnimationParameter> parameters;
     std::vector<AnimationNode> nodes;
     int output = -1;
+    std::vector<NamedClip> clips;
 
     int FindParameter(std::string_view name) const;
     int FindNode(std::string_view name) const;
@@ -160,6 +177,7 @@ public:
     int Clip(std::string clip, ClipOptions options);
     int Blend(int a, int b, AnimationWeight weight);
     int Blend1D(std::string_view parameter, std::vector<std::pair<int, float>> inputs);
+    int Blend2D(std::string_view x, std::string_view y, std::vector<std::pair<int, glm::vec2>> inputs);
     int Additive(int base, int additive, AnimationWeight weight = {}, AdditiveReference reference = AdditiveReference::FirstFrame);
     int Layer(int base, int layer, BoneMask mask, AnimationWeight weight = {}, LayerMode mode = LayerMode::Override);
     // States as (name, node).
@@ -175,6 +193,8 @@ public:
     Builder& Name(int node, std::string name);
     // The last node added is the output unless this says otherwise.
     Builder& Output(int node);
+    // A clip the graph brings, for Clip nodes naming `name`.
+    Builder& AddClip(std::string name, AssetHandle<AnimationClip> clip);
 
     // Null (and the reason logged) when the graph isn't valid.
     std::shared_ptr<AnimationGraph> Build();

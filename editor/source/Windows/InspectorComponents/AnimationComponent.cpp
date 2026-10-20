@@ -1,9 +1,12 @@
 #include <Editor/Windows/InspectorComponents/AnimationComponent.hpp>
 
 #include <Mariana/Animation/Animator.hpp>
+#include <Mariana/Importers/GLTFLoader.hpp>
 #include <imgui.h>
 
+#include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 namespace
@@ -15,6 +18,7 @@ namespace
         case AnimationNodeType::Clip:     return "Clip";
         case AnimationNodeType::Blend:    return "Blend";
         case AnimationNodeType::Blend1D:  return "Blend 1D";
+        case AnimationNodeType::Blend2D:  return "Blend 2D";
         case AnimationNodeType::Additive: return "Additive";
         case AnimationNodeType::Layer:    return "Layer";
         case AnimationNodeType::StateMachine: return "State Machine";
@@ -33,15 +37,63 @@ namespace
         ImGui::ProgressBar(weight, ImVec2(-FLT_MIN, 0.0f), text);
     }
 
-    std::string ClipName(const Animator& animator, int clip)
+    // Adds the animations of a glTF file to the Animator's own clips, under names not taken yet.
+    void AddClips(Animator& animator, AssetManager2& assets, const char* file)
     {
-        if (clip < 0 || clip >= static_cast<int>(animator.clips.size()))
-            return "None";
-        const std::shared_ptr<AnimationClip>& asset = animator.clips[clip].Get();
-        return asset ? asset->GetName() : "<unloaded>";
+        for (NamedClip& clip : GLTF::GLTFLoader::LoadClips(assets, file))
+        {
+            const bool present = std::any_of(animator.clips.begin(), animator.clips.end(), [&](const NamedClip& c) { return c.clip.GetID() == clip.clip.GetID(); });
+            if (present || !clip.clip.Get())
+                continue;
+            std::string name = clip.name;
+            for (int n = 2; animator.FindClip(name) >= 0; ++n)
+                name = clip.name + " " + std::to_string(n);
+            animator.clips.push_back({ std::move(name), std::move(clip.clip) });
+        }
     }
 
-    void DrawClips(Animator& animator, bool hasGraph)
+    void DrawGraphPicker(Animator& animator, AssetManager2& assets)
+    {
+        const AssetMetadata* info = animator.graph.GetMetadata();
+        const char* current = animator.graph.Get() ? (info ? info->name.c_str() : "(unnamed)") : "None: clips play directly";
+        ImGui::SetNextItemWidth(-ImGui::GetFontSize() * 4.0f);
+        if (ImGui::BeginCombo("Graph", current))
+        {
+            if (ImGui::Selectable("None", !animator.graph.Get()))
+                animator.graph = {};
+            int row = 0;
+            assets.ForEach<AnimationGraph>([&](AssetID id, AnimationGraph&) {
+                const AssetMetadata* meta = assets.GetMetadata(id);
+                ImGui::PushID(row++);
+                if (ImGui::Selectable(meta ? meta->name.c_str() : "(unnamed)", animator.graph.GetID() == id))
+                    animator.graph = assets.LoadAsset<AnimationGraph>(id);
+                ImGui::PopID();
+            });
+            ImGui::EndCombo();
+        }
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MARIANA_ASSET_ANIMGRAPH"))
+            {
+                AssetHandle<AnimationGraph> graph = assets.Load<AnimationGraph>(static_cast<const char*>(payload->Data));
+                if (graph.Get())
+                    animator.graph = graph;
+            }
+            ImGui::EndDragDropTarget();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Drop an .animgraph file from the Assets window here");
+    }
+
+    std::string ClipName(const Animator& animator, int clip)
+    {
+        const NamedClip* named = animator.GetClip(clip);
+        if (!named)
+            return "None";
+        return named->clip.Get() ? named->name : named->name + " <unloaded>";
+    }
+
+    void DrawClips(Animator& animator, AssetManager2& assets, bool hasGraph)
     {
         static float fadeSeconds = 0.3f;
         if (!hasGraph)
@@ -56,16 +108,36 @@ namespace
         ImGui::TableSetupColumn("Weight", ImGuiTableColumnFlags_WidthStretch, 1.5f);
         ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed);
 
-        for (int i = 0; i < static_cast<int>(animator.clips.size()); ++i)
+        int removed = -1;
+        const int own = static_cast<int>(animator.clips.size());
+        for (int i = 0; i < animator.ClipCount(); ++i)
         {
             ImGui::PushID(i);
             ImGui::TableNextRow();
 
             ImGui::TableNextColumn();
-            const std::shared_ptr<AnimationClip>& clip = animator.clips[i].Get();
-            ImGui::TextUnformatted(ClipName(animator, i).c_str());
+            const NamedClip& named = *animator.GetClip(i);
+            const std::shared_ptr<AnimationClip>& clip = named.clip.Get();
+            if (i < own)
+            {
+                // The name graphs use for it.
+                char name[128] = {};
+                std::strncpy(name, named.name.c_str(), sizeof(name) - 1);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                if (ImGui::InputText("##name", name, sizeof(name), ImGuiInputTextFlags_EnterReturnsTrue) && name[0])
+                    animator.clips[i].name = name;
+            }
+            else
+            {
+                ImGui::TextUnformatted(ClipName(animator, i).c_str());
+                ImGui::SameLine();
+                ImGui::TextDisabled("(graph)");
+            }
             if (clip && ImGui::IsItemHovered())
-                ImGui::SetTooltip("%.3f s, %zu tracks", clip->GetDuration(), clip->tracks.size());
+            {
+                const AssetMetadata* meta = named.clip.GetMetadata();
+                ImGui::SetTooltip("%s\n%.3f s, %zu tracks", meta ? meta->name.c_str() : "", clip->GetDuration(), clip->tracks.size());
+            }
 
             ImGui::TableNextColumn();
             float weight = 0.0f;
@@ -84,16 +156,86 @@ namespace
             WeightBar(weight);
 
             ImGui::TableNextColumn();
-            ImGui::BeginDisabled(hasGraph);
+            ImGui::BeginDisabled(hasGraph || i >= own);
             if (ImGui::SmallButton("Play"))
                 animator.Play(i, animator.Loop());
             ImGui::SameLine();
             if (ImGui::SmallButton("Fade"))
                 animator.CrossFade(i, fadeSeconds, animator.Loop());
             ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(i >= own);
+            if (ImGui::SmallButton("x"))
+                removed = i;
+            ImGui::EndDisabled();
             ImGui::PopID();
         }
         ImGui::EndTable();
+
+        if (removed >= 0)
+        {
+            animator.clips.erase(animator.clips.begin() + removed);
+            if (!animator.clips.empty() && animator.CurrentClip() >= static_cast<int>(animator.clips.size()))
+                animator.Play(0);
+        }
+
+        // Drop zone: a glTF file's animations become clips (a clip library binds by bone name).
+        ImGui::Button("Drop a .glb/.gltf here to add its animations", ImVec2(-FLT_MIN, 0.0f));
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MARIANA_ASSET_GLTF"))
+                AddClips(animator, assets, static_cast<const char*>(payload->Data));
+            ImGui::EndDragDropTarget();
+        }
+    }
+
+    // Shows a state of each state machine at a time picked here, without playing.
+    void DrawPreview(Animator& animator, const AnimationGraph& graph)
+    {
+        static std::vector<std::pair<int, float>> picked;
+        if (picked.size() < graph.nodes.size())
+            picked.resize(graph.nodes.size(), { 0, 0.0f });
+
+        bool any = false;
+        for (size_t i = 0; i < graph.nodes.size(); ++i)
+        {
+            const AnimationNode& node = graph.nodes[i];
+            if (node.type != AnimationNodeType::StateMachine || node.states.empty())
+                continue;
+            if (!any)
+                ImGui::SeparatorText("Preview");
+            any = true;
+
+            int& state = picked[i].first;
+            float& time = picked[i].second;
+            state = std::clamp(state, 0, static_cast<int>(node.states.size()) - 1);
+
+            ImGui::PushID(static_cast<int>(i));
+            bool changed = false;
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.4f);
+            if (ImGui::BeginCombo("##state", node.states[state].c_str()))
+            {
+                for (int s = 0; s < static_cast<int>(node.states.size()); ++s)
+                {
+                    if (ImGui::Selectable(node.states[s].c_str(), s == state))
+                    {
+                        state = s;
+                        changed = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-ImGui::GetFontSize() * 6.0f);
+            changed |= ImGui::SliderFloat("##time", &time, 0.0f, 1.0f, "%.3f");
+            ImGui::SameLine();
+            ImGui::TextUnformatted(node.name.c_str());
+            if (changed)
+                animator.PreviewState(node.states[state], time);
+            ImGui::PopID();
+        }
+        if (any)
+            ImGui::TextDisabled("Holds while the game is stopped or paused");
     }
 
     void DrawParameters(Animator& animator, const AnimationGraph& graph)
@@ -187,7 +329,7 @@ namespace
 
 namespace InspectorComponents
 {
-    void DrawAnimationComponent(Entity& entity)
+    void DrawAnimationComponent(Entity& entity, AssetManager2& assets)
     {
         if (!entity.Has<Animator>())
             return;
@@ -197,11 +339,8 @@ namespace InspectorComponents
             return;
 
         ImGui::PushID("Animator");
+        DrawGraphPicker(animator, assets);
         const AnimationGraph* graph = animator.graph.Get().get();
-        const AssetMetadata* graphInfo = animator.graph.GetMetadata();
-        ImGui::TextDisabled("Graph");
-        ImGui::SameLine(0, 16);
-        ImGui::TextUnformatted(graph ? (graphInfo ? graphInfo->name.c_str() : "(unnamed)") : "None: clips play directly");
 
         ImGui::Checkbox("Playing", &animator.playing);
         if (!graph)
@@ -223,7 +362,7 @@ namespace InspectorComponents
         }
 
         ImGui::SeparatorText("Clips");
-        DrawClips(animator, graph != nullptr);
+        DrawClips(animator, assets, graph != nullptr);
 
         if (graph)
         {
@@ -236,6 +375,7 @@ namespace InspectorComponents
                 DrawNode(animator, *graph, graph->output, 0);
                 ImGui::EndTable();
             }
+            DrawPreview(animator, *graph);
         }
 
         ImGui::SeparatorText("Binding");

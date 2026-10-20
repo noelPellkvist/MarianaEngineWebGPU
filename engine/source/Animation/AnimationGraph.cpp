@@ -107,6 +107,19 @@ bool AnimationGraph::Validate(std::string& error) const
                 return false;
             }
             break;
+        case AnimationNodeType::Blend2D:
+            inputs = node.inputs.size();
+            if (inputs == 0 || node.positions.size() != inputs)
+            {
+                error = describe(i) + " needs a position per input";
+                return false;
+            }
+            if (!floatParameter(node.parameter) || !floatParameter(node.parameterY))
+            {
+                error = describe(i) + " needs two float parameters";
+                return false;
+            }
+            break;
         case AnimationNodeType::StateMachine:
         {
             inputs = node.states.size();
@@ -260,6 +273,21 @@ int AnimationGraph::Builder::Blend1D(std::string_view parameter, std::vector<std
     return Add(std::move(node));
 }
 
+int AnimationGraph::Builder::Blend2D(std::string_view x, std::string_view y, std::vector<std::pair<int, glm::vec2>> inputs)
+{
+    AnimationNode node;
+    node.type = AnimationNodeType::Blend2D;
+    node.name = "Blend2D";
+    node.parameter = Parameter(x).parameter;
+    node.parameterY = Parameter(y).parameter;
+    for (const auto& [input, position] : inputs)
+    {
+        node.inputs.push_back(input);
+        node.positions.push_back(position);
+    }
+    return Add(std::move(node));
+}
+
 int AnimationGraph::Builder::Additive(int base, int additive, AnimationWeight weight, AdditiveReference reference)
 {
     AnimationNode node;
@@ -340,6 +368,12 @@ AnimationGraph::Builder& AnimationGraph::Builder::Name(int node, std::string nam
 AnimationGraph::Builder& AnimationGraph::Builder::Output(int node)
 {
     m_Graph.output = node;
+    return *this;
+}
+
+AnimationGraph::Builder& AnimationGraph::Builder::AddClip(std::string name, AssetHandle<AnimationClip> clip)
+{
+    m_Graph.clips.push_back({ std::move(name), std::move(clip) });
     return *this;
 }
 

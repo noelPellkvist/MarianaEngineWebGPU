@@ -93,10 +93,27 @@ Animator& Animator::operator=(const Animator& other)
 
 int Animator::FindClip(std::string_view name) const
 {
-    for (size_t i = 0; i < clips.size(); ++i)
-        if (clips[i].Get() && clips[i].Get()->GetName() == name)
-            return static_cast<int>(i);
+    for (int i = 0; i < ClipCount(); ++i)
+        if (GetClip(i)->name == name)
+            return i;
     return -1;
+}
+
+int Animator::ClipCount() const
+{
+    const AnimationGraph* definition = graph.Get().get();
+    return static_cast<int>(clips.size() + (definition ? definition->clips.size() : 0));
+}
+
+const NamedClip* Animator::GetClip(int index) const
+{
+    if (index < 0)
+        return nullptr;
+    if (index < static_cast<int>(clips.size()))
+        return &clips[index];
+    const AnimationGraph* definition = graph.Get().get();
+    const size_t own = clips.size();
+    return definition && static_cast<size_t>(index) - own < definition->clips.size() ? &definition->clips[index - own] : nullptr;
 }
 
 void Animator::Play(int clip, bool loop)
@@ -131,7 +148,7 @@ const std::shared_ptr<AnimationClip>& Animator::GetCurrentClip() const
 {
     static const std::shared_ptr<AnimationClip> none;
     const int clip = CurrentClip();
-    return clip >= 0 && clip < static_cast<int>(clips.size()) ? clips[clip].Get() : none;
+    return clip >= 0 && clip < static_cast<int>(clips.size()) ? clips[clip].clip.Get() : none;
 }
 
 float Animator::Time() const
@@ -222,10 +239,10 @@ size_t Animator::BoundTracks() const
 
 bool Animator::NeedsBind() const
 {
-    if (!m_Bound || m_BoundSkeleton != skeleton.Get().get() || m_BoundGraph != graph.Get().get() || m_BoundClips.size() != clips.size())
+    if (!m_Bound || m_BoundSkeleton != skeleton.Get().get() || m_BoundGraph != graph.Get().get() || static_cast<int>(m_BoundClips.size()) != ClipCount())
         return true;
-    for (size_t i = 0; i < clips.size(); ++i)
-        if (m_BoundClips[i] != clips[i].Get().get())
+    for (int i = 0; i < ClipCount(); ++i)
+        if (m_BoundClips[i] != GetClip(i)->clip.Get().get())
             return true;
     return false;
 }
@@ -238,9 +255,9 @@ void Animator::Bind(Entity root)
     m_BoundClips.clear();
     m_Bindings.clear();
     m_Channels.assign(bones.BoneCount(), 0);
-    for (const AssetHandle<AnimationClip>& handle : clips)
+    for (int index = 0; index < ClipCount(); ++index)
     {
-        const AnimationClip* clip = handle.Get().get();
+        const AnimationClip* clip = GetClip(index)->clip.Get().get();
         m_BoundClips.push_back(clip);
         m_Bindings.push_back(clip ? ClipBinding::Bind(*clip, bones) : ClipBinding{});
         if (!clip)
@@ -294,6 +311,7 @@ void Animator::Bind(Entity root)
         m_References.clear();
         m_Machines.clear();
         m_StateNodes.clear();
+        m_BlendWeights.clear();
     }
     m_BoundGraph = definition;
 
@@ -319,6 +337,7 @@ void Animator::BindGraph(const AnimationGraph& definition)
     m_SyncGroupOf.assign(count, -1);
     m_Masks.assign(count, {});
     m_References.assign(count, {});
+    m_BlendWeights.assign(count, {});
 
     for (size_t i = 0; i < count; ++i)
     {
@@ -340,6 +359,8 @@ void Animator::BindGraph(const AnimationGraph& definition)
         }
         if (node.type == AnimationNodeType::Layer)
             m_Masks[i] = node.mask.Resolve(*m_BoundSkeleton);
+        if (node.type == AnimationNodeType::Blend2D)
+            m_BlendWeights[i].assign(node.inputs.size(), 0.0f);
 
         if (node.type == AnimationNodeType::StateMachine)
         {
@@ -502,6 +523,11 @@ void Animator::Weigh(int index, float weight)
         Weigh(node.inputs[0], weight);
         Weigh(node.inputs[1], weight * WeightOf(node.weight));
         break;
+    case AnimationNodeType::Blend2D:
+        Weights2D(index);
+        for (size_t i = 0; i < node.inputs.size(); ++i)
+            Weigh(node.inputs[i], weight * m_BlendWeights[index][i]);
+        break;
     case AnimationNodeType::StateMachine:
         for (const ActiveState& active : m_Machines[index].active)
             Weigh(node.inputs[active.state], weight * active.weight);
@@ -514,11 +540,19 @@ void Animator::AdvanceGraph(float delta)
     const AnimationGraph& definition = *m_BoundGraph;
     if (!m_PendingStates.empty())
     {
-        const auto pending = std::move(m_PendingStates);
+        const std::vector<PendingState> pending = std::move(m_PendingStates);
         m_PendingStates.clear();
-        for (const auto& [state, seconds] : pending)
-            CrossFadeState(state, seconds);
+        for (const PendingState& request : pending)
+        {
+            if (request.normalizedTime >= 0.0f)
+                PreviewState(request.state, request.normalizedTime);
+            else
+                CrossFadeState(request.state, request.seconds);
+        }
     }
+    // A preview holds until the game moves.
+    if (delta != 0.0f)
+        m_Preview = false;
     for (size_t i = 0; i < definition.nodes.size(); ++i)
         if (definition.nodes[i].type == AnimationNodeType::StateMachine)
             UpdateMachine(static_cast<int>(i), delta);
@@ -600,7 +634,7 @@ void Animator::UpdateMachine(int index, float delta)
 
     // A running transition blocks the others unless it may be interrupted.
     const ActiveState& current = machine.active.back();
-    if (current.fade >= 1.0f || current.interruptible)
+    if (!m_Preview && (current.fade >= 1.0f || current.interruptible))
     {
         for (const AnimationTransition& transition : node.transitions)
         {
@@ -691,13 +725,93 @@ bool Animator::CrossFadeState(std::string_view state, float seconds)
         if (found < 0)
             continue;
         // Before the first update the graph isn't bound yet: it moves there then.
+        m_Preview = false;
         if (!m_Bound || m_BoundGraph != definition || !m_GraphValid)
-            m_PendingStates.emplace_back(std::string(state), seconds);
+            m_PendingStates.push_back({ std::string(state), seconds });
         else
             StartState(static_cast<int>(i), found, seconds, true);
         return true;
     }
     return false;
+}
+
+bool Animator::PreviewState(std::string_view state, float normalizedTime)
+{
+    const AnimationGraph* definition = graph.Get().get();
+    if (!definition)
+        return false;
+
+    for (size_t i = 0; i < definition->nodes.size(); ++i)
+    {
+        const AnimationNode& node = definition->nodes[i];
+        const int found = node.type == AnimationNodeType::StateMachine ? node.FindState(state) : -1;
+        if (found < 0)
+            continue;
+        if (!m_Bound || m_BoundGraph != definition || !m_GraphValid)
+        {
+            m_PendingStates.push_back({ std::string(state), 0.0f, std::max(normalizedTime, 0.0f) });
+            return true;
+        }
+        StartState(static_cast<int>(i), found, 0.0f, true);
+        SetStateTime(static_cast<int>(i), found, std::max(normalizedTime, 0.0f));
+        m_Preview = true;
+        return true;
+    }
+    return false;
+}
+
+void Animator::SetStateTime(int index, int state, float normalizedTime)
+{
+    const AnimationGraph& definition = *m_BoundGraph;
+    for (int n : m_StateNodes[index][state])
+    {
+        if (definition.nodes[n].type != AnimationNodeType::Clip)
+            continue;
+        const int clip = m_Nodes[n].clip;
+        const float length = clip >= 0 && clip < static_cast<int>(m_BoundClips.size()) && m_BoundClips[clip] ? m_BoundClips[clip]->GetDuration() : 0.0f;
+        m_Nodes[n].time = Advance(normalizedTime * length, 0.0f, length, definition.nodes[n].loop);
+        if (m_SyncGroupOf[n] >= 0)
+            m_SyncGroups[m_SyncGroupOf[n]].phase = Advance(normalizedTime, 0.0f, 1.0f, definition.nodes[n].loop);
+    }
+    m_Machines[index].active.back().normalizedTime = normalizedTime;
+}
+
+void Animator::Weights2D(int index)
+{
+    // Gradient band interpolation (freeform cartesian): each input's weight falls off toward every
+    // other input, and the weights are normalized.
+    const AnimationNode& node = m_BoundGraph->nodes[index];
+    const glm::vec2 p(GetParameter(node.parameter), GetParameter(node.parameterY));
+    std::vector<float>& weights = m_BlendWeights[index];
+    const size_t count = node.positions.size();
+    float total = 0.0f;
+    for (size_t i = 0; i < count; ++i)
+    {
+        float weight = 1.0f;
+        for (size_t j = 0; j < count && weight > 0.0f; ++j)
+        {
+            const glm::vec2 edge = node.positions[j] - node.positions[i];
+            const float length2 = glm::dot(edge, edge);
+            if (j == i || length2 <= 0.0f)
+                continue;
+            weight = std::min(weight, std::clamp(1.0f - glm::dot(p - node.positions[i], edge) / length2, 0.0f, 1.0f));
+        }
+        weights[i] = weight;
+        total += weight;
+    }
+    if (total > 0.0f)
+    {
+        for (float& weight : weights)
+            weight /= total;
+        return;
+    }
+    // Outside every band: the nearest input.
+    size_t nearest = 0;
+    for (size_t i = 1; i < count; ++i)
+        if (glm::distance(p, node.positions[i]) < glm::distance(p, node.positions[nearest]))
+            nearest = i;
+    std::fill(weights.begin(), weights.end(), 0.0f);
+    weights[nearest] = 1.0f;
 }
 
 void Animator::EvaluateNode(int index, Pose& out, size_t depth)
@@ -763,6 +877,30 @@ void Animator::EvaluateNode(int index, Pose& out, size_t depth)
         {
             BlendPoses(out, layer, x, m_Masks[index], out);
         }
+        return;
+    }
+
+    case AnimationNodeType::Blend2D:
+    {
+        // Weighted inputs one by one, each blended in by its share of the weight so far.
+        const std::vector<float>& weights = m_BlendWeights[index];
+        float total = 0.0f;
+        for (size_t i = 0; i < node.inputs.size(); ++i)
+        {
+            if (weights[i] <= 0.0f)
+                continue;
+            if (total == 0.0f)
+                EvaluateNode(node.inputs[i], out, depth);
+            else
+            {
+                Pose& other = Scratch(depth);
+                EvaluateNode(node.inputs[i], other, depth + 1);
+                BlendPoses(out, other, weights[i] / (total + weights[i]), out);
+            }
+            total += weights[i];
+        }
+        if (total == 0.0f)
+            out.SetToRest(*m_BoundSkeleton);
         return;
     }
 

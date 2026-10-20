@@ -37,7 +37,7 @@ void InspectorWindow::ClearInspectedEntity()
 void InspectorWindow::RegisterComponentDrawers()
 {
     m_componentDrawers["LocalTRS"] = &InspectorComponents::DrawLocalTRS;
-    m_componentDrawers["Animator"] = &InspectorComponents::DrawAnimationComponent;
+    m_componentDrawers["Animator"] = [this](Entity& entity) { InspectorComponents::DrawAnimationComponent(entity, m_assets); };
     m_componentDrawers["CameraComponent"] = &InspectorComponents::DrawCameraComponent;
     m_componentDrawers["MeshComponent"] = [this](Entity& entity) { InspectorComponents::DrawMeshComponent(entity, m_assets, m_undo); };
 }
