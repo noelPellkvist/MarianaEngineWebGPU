@@ -510,18 +510,38 @@ bool PhysicsWorld::GetVehicleInfo(Entity entity, VehicleInfo& info) const
     return true;
 }
 
-void PhysicsWorld::UpdatePlayerControls(const IInput& input, float dt)
+void PhysicsWorld::UpdatePlayerControls(const IInput& input, float dt, const glm::vec3& viewForward)
 {
     const auto down = [&](Key a, Key b) { return input.IsKeyDown(a) || input.IsKeyDown(b); };
     const float wanted = (down(Key::W, Key::UP) ? 1.0f : 0.0f) - (down(Key::S, Key::DOWN) ? 1.0f : 0.0f);
     const float steerTarget = (down(Key::D, Key::RIGHT) ? 1.0f : 0.0f) - (down(Key::A, Key::LEFT) ? 1.0f : 0.0f);
-    const bool handBrake = input.IsKeyDown(Key::SPACE);
+    const bool space = input.IsKeyDown(Key::SPACE);
+    const bool jump = input.IsKeyPressed(Key::SPACE);
+    const bool run = down(Key::LEFT_SHIFT, Key::RIGHT_SHIFT);
+
+    // Walking is relative to the view: forward is where the camera looks, level.
+    glm::vec3 forward(viewForward.x, 0.0f, viewForward.z);
+    forward = glm::length(forward) > 1e-4f ? glm::normalize(forward) : glm::vec3(0.0f, 0.0f, 1.0f);
+    const glm::vec3 right(forward.z, 0.0f, -forward.x);
 
     std::function<void(Entity)> visit = [&](Entity e) {
         e.ForEachChild(visit);
         const PlayerControl* control = e.TryGet<PlayerControl>();
+        if (!control || !control->enabled)
+            return;
+        if (CharacterController* character = e.Get<CharacterController>())
+        {
+            glm::vec3 move = forward * wanted + right * steerTarget;
+            if (glm::length(move) > 1.0f)
+                move = glm::normalize(move);
+            character->move = move;
+            character->run = run;
+            if (jump)
+                character->jump = true;
+            return;
+        }
         Vehicle* vehicle = e.Get<Vehicle>();
-        if (!control || !control->enabled || !vehicle)
+        if (!vehicle)
             return;
         VehicleInfo info;
         const float speed = GetVehicleInfo(e, info) ? info.speed : 0.0f;
@@ -536,8 +556,8 @@ void PhysicsWorld::UpdatePlayerControls(const IInput& input, float dt)
             vehicle->throttle = wanted;
             vehicle->brake = 0.0f;
         }
-        vehicle->handBrake = handBrake ? 1.0f : 0.0f;
-        if (handBrake)
+        vehicle->handBrake = space ? 1.0f : 0.0f;
+        if (space)
             vehicle->throttle = 0.0f;
         // The steering follows the keys at steerSpeed, and comes back twice as fast.
         const float rate = std::max(control->steerSpeed, 0.1f) * dt * (steerTarget == 0.0f ? 2.0f : 1.0f);

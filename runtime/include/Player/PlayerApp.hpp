@@ -24,7 +24,8 @@
 //   }
 // Everything is optional; paths are resource paths (FileSystem). A spawn is a `prefab`, a
 // `primitive` (cube, sphere, plane, cylinder, capsule; tinted by `color`) or a `preset` (car,
-// motorcycle, tank: a vehicle the keyboard drives, W A S D and Space; playground: ground with ramps).
+// motorcycle, tank: a vehicle the keyboard drives, W A S D and Space; playground: ground with ramps;
+// character: one that walks with W A S D, Shift and Space; course: steps, slopes and crates for it).
 // With `follow` (and optional `distance`, `height`) the camera chases the driven vehicle. `rotation` is Euler angles
 // in degrees; `scale` a number or [x, y, z]; `faceCamera` instead turns it about +Y so its front (+Z,
 // as glTF assets face) points at the camera's starting position. `physics` makes it a body: `body`

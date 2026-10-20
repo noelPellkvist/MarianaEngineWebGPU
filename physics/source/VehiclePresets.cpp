@@ -1,50 +1,16 @@
 #include <Mariana/Physics/VehiclePresets.hpp>
 
-#include <Mariana/Physics/ColliderGeometry.hpp>
-#include <Mariana/Physics/Components.hpp>
 #include <Mariana/Physics/Controllers.hpp>
-#include <Mariana/Rendering/BuiltinAssets.hpp>
+
+#include "PresetParts.hpp"
 
 #include <cmath>
 #include <glm/gtc/constants.hpp>
 
+using namespace PhysicsInternal;
+
 namespace
 {
-    enum class Solid { None, Box, Cylinder, Sphere };
-
-    Entity Place(Entity e, Entity parent, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale)
-    {
-        if (parent.IsValid())
-            e.SetParent(parent);
-        e.SetPosition(position.x, position.y, position.z);
-        e.SetRotationQuat(rotation.x, rotation.y, rotation.z, rotation.w);
-        e.SetScale(scale.x, scale.y, scale.z);
-        return e;
-    }
-
-    // A primitive below `parent`, optionally with a collider fitted to it.
-    Entity Part(Scene& scene, AssetManager2& assets, Entity parent, BuiltinMesh shape, const char* name, const glm::vec3& color,
-                const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale, Solid solid = Solid::Box)
-    {
-        Entity e = BuiltinAssets::InstantiatePrimitive(scene, assets, shape, name, color);
-        if (!e.IsValid())
-            return e;
-        Place(e, parent, position, rotation, scale);
-        switch (solid)
-        {
-        case Solid::Box: e.Add<BoxCollider>(BoxCollider{}); break;
-        case Solid::Cylinder: e.Add<CylinderCollider>(CylinderCollider{}); break;
-        case Solid::Sphere: e.Add<SphereCollider>(SphereCollider{}); break;
-        case Solid::None: break;
-        }
-        FitColliders(e);
-        return e;
-    }
-
-    glm::quat Axis(float degrees, const glm::vec3& axis) { return glm::angleAxis(glm::radians(degrees), axis); }
-    const glm::quat kIdentity(1.0f, 0.0f, 0.0f, 0.0f);
-    const glm::vec3 kX(1, 0, 0), kY(0, 1, 0), kZ(0, 0, 1);
-
     // A wheel entity hanging at `rest` (suspension fully out), with a tyre lying along the axle
     // and a spoke across it.
     Entity Wheel(Scene& scene, AssetManager2& assets, Entity chassis, const char* name, const glm::vec3& rest, const VehicleWheel& settings,

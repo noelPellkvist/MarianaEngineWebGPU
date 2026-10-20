@@ -4,8 +4,10 @@
 #include <string>
 #include <glm/glm.hpp>
 
-// Drives the entity's Vehicle from the keyboard (PhysicsWorld::UpdatePlayerControls): W / Up
-// throttle, S / Down brakes and then backs up, A D / Left Right steer, Space the hand brake.
+// Drives the entity's Vehicle or CharacterController from the keyboard
+// (PhysicsWorld::UpdatePlayerControls). A vehicle: W / Up throttle, S / Down brakes and then backs
+// up, A D / Left Right steer, Space the hand brake. A character: W A S D / arrows walk (relative to
+// the view), Shift runs, Space jumps.
 struct PlayerControl
 {
     bool enabled = true;

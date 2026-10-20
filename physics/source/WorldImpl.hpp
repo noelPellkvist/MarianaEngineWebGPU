@@ -4,6 +4,7 @@
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
+#include <Mariana/Physics/Character.hpp>
 
 #include "JoltCommon.hpp"
 #include "Shapes.hpp"
@@ -13,6 +14,7 @@
 #include <Jolt/Physics/Collision/ContactListener.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Vehicle/VehicleConstraint.h>
+#include <Jolt/Physics/Character/CharacterVirtual.h>
 
 #include <memory>
 #include <mutex>
@@ -36,18 +38,42 @@ namespace PhysicsInternal
             float speed = 0.0f;
         };
 
+        struct Removed
+        {
+            JPH::BodyID body1, body2;
+            uint64_t subShapes = 0;
+        };
+
         void OnContactAdded(const JPH::Body& body1, const JPH::Body& body2, const JPH::ContactManifold& manifold, JPH::ContactSettings& settings) override;
         void OnContactRemoved(const JPH::SubShapeIDPair& pair) override;
+        // Characters' own contacts (with triggers), reported on the main thread.
+        void Add(const Added& contact);
+        void Remove(const Removed& contact);
 
         // What was collected since the last call, in an order that doesn't depend on threads.
-        void Take(std::vector<Added>& added, std::vector<JPH::SubShapeIDPair>& removed);
+        void Take(std::vector<Added>& added, std::vector<Removed>& removed);
         void Clear();
 
     private:
         std::mutex m_Mutex;
         std::vector<Added> m_Added;
-        std::vector<JPH::SubShapeIDPair> m_Removed;
+        std::vector<Removed> m_Removed;
     };
+
+    // Characters report what they touch through this (a trigger they walk into, say).
+    class CharacterContacts final : public JPH::CharacterContactListener
+    {
+    public:
+        ContactCollector* collector = nullptr;
+        void OnContactAdded(const JPH::CharacterVirtual* character, const JPH::CharacterContact& contact, JPH::CharacterContactSettings& settings) override;
+        void OnContactRemoved(const JPH::CharacterVirtual* character, const JPH::BodyID& body, const JPH::SubShapeID& subShape) override;
+    };
+
+    // A character's contact as a sub-shape pair key no body contact has.
+    inline uint64_t CharacterContactKey(JPH::SubShapeID subShape)
+    {
+        return (0xC7A2ull << 48) | subShape.GetValue();
+    }
 
     inline uint64_t SubShapePairKey(JPH::SubShapeID a, JPH::SubShapeID b)
     {
@@ -132,6 +158,16 @@ struct PhysicsWorld::Impl
         bool seen = false;
     };
 
+    struct CharacterRecord
+    {
+        JPH::Ref<JPH::CharacterVirtual> character;
+        JPH::BodyID innerBody;
+        uint64_t signature = 0;
+        uint32_t writtenVersion = ~0u; // the entity's LocalTRS.version after the character last moved it
+        float yaw = 0.0f;
+        bool seen = false;
+    };
+
     // Where a wheel entity sits when its suspension is fully out: its LocalTRS before the vehicle
     // moved it (and the version it left), so its own moves are told apart from the edits of others.
     struct WheelRest
@@ -174,6 +210,9 @@ struct PhysicsWorld::Impl
     std::unordered_set<uint64_t> warnedDynamicMesh;
     std::unordered_map<uint64_t, VehicleRecord> vehicles; // per chassis entity
     std::unordered_map<uint64_t, WheelRest> wheelRests;   // per wheel entity
+    std::unordered_map<uint64_t, CharacterRecord> characters;
+    std::unique_ptr<JPH::CharacterVsCharacterCollisionSimple> characterCollision;
+    PhysicsInternal::CharacterContacts characterContacts;
     // Debug drawing of contacts: wanted by the last DebugDraw call, drawn by Jolt during steps.
     bool drawContacts = false;
     size_t maxContactLines = 0;
@@ -195,6 +234,10 @@ struct PhysicsWorld::Impl
     void RemoveVehicle(VehicleRecord& record);
     void DriveVehicles();
     void WriteWheels();
+    void SyncCharacters();
+    void RemoveCharacter(CharacterRecord& record);
+    void MoveCharacters(float dt);
+    void WriteCharacters();
     void ProcessContacts();
     void WriteBack();
     void Step(float dt);

@@ -3,6 +3,7 @@
 #include <Mariana/Physics/PhysicsSettings.hpp>
 #include <Mariana/Physics/Queries.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
+#include <Mariana/Physics/Character.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
 #include <memory>
@@ -71,8 +72,8 @@ public:
     PhysicsWorld(const PhysicsWorld&) = delete;
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
 
-    // RigidBody, the colliders, Vehicle, VehicleWheel, PlayerControl and FollowCamera; call before
-    // Scene::UpdateComponentRegistry.
+    // RigidBody, the colliders, Vehicle, VehicleWheel, CharacterController, PlayerControl and
+    // FollowCamera; call before Scene::UpdateComponentRegistry.
     static void RegisterComponents();
 
     const PhysicsSettings& Settings() const;
@@ -121,11 +122,13 @@ public:
     const std::vector<ContactEvent>& Events() const;
     bool IsTouching(Entity a, Entity b) const;
 
-    // A vehicle's state while it runs (false when the entity has none).
+    // A vehicle's or a character's state while it runs (false when the entity has none).
     bool GetVehicleInfo(Entity entity, VehicleInfo& info) const;
-    // Sets the Vehicle inputs of every entity with a PlayerControl from the keyboard (call each frame
-    // before Step, with the game time, while the player may drive).
-    void UpdatePlayerControls(const IInput& input, float dt);
+    bool GetCharacterInfo(Entity entity, CharacterInfo& info) const;
+    // Sets the inputs of every entity with a PlayerControl from the keyboard (call each frame before
+    // Step, with the game time, while the player may drive): a Vehicle's pedals and steering, or a
+    // CharacterController's walking, relative to `viewForward` (where the camera looks).
+    void UpdatePlayerControls(const IInput& input, float dt, const glm::vec3& viewForward = glm::vec3(0.0f, 0.0f, 1.0f));
 
     // Lines picturing the simulation, added to `lines`.
     void DebugDraw(const PhysicsDebugDraw& settings, std::vector<DebugLine>& lines);

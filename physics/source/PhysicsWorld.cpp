@@ -198,10 +198,22 @@ namespace PhysicsInternal
     void ContactCollector::OnContactRemoved(const JPH::SubShapeIDPair& pair)
     {
         std::lock_guard lock(m_Mutex);
-        m_Removed.push_back(pair);
+        m_Removed.push_back(Removed{ pair.GetBody1ID(), pair.GetBody2ID(), SubShapePairKey(pair.GetSubShapeID1(), pair.GetSubShapeID2()) });
     }
 
-    void ContactCollector::Take(std::vector<Added>& added, std::vector<JPH::SubShapeIDPair>& removed)
+    void ContactCollector::Add(const Added& contact)
+    {
+        std::lock_guard lock(m_Mutex);
+        m_Added.push_back(contact);
+    }
+
+    void ContactCollector::Remove(const Removed& contact)
+    {
+        std::lock_guard lock(m_Mutex);
+        m_Removed.push_back(contact);
+    }
+
+    void ContactCollector::Take(std::vector<Added>& added, std::vector<Removed>& removed)
     {
         {
             std::lock_guard lock(m_Mutex);
@@ -210,15 +222,13 @@ namespace PhysicsInternal
             m_Added.clear();
             m_Removed.clear();
         }
-        auto ids = [](JPH::BodyID x, JPH::BodyID y, JPH::SubShapeID sx, JPH::SubShapeID sy) {
-            return std::tuple(x.GetIndexAndSequenceNumber(), y.GetIndexAndSequenceNumber(), sx.GetValue(), sy.GetValue());
-        };
         std::sort(added.begin(), added.end(), [](const Added& l, const Added& r) {
             return std::tuple(l.body1.GetIndexAndSequenceNumber(), l.body2.GetIndexAndSequenceNumber(), l.subShapes) <
                    std::tuple(r.body1.GetIndexAndSequenceNumber(), r.body2.GetIndexAndSequenceNumber(), r.subShapes);
         });
-        std::sort(removed.begin(), removed.end(), [&](const JPH::SubShapeIDPair& l, const JPH::SubShapeIDPair& r) {
-            return ids(l.GetBody1ID(), l.GetBody2ID(), l.GetSubShapeID1(), l.GetSubShapeID2()) < ids(r.GetBody1ID(), r.GetBody2ID(), r.GetSubShapeID1(), r.GetSubShapeID2());
+        std::sort(removed.begin(), removed.end(), [](const Removed& l, const Removed& r) {
+            return std::tuple(l.body1.GetIndexAndSequenceNumber(), l.body2.GetIndexAndSequenceNumber(), l.subShapes) <
+                   std::tuple(r.body1.GetIndexAndSequenceNumber(), r.body2.GetIndexAndSequenceNumber(), r.subShapes);
         });
     }
 
@@ -261,6 +271,8 @@ void PhysicsWorld::Impl::CreateSystem()
     system->SetCombineFriction(CombineFriction);
     system->SetCombineRestitution(CombineRestitution);
     system->SetContactListener(&contacts);
+    characterCollision = std::make_unique<JPH::CharacterVsCharacterCollisionSimple>();
+    characterContacts.collector = &contacts;
     Apply();
 }
 
@@ -283,6 +295,9 @@ void PhysicsWorld::Impl::RemoveBody(JPH::BodyID& id)
 
 void PhysicsWorld::Impl::RemoveAll()
 {
+    for (auto& [id, character] : characters)
+        RemoveCharacter(character);
+    characters.clear();
     for (auto& [id, vehicle] : vehicles)
         RemoveVehicle(vehicle);
     vehicles.clear();
@@ -310,8 +325,8 @@ void PhysicsWorld::Impl::Collect()
     candidates.clear();
     std::function<void(Entity, const glm::mat4&, const glm::vec3&, int, const glm::mat4&)> walk =
         [&](Entity e, const glm::mat4& parentWorld, const glm::vec3& parentScale, int owner, const glm::mat4& parentRelative) {
-            if (e.TryGet<VehicleWheel>())
-                return; // a vehicle's wheel (and what is on it) is no part of the chassis
+            if (e.TryGet<VehicleWheel>() || e.TryGet<CharacterController>())
+                return; // a vehicle's wheel or a character (and what is on them) is no body
             const LocalTRS* trs = e.TryGet<LocalTRS>();
             const glm::mat4 local = trs ? LocalMatrix(*trs) : glm::mat4(1.0f);
             const glm::mat4 world = parentWorld * local;
@@ -559,6 +574,7 @@ void PhysicsWorld::Impl::Sync()
     if (created > 16)
         system->OptimizeBroadPhase();
     SyncVehicles();
+    SyncCharacters();
 }
 
 void PhysicsWorld::Impl::MoveKinematics(float dt)
@@ -603,7 +619,7 @@ void PhysicsWorld::Impl::ApplyPending(bool impulses)
 void PhysicsWorld::Impl::ProcessContacts()
 {
     std::vector<ContactCollector::Added> added;
-    std::vector<JPH::SubShapeIDPair> removed;
+    std::vector<ContactCollector::Removed> removed;
     contacts.Take(added, removed);
     const JPH::BodyInterface& bodies = system->GetBodyInterface();
     auto sleeping = [&](JPH::BodyID id) { return bodies.IsAdded(id) && !bodies.IsActive(id) && bodies.GetMotionType(id) != JPH::EMotionType::Static; };
@@ -641,15 +657,14 @@ void PhysicsWorld::Impl::ProcessContacts()
         e.trigger = t.trigger;
         events.push_back(e);
     };
-    for (const JPH::SubShapeIDPair& r : removed)
+    for (const ContactCollector::Removed& r : removed)
     {
-        const auto found = touching.find(BodyPairKey(r.GetBody1ID(), r.GetBody2ID()));
+        const auto found = touching.find(BodyPairKey(r.body1, r.body2));
         if (found == touching.end())
             continue;
         Touching& t = found->second;
-        const uint64_t subShapes = SubShapePairKey(r.GetSubShapeID1(), r.GetSubShapeID2());
-        if (t.live.erase(subShapes) && (sleeping(r.GetBody1ID()) || sleeping(r.GetBody2ID())))
-            t.asleep[subShapes] = 0;
+        if (t.live.erase(r.subShapes) && (sleeping(r.body1) || sleeping(r.body2)))
+            t.asleep[r.subShapes] = 0;
         if (t.Empty())
         {
             end(t);
@@ -740,6 +755,7 @@ void PhysicsWorld::Impl::Step(float dt)
         MoveKinematics(step);
         ApplyPending(steps == 0);
         DriveVehicles();
+        MoveCharacters(step);
         system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
         ProcessContacts();
         accumulator -= step;
@@ -755,6 +771,7 @@ void PhysicsWorld::Impl::Step(float dt)
         pending.clear();
         WriteBack();
         WriteWheels();
+        WriteCharacters();
     }
 }
 
@@ -790,6 +807,7 @@ void PhysicsWorld::RegisterComponents()
     ECS::RegisterComponent<VehicleWheel>("VehicleWheel");
     ECS::RegisterComponent<PlayerControl>("PlayerControl");
     ECS::RegisterComponent<FollowCamera>("FollowCamera");
+    ECS::RegisterComponent<CharacterController>("CharacterController");
 }
 
 PhysicsWorld::PhysicsWorld(Scene& scene, const PhysicsSettings& settings)

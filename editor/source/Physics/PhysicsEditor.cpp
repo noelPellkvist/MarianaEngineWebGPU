@@ -221,6 +221,30 @@ namespace
         painter.Line(center, center + up * (w.suspensionMax - w.suspensionMin), IM_COL32(255, 120, 60, 230));
     }
 
+    // A character's capsule standing on its entity's origin.
+    void DrawCharacter(const Painter& painter, const glm::mat4& world, const CharacterController& c)
+    {
+        const ImU32 color = IM_COL32(120, 200, 255, 230);
+        const glm::vec3 base(world[3]);
+        const glm::vec3 y(0.0f, 1.0f, 0.0f);
+        glm::vec3 z(world[2]);
+        z.y = 0.0f;
+        z = glm::length(z) > 1e-4f ? glm::normalize(z) : glm::vec3(0.0f, 0.0f, 1.0f);
+        const glm::vec3 x = glm::cross(y, z);
+        const float r = c.radius, pi = glm::pi<float>(), twoPi = glm::two_pi<float>();
+        const glm::vec3 bottom = base + y * r, top = base + y * std::max(c.height - r, r);
+        painter.Arc(top, x, z, r, 0.0f, twoPi, color, 32);
+        painter.Arc(bottom, x, z, r, 0.0f, twoPi, color, 32);
+        for (const glm::vec3& side : { x, -x, z, -z })
+            painter.Line(top + side * r, bottom + side * r, color);
+        painter.Arc(top, x, y, r, 0.0f, pi, color);
+        painter.Arc(top, z, y, r, 0.0f, pi, color);
+        painter.Arc(bottom, x, y, r, pi, twoPi, color);
+        painter.Arc(bottom, z, y, r, pi, twoPi, color);
+        // Which way it faces.
+        painter.Line(base + y * (0.5f * c.height), base + y * (0.5f * c.height) + z * (r + 0.3f), color);
+    }
+
     void DrawGeometry(const Painter& painter, const ColliderGeometry& g)
     {
         const ImU32 color = g.collider->isTrigger ? IM_COL32(90, 210, 255, 220) : IM_COL32(110, 235, 130, 220);
@@ -606,6 +630,44 @@ namespace PhysicsEditor
             ImGui::PopID();
         });
 
+        inspector.SetComponentDrawer("CharacterController", [&inspector, &undo, &world](Entity& entity) {
+            ImGui::PushID("CharacterController");
+            if (Section<CharacterController>(inspector, undo, entity, "Character Controller"))
+            {
+                EditComponent<CharacterController>(entity, undo, "Edit Character Controller", [&](CharacterController& c) {
+                    bool changed = false;
+                    changed |= ImGui::DragFloat("Radius", &c.radius, 0.005f, 0.05f, 5.0f, "%.3f m");
+                    changed |= ImGui::DragFloat("Height", &c.height, 0.01f, 0.1f, 10.0f, "%.2f m");
+                    changed |= ImGui::SliderFloat("Max Slope", &c.maxSlope, 0.0f, 89.0f, "%.0f deg");
+                    changed |= ImGui::DragFloat("Step Height", &c.stepHeight, 0.005f, 0.0f, 2.0f, "%.2f m");
+                    changed |= ImGui::DragFloat("Stick Down", &c.stickDown, 0.005f, 0.0f, 2.0f, "%.2f m");
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("How far it follows the ground down steps and slopes instead of flying off");
+                    changed |= ImGui::DragFloat("Speed", &c.speed, 0.05f, 0.0f, 50.0f, "%.2f m/s");
+                    changed |= ImGui::DragFloat("Run Factor", &c.runFactor, 0.01f, 1.0f, 5.0f, "%.2f");
+                    changed |= ImGui::DragFloat("Jump Speed", &c.jumpSpeed, 0.05f, 0.0f, 50.0f, "%.2f m/s");
+                    changed |= ImGui::DragFloat("Gravity Factor", &c.gravityFactor, 0.01f, -10.0f, 10.0f, "%.2f");
+                    changed |= ImGui::SliderFloat("Air Control", &c.airControl, 0.0f, 1.0f, "%.2f");
+                    changed |= ImGui::DragFloat("Mass", &c.mass, 0.5f, 0.1f, 10000.0f, "%.1f kg");
+                    changed |= ImGui::DragFloat("Strength", &c.strength, 1.0f, 0.0f, 100000.0f, "%.0f N");
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("How hard it pushes the bodies it walks into");
+                    changed |= ImGui::Checkbox("Turn to Move", &c.turnToMove);
+                    if (c.turnToMove)
+                        changed |= ImGui::DragFloat("Turn Speed", &c.turnSpeed, 5.0f, 0.0f, 10000.0f, "%.0f deg/s");
+                    return changed;
+                });
+                CharacterInfo info;
+                if (world.GetCharacterInfo(entity, info))
+                    ImGui::TextDisabled("%s, %.2f m/s%s%s", info.grounded ? "on the ground" : info.onSteepGround ? "on steep ground" : "in the air",
+                                        glm::length(glm::vec3(info.velocity.x, 0.0f, info.velocity.z)), info.ground.IsValid() ? ", on " : "",
+                                        info.ground.IsValid() ? info.ground.GetName() : "");
+                else
+                    ImGui::TextDisabled("Walks while playing");
+            }
+            ImGui::PopID();
+        });
+
         inspector.SetComponentDrawer("PlayerControl", [&inspector, &undo](Entity& entity) {
             ImGui::PushID("PlayerControl");
             if (Section<PlayerControl>(inspector, undo, entity, "Player Control"))
@@ -615,7 +677,10 @@ namespace PhysicsEditor
                     changed |= ImGui::DragFloat("Steer Speed", &c.steerSpeed, 0.05f, 0.1f, 20.0f, "%.2f");
                     return changed;
                 });
-                ImGui::TextDisabled("W/S or Up/Down drive, A/D or Left/Right steer, Space hand brake");
+                if (entity.TryGet<CharacterController>())
+                    ImGui::TextDisabled("WASD or arrows walk (from the view), Shift runs, Space jumps");
+                else
+                    ImGui::TextDisabled("W/S or Up/Down drive, A/D or Left/Right steer, Space hand brake");
             }
             ImGui::PopID();
         });
@@ -661,6 +726,9 @@ namespace PhysicsEditor
         inspector.AddComponentOption({ "Physics", "Mesh Collider",
             [](Entity e) { return !e.TryGet<MeshCollider>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Mesh Collider", MeshCollider{}); } });
+        inspector.AddComponentOption({ "Physics", "Character Controller",
+            [](Entity e) { return !e.TryGet<CharacterController>(); },
+            [&undo](Entity e) { AddWithUndo(undo, e, "Character Controller", CharacterController{}); } });
         inspector.AddComponentOption({ "Vehicles", "Vehicle",
             [](Entity e) { return !e.TryGet<Vehicle>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Vehicle", Vehicle{}); } });
@@ -696,6 +764,11 @@ namespace PhysicsEditor
             if (const VehicleWheel* wheel = entity.TryGet<VehicleWheel>())
             {
                 DrawWheel(painter, glm::make_mat4(world->model), *wheel);
+                return;
+            }
+            if (const CharacterController* character = entity.TryGet<CharacterController>())
+            {
+                DrawCharacter(painter, glm::make_mat4(world->model), *character);
                 return;
             }
             if (HasCollider(entity))

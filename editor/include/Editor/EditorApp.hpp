@@ -83,6 +83,11 @@ class EditorApp : public Application
         // ground with ramps to drive on.
         Entity SpawnVehicle(VehicleType type);
         Entity SpawnPlayground();
+        // A walking character (with a chase camera if the scene has none) and a course to try it on.
+        Entity SpawnCharacter();
+        Entity SpawnCharacterCourse();
+        // A camera following the player-controlled entity, unless the scene has a FollowCamera.
+        void AddChaseCamera(float distance, float height, float lookHeight);
         // A camera where the editor camera is, looking the same way.
         Entity SpawnCamera();
 

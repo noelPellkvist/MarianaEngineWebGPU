@@ -10,6 +10,7 @@
 #include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/VehiclePresets.hpp>
+#include <Mariana/Physics/CharacterPresets.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
@@ -247,6 +248,10 @@ void PlayerApp::OnStart()
             }
             else if (spawn.preset == "playground")
                 VehiclePresets::SpawnPlayground(scene, assets, spawn.position);
+            else if (spawn.preset == "character")
+                CharacterPresets::Spawn(scene, assets, spawn.position, turn);
+            else if (spawn.preset == "course")
+                CharacterPresets::SpawnCourse(scene, assets, spawn.position);
             else
                 Logger::Error("Unknown preset " + spawn.preset);
             continue;
@@ -295,7 +300,7 @@ void PlayerApp::OnStart()
 void PlayerApp::OnUpdate(float deltaTime)
 {
     animationSystem.Run(gameClock.DeltaTime());
-    physics->UpdatePlayerControls(input, gameClock.DeltaTime());
+    physics->UpdatePlayerControls(input, gameClock.DeltaTime(), glm::vec3(cam->GetCameraInfo().invView[2]));
     physics->Step(gameClock.DeltaTime());
     UpdateFollowCameras(scene, gameClock.DeltaTime());
 

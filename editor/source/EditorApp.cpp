@@ -17,6 +17,7 @@
 #include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/VehiclePresets.hpp>
+#include <Mariana/Physics/CharacterPresets.hpp>
 
 #include "ImGuizmo.h"
 
@@ -237,22 +238,55 @@ Entity EditorApp::SpawnVehicle(VehicleType type)
     Entity vehicle = VehiclePresets::Spawn(scene, assets, type, position, facing);
 
     // A chase camera for the Game view, unless the scene has one.
+    AddChaseCamera(FollowCamera{}.distance, FollowCamera{}.height, FollowCamera{}.lookHeight);
+    scene.Update(0.0f);
+    DeselectEntity();
+    SelectEntity(vehicle.RawId());
+    return vehicle;
+}
+
+Entity EditorApp::SpawnCharacter()
+{
+    const CameraInfo info = cam->GetCameraInfo();
+    glm::vec3 forward = glm::vec3(info.invView[2]);
+    forward.y = 0.0f;
+    forward = glm::length(forward) > 1e-4f ? glm::normalize(forward) : glm::vec3(0.0f, 0.0f, 1.0f);
+    glm::vec3 position = info.pos + forward * 6.0f;
+    position.y = 0.0f;
+    const glm::quat facing = glm::angleAxis(std::atan2(forward.x, forward.z), glm::vec3(0.0f, 1.0f, 0.0f));
+    Entity character = CharacterPresets::Spawn(scene, assets, position, facing);
+    AddChaseCamera(5.0f, 2.0f, 1.4f);
+    scene.Update(0.0f);
+    DeselectEntity();
+    SelectEntity(character.RawId());
+    return character;
+}
+
+Entity EditorApp::SpawnCharacterCourse()
+{
+    const CameraInfo info = cam->GetCameraInfo();
+    Entity course = CharacterPresets::SpawnCourse(scene, assets, glm::vec3(info.pos.x, 0.0f, info.pos.z));
+    scene.Update(0.0f);
+    return course;
+}
+
+void EditorApp::AddChaseCamera(float distance, float height, float lookHeight)
+{
     bool following = false;
     scene.ForEachRoot([&](Entity root) {
         if (root.TryGet<FollowCamera>())
             following = true;
         scene.ForEachDescendant(root, [&](Entity e) { if (e.TryGet<FollowCamera>()) following = true; });
     });
-    if (!following)
-    {
-        Entity camera = SpawnCamera();
-        camera.Add<FollowCamera>(FollowCamera{});
-        camera.SetName("Chase Camera");
-    }
-    scene.Update(0.0f);
-    DeselectEntity();
-    SelectEntity(vehicle.RawId());
-    return vehicle;
+    if (following)
+        return;
+    Entity camera = SpawnCamera();
+    FollowCamera follow;
+    follow.distance = distance;
+    follow.height = height;
+    follow.lookHeight = lookHeight;
+    camera.Add<FollowCamera>(follow);
+    camera.SetName("Chase Camera");
 }
 
 Entity EditorApp::SpawnPlayground()
@@ -437,7 +471,14 @@ void EditorApp::OnUpdate(float deltaTime)
     {
         // The keys drive the game unless something else has them (typing, flying the editor camera).
         if (!ImGui::GetIO().WantTextInput && !input.IsMouseButtonDown(MouseButton::Right))
-            physics->UpdatePlayerControls(input, gameClock.DeltaTime());
+        {
+            // Characters walk relative to the game camera (last frame's first one), else the editor's.
+            glm::vec3 viewForward = glm::vec3(cam->GetCameraInfo().invView[2]);
+            if (!sceneCameras.empty())
+                if (const WorldXform* w = sceneCameras.front().TryGet<WorldXform>())
+                    viewForward = glm::vec3(w->model[8], w->model[9], w->model[10]);
+            physics->UpdatePlayerControls(input, gameClock.DeltaTime(), viewForward);
+        }
         physics->Step(gameClock.DeltaTime());
         UpdateFollowCameras(scene, gameClock.DeltaTime());
     }
@@ -740,6 +781,9 @@ void EditorApp::DrawTopMenu()
                 if (ImGui::MenuItem("Static Cube")) SpawnPhysicsShape(BuiltinMesh::Cube, "Static Cube", false);
                 if (ImGui::MenuItem("Ground")) SpawnGround();
                 if (ImGui::MenuItem("Box Stack")) SpawnBoxStack();
+                ImGui::Separator();
+                if (ImGui::MenuItem("Character")) SpawnCharacter();
+                if (ImGui::MenuItem("Character Course")) SpawnCharacterCourse();
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Vehicle"))
