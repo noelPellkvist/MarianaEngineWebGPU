@@ -148,6 +148,7 @@ Contributions are welcome! Please:
 
 - **Google Dawn** — WebGPU implementation powering both native and web backends
 - **WebGPU** — modern graphics API for the Web and native
+- **Car Concept** (`projects/Sandbox/Models/CarConcept/`) — © 2024 Darmstadt Graphics Group GmbH, created by Eric Chadwick, based on a public domain model by Unity Fan; from the Khronos glTF Sample Assets, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (Khronos logos and trademarks excluded)
 - Everyone who likes triangles and frame times under 16ms
 
 ---

@@ -8,6 +8,9 @@
 #include <Mariana/Graphics/Texture.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
 
+// The textures a PBR material can use, in binding order.
+enum class MaterialTexture : uint32_t { BaseColor, Normal, MetallicRoughness, Occlusion, Emissive, Count };
+
 // Per-material constants read by the PBR shaders from their MaterialBuffer. The field order must
 // match `MaterialProperties` in test.wgsl, prepass.wgsl and shadow.wgsl.
 struct PBRMaterialProperties
@@ -25,11 +28,19 @@ struct PBRMaterialProperties
     // Bit i set: texture i (see MaterialTexture) reads TEXCOORD_1; set through MaterialAsset::SetTexture.
     uint32_t uvSets{0};
 
+    // A clear varnish over the material (glTF's KHR_materials_clearcoat, without its textures):
+    // how much of it (0 = none) and how rough it is. It reflects along the surface's own normal.
+    float clearcoat{0};
+    float clearcoatRoughness{0};
+
+    // Texture i reads uv' = M * uv + uvOffset[i], M's rows in uvMatrix[i] (xy, zw); set through
+    // MaterialAsset::SetTextureTransform.
+    std::array<glm::vec4, static_cast<size_t>(MaterialTexture::Count)> uvMatrix{
+        glm::vec4(1, 0, 0, 1), glm::vec4(1, 0, 0, 1), glm::vec4(1, 0, 0, 1), glm::vec4(1, 0, 0, 1), glm::vec4(1, 0, 0, 1) };
+    std::array<glm::vec2, static_cast<size_t>(MaterialTexture::Count)> uvOffset{};
+
     bool operator==(const PBRMaterialProperties&) const = default;
 };
-
-// The textures a PBR material can use, in binding order.
-enum class MaterialTexture : uint32_t { BaseColor, Normal, MetallicRoughness, Occlusion, Emissive, Count };
 
 // Blend isn't supported by the renderer yet and draws like Mask.
 enum class AlphaMode { Opaque, Mask, Blend };
@@ -47,11 +58,24 @@ public:
     static constexpr uint32_t kMaxMaterials = 131072;
     static constexpr uint32_t kInvalidSlot = ~0u;
 
+    // How a texture's UVs are moved before it is sampled (glTF's KHR_texture_transform): scaled,
+    // then rotated by `rotation` radians, then offset.
+    struct TextureTransform
+    {
+        glm::vec2 offset{0.0f, 0.0f};
+        float rotation = 0.0f;
+        glm::vec2 scale{1.0f, 1.0f};
+
+        bool IsIdentity() const { return offset == glm::vec2(0.0f) && rotation == 0.0f && scale == glm::vec2(1.0f); }
+        bool operator==(const TextureTransform&) const = default;
+    };
+
     struct TextureSlot
     {
         AssetHandle<Texture> texture;
         SamplerSettings sampler;
         uint32_t uvSet = 0; // 0 or 1
+        TextureTransform transform;
     };
 
     MaterialAsset();
@@ -68,8 +92,10 @@ public:
     // Drawn without back-face culling, back faces lit from their side.
     bool doubleSided = false;
 
+    // Keeps the slot's transform.
     void SetTexture(MaterialTexture slot, AssetHandle<Texture> texture, const SamplerSettings& sampler = {}, uint32_t uvSet = 0);
     const TextureSlot& GetTexture(MaterialTexture slot) const { return m_Textures[static_cast<size_t>(slot)]; }
+    void SetTextureTransform(MaterialTexture slot, const TextureTransform& transform);
 
     void SetAlphaMode(AlphaMode mode, float cutoff = 0.5f);
     AlphaMode GetAlphaMode() const { return m_AlphaMode; }
@@ -80,7 +106,7 @@ public:
     bool IsDirty() const { return m_Dirty; }
     void MarkDirty() { m_Dirty = true; ++m_Version; }
     void ClearDirty() { m_Dirty = false; }
-    // Changes with every edit (MarkDirty, SetTexture, SetAlphaMode).
+    // Changes with every edit (MarkDirty, SetTexture, SetTextureTransform, SetAlphaMode).
     uint32_t Version() const { return m_Version; }
 
     // Renderer side: the texture bind group, rebuilt while BindGroupDirty() (new materials start dirty).

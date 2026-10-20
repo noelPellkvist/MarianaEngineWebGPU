@@ -70,6 +70,7 @@ bool PlayerConfig::Load(const std::string& path, PlayerConfig& out, std::string&
                 spawn.prefab = entry.value("prefab", std::string());
                 spawn.primitive = entry.value("primitive", std::string());
                 spawn.preset = entry.value("preset", std::string());
+                spawn.vehicle = entry.value("vehicle", std::string());
                 spawn.color = ReadVec3(entry, "color", spawn.color);
                 spawn.position = ReadVec3(entry, "position", spawn.position);
                 spawn.rotation = ReadVec3(entry, "rotation", spawn.rotation);
@@ -300,6 +301,13 @@ void PlayerApp::OnStart()
             scene.Update(0.0f); // fitting reads the meshes' world transforms
             AddPhysics(root, spawn);
         }
+        if (spawn.vehicle == "car")
+        {
+            scene.Update(0.0f); // rigging reads the world transforms
+            VehiclePresets::RigCar(scene, root);
+        }
+        else if (!spawn.vehicle.empty())
+            Logger::Warning("Player.json: unknown vehicle \"" + spawn.vehicle + "\"");
     }
     scene.Update(0.0f);
     // A player is the game: it plays from the start.

@@ -49,6 +49,10 @@ struct MaterialProperties {
     emissiveFactor: vec3<f32>,
     alphaCutoff: f32,
     uvSets: u32,
+    clearcoat: f32,
+    clearcoatRoughness: f32,
+    uvMatrix: array<vec4f, 5>,
+    uvOffset: array<vec2f, 5>,
 };
 
 struct BoneData {
@@ -115,7 +119,8 @@ fn vertexMain(input: VertexInput, @builtin(instance_index) drawCallIndex: u32) -
 @fragment
 fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -> PrepassOut {
     let material = MaterialBuffer[DrawInfo[input.drawIndex].materialIndex];
-    let uv = select(input.uv, input.uv1, (material.uvSets & 1u) != 0u);
+    let uv0 = select(input.uv, input.uv1, (material.uvSets & 1u) != 0u);
+    let uv = vec2f(dot(material.uvMatrix[0].xy, uv0), dot(material.uvMatrix[0].zw, uv0)) + material.uvOffset[0];
     let alpha = textureSample(albedo, albedoSampler, uv).a * material.baseColor.a * input.alpha;
     if (alpha < material.alphaCutoff) {
         discard;

@@ -120,6 +120,8 @@ namespace MaterialFile
         p.normalMapStrength = json.value("normalStrength", p.normalMapStrength);
         p.occlusionStrength = json.value("occlusionStrength", p.occlusionStrength);
         ReadArray(json, "emissive", p.emissiveFactor, 3);
+        p.clearcoat = json.value("clearcoat", p.clearcoat);
+        p.clearcoatRoughness = json.value("clearcoatRoughness", p.clearcoatRoughness);
         material->doubleSided = json.value("doubleSided", false);
 
         const std::string alphaMode = json.value("alphaMode", std::string("Opaque"));
@@ -150,6 +152,12 @@ namespace MaterialFile
                 sampler.mipmapFilter = ParseFilter(entry->value("mipFilter", std::string("Linear")));
                 sampler.mipmaps = entry->value("mipmaps", true);
                 material->SetTexture(slot, texture, sampler, entry->value("uvSet", 0u));
+
+                MaterialAsset::TextureTransform transform;
+                ReadArray(*entry, "offset", transform.offset, 2);
+                ReadArray(*entry, "scale", transform.scale, 2);
+                transform.rotation = glm::radians(entry->value("rotation", 0.0f));
+                material->SetTextureTransform(slot, transform);
             }
         }
         return material;
@@ -186,6 +194,8 @@ namespace MaterialFile
         json["normalStrength"] = Clean(p.normalMapStrength);
         json["occlusionStrength"] = Clean(p.occlusionStrength);
         json["emissive"] = Array(&p.emissiveFactor.x, 3);
+        json["clearcoat"] = Clean(p.clearcoat);
+        json["clearcoatRoughness"] = Clean(p.clearcoatRoughness);
         json["alphaMode"] = AlphaModeName(material.GetAlphaMode());
         json["alphaCutoff"] = Clean(p.alphaCutoff > 0.0f ? p.alphaCutoff : 0.5f);
         json["doubleSided"] = material.doubleSided;
@@ -222,6 +232,12 @@ namespace MaterialFile
             entry["minFilter"] = FilterName(slot.sampler.minFilter);
             entry["mipFilter"] = FilterName(slot.sampler.mipmapFilter);
             entry["mipmaps"] = slot.sampler.mipmaps;
+            if (!slot.transform.IsIdentity())
+            {
+                entry["offset"] = Array(&slot.transform.offset.x, 2);
+                entry["rotation"] = Clean(glm::degrees(slot.transform.rotation));
+                entry["scale"] = Array(&slot.transform.scale.x, 2);
+            }
             textures[kSlotKeys[t]] = entry;
         }
         json["textures"] = textures;

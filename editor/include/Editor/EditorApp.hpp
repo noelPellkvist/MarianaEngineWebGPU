@@ -90,6 +90,8 @@ class EditorApp : public Application
         Entity SpawnJointPreset(int which);
         // A camera following the player-controlled entity, unless the scene has a FollowCamera.
         void AddChaseCamera(float distance, float height, float lookHeight);
+        // What the editor opens with: the vehicle playground and a drivable car.
+        void BuildStartupScene();
         // A camera where the editor camera is, looking the same way.
         Entity SpawnCamera();
 

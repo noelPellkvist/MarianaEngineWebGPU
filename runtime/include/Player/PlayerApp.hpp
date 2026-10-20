@@ -27,7 +27,8 @@
 // motorcycle, tank: a vehicle the keyboard drives, W A S D and Space; playground: ground with ramps;
 // character: one that walks with W A S D, Shift and Space; course: steps, slopes and crates for it;
 // chain (hanging from `position`), door, spinner, wrecking ball: joints at work).
-// With `follow` (and optional `distance`, `height`) the camera chases the driven vehicle. `rotation` is Euler angles
+// With `follow` (and optional `distance`, `height`) the camera chases the driven vehicle. A prefab
+// with "vehicle": "car" is rigged as a car (its "Wheel..." entities become its wheels). `rotation` is Euler angles
 // in degrees; `scale` a number or [x, y, z]; `faceCamera` instead turns it about +Y so its front (+Z,
 // as glTF assets face) points at the camera's starting position. `physics` makes it a body: `body`
 // static (default), kinematic or dynamic; `collider` box, sphere, capsule or cylinder (one on the
@@ -52,6 +53,7 @@ struct PlayerConfig
         std::string prefab;
         std::string primitive;
         std::string preset;
+        std::string vehicle; // "car": rig the prefab as a drivable car (VehiclePresets::RigCar)
         glm::vec3 color{1.0f};
         glm::vec3 position{0.0f};
         glm::vec3 rotation{0.0f}; // Euler degrees

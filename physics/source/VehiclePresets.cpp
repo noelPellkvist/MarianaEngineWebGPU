@@ -1,8 +1,17 @@
 #include <Mariana/Physics/VehiclePresets.hpp>
 
 #include <Mariana/Physics/Controllers.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
+#include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Rendering/Components.hpp>
+#include <Mariana/Scene/Prefab.hpp>
 
 #include "PresetParts.hpp"
+#include "WorldImpl.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <functional>
 
 #include <cmath>
 #include <glm/gtc/constants.hpp>
@@ -217,5 +226,171 @@ namespace VehiclePresets
             }
         }
         return root;
+    }
+
+    bool RigCar(Scene& scene, Entity model, float mass)
+    {
+        if (!model.IsValid())
+            return false;
+        auto startsWithWheel = [](const char* name) {
+            const char* prefix = "wheel";
+            for (int i = 0; prefix[i]; ++i)
+                if (!name[i] || std::tolower(static_cast<unsigned char>(name[i])) != prefix[i])
+                    return false;
+            return true;
+        };
+
+        // The wheels, and the meshes of the body (everything else).
+        std::vector<Entity> wheels, bodyMeshes;
+        std::function<void(Entity)> visit = [&](Entity e) {
+            if (startsWithWheel(e.GetName()) && !MeshBounds(e).IsEmpty())
+            {
+                wheels.push_back(e);
+                return;
+            }
+            if (e.TryGet<MeshComponent>())
+                bodyMeshes.push_back(e);
+            e.ForEachChild(visit);
+        };
+        model.ForEachChild(visit);
+        if (wheels.size() < 3)
+        {
+            Logger::Warning(std::string("RigCar: ") + model.GetName() + " has " + std::to_string(wheels.size()) + " wheels (entities named Wheel...)");
+            return false;
+        }
+
+        const glm::mat4 chassisWorld = WorldMatrix(scene, model);
+        glm::vec3 chassisPosition;
+        glm::quat chassisRotation;
+        SplitPose(chassisWorld, chassisPosition, chassisRotation);
+        const glm::mat4 toChassis = glm::inverse(glm::translate(glm::mat4(1.0f), chassisPosition) * glm::mat4_cast(chassisRotation));
+        const glm::vec3 chassisUp = chassisRotation * glm::vec3(0.0f, 1.0f, 0.0f);
+
+        // Each wheel in the car's space: where, which of its axes is the axle, how big.
+        struct Measured
+        {
+            Entity entity;
+            glm::vec3 position;
+            int axle;
+            float radius, width;
+        };
+        std::vector<Measured> measured;
+        for (Entity w : wheels)
+        {
+            const glm::mat4 relative = toChassis * WorldMatrix(scene, w);
+            int axle = 0;
+            for (int k = 1; k < 3; ++k)
+                if (std::abs(glm::normalize(glm::vec3(relative[k])).x) > std::abs(glm::normalize(glm::vec3(relative[axle])).x))
+                    axle = k;
+            const Bounds bounds = MeshBounds(w);
+            const glm::vec3 size = (bounds.max - bounds.min) * glm::vec3(glm::length(glm::vec3(relative[0])), glm::length(glm::vec3(relative[1])), glm::length(glm::vec3(relative[2])));
+            float diameter = 0.0f;
+            for (int k = 0; k < 3; ++k)
+                if (k != axle)
+                    diameter = std::max(diameter, size[k]);
+            measured.push_back({ w, glm::vec3(relative[3]), axle, 0.5f * diameter, size[axle] });
+        }
+        float front = -1e30f;
+        for (const Measured& m : measured)
+            front = std::max(front, m.position.z);
+
+        // How far the springs settle under a car (1.6 Hz): the wheels hang that much lower and the car
+        // starts that much higher, so at rest everything is where it was modelled.
+        const float settle = 0.12f;
+        for (const Measured& m : measured)
+        {
+            Entity w = m.entity;
+            LocalTRS* trs = w.Get<LocalTRS>();
+            const Entity parent = scene.Parent(w);
+            const glm::mat4 parentWorld = parent.IsValid() ? WorldMatrix(scene, parent) : glm::mat4(1.0f);
+            glm::vec3 parentPosition;
+            glm::quat parentRotation;
+            SplitPose(parentWorld, parentPosition, parentRotation);
+
+            // Straight: turn the axle about the car's up until it lies along the car's X.
+            const glm::mat4 relative = toChassis * WorldMatrix(scene, w);
+            glm::vec3 axis = glm::normalize(glm::vec3(relative[m.axle]));
+            if (axis.x < 0.0f)
+                axis = -axis;
+            const float yaw = std::atan2(axis.z, axis.x); // from +X toward +Z
+            const glm::quat straighten = glm::angleAxis(yaw, glm::vec3(0.0f, 1.0f, 0.0f));
+            const glm::quat worldYaw = chassisRotation * straighten * glm::inverse(chassisRotation);
+            const glm::quat local(trs->rot_quat[3], trs->rot_quat[0], trs->rot_quat[1], trs->rot_quat[2]);
+            const glm::quat straightened = glm::normalize(glm::inverse(parentRotation) * worldYaw * parentRotation * local);
+            trs->rot_quat[0] = straightened.x;
+            trs->rot_quat[1] = straightened.y;
+            trs->rot_quat[2] = straightened.z;
+            trs->rot_quat[3] = straightened.w;
+            // Down by the settle, in the parent's space.
+            const glm::vec3 down = glm::vec3(glm::inverse(parentWorld) * glm::vec4(-chassisUp * settle, 0.0f));
+            for (int i = 0; i < 3; ++i)
+                trs->pos[i] += down[i];
+            ++trs->version;
+
+            const bool steers = m.position.z > front - 0.2f;
+            VehicleWheel wheel;
+            wheel.radius = m.radius;
+            wheel.width = m.width;
+            wheel.suspensionMin = 0.05f;
+            wheel.suspensionMax = 0.25f;
+            wheel.suspensionFrequency = 1.6f;
+            wheel.suspensionDamping = 0.5f;
+            wheel.maxSteerAngle = steers ? 32.0f : 0.0f;
+            wheel.maxBrakeTorque = 1500.0f;
+            wheel.maxHandBrakeTorque = steers ? 0.0f : 4000.0f;
+            w.Add<VehicleWheel>(wheel);
+        }
+
+        // The body: convex hulls of its three biggest meshes (by their box in the car's space).
+        std::vector<std::pair<float, Entity>> bySize;
+        for (Entity e : bodyMeshes)
+        {
+            const Bounds b = MeshBounds(e);
+            if (b.IsEmpty())
+                continue;
+            const glm::mat4 relative = toChassis * WorldMatrix(scene, e);
+            const glm::vec3 size = (b.max - b.min) * glm::vec3(glm::length(glm::vec3(relative[0])), glm::length(glm::vec3(relative[1])), glm::length(glm::vec3(relative[2])));
+            bySize.emplace_back(size.x * size.y * size.z, e);
+        }
+        std::sort(bySize.begin(), bySize.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+        for (size_t i = 0; i < bySize.size() && i < 3; ++i)
+        {
+            MeshCollider hull;
+            hull.convex = true;
+            bySize[i].second.Add<MeshCollider>(hull);
+        }
+
+        RigidBody body;
+        body.mass = mass;
+        body.centerOfMass = glm::vec3(0.0f, -0.15f, 0.0f);
+        model.Add<RigidBody>(body);
+        model.Add<Vehicle>(Vehicle{});
+        model.Add<PlayerControl>(PlayerControl{});
+        const glm::vec3 lifted = chassisPosition + chassisUp * settle;
+        if (LocalTRS* trs = model.Get<LocalTRS>())
+            SetWorldPose(scene, model, *trs, lifted, chassisRotation);
+        return true;
+    }
+
+    Entity SpawnCar(Scene& scene, AssetManager2& assets, const std::string& model, const glm::vec3& position, const glm::quat& rotation, float mass)
+    {
+        const std::filesystem::path file = FileSystem::Resolve(model);
+        std::shared_ptr<Prefab> prefab = file.empty() ? nullptr : assets.Load<Prefab>(file).Get();
+        if (!prefab)
+        {
+            Logger::Warning("SpawnCar: couldn't load " + model);
+            return {};
+        }
+        Entity car = scene.Instantiate(*prefab, file.stem().string().c_str());
+        car.SetPosition(position.x, position.y, position.z);
+        car.SetRotationQuat(rotation.x, rotation.y, rotation.z, rotation.w);
+        scene.Update(0.0f);
+        if (!RigCar(scene, car, mass))
+        {
+            scene.Destroy(car);
+            return {};
+        }
+        scene.Update(0.0f);
+        return car;
     }
 }

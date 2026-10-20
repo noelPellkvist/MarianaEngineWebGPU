@@ -12,10 +12,11 @@ class MaterialAsset;
 //   {
 //     "baseColor": [1, 1, 1, 1], "metallic": 0, "roughness": 1, "normalStrength": 1,
 //     "occlusionStrength": 1, "emissive": [0, 0, 0], "alphaMode": "Opaque" | "Mask" | "Blend",
-//     "alphaCutoff": 0.5, "doubleSided": false,
+//     "alphaCutoff": 0.5, "doubleSided": false, "clearcoat": 0, "clearcoatRoughness": 0,
 //     "textures": {
 //       "baseColor": { "image": "albedo.png", "uvSet": 0, "wrapU": "Repeat", "wrapV": "Repeat",
-//                      "magFilter": "Linear", "minFilter": "Linear", "mipFilter": "Linear", "mipmaps": true },
+//                      "magFilter": "Linear", "minFilter": "Linear", "mipFilter": "Linear", "mipmaps": true,
+//                      "offset": [0, 0], "rotation": 0 (degrees), "scale": [1, 1] },
 //       "normal": ..., "metallicRoughness": ..., "occlusion": ..., "emissive": ...
 //     }
 //   }

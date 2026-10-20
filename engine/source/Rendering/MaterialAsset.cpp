@@ -2,6 +2,7 @@
 #include <Mariana/Foundation/Logger.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace
@@ -69,6 +70,20 @@ void MaterialAsset::SetTexture(MaterialTexture slot, AssetHandle<Texture> textur
     else
         properties.uvSets &= ~(1u << index);
     m_BindGroupDirty = true;
+    MarkDirty();
+}
+
+void MaterialAsset::SetTextureTransform(MaterialTexture slot, const TextureTransform& transform)
+{
+    const uint32_t index = static_cast<uint32_t>(slot);
+    if (index >= m_Textures.size())
+        return;
+
+    m_Textures[index].transform = transform;
+    // uv' = T * R * S * uv as KHR_texture_transform has it, R turning counter-clockwise in UV space.
+    const float c = std::cos(transform.rotation), s = std::sin(transform.rotation);
+    properties.uvMatrix[index] = glm::vec4(c * transform.scale.x, s * transform.scale.y, -s * transform.scale.x, c * transform.scale.y);
+    properties.uvOffset[index] = transform.offset;
     MarkDirty();
 }
 

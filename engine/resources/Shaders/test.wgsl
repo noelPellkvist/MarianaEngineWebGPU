@@ -49,6 +49,10 @@ struct MaterialProperties {
     emissiveFactor: vec3<f32>,
     alphaCutoff: f32,
     uvSets: u32, // bit i: texture i (albedo, normal, metallic-roughness, occlusion, emissive) reads uv1
+    clearcoat: f32,
+    clearcoatRoughness: f32,
+    uvMatrix: array<vec4f, 5>, // texture i reads (dot(m.xy, uv), dot(m.zw, uv)) + uvOffset[i]
+    uvOffset: array<vec2f, 5>,
 };
 
 struct CameraInfoData {
@@ -143,10 +147,12 @@ fn safeNormalize(v: vec3f) -> vec3f {
     return vec3f(0.0, 0.0, 1.0);
 }
 
-// The UV set the material picked for one of its textures (0 albedo, 1 normal, 2 metallic-roughness,
-// 3 occlusion, 4 emissive).
-fn textureUV(uv0: vec2f, uv1: vec2f, uvSets: u32, texture: u32) -> vec2f {
-    return select(uv0, uv1, ((uvSets >> texture) & 1u) != 0u);
+// Where one of the material's textures is read (0 albedo, 1 normal, 2 metallic-roughness,
+// 3 occlusion, 4 emissive): the UV set it picked, moved by its texture transform.
+fn textureUV(uv0: vec2f, uv1: vec2f, material: MaterialProperties, texture: u32) -> vec2f {
+    let uv = select(uv0, uv1, ((material.uvSets >> texture) & 1u) != 0u);
+    let m = material.uvMatrix[texture];
+    return vec2f(dot(m.xy, uv), dot(m.zw, uv)) + material.uvOffset[texture];
 }
 
 // ===================== shadows =====================
@@ -335,12 +341,12 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
     // Interpolation bends the frame between vertices, so it is made orthonormal again.
     let T = safeNormalize(tangent - Ng * dot(tangent, Ng));
     let B = cross(Ng, T) * select(-1.0, 1.0, dot(cross(Ng, T), side * input.world_bitangent) >= 0.0);
-    let mapped = textureSample(normalMap, normalSampler, textureUV(input.uv, input.uv1, Material.uvSets, 1u)).xyz * 2.0 - 1.0;
+    let mapped = textureSample(normalMap, normalSampler, textureUV(input.uv, input.uv1, Material, 1u)).xyz * 2.0 - 1.0;
     let N = safeNormalize(T * (mapped.x * Material.normalMapStrength) + B * (mapped.y * Material.normalMapStrength) + Ng * mapped.z);
 
     // ----- Base color + alpha -----
     // COLOR_0 multiplies the base color (white when a mesh has none).
-    let albedoSample = textureSample(albedo, albedoSampler, textureUV(input.uv, input.uv1, Material.uvSets, 0u));
+    let albedoSample = textureSample(albedo, albedoSampler, textureUV(input.uv, input.uv1, Material, 0u));
     let baseColor = albedoSample.rgb * Material.baseColor.rgb * input.color.rgb;
     let alpha = albedoSample.a * Material.baseColor.a * input.color.a;
     // Alpha-tested materials draw with alpha to coverage: alpha sharpened to about a pixel around
@@ -355,12 +361,12 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
     }
 
     // ----- Metallic/Roughness -----
-    let mrSample = textureSample(metallicRoughness, metallicRoughnessSampler, textureUV(input.uv, input.uv1, Material.uvSets, 2u));
+    let mrSample = textureSample(metallicRoughness, metallicRoughnessSampler, textureUV(input.uv, input.uv1, Material, 2u));
     let perceptualRoughness = clamp(mrSample.g * Material.roughnessFactor, 0.04, 1.0);
     let metallic = clamp(mrSample.b * Material.metallicFactor, 0.0, 1.0);
 
     // ----- AO -----
-    let ao = textureSample(ambientO, occlusionSampler, textureUV(input.uv, input.uv1, Material.uvSets, 3u)).r;
+    let ao = textureSample(ambientO, occlusionSampler, textureUV(input.uv, input.uv1, Material, 3u)).r;
     let aoTerm = mix(1.0, ao, Material.occlusionStrength);
 
     // ----- Lighting vectors -----
@@ -426,15 +432,34 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
     let visibility = min(aoTerm, textureLoad(aoTexture, aoPixel, 0).r);
     let ambient = skyDiffuse * multiBounceAO(visibility, baseColor) + skySpecular * specularOcclusion(NoV, visibility, perceptualRoughness);
 
+    // ----- Clearcoat: a smooth varnish over all of the above (car paint), reflecting along the
+    // surface's own normal (the normal map only bends what is under it); what it reflects is
+    // taken from the light reaching the layer below -----
+    var lit = direct + ambient;
+    if (Material.clearcoat > 0.0) {
+        let coatRoughness = clamp(Material.clearcoatRoughness, 0.04, 1.0);
+        let ac = max(1e-3, coatRoughness * coatRoughness);
+        let NcV = saturate(dot(Ng, V));
+        let NcL = saturate(dot(Ng, L));
+        let Fc = F_Schlick(vec3f(0.04), VoH).x * Material.clearcoat;
+        var coatSpec = 0.0;
+        if (NcL > 0.0 && NcV > 0.0) {
+            coatSpec = D_GGX(Ng, H, ac) * G_Smith_correlated(Ng, V, L, ac) / max(4.0 * NcV * NcL, 1e-4) * hWeight;
+        }
+        let coatEnv = envBRDFApprox(vec3f(0.04), coatRoughness, NcV).x * Material.clearcoat;
+        let coatSky = skyReflection(reflect(-V, Ng), coatRoughness) * coatEnv * UniformBufferObject.skyParams.y * specularOcclusion(NcV, visibility, coatRoughness);
+        lit = direct * (1.0 - Fc) + ambient * (1.0 - coatEnv) + coatSpec * Fc * NcL * shadow * UniformBufferObject.sunColor.rgb + coatSky;
+    }
+
     // ----- Emissive -----
     // The emissive texture is sampled through an sRGB view, so it is already linear here.
-    let emissive = textureSample(emissiveTex, emissiveSampler, textureUV(input.uv, input.uv1, Material.uvSets, 4u)).rgb * Material.emissiveFactor;
+    let emissive = textureSample(emissiveTex, emissiveSampler, textureUV(input.uv, input.uv1, Material, 4u)).rgb * Material.emissiveFactor;
 
     // ----- Output: linear HDR (exposure, bloom and tonemapping happen in composite.wgsl) -----
     var out: FragOut;
     // Points and lines without normals can't be lit: they show their base color.
     let hasNormal = dot(input.world_normal, input.world_normal) > 1e-8;
-    out.color = vec4f(select(baseColor, direct + ambient, hasNormal) + emissive, coverage);
+    out.color = vec4f(select(baseColor, lit, hasNormal) + emissive, coverage);
     //out.color = vec4f(input.world_normal * 0.5 + 0.5, 1.0);
     return out;
 }

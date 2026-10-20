@@ -856,16 +856,49 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, Parsed
         if (emissiveStrength != mat.extensions.end() && emissiveStrength->second.Has("emissiveStrength")) {
             props.emissiveFactor *= (float)emissiveStrength->second.Get("emissiveStrength").GetNumberAsDouble();
         }
+        // KHR_materials_transmission (glass) isn't rendered: what lets light through becomes dark,
+        // so a window reads as tinted glass (its reflections stay) rather than a white panel.
+        auto transmission = mat.extensions.find("KHR_materials_transmission");
+        if (transmission != mat.extensions.end() && transmission->second.Has("transmissionFactor")) {
+            const float t = glm::clamp((float)transmission->second.Get("transmissionFactor").GetNumberAsDouble(), 0.0f, 1.0f);
+            props.baseColor = glm::vec4(glm::vec3(props.baseColor) * (1.0f - 0.95f * t), props.baseColor.a);
+        }
+        // KHR_materials_clearcoat: its factors (its textures aren't supported).
+        auto clearcoat = mat.extensions.find("KHR_materials_clearcoat");
+        if (clearcoat != mat.extensions.end()) {
+            if (clearcoat->second.Has("clearcoatFactor"))
+                props.clearcoat = glm::clamp((float)clearcoat->second.Get("clearcoatFactor").GetNumberAsDouble(), 0.0f, 1.0f);
+            if (clearcoat->second.Has("clearcoatRoughnessFactor"))
+                props.clearcoatRoughness = glm::clamp((float)clearcoat->second.Get("clearcoatRoughnessFactor").GetNumberAsDouble(), 0.0f, 1.0f);
+        }
         // Blending isn't supported yet; BLEND draws like MASK.
         const AlphaMode alphaMode = mat.alphaMode == "MASK" ? AlphaMode::Mask : mat.alphaMode == "BLEND" ? AlphaMode::Blend : AlphaMode::Opaque;
         material->SetAlphaMode(alphaMode, (float)mat.alphaCutoff);
         material->doubleSided = mat.doubleSided;
 
-        // Only TEXCOORD_0 and TEXCOORD_1 are loaded.
+        // Only TEXCOORD_0 and TEXCOORD_1 are loaded. KHR_texture_transform moves a texture's UVs
+        // (and may pick another set).
         auto setTexture = [&](MaterialTexture slot, const auto& info, bool srgb) {
-            if (info.texCoord > 1)
-                Logger::Warning("Material " + std::to_string(i) + " in " + filename + " uses TEXCOORD_" + std::to_string(info.texCoord) + "; only 0 and 1 are supported");
-            material->SetTexture(slot, loadTexture(info.index, srgb), samplerFor(info.index), info.texCoord == 1 ? 1u : 0u);
+            int texCoord = info.texCoord;
+            MaterialAsset::TextureTransform transform;
+            auto extension = info.extensions.find("KHR_texture_transform");
+            if (extension != info.extensions.end()) {
+                const tinygltf::Value& t = extension->second;
+                auto vec2 = [&](const char* name, glm::vec2& out) {
+                    if (t.Has(name) && t.Get(name).IsArray() && t.Get(name).ArrayLen() == 2)
+                        out = glm::vec2((float)t.Get(name).Get(0).GetNumberAsDouble(), (float)t.Get(name).Get(1).GetNumberAsDouble());
+                };
+                vec2("offset", transform.offset);
+                vec2("scale", transform.scale);
+                if (t.Has("rotation"))
+                    transform.rotation = (float)t.Get("rotation").GetNumberAsDouble();
+                if (t.Has("texCoord"))
+                    texCoord = t.Get("texCoord").GetNumberAsInt();
+            }
+            if (texCoord > 1)
+                Logger::Warning("Material " + std::to_string(i) + " in " + filename + " uses TEXCOORD_" + std::to_string(texCoord) + "; only 0 and 1 are supported");
+            material->SetTexture(slot, loadTexture(info.index, srgb), samplerFor(info.index), texCoord == 1 ? 1u : 0u);
+            material->SetTextureTransform(slot, transform);
         };
         setTexture(MaterialTexture::BaseColor, pbr.baseColorTexture, true);
         setTexture(MaterialTexture::Normal, mat.normalTexture, false);

@@ -1,12 +1,9 @@
 {
   "window": { "title": "Mariana Player - Sandbox", "width": 1280, "height": 720 },
   "pipeline": "/Pipelines/Default.pipeline",
-  "camera": { "position": [2.0, 1.5, 0.7], "target": [5.5, 1.0, -1.0], "orbitSpeed": 0 },
+  "camera": { "position": [-5.5, 3.2, -8.0], "target": [0, 0.6, 3.0], "follow": true },
   "spawn": [
-    { "prefab": "/Models/Sponza/Sponza.gltf", "position": [0, 0, 0], "scale": 1, "physics": { "collider": "mesh" } },
-    { "prefab": "/Models/Rumba.glb", "position": [5.5, 0, -1.0], "faceCamera": true },
-    { "primitive": "cube", "color": [0.85, 0.45, 0.2], "position": [4.3, 1.5, -2.1], "rotation": [0, 30, 0], "scale": 0.5, "physics": { "body": "dynamic" } },
-    { "primitive": "cube", "color": [0.2, 0.5, 0.9], "position": [4.35, 2.6, -2.05], "rotation": [12, 10, 5], "scale": 0.5, "physics": { "body": "dynamic" } },
-    { "primitive": "sphere", "color": [0.9, 0.2, 0.3], "position": [6.6, 3.5, -0.2], "scale": 0.4, "physics": { "body": "dynamic", "bounciness": 0.6 } }
+    { "preset": "playground", "position": [0, 0, 0] },
+    { "prefab": "/Models/CarConcept/CarConcept.gltf", "position": [0, 0, 0], "vehicle": "car" }
   ]
 }

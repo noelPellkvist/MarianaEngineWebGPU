@@ -242,6 +242,7 @@ namespace
         AssetHandle<Texture> texture = current.texture;
         SamplerSettings sampler = current.sampler;
         uint32_t uvSet = current.uvSet;
+        MaterialAsset::TextureTransform transform = current.transform;
         Texture* gpuTexture = texture.Get().get();
         bool changed = false;
 
@@ -300,6 +301,18 @@ namespace
             changed |= ImGui::Checkbox("Mipmaps", &sampler.mipmaps);
             if (sampler.mipmaps)
                 changed |= FilterCombo("Mip Filter", sampler.mipmapFilter);
+
+            // KHR_texture_transform: scaled, turned, then moved.
+            bool moved = ImGui::DragFloat2("Tiling", &transform.scale.x, 0.01f);
+            moved |= ImGui::DragFloat2("Offset", &transform.offset.x, 0.005f);
+            float degrees = glm::degrees(transform.rotation);
+            if (ImGui::DragFloat("Rotation", &degrees, 0.5f, -360.0f, 360.0f, "%.1f deg"))
+            {
+                transform.rotation = glm::radians(degrees);
+                moved = true;
+            }
+            if (moved)
+                material.SetTextureTransform(slot, transform);
             ImGui::TreePop();
         }
         ImGui::PopID();
@@ -328,6 +341,9 @@ namespace InspectorComponents
         dirty |= ImGui::SliderFloat("Occlusion Strength", &p.occlusionStrength, 0.0f, 1.0f);
         // HDR: values above 1 glow through the bloom.
         dirty |= ImGui::ColorEdit3("Emissive", &p.emissiveFactor.x, ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
+        dirty |= ImGui::SliderFloat("Clearcoat", &p.clearcoat, 0.0f, 1.0f);
+        if (p.clearcoat > 0.0f)
+            dirty |= ImGui::SliderFloat("Clearcoat Roughness", &p.clearcoatRoughness, 0.0f, 1.0f);
         if (dirty)
             material.MarkDirty();
 
@@ -361,7 +377,10 @@ namespace InspectorComponents
     void MaterialState::ApplyTo(MaterialAsset& material) const
     {
         for (size_t t = 0; t < textures.size(); ++t)
+        {
             material.SetTexture(static_cast<MaterialTexture>(t), textures[t].texture, textures[t].sampler, textures[t].uvSet);
+            material.SetTextureTransform(static_cast<MaterialTexture>(t), textures[t].transform);
+        }
         material.SetAlphaMode(alphaMode, properties.alphaCutoff > 0.0f ? properties.alphaCutoff : 0.5f);
         material.properties = properties;
         material.doubleSided = doubleSided;
@@ -375,7 +394,7 @@ namespace InspectorComponents
         for (size_t t = 0; t < textures.size(); ++t)
         {
             if (textures[t].texture.Get() != other.textures[t].texture.Get() || !(textures[t].sampler == other.textures[t].sampler) ||
-                textures[t].uvSet != other.textures[t].uvSet)
+                textures[t].uvSet != other.textures[t].uvSet || !(textures[t].transform == other.textures[t].transform))
                 return false;
         }
         return true;

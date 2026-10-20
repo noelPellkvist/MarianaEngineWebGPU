@@ -424,7 +424,31 @@ void EditorApp::OnStart()
         editorCam->SetYawPitch(glm::half_pi<float>() / 2, -glm::half_pi<float>() / 5);
     } 
 
+    BuildStartupScene();
     Logger::Info("OnStart done");
+}
+
+void EditorApp::BuildStartupScene()
+{
+    // Until scenes can be saved: the vehicle playground with the concept car (or the primitive car
+    // when the project doesn't have it) and a chase camera for the Game view.
+    VehiclePresets::SpawnPlayground(scene, assets, glm::vec3(0.0f));
+    scene.Update(0.0f);
+    Entity car = VehiclePresets::SpawnCar(scene, assets, "/Models/CarConcept/CarConcept.gltf", glm::vec3(0.0f));
+    if (!car.IsValid())
+        car = VehiclePresets::Spawn(scene, assets, VehicleType::Wheeled, glm::vec3(0.0f, 1.0f, 0.0f));
+    AddChaseCamera(FollowCamera{}.distance, FollowCamera{}.height, FollowCamera{}.lookHeight);
+    scene.Update(0.0f);
+    DeselectEntity();
+
+    // Looking at the car from behind and to its left, the jump ahead of it.
+    if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get()))
+    {
+        const glm::vec3 eye(-5.5f, 3.2f, -8.0f), target(0.0f, 0.6f, 3.0f);
+        const glm::vec3 d = glm::normalize(target - eye);
+        editorCam->SetPosition(eye);
+        editorCam->SetYawPitch(std::atan2(d.z, d.x), std::asin(d.y));
+    }
 }
 
 void EditorApp::OnUpdate(float deltaTime)
