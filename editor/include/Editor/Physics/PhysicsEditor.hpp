@@ -18,7 +18,7 @@ namespace PhysicsEditor
 {
     // The inspector's Rigid Body and collider sections (with the body's live state while the
     // simulation runs) and their Add Component entries. Edits are undoable.
-    void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, const PhysicsWorld& world, AssetManager2& assets);
+    void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, const PhysicsWorld& world, AssetManager2& assets, const Scene& scene);
 
     // Sizes and centres the colliders on `entity` to its mesh's bounds, or for a model's root to
     // the bounds of the meshes below it; false when there are none.

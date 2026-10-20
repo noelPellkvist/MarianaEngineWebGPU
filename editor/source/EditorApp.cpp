@@ -18,6 +18,7 @@
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/VehiclePresets.hpp>
 #include <Mariana/Physics/CharacterPresets.hpp>
+#include <Mariana/Physics/JointPresets.hpp>
 
 #include "ImGuizmo.h"
 
@@ -262,6 +263,25 @@ Entity EditorApp::SpawnCharacter()
     return character;
 }
 
+Entity EditorApp::SpawnJointPreset(int which)
+{
+    // On the ground in front of the camera.
+    const CameraInfo info = cam->GetCameraInfo();
+    glm::vec3 forward = glm::vec3(info.invView[2]);
+    forward.y = 0.0f;
+    forward = glm::length(forward) > 1e-4f ? glm::normalize(forward) : glm::vec3(0.0f, 0.0f, 1.0f);
+    glm::vec3 at = info.pos + forward * 8.0f;
+    at.y = 0.0f;
+    Entity spawned = which == 0 ? JointPresets::SpawnChain(scene, assets, at + glm::vec3(0.0f, 6.0f, 0.0f))
+                   : which == 1 ? JointPresets::SpawnDoor(scene, assets, at)
+                   : which == 2 ? JointPresets::SpawnSpinner(scene, assets, at)
+                   : JointPresets::SpawnWreckingBall(scene, assets, at);
+    scene.Update(0.0f);
+    DeselectEntity();
+    SelectEntity(spawned.RawId());
+    return spawned;
+}
+
 Entity EditorApp::SpawnCharacterCourse()
 {
     const CameraInfo info = cam->GetCameraInfo();
@@ -365,7 +385,7 @@ void EditorApp::OnStart()
         DeselectEntity();
         SelectEntity(entity.RawId());
     });
-    PhysicsEditor::RegisterInspector(*inspector, undo, *physics, assets);
+    PhysicsEditor::RegisterInspector(*inspector, undo, *physics, assets, scene);
     inspector->AddComponentOption({ "Rendering", "Camera",
         [](Entity e) { return !e.TryGet<CameraComponent>(); },
         [](Entity e) { e.Add<CameraComponent>(CameraComponent{}); } });
@@ -784,6 +804,11 @@ void EditorApp::DrawTopMenu()
                 ImGui::Separator();
                 if (ImGui::MenuItem("Character")) SpawnCharacter();
                 if (ImGui::MenuItem("Character Course")) SpawnCharacterCourse();
+                ImGui::Separator();
+                if (ImGui::MenuItem("Chain")) SpawnJointPreset(0);
+                if (ImGui::MenuItem("Door")) SpawnJointPreset(1);
+                if (ImGui::MenuItem("Spinner")) SpawnJointPreset(2);
+                if (ImGui::MenuItem("Wrecking Ball")) SpawnJointPreset(3);
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Vehicle"))

@@ -256,6 +256,8 @@ PhysicsWorld::Impl::~Impl()
 {
     RemoveAll();
     system.reset();
+    characterCollision.reset();
+    jointFilter = nullptr;
     shapes = ShapeCache();
     jobs.reset();
     temp.reset();
@@ -272,6 +274,8 @@ void PhysicsWorld::Impl::CreateSystem()
     system->SetCombineRestitution(CombineRestitution);
     system->SetContactListener(&contacts);
     characterCollision = std::make_unique<JPH::CharacterVsCharacterCollisionSimple>();
+    if (!jointFilter)
+        jointFilter = new JointCollisionFilter();
     characterContacts.collector = &contacts;
     Apply();
 }
@@ -295,6 +299,11 @@ void PhysicsWorld::Impl::RemoveBody(JPH::BodyID& id)
 
 void PhysicsWorld::Impl::RemoveAll()
 {
+    for (auto& [id, joint] : joints)
+        RemoveJoint(joint);
+    joints.clear();
+    jointFilter->pairs.clear();
+    brokenJoints.clear();
     for (auto& [id, character] : characters)
         RemoveCharacter(character);
     characters.clear();
@@ -493,6 +502,7 @@ void PhysicsWorld::Impl::Sync()
                 RemoveVehicle(vehicle->second); // made again on the new body below
                 vehicles.erase(vehicle);
             }
+            DropJointsOf(found->second.body);
             RemoveBody(found->second.body);
             RemoveBody(found->second.sensor);
             records.erase(found);
@@ -565,6 +575,7 @@ void PhysicsWorld::Impl::Sync()
             RemoveVehicle(vehicle->second);
             vehicles.erase(vehicle);
         }
+        DropJointsOf(it->second.body);
         RemoveBody(it->second.body);
         RemoveBody(it->second.sensor);
         pending.erase(it->first);
@@ -575,6 +586,7 @@ void PhysicsWorld::Impl::Sync()
         system->OptimizeBroadPhase();
     SyncVehicles();
     SyncCharacters();
+    SyncJoints();
 }
 
 void PhysicsWorld::Impl::MoveKinematics(float dt)
@@ -701,10 +713,12 @@ void PhysicsWorld::Impl::ProcessContacts()
     removedBodies.clear();
 }
 
-// Dynamic bodies move their entities (in their parent's space); triggers follow their bodies.
+// Dynamic bodies move their entities (in their parent's space, parents first so a nested body is
+// placed under its parent's new pose); triggers follow their bodies.
 void PhysicsWorld::Impl::WriteBack()
 {
     JPH::BodyInterface& bodies = system->GetBodyInterface();
+    std::vector<std::pair<int, uint64_t>> moved; // (depth, entity)
     for (auto& [id, record] : records)
     {
         if (record.body.IsInvalid())
@@ -718,7 +732,16 @@ void PhysicsWorld::Impl::WriteBack()
         }
         if (record.motion != MotionType::Dynamic || !bodies.IsActive(record.body))
             continue;
+        int depth = 0;
+        for (Entity e = scene.Parent(scene.FromId(id)); e.IsValid(); e = scene.Parent(e))
+            ++depth;
+        moved.emplace_back(depth, id);
+    }
+    std::sort(moved.begin(), moved.end());
 
+    for (const auto& [depth, id] : moved)
+    {
+        Record& record = records[id];
         Entity entity = scene.FromId(id);
         LocalTRS* trs = entity.IsValid() ? entity.Get<LocalTRS>() : nullptr;
         if (!trs)
@@ -737,6 +760,7 @@ void PhysicsWorld::Impl::WriteBack()
 void PhysicsWorld::Impl::Step(float dt)
 {
     events.clear();
+    brokenJoints.clear();
     Sync();
     if (dt <= 0.0f)
         return;
@@ -756,8 +780,10 @@ void PhysicsWorld::Impl::Step(float dt)
         ApplyPending(steps == 0);
         DriveVehicles();
         MoveCharacters(step);
+        DriveJoints();
         system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
         ProcessContacts();
+        CheckJoints(step);
         accumulator -= step;
         ++steps;
     }
@@ -808,6 +834,7 @@ void PhysicsWorld::RegisterComponents()
     ECS::RegisterComponent<PlayerControl>("PlayerControl");
     ECS::RegisterComponent<FollowCamera>("FollowCamera");
     ECS::RegisterComponent<CharacterController>("CharacterController");
+    ECS::RegisterComponent<Joint>("Joint");
 }
 
 PhysicsWorld::PhysicsWorld(Scene& scene, const PhysicsSettings& settings)

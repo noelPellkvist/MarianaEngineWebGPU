@@ -5,6 +5,7 @@
 #include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
 #include <Mariana/Physics/Character.hpp>
+#include <Mariana/Physics/Joint.hpp>
 
 #include "JoltCommon.hpp"
 #include "Shapes.hpp"
@@ -15,6 +16,8 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Vehicle/VehicleConstraint.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
+#include <Jolt/Physics/Collision/GroupFilter.h>
+#include <Jolt/Physics/Constraints/TwoBodyConstraint.h>
 
 #include <memory>
 #include <mutex>
@@ -67,6 +70,24 @@ namespace PhysicsInternal
         ContactCollector* collector = nullptr;
         void OnContactAdded(const JPH::CharacterVirtual* character, const JPH::CharacterContact& contact, JPH::CharacterContactSettings& settings) override;
         void OnContactRemoved(const JPH::CharacterVirtual* character, const JPH::BodyID& body, const JPH::SubShapeID& subShape) override;
+    };
+
+    // Bodies a joint holds that mustn't collide with each other: their collision groups carry their
+    // body index, and the pairs are listed here (read by Jolt's threads, changed only between steps).
+    class JointCollisionFilter final : public JPH::GroupFilter
+    {
+    public:
+        std::unordered_set<uint64_t> pairs;
+        static uint64_t PairKey(uint32_t a, uint32_t b)
+        {
+            if (a > b)
+                std::swap(a, b);
+            return (static_cast<uint64_t>(a) << 32) | b;
+        }
+        bool CanCollide(const JPH::CollisionGroup& a, const JPH::CollisionGroup& b) const override
+        {
+            return pairs.find(PairKey(a.GetGroupID(), b.GetGroupID())) == pairs.end();
+        }
     };
 
     // A character's contact as a sub-shape pair key no body contact has.
@@ -168,6 +189,17 @@ struct PhysicsWorld::Impl
         bool seen = false;
     };
 
+    struct JointRecord
+    {
+        JPH::Ref<JPH::TwoBodyConstraint> constraint;
+        JPH::BodyID body1, body2; // body2 invalid: the world
+        uint64_t signature = 0;
+        uint64_t noCollidePair = 0;
+        bool hasNoCollidePair = false;
+        float force = 0.0f, torque = 0.0f;
+        bool seen = false;
+    };
+
     // Where a wheel entity sits when its suspension is fully out: its LocalTRS before the vehicle
     // moved it (and the version it left), so its own moves are told apart from the edits of others.
     struct WheelRest
@@ -213,6 +245,9 @@ struct PhysicsWorld::Impl
     std::unordered_map<uint64_t, CharacterRecord> characters;
     std::unique_ptr<JPH::CharacterVsCharacterCollisionSimple> characterCollision;
     PhysicsInternal::CharacterContacts characterContacts;
+    std::unordered_map<uint64_t, JointRecord> joints; // per joint entity
+    JPH::Ref<PhysicsInternal::JointCollisionFilter> jointFilter; // made with the first system (Jolt's allocator is set up then)
+    std::vector<Entity> brokenJoints;
     // Debug drawing of contacts: wanted by the last DebugDraw call, drawn by Jolt during steps.
     bool drawContacts = false;
     size_t maxContactLines = 0;
@@ -238,6 +273,12 @@ struct PhysicsWorld::Impl
     void RemoveCharacter(CharacterRecord& record);
     void MoveCharacters(float dt);
     void WriteCharacters();
+    void SyncJoints();
+    void RemoveJoint(JointRecord& record);
+    // Takes away the joints holding a body (before the body goes).
+    void DropJointsOf(JPH::BodyID body);
+    void DriveJoints();
+    void CheckJoints(float dt);
     void ProcessContacts();
     void WriteBack();
     void Step(float dt);

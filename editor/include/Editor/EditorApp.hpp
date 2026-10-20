@@ -86,6 +86,8 @@ class EditorApp : public Application
         // A walking character (with a chase camera if the scene has none) and a course to try it on.
         Entity SpawnCharacter();
         Entity SpawnCharacterCourse();
+        // A chain, a door, a spinner or a wrecking ball (0..3), in front of the camera.
+        Entity SpawnJointPreset(int which);
         // A camera following the player-controlled entity, unless the scene has a FollowCamera.
         void AddChaseCamera(float distance, float height, float lookHeight);
         // A camera where the editor camera is, looking the same way.

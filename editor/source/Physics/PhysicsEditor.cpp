@@ -221,6 +221,39 @@ namespace
         painter.Line(center, center + up * (w.suspensionMax - w.suspensionMin), IM_COL32(255, 120, 60, 230));
     }
 
+    // A joint: a cross at its anchor, its X axis (the hinge or slide axis), and a line to the entity
+    // it holds on to.
+    void DrawJoint(const Painter& painter, const Scene& scene, const glm::mat4& world, const Joint& joint)
+    {
+        const ImU32 color = joint.broken ? IM_COL32(150, 150, 150, 200) : IM_COL32(255, 90, 220, 230);
+        const glm::vec3 anchor(world[3]);
+        const glm::vec3 x = glm::normalize(glm::vec3(world[0])), y = glm::normalize(glm::vec3(world[1])), z = glm::normalize(glm::vec3(world[2]));
+        const float s = 0.12f;
+        painter.Line(anchor - y * s, anchor + y * s, color);
+        painter.Line(anchor - z * s, anchor + z * s, color);
+        if (joint.type == JointType::Hinge || joint.type == JointType::Slider || joint.type == JointType::Cone || joint.type == JointType::SwingTwist)
+            painter.Line(anchor - x * 0.5f, anchor + x * 0.5f, IM_COL32(255, 160, 240, 255));
+        if (joint.type == JointType::Hinge)
+            painter.Arc(anchor, y, z, 0.25f, 0.0f, glm::two_pi<float>(), color, 24);
+        if (joint.type == JointType::Distance && joint.connected.empty())
+            painter.Line(anchor, joint.connectedAnchor, color);
+        else if (!joint.connected.empty())
+        {
+            Entity other;
+            scene.ForEachRoot([&](Entity root) {
+                if (!other.IsValid() && root.GetName() == joint.connected) other = root;
+                scene.ForEachDescendant(root, [&](Entity e) { if (!other.IsValid() && e.GetName() == joint.connected) other = e; });
+            });
+            if (const WorldXform* w = other.IsValid() ? other.TryGet<WorldXform>() : nullptr)
+            {
+                glm::vec3 to(w->model[12], w->model[13], w->model[14]);
+                if (joint.type == JointType::Distance)
+                    to = glm::vec3(glm::make_mat4(w->model) * glm::vec4(joint.connectedAnchor, 1.0f));
+                painter.Line(anchor, to, color);
+            }
+        }
+    }
+
     // A character's capsule standing on its entity's origin.
     void DrawCharacter(const Painter& painter, const glm::mat4& world, const CharacterController& c)
     {
@@ -316,7 +349,7 @@ namespace PhysicsEditor
         return FitColliders(entity);
     }
 
-    void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, const PhysicsWorld& world, AssetManager2& assets)
+    void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, const PhysicsWorld& world, AssetManager2& assets, const Scene& scene)
     {
         inspector.SetComponentDrawer("RigidBody", [&inspector, &undo, &world](Entity& entity) {
             ImGui::PushID("RigidBody");
@@ -668,6 +701,128 @@ namespace PhysicsEditor
             ImGui::PopID();
         });
 
+        inspector.SetComponentDrawer("Joint", [&inspector, &undo, &world, &scene](Entity& entity) {
+            ImGui::PushID("Joint");
+            if (Section<Joint>(inspector, undo, entity, "Joint"))
+            {
+                EditComponent<Joint>(entity, undo, "Edit Joint", [&](Joint& j) {
+                    bool changed = false;
+                    const char* types[] = { "Fixed", "Point", "Distance", "Hinge", "Slider", "Cone", "Swing Twist", "Six DOF" };
+                    int type = static_cast<int>(j.type);
+                    if (ImGui::Combo("Type", &type, types, 8)) { j.type = static_cast<JointType>(type); changed = true; }
+                    changed |= ImGui::Checkbox("To Parent", &j.toParent);
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Holds on to the body above its own (nested bodies: chains, ragdolls)");
+                    if (!j.toParent)
+                    {
+                        // The bodies there are to hold on to, by name; none = the world.
+                        if (ImGui::BeginCombo("Connected", j.connected.empty() ? "The world" : j.connected.c_str()))
+                        {
+                            if (ImGui::Selectable("The world", j.connected.empty())) { j.connected.clear(); changed = true; }
+                            std::vector<std::string> names;
+                            auto add = [&](Entity e) {
+                                if (e.RawId() != entity.RawId() && e.TryGet<RigidBody>())
+                                    names.push_back(e.GetName());
+                            };
+                            scene.ForEachRoot([&](Entity root) {
+                                add(root);
+                                scene.ForEachDescendant(root, add);
+                            });
+                            std::sort(names.begin(), names.end());
+                            names.erase(std::unique(names.begin(), names.end()), names.end());
+                            for (const std::string& name : names)
+                                if (ImGui::Selectable(name.c_str(), name == j.connected)) { j.connected = name; changed = true; }
+                            ImGui::EndCombo();
+                        }
+                    }
+                    changed |= ImGui::Checkbox("Collide Connected", &j.collideConnected);
+                    switch (j.type)
+                    {
+                    case JointType::Hinge:
+                    case JointType::Slider:
+                    {
+                        const bool hinge = j.type == JointType::Hinge;
+                        changed |= ImGui::Checkbox("Limited", &j.limited);
+                        if (j.limited)
+                        {
+                            changed |= ImGui::DragFloat("Min", &j.minLimit, hinge ? 0.5f : 0.01f, hinge ? -180.0f : -1000.0f, 0.0f, hinge ? "%.1f deg" : "%.2f m");
+                            changed |= ImGui::DragFloat("Max", &j.maxLimit, hinge ? 0.5f : 0.01f, 0.0f, hinge ? 180.0f : 1000.0f, hinge ? "%.1f deg" : "%.2f m");
+                            changed |= ImGui::DragFloat("Limit Spring", &j.springFrequency, 0.05f, 0.0f, 100.0f, j.springFrequency > 0.0f ? "%.2f Hz" : "hard");
+                        }
+                        const char* motors[] = { "Off", "Velocity", "Position" };
+                        int motor = static_cast<int>(j.motor);
+                        if (ImGui::Combo("Motor", &motor, motors, 3)) { j.motor = static_cast<JointMotor>(motor); changed = true; }
+                        if (j.motor == JointMotor::Velocity)
+                            changed |= ImGui::DragFloat("Speed", &j.motorSpeed, hinge ? 1.0f : 0.01f, -100000.0f, 100000.0f, hinge ? "%.1f deg/s" : "%.2f m/s");
+                        if (j.motor == JointMotor::Position)
+                        {
+                            changed |= ImGui::DragFloat("Target", &j.motorTarget, hinge ? 0.5f : 0.01f, -100000.0f, 100000.0f, hinge ? "%.1f deg" : "%.2f m");
+                            changed |= ImGui::DragFloat("Frequency", &j.motorFrequency, 0.05f, 0.01f, 100.0f, "%.2f Hz");
+                        }
+                        if (j.motor != JointMotor::Off)
+                            changed |= ImGui::DragFloat("Strength", &j.motorStrength, 10.0f, 0.0f, 1e7f, hinge ? "%.0f N m" : "%.0f N");
+                        changed |= ImGui::DragFloat("Friction", &j.friction, 0.1f, 0.0f, 1e6f, hinge ? "%.1f N m" : "%.1f N");
+                        break;
+                    }
+                    case JointType::Distance:
+                        changed |= DragVec3("Connected Anchor", j.connectedAnchor, 0.01f);
+                        if (ImGui::IsItemHovered())
+                            ImGui::SetTooltip("The other end: on the connected entity (its space), or a world point");
+                        changed |= ImGui::DragFloat("Min Distance", &j.minDistance, 0.01f, -1.0f, 1000.0f, j.minDistance < 0.0f ? "at the start" : "%.2f m");
+                        changed |= ImGui::DragFloat("Max Distance", &j.maxDistance, 0.01f, -1.0f, 1000.0f, j.maxDistance < 0.0f ? "at the start" : "%.2f m");
+                        changed |= ImGui::DragFloat("Spring", &j.springFrequency, 0.05f, 0.0f, 100.0f, j.springFrequency > 0.0f ? "%.2f Hz" : "hard");
+                        if (j.springFrequency > 0.0f)
+                            changed |= ImGui::DragFloat("Damping", &j.springDamping, 0.01f, 0.0f, 10.0f, "%.2f");
+                        break;
+                    case JointType::Cone:
+                        changed |= ImGui::SliderFloat("Cone Angle", &j.coneAngle, 0.0f, 180.0f, "%.0f deg");
+                        break;
+                    case JointType::SwingTwist:
+                        changed |= ImGui::SliderFloat("Swing Angle", &j.coneAngle, 0.0f, 180.0f, "%.0f deg");
+                        changed |= ImGui::SliderFloat("Twist Min", &j.twistMin, -180.0f, 0.0f, "%.0f deg");
+                        changed |= ImGui::SliderFloat("Twist Max", &j.twistMax, 0.0f, 180.0f, "%.0f deg");
+                        break;
+                    case JointType::SixDOF:
+                    {
+                        const char* axes[] = { "X", "Y", "Z" };
+                        for (int group = 0; group < 2; ++group)
+                        {
+                            ImGui::TextDisabled(group == 0 ? "Hold Position" : "Hold Rotation");
+                            for (int i = 0; i < 3; ++i)
+                            {
+                                ImGui::SameLine();
+                                const int bit = group * 3 + i;
+                                bool held = (j.lockedAxes >> bit) & 1;
+                                ImGui::PushID(bit);
+                                if (ImGui::Checkbox(axes[i], &held))
+                                {
+                                    j.lockedAxes = static_cast<uint8_t>(held ? j.lockedAxes | (1 << bit) : j.lockedAxes & ~(1 << bit));
+                                    changed = true;
+                                }
+                                ImGui::PopID();
+                            }
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                    }
+                    changed |= ImGui::DragFloat("Break Force", &j.breakForce, 10.0f, 0.0f, 1e9f, j.breakForce > 0.0f ? "%.0f N" : "never");
+                    changed |= ImGui::DragFloat("Break Torque", &j.breakTorque, 10.0f, 0.0f, 1e9f, j.breakTorque > 0.0f ? "%.0f N m" : "never");
+                    return changed;
+                });
+                JointInfo info;
+                world.GetJointInfo(entity, info);
+                if (info.broken)
+                    ImGui::TextDisabled("Broken (Stop puts it back)");
+                else if (info.active)
+                    ImGui::TextDisabled("Holding with %.0f N, %.0f N m; at %.2f", info.force, info.torque, info.position);
+                else
+                    ImGui::TextDisabled("Holds while playing (needs a Rigid Body at or above it)");
+            }
+            ImGui::PopID();
+        });
+
         inspector.SetComponentDrawer("PlayerControl", [&inspector, &undo](Entity& entity) {
             ImGui::PushID("PlayerControl");
             if (Section<PlayerControl>(inspector, undo, entity, "Player Control"))
@@ -726,6 +881,9 @@ namespace PhysicsEditor
         inspector.AddComponentOption({ "Physics", "Mesh Collider",
             [](Entity e) { return !e.TryGet<MeshCollider>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Mesh Collider", MeshCollider{}); } });
+        inspector.AddComponentOption({ "Physics", "Joint",
+            [](Entity e) { return !e.TryGet<Joint>(); },
+            [&undo](Entity e) { AddWithUndo(undo, e, "Joint", Joint{}); } });
         inspector.AddComponentOption({ "Physics", "Character Controller",
             [](Entity e) { return !e.TryGet<CharacterController>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Character Controller", CharacterController{}); } });
@@ -771,6 +929,8 @@ namespace PhysicsEditor
                 DrawCharacter(painter, glm::make_mat4(world->model), *character);
                 return;
             }
+            if (const Joint* joint = entity.TryGet<Joint>())
+                DrawJoint(painter, scene, glm::make_mat4(world->model), *joint);
             if (HasCollider(entity))
                 ForEachCollider(entity, glm::make_mat4(world->model), [&](const ColliderGeometry& g) { DrawGeometry(painter, g); });
         };

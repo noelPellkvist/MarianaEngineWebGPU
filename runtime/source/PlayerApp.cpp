@@ -11,6 +11,7 @@
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/VehiclePresets.hpp>
 #include <Mariana/Physics/CharacterPresets.hpp>
+#include <Mariana/Physics/JointPresets.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
@@ -252,6 +253,14 @@ void PlayerApp::OnStart()
                 CharacterPresets::Spawn(scene, assets, spawn.position, turn);
             else if (spawn.preset == "course")
                 CharacterPresets::SpawnCourse(scene, assets, spawn.position);
+            else if (spawn.preset == "chain")
+                JointPresets::SpawnChain(scene, assets, spawn.position);
+            else if (spawn.preset == "door")
+                JointPresets::SpawnDoor(scene, assets, spawn.position);
+            else if (spawn.preset == "spinner")
+                JointPresets::SpawnSpinner(scene, assets, spawn.position);
+            else if (spawn.preset == "wrecking ball")
+                JointPresets::SpawnWreckingBall(scene, assets, spawn.position);
             else
                 Logger::Error("Unknown preset " + spawn.preset);
             continue;

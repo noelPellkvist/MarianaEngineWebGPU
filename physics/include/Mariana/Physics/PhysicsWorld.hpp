@@ -4,6 +4,7 @@
 #include <Mariana/Physics/Queries.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
 #include <Mariana/Physics/Character.hpp>
+#include <Mariana/Physics/Joint.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
 #include <memory>
@@ -72,7 +73,7 @@ public:
     PhysicsWorld(const PhysicsWorld&) = delete;
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
 
-    // RigidBody, the colliders, Vehicle, VehicleWheel, CharacterController, PlayerControl and
+    // RigidBody, the colliders, Joint, Vehicle, VehicleWheel, CharacterController, PlayerControl and
     // FollowCamera; call before Scene::UpdateComponentRegistry.
     static void RegisterComponents();
 
@@ -125,6 +126,10 @@ public:
     // A vehicle's or a character's state while it runs (false when the entity has none).
     bool GetVehicleInfo(Entity entity, VehicleInfo& info) const;
     bool GetCharacterInfo(Entity entity, CharacterInfo& info) const;
+    // A joint's state (false when the entity has no Joint).
+    bool GetJointInfo(Entity entity, JointInfo& info) const;
+    // The joints that broke during the last Step call.
+    const std::vector<Entity>& BrokenJoints() const;
     // Sets the inputs of every entity with a PlayerControl from the keyboard (call each frame before
     // Step, with the game time, while the player may drive): a Vehicle's pedals and steering, or a
     // CharacterController's walking, relative to `viewForward` (where the camera looks).
