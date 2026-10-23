@@ -21,4 +21,7 @@ namespace FileSystem
     std::filesystem::path Resolve(const std::string& path);
     // Where to write a resource path: the file it already resolves to, or under the first root.
     std::filesystem::path ResolveForWrite(const std::string& path);
+    // The resource path of a file under one of the roots ("/Models/Tree.glb", keeping the file's
+    // own spelling), or empty when it is under none.
+    std::string ToResourcePath(const std::filesystem::path& file);
 }

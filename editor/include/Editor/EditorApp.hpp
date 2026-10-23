@@ -92,8 +92,32 @@ class EditorApp : public Application
         Entity SpawnJointPreset(int which);
         // A camera following the player-controlled entity, unless the scene has a FollowCamera.
         void AddChaseCamera(float distance, float height, float lookHeight);
-        // What the editor opens with: the vehicle playground and a drivable car.
+        // What the editor opens with when the project has no /Scenes/Playground.scene: the vehicle
+        // playground and a drivable car.
         void BuildStartupScene();
+
+        // Scene files (SceneFile): the one being edited (empty until saved), and whether it changed
+        // since (an undo step, or entities made or deleted).
+        std::filesystem::path scenePath;
+        size_t savedUndoVersion = 0;
+        size_t savedEntityCount = 0;
+        std::vector<std::filesystem::path> recentScenes;
+        bool openScenePopup = false;
+        bool saveScenePopup = false;
+        std::string sceneStatus;
+        // Stops the game, empties the scene and forgets its history.
+        void ClearScene();
+        void NewScene();
+        bool OpenScene(const std::filesystem::path& file);
+        bool SaveScene(const std::filesystem::path& file);
+        // Save, or Save As when the scene has no file yet; on the web the file also goes to the
+        // browser as a download (the page's own files are gone when it reloads).
+        void SaveSceneFromMenu(bool saveAs);
+        void OfferDownload(const std::filesystem::path& file);
+        void RememberScene(const std::filesystem::path& file);
+        size_t EntityCount() const;
+        bool SceneModified() const;
+        void DrawScenePopups();
         // A camera where the editor camera is, looking the same way.
         Entity SpawnCamera();
 

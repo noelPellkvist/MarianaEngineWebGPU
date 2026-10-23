@@ -873,6 +873,7 @@ void PhysicsWorld::RegisterComponents()
     ECS::RegisterComponent<FollowCamera>("FollowCamera");
     ECS::RegisterComponent<CharacterController>("CharacterController");
     ECS::RegisterComponent<Joint>("Joint");
+    RegisterSerializers();
 }
 
 PhysicsWorld::PhysicsWorld(Scene& scene, const PhysicsSettings& settings)

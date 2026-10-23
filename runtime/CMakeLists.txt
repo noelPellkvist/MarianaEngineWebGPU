@@ -15,13 +15,50 @@ target_compile_definitions(MarianaPlayer PRIVATE MARIANA_PROJECT_DIR="${MARIANA_
 
 if(EMSCRIPTEN)
   # Only what Player.json uses is packaged with the engine's resources: Player.json itself, the
-  # project's Physics.json if it has one, the pipeline if the project has its own, and each prefab
-  # (a .gltf with the folder holding its buffers and images; a .glb with its extracted materials, if
-  # any). Editing Player.json re-runs this.
+  # project's Physics.json if it has one, the pipeline if the project has its own, the scene and the
+  # files it lists as its dependencies, and each prefab (a .gltf with the folder holding its buffers
+  # and images; a .glb with its extracted materials, if any). Editing Player.json or the scene re-runs
+  # this.
   set(player_json "${MARIANA_PLAYER_PROJECT}/Player.json")
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${player_json}")
   file(READ "${player_json}" player_config)
   set(player_files "${player_json}")
+
+  # A model with what it needs: a .gltf's whole folder, a .glb and its extracted materials.
+  function(mariana_player_add_file resource)
+    set(path "${MARIANA_PLAYER_PROJECT}${resource}")
+    if(NOT EXISTS "${path}")
+      return() # an engine resource (always packaged) or a missing file
+    endif()
+    set(files "${player_files}")
+    if(path MATCHES "\\.gltf$")
+      get_filename_component(path "${path}" DIRECTORY)
+    elseif(path MATCHES "\\.glb$")
+      get_filename_component(dir "${path}" DIRECTORY)
+      get_filename_component(name "${path}" NAME_WE)
+      if(IS_DIRECTORY "${dir}/${name}.materials")
+        list(APPEND files "${dir}/${name}.materials")
+      endif()
+    endif()
+    list(APPEND files "${path}")
+    set(player_files "${files}" PARENT_SCOPE)
+  endfunction()
+
+  string(JSON scene_path ERROR_VARIABLE json_error GET "${player_config}" scene)
+  if(NOT json_error AND EXISTS "${MARIANA_PLAYER_PROJECT}${scene_path}")
+    set(scene_file "${MARIANA_PLAYER_PROJECT}${scene_path}")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${scene_file}")
+    list(APPEND player_files "${scene_file}")
+    file(READ "${scene_file}" scene_json)
+    string(JSON dependency_count ERROR_VARIABLE json_error LENGTH "${scene_json}" dependencies)
+    if(NOT json_error AND dependency_count GREATER 0)
+      math(EXPR last_dependency "${dependency_count} - 1")
+      foreach(i RANGE ${last_dependency})
+        string(JSON dependency GET "${scene_json}" dependencies ${i})
+        mariana_player_add_file("${dependency}")
+      endforeach()
+    endif()
+  endif()
   if(EXISTS "${MARIANA_PLAYER_PROJECT}/Physics.json")
     list(APPEND player_files "${MARIANA_PLAYER_PROJECT}/Physics.json")
   endif()
@@ -39,17 +76,7 @@ if(EMSCRIPTEN)
       if(json_error)
         continue() # a primitive
       endif()
-      set(prefab_file "${MARIANA_PLAYER_PROJECT}${prefab}")
-      if(prefab_file MATCHES "\\.gltf$")
-        get_filename_component(prefab_file "${prefab_file}" DIRECTORY)
-      else()
-        get_filename_component(prefab_dir "${prefab_file}" DIRECTORY)
-        get_filename_component(prefab_name "${prefab_file}" NAME_WE)
-        if(IS_DIRECTORY "${prefab_dir}/${prefab_name}.materials")
-          list(APPEND player_files "${prefab_dir}/${prefab_name}.materials")
-        endif()
-      endif()
-      list(APPEND player_files "${prefab_file}")
+      mariana_player_add_file("${prefab}")
     endforeach()
   endif()
   list(REMOVE_DUPLICATES player_files)

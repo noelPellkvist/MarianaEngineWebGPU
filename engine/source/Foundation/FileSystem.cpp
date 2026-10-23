@@ -1,5 +1,7 @@
 #include <Mariana/Foundation/FileSystem.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <system_error>
 
 namespace
@@ -21,6 +23,27 @@ namespace
     {
         const size_t start = path.find_first_not_of("/\\");
         return start == std::string::npos ? std::filesystem::path() : std::filesystem::path(path.substr(start));
+    }
+
+    std::string Normalized(const std::filesystem::path& path)
+    {
+        std::error_code error;
+        const std::filesystem::path absolute = std::filesystem::absolute(path, error);
+        return (error ? path : absolute).lexically_normal().generic_string();
+    }
+
+    // Paths compare without case on Windows, as its file system does.
+    bool StartsWith(const std::string& text, const std::string& prefix)
+    {
+        if (text.size() < prefix.size())
+            return false;
+#ifdef _WIN32
+        return std::equal(prefix.begin(), prefix.end(), text.begin(), [](char a, char b) {
+            return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+        });
+#else
+        return text.compare(0, prefix.size(), prefix) == 0;
+#endif
     }
 }
 
@@ -61,5 +84,19 @@ namespace FileSystem
         if (std::filesystem::path existing = Resolve(path); !existing.empty())
             return existing;
         return Roots().front() / Relative(path);
+    }
+
+    std::string ToResourcePath(const std::filesystem::path& file)
+    {
+        const std::string full = Normalized(file);
+        for (const std::filesystem::path& root : Roots())
+        {
+            std::string prefix = Normalized(root);
+            if (!prefix.empty() && prefix.back() != '/')
+                prefix += '/';
+            if (StartsWith(full, prefix) && full.size() > prefix.size())
+                return "/" + full.substr(prefix.size());
+        }
+        return {};
     }
 }

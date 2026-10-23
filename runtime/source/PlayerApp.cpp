@@ -7,6 +7,7 @@
 #include <Mariana/Importers/GLTFLoader.hpp>
 #include <Mariana/Importers/MaterialFile.hpp>
 #include <Mariana/Importers/AnimationGraphFile.hpp>
+#include <Mariana/Importers/SceneFile.hpp>
 #include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/VehiclePresets.hpp>
@@ -53,6 +54,7 @@ bool PlayerConfig::Load(const std::string& path, PlayerConfig& out, std::string&
             out.window.iconPath = window->value("icon", out.window.iconPath);
         }
         out.pipeline = file.value("pipeline", out.pipeline);
+        out.scene = file.value("scene", out.scene);
         if (const auto camera = file.find("camera"); camera != file.end() && camera->is_object())
         {
             out.cameraPosition = ReadVec3(*camera, "position", out.cameraPosition);
@@ -237,6 +239,16 @@ void PlayerApp::AddPhysics(Entity root, const PlayerConfig::Spawn& spawn)
 
 void PlayerApp::OnStart()
 {
+    if (!config.scene.empty())
+    {
+        std::string error;
+        const std::filesystem::path file = FileSystem::Resolve(config.scene);
+        if (file.empty())
+            Logger::Error("Player.json: no scene " + config.scene);
+        else if (!SceneFile::Load(scene, assets, file, error))
+            Logger::Error(error);
+        scene.Update(0.0f);
+    }
     for (const PlayerConfig::Spawn& spawn : config.spawns)
     {
         Entity root;

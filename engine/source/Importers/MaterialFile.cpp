@@ -5,39 +5,16 @@
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
 
-#include <json.hpp>
+#include "Importers/MaterialJson.hpp"
 
 #include <cmath>
 #include <fstream>
 #include <sstream>
 
+using MaterialJson::Json;
+
 namespace
 {
-    using Json = nlohmann::ordered_json;
-
-    // In MaterialTexture order.
-    const char* const kSlotKeys[] = { "baseColor", "normal", "metallicRoughness", "occlusion", "emissive" };
-
-    // Base color and emissive maps hold color (sRGB), the others data.
-    bool IsColorSlot(MaterialTexture slot)
-    {
-        return slot == MaterialTexture::BaseColor || slot == MaterialTexture::Emissive;
-    }
-
-    // Floats written with 6 decimals at most, so 0.1f is saved as 0.1.
-    double Clean(float value)
-    {
-        return std::round(static_cast<double>(value) * 1e6) / 1e6;
-    }
-
-    Json Array(const float* values, int count)
-    {
-        Json array = Json::array();
-        for (int i = 0; i < count; ++i)
-            array.push_back(Clean(values[i]));
-        return array;
-    }
-
     template <typename Vec>
     void ReadArray(const Json& object, const char* key, Vec& out, int count)
     {
@@ -104,14 +81,75 @@ namespace
     }
 }
 
-namespace MaterialFile
+namespace MaterialJson
 {
-    std::shared_ptr<MaterialAsset> Load(AssetManager2& assets, const std::filesystem::path& file, std::string& error)
-    {
-        Json json;
-        if (!ReadJson(file, json, error))
-            return nullptr;
+    const char* const kSlotKeys[] = { "baseColor", "normal", "metallicRoughness", "occlusion", "emissive" };
 
+    bool IsColorSlot(MaterialTexture slot)
+    {
+        return slot == MaterialTexture::BaseColor || slot == MaterialTexture::Emissive;
+    }
+
+    double Clean(float value)
+    {
+        return std::round(static_cast<double>(value) * 1e6) / 1e6;
+    }
+
+    Json Array(const float* values, int count)
+    {
+        Json array = Json::array();
+        for (int i = 0; i < count; ++i)
+            array.push_back(Clean(values[i]));
+        return array;
+    }
+
+    Json Write(const MaterialAsset& material, const WriteTexture& texture)
+    {
+        const PBRMaterialProperties& p = material.properties;
+        Json json;
+        json["baseColor"] = Array(&p.baseColor.x, 4);
+        json["metallic"] = Clean(p.metallicFactor);
+        json["roughness"] = Clean(p.roughnessFactor);
+        json["normalStrength"] = Clean(p.normalMapStrength);
+        json["occlusionStrength"] = Clean(p.occlusionStrength);
+        json["emissive"] = Array(&p.emissiveFactor.x, 3);
+        json["clearcoat"] = Clean(p.clearcoat);
+        json["clearcoatRoughness"] = Clean(p.clearcoatRoughness);
+        json["alphaMode"] = AlphaModeName(material.GetAlphaMode());
+        json["alphaCutoff"] = Clean(p.alphaCutoff > 0.0f ? p.alphaCutoff : 0.5f);
+        json["doubleSided"] = material.doubleSided;
+
+        Json textures = Json::object();
+        for (uint32_t t = 0; t < static_cast<uint32_t>(MaterialTexture::Count); ++t)
+        {
+            const MaterialTexture slotName = static_cast<MaterialTexture>(t);
+            const MaterialAsset::TextureSlot& slot = material.GetTexture(slotName);
+            if (!slot.texture.IsValid())
+                continue;
+            Json entry = Json::object();
+            if (!texture(slotName, slot, entry))
+                continue;
+            entry["uvSet"] = slot.uvSet;
+            entry["wrapU"] = AddressName(slot.sampler.addressU);
+            entry["wrapV"] = AddressName(slot.sampler.addressV);
+            entry["magFilter"] = FilterName(slot.sampler.magFilter);
+            entry["minFilter"] = FilterName(slot.sampler.minFilter);
+            entry["mipFilter"] = FilterName(slot.sampler.mipmapFilter);
+            entry["mipmaps"] = slot.sampler.mipmaps;
+            if (!slot.transform.IsIdentity())
+            {
+                entry["offset"] = Array(&slot.transform.offset.x, 2);
+                entry["rotation"] = Clean(glm::degrees(slot.transform.rotation));
+                entry["scale"] = Array(&slot.transform.scale.x, 2);
+            }
+            textures[kSlotKeys[t]] = entry;
+        }
+        json["textures"] = textures;
+        return json;
+    }
+
+    std::shared_ptr<MaterialAsset> Read(const Json& json, const ReadTexture& texture)
+    {
         auto material = std::make_shared<MaterialAsset>();
         PBRMaterialProperties& p = material->properties;
         ReadArray(json, "baseColor", p.baseColor, 4);
@@ -136,13 +174,9 @@ namespace MaterialFile
                 if (entry == textures->end() || !entry->is_object())
                     continue;
                 const MaterialTexture slot = static_cast<MaterialTexture>(t);
-                const std::string image = entry->value("image", std::string());
-                if (image.empty())
+                AssetHandle<Texture> handle = texture(slot, *entry);
+                if (!handle.IsValid())
                     continue;
-                const std::filesystem::path imageFile = ImageFile(file, image);
-                AssetHandle<Texture> texture = imageFile.empty() ? AssetHandle<Texture>{} : ImageImporter::LoadTexture(assets, imageFile, IsColorSlot(slot));
-                if (!texture.IsValid())
-                    Logger::Warning(file.string() + ": could not load " + image);
 
                 SamplerSettings sampler;
                 sampler.addressU = ParseAddress(entry->value("wrapU", std::string("Repeat")));
@@ -151,7 +185,7 @@ namespace MaterialFile
                 sampler.minFilter = ParseFilter(entry->value("minFilter", std::string("Linear")));
                 sampler.mipmapFilter = ParseFilter(entry->value("mipFilter", std::string("Linear")));
                 sampler.mipmaps = entry->value("mipmaps", true);
-                material->SetTexture(slot, texture, sampler, entry->value("uvSet", 0u));
+                material->SetTexture(slot, handle, sampler, entry->value("uvSet", 0u));
 
                 MaterialAsset::TextureTransform transform;
                 ReadArray(*entry, "offset", transform.offset, 2);
@@ -161,6 +195,26 @@ namespace MaterialFile
             }
         }
         return material;
+    }
+}
+
+namespace MaterialFile
+{
+    std::shared_ptr<MaterialAsset> Load(AssetManager2& assets, const std::filesystem::path& file, std::string& error)
+    {
+        Json json;
+        if (!ReadJson(file, json, error))
+            return nullptr;
+        return MaterialJson::Read(json, [&](MaterialTexture slot, const Json& entry) {
+            const std::string image = entry.value("image", std::string());
+            if (image.empty())
+                return AssetHandle<Texture>{};
+            const std::filesystem::path imageFile = ImageFile(file, image);
+            AssetHandle<Texture> texture = imageFile.empty() ? AssetHandle<Texture>{} : ImageImporter::LoadTexture(assets, imageFile, MaterialJson::IsColorSlot(slot));
+            if (!texture.IsValid())
+                Logger::Warning(file.string() + ": could not load " + image);
+            return texture;
+        });
     }
 
     std::vector<ImageRef> Images(const std::filesystem::path& file, std::string& error)
@@ -174,73 +228,37 @@ namespace MaterialFile
             return images;
         for (uint32_t t = 0; t < static_cast<uint32_t>(MaterialTexture::Count); ++t)
         {
-            const auto entry = textures->find(kSlotKeys[t]);
+            const auto entry = textures->find(MaterialJson::kSlotKeys[t]);
             if (entry == textures->end() || !entry->is_object())
                 continue;
             const std::filesystem::path imageFile = ImageFile(file, entry->value("image", std::string()));
             if (!imageFile.empty())
-                images.push_back({ imageFile, IsColorSlot(static_cast<MaterialTexture>(t)) });
+                images.push_back({ imageFile, MaterialJson::IsColorSlot(static_cast<MaterialTexture>(t)) });
         }
         return images;
     }
 
     bool Save(const MaterialAsset& material, AssetManager2& assets, const std::filesystem::path& file, std::string& error)
     {
-        const PBRMaterialProperties& p = material.properties;
-        Json json;
-        json["baseColor"] = Array(&p.baseColor.x, 4);
-        json["metallic"] = Clean(p.metallicFactor);
-        json["roughness"] = Clean(p.roughnessFactor);
-        json["normalStrength"] = Clean(p.normalMapStrength);
-        json["occlusionStrength"] = Clean(p.occlusionStrength);
-        json["emissive"] = Array(&p.emissiveFactor.x, 3);
-        json["clearcoat"] = Clean(p.clearcoat);
-        json["clearcoatRoughness"] = Clean(p.clearcoatRoughness);
-        json["alphaMode"] = AlphaModeName(material.GetAlphaMode());
-        json["alphaCutoff"] = Clean(p.alphaCutoff > 0.0f ? p.alphaCutoff : 0.5f);
-        json["doubleSided"] = material.doubleSided;
-
         std::error_code ec;
         std::filesystem::create_directories(file.parent_path(), ec);
 
-        Json textures = Json::object();
-        for (uint32_t t = 0; t < static_cast<uint32_t>(MaterialTexture::Count); ++t)
-        {
-            const MaterialAsset::TextureSlot& slot = material.GetTexture(static_cast<MaterialTexture>(t));
-            if (!slot.texture.IsValid())
-                continue;
-
+        const Json json = MaterialJson::Write(material, [&](MaterialTexture slot, const MaterialAsset::TextureSlot& texture, Json& entry) {
             // The image file: where the texture came from, or a PNG written from its glTF.
-            std::filesystem::path image = GLTF::GLTFLoader::ExtractImage(assets, slot.texture.GetID(), file.parent_path(), error);
+            const std::filesystem::path image = GLTF::GLTFLoader::ExtractImage(assets, texture.texture.GetID(), file.parent_path(), error);
             if (image.empty())
             {
-                const AssetMetadata* meta = slot.texture.GetMetadata();
-                error += std::string(error.empty() ? "" : "\n") + "Left out the " + kSlotKeys[t] + " texture " +
+                const AssetMetadata* meta = texture.texture.GetMetadata();
+                error += std::string(error.empty() ? "" : "\n") + "Left out the " + MaterialJson::kSlotKeys[static_cast<int>(slot)] + " texture " +
                          (meta ? meta->name : std::string()) + ": it has no image file";
-                continue;
+                return false;
             }
             std::filesystem::path relative = std::filesystem::relative(image, file.parent_path(), ec);
             if (ec || relative.empty())
                 relative = image;
-
-            Json entry;
             entry["image"] = relative.generic_string();
-            entry["uvSet"] = slot.uvSet;
-            entry["wrapU"] = AddressName(slot.sampler.addressU);
-            entry["wrapV"] = AddressName(slot.sampler.addressV);
-            entry["magFilter"] = FilterName(slot.sampler.magFilter);
-            entry["minFilter"] = FilterName(slot.sampler.minFilter);
-            entry["mipFilter"] = FilterName(slot.sampler.mipmapFilter);
-            entry["mipmaps"] = slot.sampler.mipmaps;
-            if (!slot.transform.IsIdentity())
-            {
-                entry["offset"] = Array(&slot.transform.offset.x, 2);
-                entry["rotation"] = Clean(glm::degrees(slot.transform.rotation));
-                entry["scale"] = Array(&slot.transform.scale.x, 2);
-            }
-            textures[kSlotKeys[t]] = entry;
-        }
-        json["textures"] = textures;
+            return true;
+        });
 
         std::ofstream stream(file, std::ios::binary | std::ios::trunc);
         if (!stream)

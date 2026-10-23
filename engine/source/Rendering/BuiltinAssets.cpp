@@ -72,6 +72,25 @@ namespace BuiltinAssets
         return assets.RegisterAsset<IMesh>(mesh, AssetType::Mesh, name, key);
     }
 
+    AssetID Resolve(AssetManager2& assets, const std::string& key)
+    {
+        if (AssetID existing = assets.FindID(key); existing.IsValid() && assets.IsLoaded(existing))
+            return existing;
+        if (key == "builtin://texture/white_srgb")
+            return WhiteTexture(assets, true).GetID();
+        if (key == "builtin://texture/white_linear")
+            return WhiteTexture(assets, false).GetID();
+        if (key == "builtin://texture/flat_normal")
+            return FlatNormalTexture(assets).GetID();
+        if (key == "builtin://material/default")
+            return DefaultMaterial(assets).GetID();
+        const char* const meshes[] = { "Cube", "Sphere", "Plane", "Cylinder", "Capsule" };
+        for (int i = 0; i < 5; ++i)
+            if (key == std::string("builtin://mesh/") + meshes[i])
+                return PrimitiveMesh(assets, static_cast<BuiltinMesh>(i)).GetID();
+        return {};
+    }
+
     Entity InstantiatePrimitive(Scene& scene, AssetManager2& assets, BuiltinMesh shape, const char* name, const glm::vec3& color)
     {
         AssetHandle<IMesh> mesh = PrimitiveMesh(assets, shape);

@@ -5,6 +5,11 @@
 #include <Mariana/Importers/GLTFLoader.hpp>
 #include <Mariana/Importers/MaterialFile.hpp>
 #include <Mariana/Importers/AnimationGraphFile.hpp>
+#include <Mariana/Importers/SceneFile.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#endif
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
 #include <Mariana/Rendering/RenderPipeline.hpp>
@@ -365,6 +370,8 @@ void EditorApp::OnStart()
         if (extension == ".animgraph")
             if (AssetHandle<AnimationGraph> graph = assets.Load<AnimationGraph>(file); graph.Get())
                 graphWindow->Open(graph);
+        if (extension == ".scene")
+            OpenScene(file);
     };
     assetsExplorer->createActions.push_back({ "Animation Graph", [this](const fs::path& folder) {
         graphWindow->CreateGraph(folder / "New Animation Graph.animgraph", nullptr);
@@ -424,8 +431,204 @@ void EditorApp::OnStart()
         editorCam->SetYawPitch(glm::half_pi<float>() / 2, -glm::half_pi<float>() / 5);
     } 
 
-    BuildStartupScene();
+    // The project's playground scene, or the same made in code when it has none.
+    if (!OpenScene(FileSystem::Resolve("/Scenes/Playground.scene")))
+        BuildStartupScene();
+    // Looking at the car from behind and to its left, the jump ahead of it.
+    if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get()))
+    {
+        const glm::vec3 eye(-5.5f, 3.2f, -8.0f), target(0.0f, 0.6f, 3.0f);
+        const glm::vec3 d = glm::normalize(target - eye);
+        editorCam->SetPosition(eye);
+        editorCam->SetYawPitch(std::atan2(d.z, d.x), std::asin(d.y));
+    }
     Logger::Info("OnStart done");
+}
+
+void EditorApp::ClearScene()
+{
+    if (gameClock.IsPlaying())
+        TogglePlay();
+    scene.Clear();
+    sceneRenderer.InvalidateTransforms();
+    physics->Reset();
+    undo.Clear();
+    selectedEntityID = static_cast<uint64_t>(-1);
+    selectedEntity = Entity{};
+    if (inspectorWindow)
+        inspectorWindow->ClearInspectedEntity();
+    assets.UnloadUnused();
+}
+
+void EditorApp::NewScene()
+{
+    ClearScene();
+    scenePath.clear();
+    savedUndoVersion = undo.Version();
+    savedEntityCount = EntityCount();
+}
+
+bool EditorApp::OpenScene(const fs::path& file)
+{
+    if (file.empty())
+        return false;
+    ClearScene();
+    std::string error, warnings;
+    if (!SceneFile::Load(scene, assets, file, error, &warnings))
+    {
+        Logger::Error(error);
+        sceneStatus = error;
+        return false;
+    }
+    scene.Update(0.0f);
+    scenePath = file;
+    savedUndoVersion = undo.Version();
+    savedEntityCount = EntityCount();
+    sceneStatus = warnings;
+    RememberScene(file);
+    return true;
+}
+
+bool EditorApp::SaveScene(const fs::path& file)
+{
+    std::string error;
+    if (!SceneFile::Save(scene, assets, file, error))
+    {
+        Logger::Error(error);
+        sceneStatus = error;
+        return false;
+    }
+    scenePath = file;
+    savedUndoVersion = undo.Version();
+    savedEntityCount = EntityCount();
+    sceneStatus.clear();
+    RememberScene(file);
+    Logger::Info("Saved " + file.string());
+    return true;
+}
+
+void EditorApp::SaveSceneFromMenu(bool saveAs)
+{
+    if (gameClock.IsPlaying())
+        return; // what is saved is the scene as edited, not as the game left it
+    if (saveAs || scenePath.empty())
+    {
+        saveScenePopup = true;
+        return;
+    }
+    if (SaveScene(scenePath))
+        OfferDownload(scenePath);
+}
+
+void EditorApp::OfferDownload(const fs::path& file)
+{
+#if defined(__EMSCRIPTEN__)
+    EM_ASM({
+        const data = FS.readFile(UTF8ToString($0));
+        const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = UTF8ToString($1);
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, file.string().c_str(), file.filename().string().c_str());
+#else
+    (void)file;
+#endif
+}
+
+void EditorApp::RememberScene(const fs::path& file)
+{
+    recentScenes.erase(std::remove(recentScenes.begin(), recentScenes.end(), file), recentScenes.end());
+    recentScenes.insert(recentScenes.begin(), file);
+    if (recentScenes.size() > 8)
+        recentScenes.resize(8);
+}
+
+size_t EditorApp::EntityCount() const
+{
+    size_t count = 0;
+    scene.ForEachRoot([&](Entity root) {
+        ++count;
+        scene.ForEachDescendant(root, [&](Entity) { ++count; });
+    });
+    return count;
+}
+
+bool EditorApp::SceneModified() const
+{
+    return undo.Version() != savedUndoVersion || EntityCount() != savedEntityCount;
+}
+
+void EditorApp::DrawScenePopups()
+{
+    if (openScenePopup)
+    {
+        ImGui::OpenPopup("Open Scene");
+        openScenePopup = false;
+    }
+    if (saveScenePopup)
+    {
+        ImGui::OpenPopup("Save Scene As");
+        saveScenePopup = false;
+    }
+
+    if (ImGui::BeginPopup("Open Scene"))
+    {
+        // Every /Scenes/*.scene across the roots, the first root's when two have the same.
+        std::vector<std::pair<std::string, fs::path>> found;
+        for (const fs::path& root : FileSystem::Roots())
+        {
+            std::error_code ec;
+            for (const auto& entry : fs::directory_iterator(root / "Scenes", ec))
+            {
+                if (entry.path().extension() != ".scene")
+                    continue;
+                const std::string name = entry.path().filename().string();
+                if (std::none_of(found.begin(), found.end(), [&](const auto& f) { return f.first == name; }))
+                    found.emplace_back(name, entry.path());
+            }
+        }
+        if (found.empty())
+            ImGui::TextDisabled("No scenes in /Scenes yet");
+        for (const auto& [name, path] : found)
+        {
+            if (ImGui::Selectable(name.c_str(), path == scenePath))
+            {
+                OpenScene(path);
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        ImGui::EndPopup();
+    }
+
+    if (ImGui::BeginPopup("Save Scene As"))
+    {
+        static char name[64] = {};
+        if (ImGui::IsWindowAppearing())
+        {
+            const std::string current = scenePath.empty() ? std::string("New Scene") : scenePath.stem().string();
+            std::snprintf(name, sizeof(name), "%s", current.c_str());
+            ImGui::SetKeyboardFocusHere();
+        }
+        ImGui::TextUnformatted("Save to the project's Scenes folder as");
+        ImGui::SetNextItemWidth(220.0f);
+        const bool entered = ImGui::InputText("##name", name, sizeof(name), ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGui::SameLine();
+        ImGui::BeginDisabled(name[0] == '\0');
+        if ((ImGui::Button("Save") || entered) && name[0] != '\0')
+        {
+            std::string clean = name;
+            for (char& c : clean)
+                if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_' && c != ' ')
+                    c = '_';
+            if (const fs::path file = fs::path(MARIANA_PROJECT_DIR) / "Scenes" / (clean + ".scene"); SaveScene(file))
+                OfferDownload(file);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndDisabled();
+        ImGui::EndPopup();
+    }
 }
 
 void EditorApp::BuildStartupScene()
@@ -440,15 +643,8 @@ void EditorApp::BuildStartupScene()
     AddChaseCamera(FollowCamera{}.distance, FollowCamera{}.height, FollowCamera{}.lookHeight);
     scene.Update(0.0f);
     DeselectEntity();
-
-    // Looking at the car from behind and to its left, the jump ahead of it.
-    if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get()))
-    {
-        const glm::vec3 eye(-5.5f, 3.2f, -8.0f), target(0.0f, 0.6f, 3.0f);
-        const glm::vec3 d = glm::normalize(target - eye);
-        editorCam->SetPosition(eye);
-        editorCam->SetYawPitch(std::atan2(d.z, d.x), std::asin(d.y));
-    }
+    savedUndoVersion = undo.Version();
+    savedEntityCount = EntityCount();
 }
 
 void EditorApp::OnUpdate(float deltaTime)
@@ -553,6 +749,14 @@ void EditorApp::OnGUI()
         TogglePause();
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Alt | ImGuiKey_P, ImGuiInputFlags_RouteGlobal))
         gameClock.Step();
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal))
+        SaveSceneFromMenu(false);
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_S, ImGuiInputFlags_RouteGlobal))
+        SaveSceneFromMenu(true);
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_O, ImGuiInputFlags_RouteGlobal))
+        openScenePopup = true;
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_N, ImGuiInputFlags_RouteGlobal))
+        NewScene();
 
     DrawTopMenu();
     // The views in a fixed order, Scene last: the first time they dock, it ends up the open tab.
@@ -793,10 +997,24 @@ void EditorApp::DrawTopMenu()
     {
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("New", "Ctrl+N")) {/* TODO */}
-            if (ImGui::MenuItem("Open...", "Ctrl+O")) {/* TODO */}
-            if (ImGui::MenuItem("Save", "Ctrl+S")) {/* TODO */}
-            if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {/* TODO */}
+            const bool playing = gameClock.IsPlaying();
+            if (ImGui::MenuItem("New Scene", "Ctrl+N"))
+                NewScene();
+            if (ImGui::MenuItem("Open Scene...", "Ctrl+O"))
+                openScenePopup = true;
+            if (ImGui::BeginMenu("Open Recent", !recentScenes.empty()))
+            {
+                for (const fs::path& recent : std::vector<fs::path>(recentScenes))
+                    if (ImGui::MenuItem(recent.filename().string().c_str()))
+                        OpenScene(recent);
+                ImGui::EndMenu();
+            }
+            if (ImGui::MenuItem("Save Scene", "Ctrl+S", false, !playing))
+                SaveSceneFromMenu(false);
+            if (ImGui::MenuItem("Save Scene As...", "Ctrl+Shift+S", false, !playing))
+                SaveSceneFromMenu(true);
+            if (playing && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                ImGui::SetTooltip("Stop the game first: a scene is saved as edited");
             ImGui::Separator();
             if (ImGui::MenuItem("Preferences...", "Ctrl+,")) {}
             ImGui::Separator();
@@ -886,8 +1104,17 @@ void EditorApp::DrawTopMenu()
 
         DrawPlayControls();
 
+        // The scene's file on the right, with a * while it has changes.
+        const std::string title = (scenePath.empty() ? std::string("Untitled") : scenePath.filename().string()) + (SceneModified() ? " *" : "");
+        const float titleWidth = ImGui::CalcTextSize(title.c_str()).x;
+        ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX() + 16.0f, ImGui::GetWindowWidth() - titleWidth - ImGui::GetStyle().ItemSpacing.x * 2.0f));
+        ImGui::TextDisabled("%s", title.c_str());
+        if (!sceneStatus.empty() && ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", sceneStatus.c_str());
+
         ImGui::EndMainMenuBar();
     }
+    DrawScenePopups();
 }
 
 void EditorApp::DrawPlayControls()

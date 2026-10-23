@@ -24,6 +24,8 @@ public:
     void Undo();
     void Redo();
     void Clear();
+    // Changes with every Push, Undo, Redo and Clear (whether something changed since a save).
+    size_t Version() const { return m_version; }
 
 private:
     struct Step
@@ -35,4 +37,5 @@ private:
 
     std::vector<Step> m_undo;
     std::vector<Step> m_redo;
+    size_t m_version = 0;
 };

@@ -120,6 +120,9 @@ namespace PhysicsInternal
     // bumps LocalTRS.version only when something changed.
     void SetWorldPose(const Scene& scene, Entity entity, LocalTRS& trs, glm::vec3 position, glm::quat rotation);
 
+    // The physics components' serializers for scene files (Serializers.cpp).
+    void RegisterSerializers();
+
     // Jolt's debug renderer (one for the process), collecting lines while a target is set: the
     // contacts Jolt draws during steps, and DebugDraw's bodies.
     void AcquireDebugRenderer();

@@ -12,17 +12,19 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-// What the player runs, from a project's Player.json (until scenes can be saved):
+// What the player runs, from a project's Player.json:
 //   {
 //     "window": { "title": "Mariana Player", "width": 1280, "height": 720, "icon": "/logo.png" },
 //     "pipeline": "/Pipelines/Default.pipeline",
+//     "scene": "/Scenes/Playground.scene",
 //     "camera": { "position": [0, 2, -5], "target": [0, 1, 0], "orbitSpeed": 0, "follow": false },
 //     "spawn": [ { "prefab": "/Models/Sponza/Sponza.gltf", "position": [0, 0, 0], "rotation": [0, 0, 0],
 //                  "scale": 1, "faceCamera": false, "physics": { "collider": "mesh" } },
 //                { "primitive": "sphere", "color": [1, 0.3, 0.2], "position": [0, 5, 0],
 //                  "physics": { "body": "dynamic", "mass": 2, "bounciness": 0.5 } }, ... ]
 //   }
-// Everything is optional; paths are resource paths (FileSystem). A spawn is a `prefab`, a
+// Everything is optional; paths are resource paths (FileSystem). `scene` is a scene file the editor
+// saved (SceneFile), loaded first; the spawns are added to it. A spawn is a `prefab`, a
 // `primitive` (cube, sphere, plane, cylinder, capsule; tinted by `color`) or a `preset` (car,
 // motorcycle, tank: a vehicle the keyboard drives, W A S D and Space; playground: ground with ramps;
 // character: one that walks with W A S D, Shift and Space; course: steps, slopes and crates for it;
@@ -64,6 +66,7 @@ struct PlayerConfig
 
     WindowSettings window{ "Mariana Player", 1280, 720, "" };
     std::string pipeline = "/Pipelines/Default.pipeline";
+    std::string scene;
     glm::vec3 cameraPosition{0.0f, 2.0f, -5.0f};
     glm::vec3 cameraTarget{0.0f, 1.0f, 0.0f};
     float orbitSpeed = 0.0f; // degrees per second around the target

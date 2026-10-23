@@ -1,0 +1,6600 @@
+{
+  "version": 1,
+  "dependencies": [
+    "/Models/CarConcept/CarConcept.gltf"
+  ],
+  "materials": [
+    {
+      "name": "Ground Material",
+      "baseColor": [
+        0.32,
+        0.4,
+        0.27,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Ramp Up Material",
+      "baseColor": [
+        0.55,
+        0.55,
+        0.52,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Table Material",
+      "baseColor": [
+        0.55,
+        0.55,
+        0.52,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Ramp Down Material",
+      "baseColor": [
+        0.55,
+        0.55,
+        0.52,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Wide Ramp Material",
+      "baseColor": [
+        0.55,
+        0.55,
+        0.52,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Kicker Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bank Material",
+      "baseColor": [
+        0.55,
+        0.55,
+        0.52,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bank Material",
+      "baseColor": [
+        0.55,
+        0.55,
+        0.52,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bank Material",
+      "baseColor": [
+        0.55,
+        0.55,
+        0.52,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bank Material",
+      "baseColor": [
+        0.55,
+        0.55,
+        0.52,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bank Material",
+      "baseColor": [
+        0.55,
+        0.55,
+        0.52,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bump Material",
+      "baseColor": [
+        0.4,
+        0.3,
+        0.2,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bump Material",
+      "baseColor": [
+        0.4,
+        0.3,
+        0.2,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bump Material",
+      "baseColor": [
+        0.4,
+        0.3,
+        0.2,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bump Material",
+      "baseColor": [
+        0.4,
+        0.3,
+        0.2,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bump Material",
+      "baseColor": [
+        0.4,
+        0.3,
+        0.2,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Bump Material",
+      "baseColor": [
+        0.4,
+        0.3,
+        0.2,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.85,
+        0.45,
+        0.15,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    }
+  ],
+  "entities": [
+    {
+      "id": 0,
+      "name": "Vehicle Playground",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      }
+    },
+    {
+      "id": 1,
+      "name": "Ground",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            20.0,
+            20.0,
+            20.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Plane",
+          "materials": [
+            "#material/0"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            -0.05,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            10.0,
+            0.1,
+            10.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Ramp Up",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            1.14747,
+            30.0
+          ],
+          "rotation": [
+            -0.104528,
+            -0.0,
+            -0.0,
+            0.994522
+          ],
+          "scale": [
+            7.0,
+            0.4,
+            12.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/1"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Table",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            1.295285,
+            40.868885
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            7.0,
+            2.59057,
+            10.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/2"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Ramp Down",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            1.14747,
+            51.73777
+          ],
+          "rotation": [
+            0.104528,
+            0.0,
+            0.0,
+            0.994522
+          ],
+          "scale": [
+            7.0,
+            0.4,
+            12.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/3"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Wide Ramp",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -25.0,
+            0.6,
+            10.0
+          ],
+          "rotation": [
+            -0.052336,
+            -0.0,
+            -0.0,
+            0.99863
+          ],
+          "scale": [
+            12.0,
+            0.4,
+            16.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/4"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Kicker",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            18.0,
+            0.35,
+            20.0
+          ],
+          "rotation": [
+            -0.173648,
+            -0.0,
+            -0.0,
+            0.984808
+          ],
+          "scale": [
+            4.0,
+            0.3,
+            2.5
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/5"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Bank",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            57.124355,
+            0.7,
+            3.0
+          ],
+          "rotation": [
+            0.135476,
+            -0.493844,
+            0.078217,
+            0.855363
+          ],
+          "scale": [
+            9.0,
+            0.4,
+            6.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/6"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Bank",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            52.0,
+            0.7,
+            -2.124355
+          ],
+          "rotation": [
+            0.151104,
+            -0.255633,
+            0.040488,
+            0.954034
+          ],
+          "scale": [
+            9.0,
+            0.4,
+            6.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/7"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Bank",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            45.0,
+            0.7,
+            -4.0
+          ],
+          "rotation": [
+            0.156434,
+            0.0,
+            0.0,
+            0.987688
+          ],
+          "scale": [
+            9.0,
+            0.4,
+            6.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/8"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Bank",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            38.0,
+            0.7,
+            -2.124355
+          ],
+          "rotation": [
+            0.151104,
+            0.255633,
+            -0.040488,
+            0.954034
+          ],
+          "scale": [
+            9.0,
+            0.4,
+            6.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/9"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Bank",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            32.875645,
+            0.7,
+            3.0
+          ],
+          "rotation": [
+            0.135476,
+            0.493844,
+            -0.078217,
+            0.855363
+          ],
+          "scale": [
+            9.0,
+            0.4,
+            6.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/10"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Bump",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            -18.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.707107,
+            0.707107
+          ],
+          "scale": [
+            0.35,
+            8.0,
+            0.35
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cylinder",
+          "materials": [
+            "#material/11"
+          ]
+        },
+        "CylinderCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "radius": 0.5,
+          "height": 1.0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Bump",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            -21.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.707107,
+            0.707107
+          ],
+          "scale": [
+            0.35,
+            8.0,
+            0.35
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cylinder",
+          "materials": [
+            "#material/12"
+          ]
+        },
+        "CylinderCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "radius": 0.5,
+          "height": 1.0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Bump",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            -24.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.707107,
+            0.707107
+          ],
+          "scale": [
+            0.35,
+            8.0,
+            0.35
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cylinder",
+          "materials": [
+            "#material/13"
+          ]
+        },
+        "CylinderCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "radius": 0.5,
+          "height": 1.0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Bump",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            -27.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.707107,
+            0.707107
+          ],
+          "scale": [
+            0.35,
+            8.0,
+            0.35
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cylinder",
+          "materials": [
+            "#material/14"
+          ]
+        },
+        "CylinderCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "radius": 0.5,
+          "height": 1.0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Bump",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            -30.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.707107,
+            0.707107
+          ],
+          "scale": [
+            0.35,
+            8.0,
+            0.35
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cylinder",
+          "materials": [
+            "#material/15"
+          ]
+        },
+        "CylinderCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "radius": 0.5,
+          "height": 1.0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 17,
+      "name": "Bump",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            -33.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.707107,
+            0.707107
+          ],
+          "scale": [
+            0.35,
+            8.0,
+            0.35
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cylinder",
+          "materials": [
+            "#material/16"
+          ]
+        },
+        "CylinderCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "radius": 0.5,
+          "height": 1.0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -21.200001,
+            0.4,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/17"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 19,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -20.380001,
+            0.4,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/18"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 20,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -19.560001,
+            0.4,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/19"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 21,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -18.740002,
+            0.4,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/20"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 22,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -21.200001,
+            1.21,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/21"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 23,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -20.380001,
+            1.21,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/22"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 24,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -19.560001,
+            1.21,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/23"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 25,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -18.740002,
+            1.21,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/24"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 26,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -21.200001,
+            2.02,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/25"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 27,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -20.380001,
+            2.02,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/26"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 28,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -19.560001,
+            2.02,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/27"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 29,
+      "name": "Crate",
+      "parent": 0,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -18.740002,
+            2.02,
+            28.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/28"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 20.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 30,
+      "name": "CarConcept",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.08,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 1500.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            -0.25,
+            0.0
+          ],
+          "interpolate": true
+        },
+        "Vehicle": {
+          "type": "Wheeled",
+          "collision": "Cylinder",
+          "drive": "Rear",
+          "engineTorque": 700.0,
+          "minRPM": 1000.0,
+          "maxRPM": 7000.0,
+          "automatic": true,
+          "shiftUpRPM": 6500.0,
+          "shiftDownRPM": 3000.0,
+          "clutchStrength": 10.0,
+          "gearRatios": [
+            3.13,
+            2.1,
+            1.55,
+            1.21,
+            0.97,
+            0.81
+          ],
+          "reverseRatio": -2.9,
+          "differentialRatio": 3.6,
+          "limitedSlipRatio": 1.4,
+          "antiRollStiffness": 4000.0,
+          "maxPitchRollAngle": 60.0,
+          "maxLeanAngle": 45.0
+        },
+        "PlayerControl": {
+          "enabled": true,
+          "steerSpeed": 3.0,
+          "steerFade": 25.0
+        }
+      }
+    },
+    {
+      "id": 31,
+      "name": "BodyUnderside",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            -0.707107,
+            0.0,
+            0.0,
+            0.707107
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/0",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/0"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 0
+        },
+        "MeshCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "mesh": "",
+          "convex": true
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 32,
+      "name": "BodyWindshield",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/1",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/1"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 1
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 33,
+      "name": "BodyWindshieldGasket",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/2",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 2
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 34,
+      "name": "BodyWindshieldWipers",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.68154,
+            -1.427221,
+            0.849451
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/3",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 3
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 35,
+      "name": "BodyWindshieldWipersBase",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/4",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 4
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 36,
+      "name": "Engine",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -2.075694,
+            0.14
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/5",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/0"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 5
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 37,
+      "name": "InteriorCage",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/6",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 6
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 38,
+      "name": "InteriorDashMid",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/7",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/3"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 7
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 39,
+      "name": "InteriorDashSides",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/8",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/6"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 8
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 40,
+      "name": "Axles",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.000161,
+            -0.09067,
+            0.383868
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/84",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/0"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 100
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 41,
+      "name": "InteriorFloormats",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/10",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/4"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 10
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 42,
+      "name": "InteriorMid",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/85",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/28",
+            "/Models/CarConcept/CarConcept.gltf#material/28"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 11
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 43,
+      "name": "InteriorPedalAccel",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.074893,
+            -1.458834,
+            0.129208
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/11",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/4"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 12
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 44,
+      "name": "InteriorPedalAccelArm",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.076259,
+            -1.458834,
+            0.129208
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/12",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/5"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 13
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 45,
+      "name": "InteriorPedalBrake",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.076221,
+            -1.52258,
+            0.209799
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/13",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/4"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 14
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 46,
+      "name": "InteriorPedalBrakeArm",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.076259,
+            -1.427203,
+            0.128699
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/14",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/5"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 15
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 47,
+      "name": "InteriorPillar",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/15",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 16
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 48,
+      "name": "InteriorSeatsColor1",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.508642,
+            -0.133467,
+            -0.159757
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/16",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/6"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 17
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 49,
+      "name": "InteriorSeatsColor2",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -0.804644,
+            -0.192855
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/17",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/7"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 18
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 50,
+      "name": "InteriorSeatsFrame1",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            0.606426,
+            -0.180443
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/18",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 19
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 51,
+      "name": "InteriorSeatsFrame2",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -0.804644,
+            -0.192855
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/19",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 20
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 52,
+      "name": "InteriorSteeringBase",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -0.929137,
+            0.641559
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/20",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 21
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 53,
+      "name": "InteriorSteeringCylinder",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.000922,
+            -1.162541,
+            0.551265
+          ],
+          "rotation": [
+            0.186441,
+            -0.128197,
+            -0.024545,
+            0.973757
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/21",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 22
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 54,
+      "name": "InteriorSteeringEmblem",
+      "parent": 53,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.250249,
+            -0.002187
+          ],
+          "rotation": [
+            -0.18805,
+            0.0,
+            -0.0,
+            0.98216
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/22",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/5"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 23
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 55,
+      "name": "InteriorSteeringWheel04",
+      "parent": 53,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.197338,
+            -0.000637
+          ],
+          "rotation": [
+            -0.18805,
+            0.0,
+            -0.0,
+            0.98216
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/23",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 24
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 56,
+      "name": "InteriorSteeringWheel01",
+      "parent": 53,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.250249,
+            -0.002187
+          ],
+          "rotation": [
+            -0.18805,
+            0.0,
+            -0.0,
+            0.98216
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/24",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/6"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 25
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 57,
+      "name": "InteriorSteeringWheel02",
+      "parent": 53,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.250249,
+            -0.002187
+          ],
+          "rotation": [
+            -0.18805,
+            0.0,
+            -0.0,
+            0.98216
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/25",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/3"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 26
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 58,
+      "name": "InteriorSteeringWheel03",
+      "parent": 53,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.250249,
+            -0.002187
+          ],
+          "rotation": [
+            -0.18805,
+            0.0,
+            -0.0,
+            0.98216
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/26",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/3"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 27
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 59,
+      "name": "InteriorSteeringDash",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.005831,
+            -1.022185,
+            0.613082
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/27",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/8"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 28
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 60,
+      "name": "InteriorSteeringDashColumn",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.005831,
+            -1.022185,
+            0.613082
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/28",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 29
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 61,
+      "name": "InteriorSteeringHandleL",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.072217,
+            -1.199597,
+            0.529524
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/29",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/5"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 30
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 62,
+      "name": "InteriorSteeringHandleR",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.070254,
+            -1.199597,
+            0.529524
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/30",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/5"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 31
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 63,
+      "name": "License Plate",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            1.885405,
+            0.255378
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/31",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/9"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 32
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 64,
+      "name": "BodyRoofPanel",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/32",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/10"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 33
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 65,
+      "name": "BodyRearPanelsColor1",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            1.928527,
+            0.423014
+          ],
+          "rotation": [
+            -0.0,
+            -0.0,
+            -0.0,
+            -1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/33",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/11"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 34
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 66,
+      "name": "InteriorRearHatch",
+      "parent": 65,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -1.927039,
+            -0.429743
+          ],
+          "rotation": [
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/34",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 35
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 67,
+      "name": "InteriorRearPanels",
+      "parent": 65,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -1.927039,
+            -0.429743
+          ],
+          "rotation": [
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/86",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/0",
+            "/Models/CarConcept/CarConcept.gltf#material/3"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 36
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 68,
+      "name": "BodyWindowsRearSides",
+      "parent": 65,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -1.927039,
+            -0.429743
+          ],
+          "rotation": [
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/35",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/1"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 37
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 69,
+      "name": "BodyTurnsignalsRear",
+      "parent": 65,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -1.92704,
+            -0.429743
+          ],
+          "rotation": [
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/36",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/12"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 38
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 70,
+      "name": "BodyTaillightsPanels",
+      "parent": 65,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -1.92704,
+            -0.429743
+          ],
+          "rotation": [
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/37",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 39
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 71,
+      "name": "BodyTaillights",
+      "parent": 65,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -1.92704,
+            -0.429743
+          ],
+          "rotation": [
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/38",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/13"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 40
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 72,
+      "name": "BodyRearwindow",
+      "parent": 65,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -1.927039,
+            -0.429743
+          ],
+          "rotation": [
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/39",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/1"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 41
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 73,
+      "name": "BodyDoorLColor1",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.088682,
+            -0.997571,
+            0.643019
+          ],
+          "rotation": [
+            -0.0,
+            -0.0,
+            -0.0,
+            -1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/62",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/11"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 65
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 74,
+      "name": "InteriorDoorL04",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/63",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/6"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 66
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 75,
+      "name": "InteriorDoorL01",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/88",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/0",
+            "/Models/CarConcept/CarConcept.gltf#material/3"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 67
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 76,
+      "name": "InteriorDoorL02",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/64",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/3"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 68
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 77,
+      "name": "InteriorDoorL03",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/65",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/6"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 69
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 78,
+      "name": "InteriorDoorL05",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/66",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/6"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 70
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 79,
+      "name": "InteriorDoorL06",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/67",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/5"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 71
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 80,
+      "name": "BodyDoorLColor2",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/68",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/10"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 72
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 81,
+      "name": "BodyDoorLHandle01",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/69",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 73
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 82,
+      "name": "BodyDoorLHandle02",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/70",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/10"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 74
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 83,
+      "name": "BodyDoorLMirror",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/71",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/15"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 75
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 84,
+      "name": "BodyDoorLMirrorColor1",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/72",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/11"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 76
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 85,
+      "name": "BodyDoorLWindowGasket",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/73",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 77
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 86,
+      "name": "BodyDoorLWindow",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/74",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/1"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 78
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 87,
+      "name": "BodyDoorLMirrorColor2",
+      "parent": 73,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.092158,
+            0.993765,
+            -0.643019
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/75",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/10"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 79
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 88,
+      "name": "BodyPanelsColor2",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/41",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/10"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 43
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 89,
+      "name": "BodyHood",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            -2.379389,
+            0.176015
+          ],
+          "rotation": [
+            -0.0,
+            -0.0,
+            -0.0,
+            -1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/42",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/11"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 44
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 90,
+      "name": "BodyHoodInterior01",
+      "parent": 89,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.378434,
+            -0.188471
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/43",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 45
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 91,
+      "name": "BodyHoodInterior02",
+      "parent": 89,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.378434,
+            -0.188471
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/44",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 46
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 92,
+      "name": "BodyHoodTopgrill",
+      "parent": 89,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.378434,
+            -0.188471
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/45",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/10"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 47
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 93,
+      "name": "BodyHoodUnder",
+      "parent": 89,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.378434,
+            -0.188471
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/46",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 48
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 94,
+      "name": "BodyHeadlights",
+      "parent": 89,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.378434,
+            -0.188471
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/47",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/14"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 49
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 95,
+      "name": "BodyDoorRColor1",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.0872,
+            -0.997543,
+            0.642966
+          ],
+          "rotation": [
+            -0.0,
+            -0.0,
+            -0.0,
+            -1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/48",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/11"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 50
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 96,
+      "name": "BodyDoorRColor2",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/49",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/10"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 51
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 97,
+      "name": "BodyDoorRHandle01",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/50",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 52
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 98,
+      "name": "BodyDoorRHandle02",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/51",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/10"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 53
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 99,
+      "name": "BodyDoorRMirror",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/52",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/15"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 54
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 100,
+      "name": "BodyDoorRMirrorColor1",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/53",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/11"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 55
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 101,
+      "name": "BodyDoorRMirrorColor2",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/54",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/10"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 56
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 102,
+      "name": "BodyDoorRWindow",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/55",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/1"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 57
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 103,
+      "name": "BodyDoorRWindowGasket",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/56",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 58
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 104,
+      "name": "InteriorDoorR01",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/87",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/0",
+            "/Models/CarConcept/CarConcept.gltf#material/3"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 59
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 105,
+      "name": "InteriorDoorR02",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/57",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/3"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 60
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 106,
+      "name": "InteriorDoorR03",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/58",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/6"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 61
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 107,
+      "name": "InteriorDoorR04",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/59",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/6"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 62
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 108,
+      "name": "InteriorDoorR05",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/60",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/6"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 63
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 109,
+      "name": "InteriorDoorR06",
+      "parent": 95,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.090675,
+            0.993742,
+            -0.642966
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/61",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/5"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 64
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 110,
+      "name": "WheelFrontL",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.975493,
+            -1.485681,
+            0.303759
+          ],
+          "rotation": [
+            0.866025,
+            0.0,
+            0.0,
+            0.5
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 80
+        },
+        "VehicleWheel": {
+          "radius": 0.384,
+          "width": 0.282863,
+          "suspensionMin": 0.05,
+          "suspensionMax": 0.25,
+          "suspensionFrequency": 1.9,
+          "suspensionDamping": 0.6,
+          "maxSteerAngle": 32.0,
+          "casterAngle": 0.0,
+          "maxBrakeTorque": 1800.0,
+          "maxHandBrakeTorque": 0.0,
+          "grip": 1.0
+        }
+      }
+    },
+    {
+      "id": 111,
+      "name": "WheelFrontLRim",
+      "parent": 110,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.001215,
+            0.0,
+            -3.7e-05
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/90",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/20",
+            "/Models/CarConcept/CarConcept.gltf#material/21"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 81
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 112,
+      "name": "WheelFrontLBrakePad",
+      "parent": 110,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.001215,
+            0.0,
+            -3.7e-05
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/76",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/16"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 82
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 113,
+      "name": "WheelFrontLBrakeDisc",
+      "parent": 110,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.001215,
+            0.0,
+            -3.7e-05
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/77",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/17"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 83
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 114,
+      "name": "Node 84",
+      "parent": 110,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/89",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/18",
+            "/Models/CarConcept/CarConcept.gltf#material/19"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 84
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 115,
+      "name": "WheelFrontR",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.976675,
+            -1.483968,
+            0.303759
+          ],
+          "rotation": [
+            0.382683,
+            -0.0,
+            0.0,
+            0.92388
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 85
+        },
+        "VehicleWheel": {
+          "radius": 0.384,
+          "width": 0.284368,
+          "suspensionMin": 0.05,
+          "suspensionMax": 0.25,
+          "suspensionFrequency": 1.9,
+          "suspensionDamping": 0.6,
+          "maxSteerAngle": 32.0,
+          "casterAngle": 0.0,
+          "maxBrakeTorque": 1800.0,
+          "maxHandBrakeTorque": 0.0,
+          "grip": 1.0
+        }
+      }
+    },
+    {
+      "id": 116,
+      "name": "WheelFrontRRim",
+      "parent": 115,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.000291,
+            -0.001423,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/92",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/20",
+            "/Models/CarConcept/CarConcept.gltf#material/21"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 86
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 117,
+      "name": "WheelFrontRBrakePad",
+      "parent": 115,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.000291,
+            -0.001422,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/78",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/16"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 87
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 118,
+      "name": "WheelFrontRBrakeDisc",
+      "parent": 115,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.000291,
+            -0.001422,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/79",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/17"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 88
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 119,
+      "name": "Node 89",
+      "parent": 115,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/91",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/18",
+            "/Models/CarConcept/CarConcept.gltf#material/19"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 89
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 120,
+      "name": "WheelRearL",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.982514,
+            1.314062,
+            0.303759
+          ],
+          "rotation": [
+            0.819152,
+            0.0,
+            0.0,
+            -0.573576
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 90
+        },
+        "VehicleWheel": {
+          "radius": 0.384,
+          "width": 0.284078,
+          "suspensionMin": 0.05,
+          "suspensionMax": 0.25,
+          "suspensionFrequency": 1.9,
+          "suspensionDamping": 0.6,
+          "maxSteerAngle": 0.0,
+          "casterAngle": 0.0,
+          "maxBrakeTorque": 1200.0,
+          "maxHandBrakeTorque": 4000.0,
+          "grip": 1.0
+        }
+      }
+    },
+    {
+      "id": 121,
+      "name": "WheelRearLBrakeDisc",
+      "parent": 120,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            -5.6e-05,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/80",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/17"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 91
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 122,
+      "name": "WheelRearLBrakePad",
+      "parent": 120,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            -5.6e-05,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/81",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/16"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 92
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 123,
+      "name": "WheelRearLRim",
+      "parent": 120,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            -5.6e-05,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/94",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/20",
+            "/Models/CarConcept/CarConcept.gltf#material/21"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 93
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 124,
+      "name": "Node 94",
+      "parent": 120,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/93",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/18",
+            "/Models/CarConcept/CarConcept.gltf#material/19"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 94
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 125,
+      "name": "WheelRearR",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.981705,
+            1.314062,
+            0.303759
+          ],
+          "rotation": [
+            -0.461749,
+            0.0,
+            0.0,
+            0.887011
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 95
+        },
+        "VehicleWheel": {
+          "radius": 0.384,
+          "width": 0.284887,
+          "suspensionMin": 0.05,
+          "suspensionMax": 0.25,
+          "suspensionFrequency": 1.9,
+          "suspensionDamping": 0.6,
+          "maxSteerAngle": 0.0,
+          "casterAngle": 0.0,
+          "maxBrakeTorque": 1200.0,
+          "maxHandBrakeTorque": 4000.0,
+          "grip": 1.0
+        }
+      }
+    },
+    {
+      "id": 126,
+      "name": "WheelRearRBrakeDisc",
+      "parent": 125,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.000809,
+            -5.3e-05,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/82",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/17"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 96
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 127,
+      "name": "WheelRearRBrakePad",
+      "parent": 125,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.000809,
+            -5.3e-05,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/83",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/16"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 97
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 128,
+      "name": "WheelRearRRim",
+      "parent": 125,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.000809,
+            -5.2e-05,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/96",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/20",
+            "/Models/CarConcept/CarConcept.gltf#material/21"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 98
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 129,
+      "name": "Node 99",
+      "parent": 125,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/95",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/18",
+            "/Models/CarConcept/CarConcept.gltf#material/19"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 99
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 130,
+      "name": "InteriorFloor",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/9",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/2"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 9
+        },
+        "MeshCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "mesh": "",
+          "convex": true
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 131,
+      "name": "BodyPillars",
+      "parent": 31,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/CarConcept/CarConcept.gltf#mesh/40",
+          "materials": [
+            "/Models/CarConcept/CarConcept.gltf#material/11"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 42
+        },
+        "MeshCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "mesh": "",
+          "convex": true
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 132,
+      "name": "Chase Camera",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "CameraComponent": {
+          "fov": 60.0,
+          "near": 0.1,
+          "far": 500.0
+        },
+        "FollowCamera": {
+          "target": "",
+          "distance": 7.0,
+          "height": 2.5,
+          "lookHeight": 1.0,
+          "stiffness": 5.0
+        }
+      }
+    }
+  ]
+}

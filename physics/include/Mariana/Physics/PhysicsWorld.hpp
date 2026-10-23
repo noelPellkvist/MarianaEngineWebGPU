@@ -74,7 +74,7 @@ public:
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
 
     // RigidBody, the colliders, Joint, Vehicle, VehicleWheel, CharacterController, PlayerControl and
-    // FollowCamera; call before Scene::UpdateComponentRegistry.
+    // FollowCamera, also in scene files (SceneFile); call before Scene::UpdateComponentRegistry.
     static void RegisterComponents();
 
     const PhysicsSettings& Settings() const;
