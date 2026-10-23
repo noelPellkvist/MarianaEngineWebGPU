@@ -9,6 +9,7 @@
 // (static bodies never collide with each other). Kept in the project's /Physics.json:
 //   {
 //     "gravity": [0, -9.81, 0], "fixedTimestep": 0.016667, "maxStepsPerFrame": 4, "collisionSteps": 1,
+//     "interpolation": true, "penetrationSlop": 0.005, "speculativeContactDistance": 0.02,
 //     "layers": [ { "name": "Default", "collidesWith": [ "Default", "Debris" ] }, { "name": "Debris", ... } ]
 //   }
 // Missing values keep the defaults.
@@ -23,6 +24,13 @@ struct PhysicsSettings
     int maxStepsPerFrame = 4;
     // Collision detection passes per step (more for fast or heavily stacked scenes).
     int collisionSteps = 1;
+    // Moving bodies are shown between where their last two steps left them (smooth however the
+    // frames fall between steps, one step behind); off: where the last step left them.
+    bool interpolation = true;
+    // How far bodies may sink into each other before they are pushed apart (m), and how close they
+    // must come before a contact starts being solved.
+    float penetrationSlop = 0.005f;
+    float speculativeContactDistance = 0.02f;
 
     std::vector<std::string> layers{ "Default" };
     std::vector<uint32_t> collisions{ ~0u }; // per layer, a bit per layer it collides with

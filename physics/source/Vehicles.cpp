@@ -439,16 +439,14 @@ void PhysicsWorld::Impl::DriveVehicles()
 // After the steps: each wheel entity where its wheel is now (in its parent's space).
 void PhysicsWorld::Impl::WriteWheels()
 {
-    JPH::BodyInterface& bodies = system->GetBodyInterface();
     for (auto& [id, record] : vehicles)
     {
-        if (!record.constraint)
+        const auto chassis = records.find(id);
+        if (!record.constraint || chassis == records.end())
             continue;
-        JPH::RVec3 p;
-        JPH::Quat q;
-        bodies.GetPositionAndRotation(record.body, p, q);
-        const glm::vec3 chassisPosition = ToGlm(JPH::Vec3(p));
-        const glm::quat chassisRotation = ToGlm(q);
+        // On the chassis as it is shown (interpolated).
+        const glm::vec3 chassisPosition = chassis->second.shownPosition;
+        const glm::quat chassisRotation = chassis->second.shownRotation;
         for (size_t i = 0; i < record.wheels.size(); ++i)
         {
             const VehicleRecord::Wheel& wheel = record.wheels[i];
@@ -559,9 +557,11 @@ void PhysicsWorld::UpdatePlayerControls(const IInput& input, float dt, const glm
         vehicle->handBrake = space ? 1.0f : 0.0f;
         if (space)
             vehicle->throttle = 0.0f;
-        // The steering follows the keys at steerSpeed, and comes back twice as fast.
+        // The steering follows the keys at steerSpeed, and comes back twice as fast; with steerFade
+        // fast cars get less of the lock.
+        const float lock = control->steerFade > 0.0f ? 1.0f / (1.0f + std::abs(speed) / control->steerFade) : 1.0f;
         const float rate = std::max(control->steerSpeed, 0.1f) * dt * (steerTarget == 0.0f ? 2.0f : 1.0f);
-        const float delta = steerTarget - vehicle->steering;
+        const float delta = steerTarget * lock - vehicle->steering;
         vehicle->steering += std::clamp(delta, -rate, rate);
     };
     m_Impl->scene.ForEachRoot([&](Entity root) { visit(root); });

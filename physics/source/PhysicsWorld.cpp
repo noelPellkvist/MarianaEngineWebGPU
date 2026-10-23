@@ -283,6 +283,10 @@ void PhysicsWorld::Impl::CreateSystem()
 void PhysicsWorld::Impl::Apply()
 {
     system->SetGravity(PhysicsInternal::ToJolt(settings.gravity));
+    JPH::PhysicsSettings joltSettings = system->GetPhysicsSettings();
+    joltSettings.mPenetrationSlop = std::max(settings.penetrationSlop, 0.0f);
+    joltSettings.mSpeculativeContactDistance = std::max(settings.speculativeContactDistance, 0.0f);
+    system->SetPhysicsSettings(joltSettings);
     objectPairs.Set(settings);
 }
 
@@ -529,6 +533,8 @@ void PhysicsWorld::Impl::Sync()
             }
             if (keepVelocity && record.motion == MotionType::Dynamic && !record.body.IsInvalid())
                 bodies.SetLinearAndAngularVelocity(record.body, linearVelocity, angularVelocity);
+            record.interpolate = !c.hasBody || c.body.interpolate;
+            record.Place(position, rotation);
             record.seen = true;
             records.emplace(c.owner.RawId(), record);
             ++created;
@@ -537,6 +543,7 @@ void PhysicsWorld::Impl::Sync()
 
         Record& record = found->second;
         record.seen = true;
+        record.interpolate = !c.hasBody || c.body.interpolate;
         switch (record.motion)
         {
         case MotionType::Static:
@@ -556,6 +563,7 @@ void PhysicsWorld::Impl::Sync()
             {
                 bodies.SetPositionAndRotation(record.body, PhysicsInternal::ToJolt(position), PhysicsInternal::ToJolt(rotation), JPH::EActivation::Activate);
                 record.writtenVersion = trs->version;
+                record.Place(position, rotation);
             }
             break;
         }
@@ -713,25 +721,60 @@ void PhysicsWorld::Impl::ProcessContacts()
     removedBodies.clear();
 }
 
-// Dynamic bodies move their entities (in their parent's space, parents first so a nested body is
-// placed under its parent's new pose); triggers follow their bodies.
-void PhysicsWorld::Impl::WriteBack()
+void PhysicsWorld::Impl::TrackPoses()
 {
     JPH::BodyInterface& bodies = system->GetBodyInterface();
-    std::vector<std::pair<int, uint64_t>> moved; // (depth, entity)
     for (auto& [id, record] : records)
     {
-        if (record.body.IsInvalid())
-            continue;
         if (!record.sensor.IsInvalid())
         {
+            // Triggers follow their bodies.
             JPH::RVec3 p;
             JPH::Quat q;
             bodies.GetPositionAndRotation(record.body, p, q);
             bodies.SetPositionAndRotation(record.sensor, p, q, JPH::EActivation::DontActivate);
         }
-        if (record.motion != MotionType::Dynamic || !bodies.IsActive(record.body))
+        if (record.motion != MotionType::Dynamic || record.body.IsInvalid())
             continue;
+        record.previousPosition = record.currentPosition;
+        record.previousRotation = record.currentRotation;
+        if (!bodies.IsActive(record.body))
+            continue;
+        JPH::RVec3 p;
+        JPH::Quat q;
+        bodies.GetPositionAndRotation(record.body, p, q);
+        record.currentPosition = ToGlm(p);
+        record.currentRotation = ToGlm(q);
+    }
+    for (auto& [id, record] : characters)
+    {
+        if (!record.character)
+            continue;
+        const glm::vec3 position = ToGlm(JPH::Vec3(record.character->GetPosition()));
+        record.previousPosition = record.tracked ? record.currentPosition : position;
+        record.previousYaw = record.tracked ? record.currentYaw : record.yaw;
+        record.currentPosition = position;
+        record.currentYaw = record.yaw;
+        record.tracked = true;
+    }
+}
+
+// Dynamic bodies move their entities (in their parent's space, parents first so a nested body is
+// placed under its parent's new pose).
+void PhysicsWorld::Impl::WriteBack(float alpha)
+{
+    std::vector<std::pair<int, uint64_t>> moved; // (depth, entity)
+    for (auto& [id, record] : records)
+    {
+        if (record.motion != MotionType::Dynamic || record.body.IsInvalid())
+            continue;
+        const float a = record.interpolate ? alpha : 1.0f;
+        const glm::vec3 position = glm::mix(record.previousPosition, record.currentPosition, a);
+        const glm::quat rotation = glm::normalize(glm::slerp(record.previousRotation, record.currentRotation, a));
+        if (position == record.shownPosition && rotation == record.shownRotation)
+            continue;
+        record.shownPosition = position;
+        record.shownRotation = rotation;
         int depth = 0;
         for (Entity e = scene.Parent(scene.FromId(id)); e.IsValid(); e = scene.Parent(e))
             ++depth;
@@ -746,13 +789,7 @@ void PhysicsWorld::Impl::WriteBack()
         LocalTRS* trs = entity.IsValid() ? entity.Get<LocalTRS>() : nullptr;
         if (!trs)
             continue;
-
-        JPH::RVec3 p;
-        JPH::Quat q;
-        bodies.GetPositionAndRotation(record.body, p, q);
-        record.position = ToGlm(p);
-        record.rotation = ToGlm(q);
-        SetWorldPose(scene, entity, *trs, record.position, record.rotation);
+        SetWorldPose(scene, entity, *trs, record.shownPosition, record.shownRotation);
         record.writtenVersion = trs->version;
     }
 }
@@ -782,6 +819,7 @@ void PhysicsWorld::Impl::Step(float dt)
         MoveCharacters(step);
         DriveJoints();
         system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
+        TrackPoses();
         ProcessContacts();
         CheckJoints(step);
         accumulator -= step;
@@ -793,12 +831,12 @@ void PhysicsWorld::Impl::Step(float dt)
         accumulator = 0.0f; // too far behind: let the simulation run slow instead of piling up
     accumulator = std::max(accumulator, 0.0f);
     if (steps > 0)
-    {
         pending.clear();
-        WriteBack();
-        WriteWheels();
-        WriteCharacters();
-    }
+    // Frames between steps show the bodies moving on too.
+    const float alpha = settings.interpolation ? std::clamp(accumulator / step, 0.0f, 1.0f) : 1.0f;
+    WriteBack(alpha);
+    WriteWheels();
+    WriteCharacters(alpha, steps > 0);
 }
 
 JPH::BodyID PhysicsWorld::Impl::BodyOf(Entity entity) const
@@ -858,6 +896,13 @@ void PhysicsWorld::SetSettings(const PhysicsSettings& settings)
 void PhysicsWorld::Step(float dt)
 {
     m_Impl->Step(dt);
+}
+
+void PhysicsWorld::ShowLatest()
+{
+    m_Impl->WriteBack(1.0f);
+    m_Impl->WriteWheels();
+    m_Impl->WriteCharacters(1.0f, false);
 }
 
 void PhysicsWorld::Reset()

@@ -123,6 +123,7 @@ void PhysicsWorld::Impl::SyncCharacters()
                 record.yaw = YawOf(rotation);
                 record.character->SetRotation(ToJolt(Yaw(record.yaw)));
                 record.writtenVersion = trs->version;
+                record.tracked = false;
             }
             return;
         }
@@ -162,6 +163,7 @@ void PhysicsWorld::Impl::SyncCharacters()
             bodyEntities[record.innerBody.GetIndexAndSequenceNumber()] = e.RawId();
         record.signature = signature;
         record.writtenVersion = trs->version;
+        record.tracked = false;
     };
     scene.ForEachRoot([&](Entity root) { visit(root); });
 
@@ -239,7 +241,7 @@ void PhysicsWorld::Impl::MoveCharacters(float dt)
 }
 
 // After the steps: each entity where its character is; jumps are spent.
-void PhysicsWorld::Impl::WriteCharacters()
+void PhysicsWorld::Impl::WriteCharacters(float alpha, bool stepped)
 {
     for (auto& [id, record] : characters)
     {
@@ -247,9 +249,18 @@ void PhysicsWorld::Impl::WriteCharacters()
         LocalTRS* trs = e.IsValid() ? e.Get<LocalTRS>() : nullptr;
         if (!trs || !record.character)
             continue;
-        if (CharacterController* c = e.Get<CharacterController>())
+        if (CharacterController* c = stepped ? e.Get<CharacterController>() : nullptr)
             c->jump = false;
-        SetWorldPose(scene, e, *trs, ToGlm(JPH::Vec3(record.character->GetPosition())), Yaw(record.yaw));
+        glm::vec3 position = ToGlm(JPH::Vec3(record.character->GetPosition()));
+        float yaw = record.yaw;
+        if (record.tracked)
+        {
+            // Between its last two steps, turning the short way round.
+            position = glm::mix(record.previousPosition, record.currentPosition, alpha);
+            const float turn = std::remainder(record.currentYaw - record.previousYaw, glm::two_pi<float>());
+            yaw = record.previousYaw + turn * alpha;
+        }
+        SetWorldPose(scene, e, *trs, position, Yaw(yaw));
         record.writtenVersion = trs->version;
     }
 }

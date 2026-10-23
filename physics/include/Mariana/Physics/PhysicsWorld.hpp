@@ -81,8 +81,13 @@ public:
     void SetSettings(const PhysicsSettings& settings);
 
     // Makes the bodies match the components, then runs the fixed steps `dt` seconds of game time
-    // cover (time left over carries to the next call). 0 only does the former.
+    // cover (time left over carries to the next call) and moves the entities: with interpolation
+    // (PhysicsSettings) between where the last two steps left their bodies, by how far the time left
+    // over reaches into the next step. 0 only does the former.
     void Step(float dt);
+    // Puts the entities where the last step left their bodies, as without interpolation (after a
+    // single step while paused, say, so it shows what that step did).
+    void ShowLatest();
     // Drops every body; the next Step makes them again from the entities as they are then, and the
     // same scene then simulates the same way every time.
     void Reset();

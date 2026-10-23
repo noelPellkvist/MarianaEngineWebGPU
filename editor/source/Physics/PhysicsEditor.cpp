@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <functional>
 
 namespace
@@ -378,6 +379,8 @@ namespace PhysicsEditor
                             ImGui::SetTooltip("Sweeps it between steps so it doesn't pass through thin bodies when fast");
                         ImGui::SameLine();
                         changed |= ImGui::Checkbox("Can Sleep", &b.allowSleeping);
+                        ImGui::SameLine();
+                        changed |= ImGui::Checkbox("Interpolate", &b.interpolate);
 
                         const char* axes[] = { "X", "Y", "Z" };
                         ImGui::TextDisabled("Lock Position");
@@ -948,6 +951,145 @@ namespace PhysicsEditor
         }
     }
 
+    bool DrawColliderHandles(Entity selected, UndoStack& undo, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize)
+    {
+        // The handle being dragged: which collider (kind), axis and side, where its collider's center
+        // and this side's face were when the drag began, and how to record it as an undo step.
+        struct Drag
+        {
+            bool active = false;
+            uint64_t entity = 0;
+            int kind = -1, axis = 0, side = 1;
+            glm::vec3 startCenter{ 0.0f };
+            float startHalf = 0.0f;
+            std::function<void(UndoStack&)> commit;
+        };
+        static Drag drag;
+
+        const WorldXform* xform = selected.IsValid() ? selected.TryGet<WorldXform>() : nullptr;
+        if (!xform)
+        {
+            drag.active = false;
+            return false;
+        }
+        if (drag.active && (drag.entity != selected.RawId() || !ImGui::IsMouseDown(ImGuiMouseButton_Left)))
+        {
+            if (drag.commit && drag.entity == selected.RawId())
+                drag.commit(undo);
+            drag.active = false;
+        }
+
+        const glm::mat4 world = glm::make_mat4(xform->model);
+        const glm::mat4 toLocal = glm::inverse(world);
+        const Painter painter{ ImGui::GetWindowDrawList(), viewProj, imageMin, imageSize };
+        const ImVec2 mousePos = ImGui::GetMousePos();
+        const glm::vec2 mouse(mousePos.x, mousePos.y);
+        // The mouse's ray through the image, in world space (depth 0..1).
+        const glm::mat4 inverse = glm::inverse(viewProj);
+        const glm::vec2 ndc((mouse.x - imageMin.x) / imageSize.x * 2.0f - 1.0f, 1.0f - (mouse.y - imageMin.y) / imageSize.y * 2.0f);
+        const glm::vec4 nearPoint = inverse * glm::vec4(ndc, 0.0f, 1.0f), farPoint = inverse * glm::vec4(ndc, 1.0f, 1.0f);
+        const glm::vec3 rayOrigin = glm::vec3(nearPoint) / nearPoint.w;
+        const glm::vec3 rayDirection = glm::normalize(glm::vec3(farPoint) / farPoint.w - rayOrigin);
+        const bool imageHovered = ImGui::IsWindowHovered() && mouse.x >= imageMin.x && mouse.y >= imageMin.y &&
+                                  mouse.x <= imageMin.x + imageSize.x && mouse.y <= imageMin.y + imageSize.y;
+        bool hot = drag.active;
+
+        // One dot: at `half` along the collider's `axis` on `side`. `apply(s, symmetric)` sets the
+        // component from the dragged face's distance `s` from the collider's start center.
+        auto handle = [&](auto& component, int kind, int axis, int side, float half, const char* stepName, auto&& apply) {
+            using T = std::decay_t<decltype(component)>;
+            glm::vec3 unit(0.0f);
+            unit[axis] = static_cast<float>(side);
+            const glm::vec3 direction = component.rotation * unit;
+            const glm::vec4 clip = viewProj * world * glm::vec4(component.center + direction * half, 1.0f);
+            if (clip.w < 1e-3f)
+                return;
+            const ImVec2 screen = painter.Screen(clip);
+            const bool mine = drag.active && drag.kind == kind && drag.axis == axis && drag.side == side;
+            const bool hovered = !drag.active && imageHovered && glm::distance(mouse, glm::vec2(screen.x, screen.y)) < 7.0f;
+            hot |= hovered;
+            const bool lit = mine || hovered;
+            painter.drawList->AddCircleFilled(screen, lit ? 6.0f : 4.5f, lit ? IM_COL32(255, 220, 60, 255) : IM_COL32(80, 230, 120, 255));
+            painter.drawList->AddCircle(screen, lit ? 6.0f : 4.5f, IM_COL32(0, 0, 0, 200));
+
+            if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            {
+                drag.active = true;
+                drag.entity = selected.RawId();
+                drag.kind = kind;
+                drag.axis = axis;
+                drag.side = side;
+                drag.startCenter = component.center;
+                drag.startHalf = half;
+                const T before = component;
+                Entity entity = selected;
+                const std::string name = stepName;
+                drag.commit = [entity, before, name](UndoStack& stack) mutable {
+                    const T* now = entity.IsValid() ? entity.TryGet<T>() : nullptr;
+                    if (!now || std::memcmp(now, &before, sizeof(T)) == 0)
+                        return;
+                    const T after = *now;
+                    stack.Push(name,
+                        [entity, before]() mutable { if (entity.IsValid()) if (T* c = entity.Get<T>()) *c = before; },
+                        [entity, after]() mutable { if (entity.IsValid()) if (T* c = entity.Get<T>()) *c = after; });
+                };
+                return;
+            }
+            if (!mine)
+                return;
+            // Where the mouse's ray passes closest to the line the face moves along.
+            const glm::vec3 origin = glm::vec3(world * glm::vec4(drag.startCenter, 1.0f));
+            const glm::vec3 along = glm::normalize(glm::vec3(world * glm::vec4(direction, 0.0f)));
+            const glm::vec3 w0 = origin - rayOrigin;
+            const float b = glm::dot(along, rayDirection), d = glm::dot(along, w0), e = glm::dot(rayDirection, w0);
+            const float denominator = 1.0f - b * b;
+            if (denominator < 1e-4f)
+                return; // looking straight along it
+            const float t = (b * e - d) / denominator;
+            const glm::vec3 local = glm::vec3(toLocal * glm::vec4(origin + along * t, 1.0f));
+            apply(glm::dot(local - drag.startCenter, direction), ImGui::GetIO().KeyShift);
+        };
+
+        // A face moved to `s` (the opposite one staying, or both with `symmetric`): the new size
+        // along the axis, and the center moved by half the change.
+        auto face = [&](auto& component, float& size, float s, bool symmetric, float minimum) {
+            glm::vec3 unit(0.0f);
+            unit[drag.axis] = static_cast<float>(drag.side);
+            if (symmetric)
+            {
+                size = std::max(2.0f * s, minimum);
+                component.center = drag.startCenter;
+            }
+            else
+            {
+                size = std::max(s + drag.startHalf, minimum);
+                component.center = drag.startCenter + component.rotation * unit * (0.5f * (size - 2.0f * drag.startHalf));
+            }
+        };
+
+        if (BoxCollider* box = selected.Get<BoxCollider>())
+            for (int axis = 0; axis < 3; ++axis)
+                for (int side : { 1, -1 })
+                    handle(*box, 0, axis, side, 0.5f * box->size[axis], "Resize Box Collider", [&](float s, bool symmetric) { face(*box, box->size[drag.axis], s, symmetric, 0.01f); });
+        if (SphereCollider* sphere = selected.Get<SphereCollider>())
+            for (int axis = 0; axis < 3; ++axis)
+                for (int side : { 1, -1 })
+                    handle(*sphere, 1, axis, side, sphere->radius, "Resize Sphere Collider", [&](float s, bool) { sphere->radius = std::max(s, 0.01f); });
+        auto round = [&](auto& c, int kind, const char* stepName, auto&& minimumHeight) {
+            for (int side : { 1, -1 })
+            {
+                handle(c, kind, 1, side, 0.5f * c.height, stepName, [&](float s, bool symmetric) { face(c, c.height, s, symmetric, minimumHeight(c)); });
+                for (int axis : { 0, 2 })
+                    handle(c, kind, axis, side, c.radius, stepName, [&](float s, bool) { c.radius = std::max(s, 0.01f); });
+            }
+        };
+        if (CapsuleCollider* capsule = selected.Get<CapsuleCollider>())
+            round(*capsule, 2, "Resize Capsule Collider", [](const CapsuleCollider& c) { return 2.0f * c.radius + 0.01f; });
+        if (CylinderCollider* cylinder = selected.Get<CylinderCollider>())
+            round(*cylinder, 3, "Resize Cylinder Collider", [](const CylinderCollider&) { return 0.01f; });
+        return hot;
+    }
+
     void DrawDebugLines(const std::vector<DebugLine>& lines, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize)
     {
         ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -1018,6 +1160,15 @@ void PhysicsWindow::Draw()
         }
         changed |= ImGui::SliderInt("Max steps per frame", &settings.maxStepsPerFrame, 1, 16);
         changed |= ImGui::SliderInt("Collision steps", &settings.collisionSteps, 1, 8);
+        changed |= ImGui::Checkbox("Interpolation", &settings.interpolation);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Shows moving bodies between their last two steps: smooth on screens faster than the steps, one step behind");
+        changed |= ImGui::SliderFloat("Penetration slop", &settings.penetrationSlop, 0.0f, 0.05f, "%.3f m");
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("How far bodies may sink into each other before they are pushed apart");
+        changed |= ImGui::SliderFloat("Contact distance", &settings.speculativeContactDistance, 0.0f, 0.1f, "%.3f m");
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("How close bodies must come before their contact is solved");
 
         ImGui::SeparatorText("Layers");
         ImGui::TextDisabled("Tick the pairs that collide");

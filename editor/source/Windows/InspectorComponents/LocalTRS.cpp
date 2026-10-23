@@ -1,4 +1,5 @@
 #include <Editor/Windows/InspectorComponents/LocalTRS.hpp>
+#include <Editor/TransformUndo.hpp>
 
 #include <imgui.h>
 
@@ -92,10 +93,12 @@ namespace
 
 namespace InspectorComponents
 {
-    void DrawLocalTRS(Entity& entity)
+    void DrawLocalTRS(Entity& entity, UndoStack& undo)
     {
         if (!entity.Has<LocalTRS>())
             return;
+        static TransformUndo edits;
+        const LocalTRS before = *entity.TryGet<LocalTRS>();
 
         if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
         {
@@ -124,5 +127,6 @@ namespace InspectorComponents
                 ImGui::EndTable();
             }
         }
+        edits.Track(entity, before, ImGui::IsAnyItemActive(), undo);
     }
 }

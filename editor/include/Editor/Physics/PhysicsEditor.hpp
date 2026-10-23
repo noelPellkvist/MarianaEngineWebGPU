@@ -27,6 +27,11 @@ namespace PhysicsEditor
     // Collider outlines over a viewport image (`imageMin`, `imageSize` in screen pixels): those of
     // `selected` and everything below it, or of every entity when `all`.
     void DrawColliders(const Scene& scene, Entity selected, bool all, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize);
+    // Dots on the selected entity's own box, sphere, capsule and cylinder colliders: drag one to move
+    // that face (the opposite one stays; with Shift both move), or a round collider's radius. Each
+    // drag is one undo step. True while a dot is under the mouse or being dragged (so the click is
+    // the handle's, not the gizmo's or picking's).
+    bool DrawColliderHandles(Entity selected, UndoStack& undo, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize);
     // PhysicsWorld::DebugDraw's lines over a viewport image.
     void DrawDebugLines(const std::vector<DebugLine>& lines, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize);
 }

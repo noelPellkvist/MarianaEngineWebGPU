@@ -152,6 +152,16 @@ struct PhysicsWorld::Impl
         glm::quat rotation{ 1.0f, 0.0f, 0.0f, 0.0f };
         uint32_t writtenVersion = ~0u; // the owner's LocalTRS.version after the body last moved it
         bool seen = false;
+        // Dynamic bodies: where the last two steps left them, and where the entity is shown (between
+        // the two with interpolation).
+        bool interpolate = true;
+        glm::vec3 previousPosition{ 0.0f }, currentPosition{ 0.0f }, shownPosition{ 0.0f };
+        glm::quat previousRotation{ 1.0f, 0.0f, 0.0f, 0.0f }, currentRotation{ 1.0f, 0.0f, 0.0f, 0.0f }, shownRotation{ 1.0f, 0.0f, 0.0f, 0.0f };
+        void Place(const glm::vec3& p, const glm::quat& r)
+        {
+            previousPosition = currentPosition = shownPosition = p;
+            previousRotation = currentRotation = shownRotation = r;
+        }
     };
 
     // Forces and impulses waiting for the next Step (AddForce and the rest).
@@ -187,6 +197,10 @@ struct PhysicsWorld::Impl
         uint32_t writtenVersion = ~0u; // the entity's LocalTRS.version after the character last moved it
         float yaw = 0.0f;
         bool seen = false;
+        // Where the last two steps left it (feet and yaw), for interpolation.
+        glm::vec3 previousPosition{ 0.0f }, currentPosition{ 0.0f };
+        float previousYaw = 0.0f, currentYaw = 0.0f;
+        bool tracked = false;
     };
 
     struct JointRecord
@@ -272,7 +286,7 @@ struct PhysicsWorld::Impl
     void SyncCharacters();
     void RemoveCharacter(CharacterRecord& record);
     void MoveCharacters(float dt);
-    void WriteCharacters();
+    void WriteCharacters(float alpha, bool stepped);
     void SyncJoints();
     void RemoveJoint(JointRecord& record);
     // Takes away the joints holding a body (before the body goes).
@@ -280,7 +294,11 @@ struct PhysicsWorld::Impl
     void DriveJoints();
     void CheckJoints(float dt);
     void ProcessContacts();
-    void WriteBack();
+    // After each step: the poses moving bodies and characters reached, for interpolation.
+    void TrackPoses();
+    // Shows bodies, wheels and characters `alpha` of the way from their previous step to their last
+    // (1 = where the last step left them).
+    void WriteBack(float alpha);
     void Step(float dt);
 
     // The entity's body (its solid one when it has both), invalid when it has none.

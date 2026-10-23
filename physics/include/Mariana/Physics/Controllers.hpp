@@ -12,6 +12,7 @@ struct PlayerControl
 {
     bool enabled = true;
     float steerSpeed = 3.0f;   // how fast the steering follows the keys (full lock per 1/speed s)
+    float steerFade = 0.0f;    // m/s at which the keys give half the steering lock (less as it goes faster); 0 = full lock at any speed
 };
 
 // Puts its entity (a camera) behind and above a target, following it smoothly in game time

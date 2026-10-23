@@ -524,6 +524,9 @@ void EditorApp::OnUpdate(float deltaTime)
             physics->UpdatePlayerControls(input, gameClock.DeltaTime(), viewForward);
         }
         physics->Step(gameClock.DeltaTime());
+        // Paused, a Step shows what its step did rather than the frame before it.
+        if (gameClock.IsPaused())
+            physics->ShowLatest();
         UpdateFollowCameras(scene, gameClock.DeltaTime());
     }
 
@@ -577,14 +580,19 @@ void EditorApp::DrawSceneOverlay(ViewportWindow& window)
     physicsWindow->debugLines = debugLines.size();
     PhysicsEditor::DrawDebugLines(debugLines, cam->Projection() * cam->View(), window.ImageMin(), window.ImageMax() - window.ImageMin());
 
-    bool gizmoHit = false;
+    // Collider handles come before the gizmo: a click on one is theirs.
+    const bool handleHit = selectedEntityID != static_cast<uint64_t>(-1) &&
+        PhysicsEditor::DrawColliderHandles(selectedEntity, undo, cam->Projection() * cam->View(), window.ImageMin(), window.ImageMax() - window.ImageMin());
+    bool gizmoHit = handleHit;
+    ImGuizmo::Enable(!handleHit);
     if (selectedEntityID != static_cast<uint64_t>(-1) && selectedEntity.Has<WorldXform>())
     {
         WorldXform& form = *selectedEntity.Get<WorldXform>();
         glm::mat4 world = glm::make_mat4(form.model);
+        const LocalTRS before = selectedEntity.Has<LocalTRS>() ? *selectedEntity.TryGet<LocalTRS>() : LocalTRS{};
 
         const bool manipulated = DrawGizmo(world, cam->View(), cam->Projection(), window);
-        gizmoHit = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
+        gizmoHit |= ImGuizmo::IsOver() || ImGuizmo::IsUsing();
         if (manipulated)
         {
             glm::mat4 local = world;
@@ -611,7 +619,11 @@ void EditorApp::DrawSceneOverlay(ViewportWindow& window)
             selectedEntity.SetRotationQuat(rotation.x, rotation.y, rotation.z, rotation.w);
             selectedEntity.SetScale(scale.x, scale.y, scale.z);
         }
+        // A drag is one undo step, recorded when it is let go.
+        if (selectedEntity.Has<LocalTRS>())
+            gizmoUndo.Track(selectedEntity, before, ImGuizmo::IsUsing(), undo, CurrentGizmoOperation == ImGuizmo::ROTATE ? "Rotate" : CurrentGizmoOperation == ImGuizmo::SCALE ? "Scale" : "Move");
     }
+    ImGuizmo::Enable(true);
 
     // A click that misses the gizmo picks what is under it (SceneView::kEntityIds; OnUpdate takes the answer).
     if (window.IsHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !gizmoHit)

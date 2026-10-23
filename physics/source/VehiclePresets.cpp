@@ -20,6 +20,10 @@ using namespace PhysicsInternal;
 
 namespace
 {
+    // RigCar's springs, and how far they settle under the car's weight.
+    constexpr float kCarSpringFrequency = 1.9f;
+    constexpr float kCarSettle = 0.08f;
+
     // A wheel entity hanging at `rest` (suspension fully out), with a tyre lying along the axle
     // and a spoke across it.
     Entity Wheel(Scene& scene, AssetManager2& assets, Entity chassis, const char* name, const glm::vec3& rest, const VehicleWheel& settings,
@@ -294,9 +298,9 @@ namespace VehiclePresets
         for (const Measured& m : measured)
             front = std::max(front, m.position.z);
 
-        // How far the springs settle under a car (1.6 Hz): the wheels hang that much lower and the car
-        // starts that much higher, so at rest everything is where it was modelled.
-        const float settle = 0.12f;
+        // How far the springs settle under the car: the wheels hang that much lower and the car starts
+        // that much higher, so at rest everything is where it was modelled.
+        const float settle = kCarSettle;
         for (const Measured& m : measured)
         {
             Entity w = m.entity;
@@ -333,10 +337,11 @@ namespace VehiclePresets
             wheel.width = m.width;
             wheel.suspensionMin = 0.05f;
             wheel.suspensionMax = 0.25f;
-            wheel.suspensionFrequency = 1.6f;
-            wheel.suspensionDamping = 0.5f;
+            wheel.suspensionFrequency = kCarSpringFrequency;
+            wheel.suspensionDamping = 0.6f;
             wheel.maxSteerAngle = steers ? 32.0f : 0.0f;
-            wheel.maxBrakeTorque = 1500.0f;
+            // Most of the braking at the front, where the weight goes.
+            wheel.maxBrakeTorque = steers ? 1800.0f : 1200.0f;
             wheel.maxHandBrakeTorque = steers ? 0.0f : 4000.0f;
             w.Add<VehicleWheel>(wheel);
         }
@@ -362,10 +367,22 @@ namespace VehiclePresets
 
         RigidBody body;
         body.mass = mass;
-        body.centerOfMass = glm::vec3(0.0f, -0.15f, 0.0f);
+        body.centerOfMass = glm::vec3(0.0f, -0.25f, 0.0f);
         model.Add<RigidBody>(body);
-        model.Add<Vehicle>(Vehicle{});
-        model.Add<PlayerControl>(PlayerControl{});
+        // A sports car: a strong engine revving high through six close gears, firm springs held
+        // level by anti-roll bars, and steering that gives less lock the faster it goes.
+        Vehicle vehicle;
+        vehicle.engineTorque = 700.0f;
+        vehicle.maxRPM = 7000.0f;
+        vehicle.shiftUpRPM = 6500.0f;
+        vehicle.shiftDownRPM = 3000.0f;
+        vehicle.gearRatios = { 3.13f, 2.1f, 1.55f, 1.21f, 0.97f, 0.81f };
+        vehicle.differentialRatio = 3.6f;
+        vehicle.antiRollStiffness = 4000.0f;
+        model.Add<Vehicle>(vehicle);
+        PlayerControl control;
+        control.steerFade = 25.0f;
+        model.Add<PlayerControl>(control);
         const glm::vec3 lifted = chassisPosition + chassisUp * settle;
         if (LocalTRS* trs = model.Get<LocalTRS>())
             SetWorldPose(scene, model, *trs, lifted, chassisRotation);

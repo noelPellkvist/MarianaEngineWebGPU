@@ -15,3 +15,11 @@ target_link_libraries(MarianaPhysics
   PUBLIC  MarianaEngine
   PRIVATE Jolt
 )
+
+# MarianaPhysicsTest: a console program that runs tests/Scenarios.hpp natively (Jolt's thread pool)
+# and prints what they measured. No window, no GPU; the web build runs the same scenarios in its
+# self-test.
+if(NOT EMSCRIPTEN)
+  add_executable(MarianaPhysicsTest "${CMAKE_CURRENT_SOURCE_DIR}/tests/SmokeTest.cpp")
+  target_link_libraries(MarianaPhysicsTest PRIVATE MarianaPhysics)
+endif()

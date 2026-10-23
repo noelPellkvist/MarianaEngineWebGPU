@@ -74,6 +74,9 @@ bool PhysicsSettings::Load(const std::filesystem::path& file, std::string& error
     fixedTimestep = std::max(json.value("fixedTimestep", fixedTimestep), 1e-4f);
     maxStepsPerFrame = std::max(json.value("maxStepsPerFrame", maxStepsPerFrame), 1);
     collisionSteps = std::max(json.value("collisionSteps", collisionSteps), 1);
+    interpolation = json.value("interpolation", interpolation);
+    penetrationSlop = std::max(json.value("penetrationSlop", penetrationSlop), 0.0f);
+    speculativeContactDistance = std::max(json.value("speculativeContactDistance", speculativeContactDistance), 0.0f);
 
     if (const auto it = json.find("layers"); it != json.end() && it->is_array() && !it->empty())
     {
@@ -112,6 +115,9 @@ bool PhysicsSettings::Save(const std::filesystem::path& file, std::string& error
     json["fixedTimestep"] = Clean(fixedTimestep);
     json["maxStepsPerFrame"] = maxStepsPerFrame;
     json["collisionSteps"] = collisionSteps;
+    json["interpolation"] = interpolation;
+    json["penetrationSlop"] = Clean(penetrationSlop);
+    json["speculativeContactDistance"] = Clean(speculativeContactDistance);
     Json list = Json::array();
     for (size_t i = 0; i < layers.size(); ++i)
     {

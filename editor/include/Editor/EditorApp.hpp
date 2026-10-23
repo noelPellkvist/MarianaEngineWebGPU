@@ -2,6 +2,7 @@
 #include <Mariana/Application.hpp>
 #include <Editor/GUI.hpp>
 #include <Editor/UndoStack.hpp>
+#include <Editor/TransformUndo.hpp>
 #include <Editor/ViewRenderer.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Editor/Windows/EditorWindow.hpp>
@@ -41,6 +42,7 @@ class EditorApp : public Application
     private:
         GUI gui;
         UndoStack undo;
+        TransformUndo gizmoUndo;
         // Outlives the windows that show its thumbnails.
         std::unique_ptr<ThumbnailCache> thumbnails;
         std::unordered_map<std::string, std::unique_ptr<EditorWindow>> EditorWindows;

@@ -60,7 +60,6 @@ private:
 
     void RegisterComponentDrawers();
     void DrawEntityInspector();
-    void DrawLocalTRS(Entity& entity);
     void DrawHiddenComponentsAndTags(Entity entity);
     void DrawAddComponent();
 };
