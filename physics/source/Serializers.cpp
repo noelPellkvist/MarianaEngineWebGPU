@@ -140,6 +140,8 @@ namespace PhysicsInternal
             a.Field("mass", r.mass);
             a.Field("strength", r.strength);
             a.Field("limpOnImpact", r.limpOnImpact);
+            a.Field("knockback", r.knockback);
+            a.Field("knockbackLift", r.knockbackLift);
             a.Field("friction", r.friction);
             a.Field("jointLimitScale", r.jointLimitScale);
             a.Field("layer", r.layer);

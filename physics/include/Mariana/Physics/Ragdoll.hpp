@@ -26,6 +26,11 @@ struct Ragdoll
     float mass = 80.0f;            // kg, shared out by the bones' volume
     float strength = 600.0f;       // N m each joint's motor may use (Powered)
     float limpOnImpact = 4.0f;     // m/s: something hitting it faster makes it go limp; 0 = never
+    // What knocks it out throws it: each body moves at least this times the hitter's speed (where
+    // they touched) along the hitter's way, plus `knockbackLift` times that upward. 0 = only what
+    // the contact itself does (a low car front scoops a body onto its hood rather than throwing it).
+    float knockback = 0.0f;
+    float knockbackLift = 0.5f;
     float friction = 0.6f;
     float jointLimitScale = 1.0f;  // widens (> 1) or narrows every joint's limits
     uint32_t layer = 0;            // PhysicsSettings layer

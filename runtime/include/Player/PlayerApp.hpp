@@ -31,7 +31,12 @@
 // chain (hanging from `position`), door, spinner, wrecking ball: joints at work; pool: water with
 // things floating in it and a ramp to drive in; ragdoll: the dancing Rumba, knocked limp by a hit).
 // With `follow` (and optional `distance`, `height`) the camera chases the driven vehicle. A prefab
-// with "vehicle": "car" is rigged as a car (its "Wheel..." entities become its wheels). `rotation` is Euler angles
+// with "vehicle": "car" is rigged as a car (its "Wheel..." entities become its wheels); one with
+// "ragdoll": "powered" (or "animated", "limp") gets a Ragdoll of its skeleton, so an animated
+// character keeps playing its animation until something hits it hard enough; as an object it also
+// takes the Ragdoll's settings: { "mode": "powered", "mass": 80, "limpOnImpact": 4, "knockback": 1.2,
+// "knockbackLift": 0.5 } (a hit at more than `limpOnImpact` m/s throws it at `knockback` times the
+// hitter's speed, `knockbackLift` of that upward). `rotation` is Euler angles
 // in degrees; `scale` a number or [x, y, z]; `faceCamera` instead turns it about +Y so its front (+Z,
 // as glTF assets face) points at the camera's starting position. `physics` makes it a body: `body`
 // static (default), kinematic or dynamic; `collider` box, sphere, capsule or cylinder (one on the
@@ -57,6 +62,11 @@ struct PlayerConfig
         std::string primitive;
         std::string preset;
         std::string vehicle; // "car": rig the prefab as a drivable car (VehiclePresets::RigCar)
+        std::string ragdoll; // "powered", "animated" or "limp": give the prefab a Ragdoll
+        float ragdollMass = 80.0f;
+        float limpOnImpact = 4.0f;
+        float knockback = 0.0f;
+        float knockbackLift = 0.5f;
         glm::vec3 color{1.0f};
         glm::vec3 position{0.0f};
         glm::vec3 rotation{0.0f}; // Euler degrees

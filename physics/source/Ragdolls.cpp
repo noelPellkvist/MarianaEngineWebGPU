@@ -9,6 +9,7 @@
 
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
+#include <Jolt/Physics/Collision/GroupFilterTable.h>
 #include <Jolt/Physics/Constraints/HingeConstraint.h>
 #include <Jolt/Physics/Constraints/SwingTwistConstraint.h>
 #include <Jolt/Skeleton/SkeletonPose.h>
@@ -105,14 +106,14 @@ namespace
     {
         switch (kind)
         {
-        case RagdollJointKind::Spine: return { 20.0f, 20.0f, 15.0f };
-        case RagdollJointKind::Neck: return { 30.0f, 30.0f, 25.0f };
-        case RagdollJointKind::Head: return { 35.0f, 35.0f, 35.0f };
-        case RagdollJointKind::Shoulder: return { 75.0f, 75.0f, 45.0f };
-        case RagdollJointKind::Wrist: return { 40.0f, 40.0f, 25.0f };
-        case RagdollJointKind::Hip: return { 55.0f, 45.0f, 20.0f };
-        case RagdollJointKind::Ankle: return { 30.0f, 30.0f, 15.0f };
-        default: return { 30.0f, 30.0f, 20.0f };
+        case RagdollJointKind::Spine: return { 30.0f, 30.0f, 20.0f };
+        case RagdollJointKind::Neck: return { 45.0f, 45.0f, 35.0f };
+        case RagdollJointKind::Head: return { 50.0f, 50.0f, 45.0f };
+        case RagdollJointKind::Shoulder: return { 100.0f, 100.0f, 70.0f };
+        case RagdollJointKind::Wrist: return { 60.0f, 60.0f, 40.0f };
+        case RagdollJointKind::Hip: return { 80.0f, 60.0f, 30.0f };
+        case RagdollJointKind::Ankle: return { 45.0f, 45.0f, 20.0f };
+        default: return { 45.0f, 45.0f, 30.0f };
         }
     }
 
@@ -409,6 +410,10 @@ void PhysicsWorld::Impl::BuildRagdoll(Entity root, const Ragdoll& settings, Ragd
         part.mMassPropertiesOverride.mMass = std::max(settings.mass, 1.0f) * CapsuleVolume(bone) / std::max(totalVolume, 1e-6f);
         part.mLinearDamping = 0.1f;
         part.mAngularDamping = 0.3f;
+        // A chain of joints from the hips to the head and hands: more solver passes than Jolt's
+        // default so the motors' pose holds along it.
+        part.mNumVelocityStepsOverride = 30;
+        part.mNumPositionStepsOverride = 6;
         bindMatrices[i] = JPH::Mat44::sRotationTranslation(ToJolt(bone.rotation), ToJolt(bone.position));
 
         if (bone.parent < 0)
@@ -456,6 +461,13 @@ void PhysicsWorld::Impl::BuildRagdoll(Entity root, const Ragdoll& settings, Ragd
 
     ragdollSettings->Stabilize();
     ragdollSettings->DisableParentChildCollisions(bindMatrices.data(), 0.0f);
+    // Its own bodies never collide with each other: an animated pose brings limbs close (hands to
+    // the face, arms along the body), and capsules pushing apart would drag it off the pose.
+    if (auto* table = dynamic_cast<JPH::GroupFilterTable*>(const_cast<JPH::GroupFilter*>(ragdollSettings->mParts[0].mCollisionGroup.GetGroupFilter())))
+        for (JPH::CollisionGroup::SubGroupID a = 0; a < plan.size(); ++a)
+            for (JPH::CollisionGroup::SubGroupID b = a + 1; b < plan.size(); ++b)
+                table->DisableCollision(a, b);
+    ragdollSettings->CalculateConstraintPriorities(); // solved from the hips outward
     ragdollSettings->CalculateBodyIndexToConstraintIndex();
     ragdollSettings->CalculateConstraintIndexToBodyIdxPair();
     record.settings = ragdollSettings;
@@ -579,9 +591,14 @@ void PhysicsWorld::Impl::DriveRagdolls(float dt)
         if (mode != record.mode)
         {
             // Kinematic while it only follows the animation, else simulated; motors only when powered.
+            // Powered, the animation holds it up: a motor only stiffens its own two bodies, so under
+            // gravity a chain (the spine and all it carries) would droop off the pose.
             const JPH::EMotionType motion = mode == RagdollMode::Animated ? JPH::EMotionType::Kinematic : JPH::EMotionType::Dynamic;
             for (const RagdollRecord::Bone& bone : record.bones)
+            {
                 bodies.SetMotionType(bone.body, motion, JPH::EActivation::Activate);
+                bodies.SetGravityFactor(bone.body, mode == RagdollMode::Powered ? 0.0f : 1.0f);
+            }
             for (int c = 0; c < static_cast<int>(record.ragdoll->GetConstraintCount()); ++c)
             {
                 JPH::TwoBodyConstraint* constraint = record.ragdoll->GetConstraint(c);
@@ -613,6 +630,7 @@ void PhysicsWorld::Impl::DriveRagdolls(float dt)
                     animator->Refresh();
             record.mode = mode;
             record.strength = settings->strength;
+            record.hasPreviousTarget = false;
         }
         if (mode == RagdollMode::Powered && record.strength != settings->strength)
         {
@@ -630,8 +648,13 @@ void PhysicsWorld::Impl::DriveRagdolls(float dt)
             record.ragdoll->DriveToPoseUsingKinematics(pose, dt);
             continue;
         }
-        // Powered: the motors hold the pose, the hips follow the animation.
-        record.ragdoll->DriveToPoseUsingMotors(pose);
+        // Powered: the motors hold the pose (and move as it moves), the hips follow the animation.
+        if (record.hasPreviousTarget)
+            record.ragdoll->DriveToPoseUsingMotors(record.previousTarget, pose, dt);
+        else
+            record.ragdoll->DriveToPoseUsingMotors(pose);
+        record.previousTarget = pose;
+        record.hasPreviousTarget = true;
         const JPH::Mat44& hips = pose.GetJointMatrix(0);
         bodies.MoveKinematic(record.bones[0].body, JPH::RVec3(hips.GetTranslation()), hips.GetQuaternion(), dt);
     }
@@ -654,11 +677,43 @@ void PhysicsWorld::Impl::CheckRagdollImpacts(size_t firstEvent)
                 continue;
             const auto record = ragdolls.find(hit->second);
             const Ragdoll* settings = scene.FromId(hit->second).IsValid() ? scene.FromId(hit->second).TryGet<Ragdoll>() : nullptr;
-            if (record == ragdolls.end() || !settings || settings->limpOnImpact <= 0.0f || settings->mode == RagdollMode::Limp)
+            if (record == ragdolls.end() || !settings || settings->limpOnImpact <= 0.0f || settings->mode == RagdollMode::Limp || record->second.knockedOut)
                 continue;
-            if (std::abs(e.speed) >= settings->limpOnImpact)
-                record->second.knockedOut = true;
+            if (std::abs(e.speed) < settings->limpOnImpact)
+                continue;
+            record->second.knockedOut = true;
+            if (settings->knockback > 0.0f)
+                KnockBack(record->second, *settings, hit == a ? e.b : e.a, e.point);
         }
+    }
+}
+
+void PhysicsWorld::Impl::KnockBack(RagdollRecord& record, const Ragdoll& settings, Entity hitter, const glm::vec3& point)
+{
+    // The hitter's body: a rigid body or another ragdoll's bone.
+    JPH::BodyID body = BodyOf(hitter);
+    if (const auto bone = ragdollBones.find(hitter.RawId()); body.IsInvalid() && bone != ragdollBones.end())
+        for (const RagdollRecord::Bone& b : ragdolls[bone->second].bones)
+            if (b.entity == hitter.RawId())
+                body = b.body;
+    if (body.IsInvalid())
+        return;
+    JPH::BodyInterface& bodies = system->GetBodyInterface();
+    const glm::vec3 velocity = ToGlm(bodies.GetPointVelocity(body, JPH::RVec3(ToJolt(point))));
+    const float speed = glm::length(velocity) * settings.knockback;
+    if (speed < 1e-3f)
+        return;
+    const glm::vec3 throwVelocity = glm::normalize(velocity) * speed + glm::vec3(0.0f, speed * settings.knockbackLift, 0.0f);
+    const glm::vec3 direction = glm::normalize(throwVelocity);
+    for (const RagdollRecord::Bone& bone : record.bones)
+    {
+        // Only what it lacks: the bodies the hitter already moves keep their speed. Those far from
+        // the hit get less, so it tumbles (hit at the legs, it goes over backwards).
+        const glm::vec3 v = ToGlm(bodies.GetLinearVelocity(bone.body));
+        const float away = glm::distance(ToGlm(JPH::Vec3(bodies.GetCenterOfMassPosition(bone.body))), point);
+        const float missing = glm::length(throwVelocity) * std::max(1.0f - 0.25f * away, 0.5f) - glm::dot(v, direction);
+        if (missing > 0.0f)
+            bodies.SetLinearVelocity(bone.body, ToJolt(v + direction * missing));
     }
 }
 

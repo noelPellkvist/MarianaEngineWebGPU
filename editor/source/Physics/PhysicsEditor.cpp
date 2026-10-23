@@ -947,6 +947,11 @@ namespace PhysicsEditor
                     changed |= ImGui::DragFloat("Mass", &r.mass, 0.5f, 1.0f, 2000.0f, "%.1f kg");
                     changed |= ImGui::DragFloat("Strength", &r.strength, 5.0f, 0.0f, 100000.0f, "%.0f N m");
                     changed |= ImGui::DragFloat("Limp On Impact", &r.limpOnImpact, 0.05f, 0.0f, 100.0f, r.limpOnImpact > 0.0f ? "%.2f m/s" : "never");
+                    changed |= ImGui::DragFloat("Knockback", &r.knockback, 0.01f, 0.0f, 5.0f, r.knockback > 0.0f ? "x %.2f" : "off");
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("What knocks it out throws it at this times its own speed");
+                    if (r.knockback > 0.0f)
+                        changed |= ImGui::DragFloat("Knockback Lift", &r.knockbackLift, 0.01f, 0.0f, 3.0f, "%.2f");
                     changed |= ImGui::SliderFloat("Friction", &r.friction, 0.0f, 2.0f, "%.2f");
                     changed |= ImGui::SliderFloat("Joint Limits", &r.jointLimitScale, 0.1f, 2.0f, "x %.2f");
                     int layer = static_cast<int>(r.layer);

@@ -10,6 +10,7 @@
 #include <Mariana/Importers/SceneFile.hpp>
 #include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
+#include <Mariana/Physics/Ragdoll.hpp>
 #include <Mariana/Physics/VehiclePresets.hpp>
 #include <Mariana/Physics/CharacterPresets.hpp>
 #include <Mariana/Physics/JointPresets.hpp>
@@ -74,6 +75,16 @@ bool PlayerConfig::Load(const std::string& path, PlayerConfig& out, std::string&
                 spawn.primitive = entry.value("primitive", std::string());
                 spawn.preset = entry.value("preset", std::string());
                 spawn.vehicle = entry.value("vehicle", std::string());
+                if (const auto ragdoll = entry.find("ragdoll"); ragdoll != entry.end() && ragdoll->is_string())
+                    spawn.ragdoll = ragdoll->get<std::string>();
+                else if (ragdoll != entry.end() && ragdoll->is_object())
+                {
+                    spawn.ragdoll = ragdoll->value("mode", std::string("powered"));
+                    spawn.ragdollMass = ragdoll->value("mass", spawn.ragdollMass);
+                    spawn.limpOnImpact = ragdoll->value("limpOnImpact", spawn.limpOnImpact);
+                    spawn.knockback = ragdoll->value("knockback", spawn.knockback);
+                    spawn.knockbackLift = ragdoll->value("knockbackLift", spawn.knockbackLift);
+                }
                 spawn.color = ReadVec3(entry, "color", spawn.color);
                 spawn.position = ReadVec3(entry, "position", spawn.position);
                 spawn.rotation = ReadVec3(entry, "rotation", spawn.rotation);
@@ -325,6 +336,21 @@ void PlayerApp::OnStart()
         }
         else if (!spawn.vehicle.empty())
             Logger::Warning("Player.json: unknown vehicle \"" + spawn.vehicle + "\"");
+        if (!spawn.ragdoll.empty())
+        {
+            Ragdoll ragdoll;
+            if (spawn.ragdoll == "animated")
+                ragdoll.mode = RagdollMode::Animated;
+            else if (spawn.ragdoll == "limp")
+                ragdoll.mode = RagdollMode::Limp;
+            else if (spawn.ragdoll != "powered")
+                Logger::Warning("Player.json: unknown ragdoll mode \"" + spawn.ragdoll + "\"");
+            ragdoll.mass = spawn.ragdollMass;
+            ragdoll.limpOnImpact = spawn.limpOnImpact;
+            ragdoll.knockback = spawn.knockback;
+            ragdoll.knockbackLift = spawn.knockbackLift;
+            root.Add<Ragdoll>(ragdoll);
+        }
     }
     scene.Update(0.0f);
     // A player is the game: it plays from the start.

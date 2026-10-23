@@ -264,6 +264,8 @@ struct PhysicsWorld::Impl
         float strength = 0.0f;
         bool knockedOut = false; // hit too hard: limp until the mode is set again
         RagdollMode asked = RagdollMode::Powered; // the component's mode last step (a change gets it up)
+        JPH::SkeletonPose previousTarget; // last step's animated pose, so the motors follow its motion too
+        bool hasPreviousTarget = false;
         bool seen = false;
     };
 
@@ -355,6 +357,7 @@ struct PhysicsWorld::Impl
     void DriveRagdolls(float dt);
     // Contact events from `firstEvent` on that knock a ragdoll out.
     void CheckRagdollImpacts(size_t firstEvent);
+    void KnockBack(RagdollRecord& record, const Ragdoll& settings, Entity hitter, const glm::vec3& point);
     void TrackRagdoll(RagdollRecord& record, bool place);
     void WriteRagdolls(float alpha);
     // Scrolls the normal maps of the water's meshes (the surface).
