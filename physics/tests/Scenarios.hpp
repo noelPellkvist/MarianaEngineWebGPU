@@ -8,6 +8,7 @@
 #include <Mariana/Physics/Joint.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
+#include <Mariana/Physics/Water.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
 #include <glm/gtc/constants.hpp>
@@ -249,10 +250,42 @@ namespace PhysicsScenarios
         return Finish(log, "stairs", Format("at y %.3f, z %.2f", p.y, p.z), std::abs(p.y - 2.0f) < 0.05f && p.z > 5.5f && p.z < 9.0f);
     }
 
+    // Water 4 m deep: a 0.5 m cube of 500 kg/m^3 floats half under (its center at the surface), one
+    // of 2000 kg/m^3 sinks to the bottom.
+    inline Result Water(const Log& log)
+    {
+        using namespace detail;
+        Scene scene;
+        scene.UpdateComponentRegistry();
+        PhysicsWorld world(scene, Settings());
+        Box(scene, "Ground", glm::vec3(0.0f, -0.5f, 0.0f), glm::vec3(40.0f, 1.0f, 40.0f), MotionType::Static, 0.0f);
+        Entity water = Make(scene, "Water", glm::vec3(0.0f, 2.0f, 0.0f));
+        WaterVolume volume;
+        volume.size = glm::vec3(10.0f, 4.0f, 10.0f);
+        water.Add<WaterVolume>(volume);
+        auto cube = [&](const char* name, float x, float density) {
+            Entity e = Make(scene, name, glm::vec3(x, 4.6f, 0.0f));
+            BoxCollider box;
+            box.size = glm::vec3(0.5f);
+            box.density = density;
+            e.Add<BoxCollider>(box);
+            RigidBody body;
+            body.mass = 0.0f; // from the density
+            e.Add<RigidBody>(body);
+            return e;
+        };
+        Entity wood = cube("Wood", -2.0f, 500.0f);
+        Entity stone = cube("Stone", 2.0f, 2000.0f);
+        Run(scene, world, 60 * 10);
+        const float floating = Position(wood).y, sunk = Position(stone).y;
+        return Finish(log, "water", Format("wood's center at y %.4f (surface 4), stone at y %.4f (bottom 0.25)", floating, sunk),
+                      std::abs(floating - 4.0f) < 0.01f && std::abs(sunk - 0.25f) < 0.02f);
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         std::vector<Result> results;
-        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs })
+        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &Water })
             results.push_back(scenario(log));
         return results;
     }

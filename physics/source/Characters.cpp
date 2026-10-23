@@ -191,13 +191,22 @@ void PhysicsWorld::Impl::MoveCharacters(float dt)
         if (!c || !record.character)
             continue;
         JPH::CharacterVirtual& character = *record.character;
-        const JPH::Vec3 gravity = system->GetGravity() * c->gravityFactor;
+
+        // How deep in water it stands (0 = dry, 1 = under): it weighs less and moves slower.
+        const glm::vec3 feet = ToGlm(JPH::Vec3(character.GetPosition()));
+        float submerged = 0.0f;
+        if (const WaterRecord* water = WaterAt(feet + glm::vec3(0.0f, 0.5f * c->height, 0.0f)))
+        {
+            const WaterSurface surface = WaterSurfaceAt(water->water, water->top, water->up, water->right, water->forward, feet, waterTime);
+            submerged = std::clamp((surface.point.y - feet.y) / std::max(c->height, 0.1f), 0.0f, 1.0f);
+        }
+        const JPH::Vec3 gravity = system->GetGravity() * c->gravityFactor * (1.0f - 1.25f * submerged);
 
         glm::vec3 move = c->move;
         move.y = 0.0f;
         if (glm::length(move) > 1.0f)
             move = glm::normalize(move);
-        const JPH::Vec3 wanted = ToJolt(move * c->speed * (c->run ? c->runFactor : 1.0f));
+        const JPH::Vec3 wanted = ToJolt(move * c->speed * (c->run ? c->runFactor : 1.0f) * (1.0f - 0.5f * submerged));
 
         character.UpdateGroundVelocity();
         const JPH::Vec3 current = character.GetLinearVelocity();
@@ -221,6 +230,13 @@ void PhysicsWorld::Impl::MoveCharacters(float dt)
             velocity = vertical + horizontal;
         }
         velocity += gravity * dt;
+        if (submerged > 0.0f)
+        {
+            // Water holds it back, and a jump in it swims up.
+            velocity -= velocity * std::min(1.0f, 2.0f * submerged * dt);
+            if (c->jump && submerged > 0.3f)
+                velocity = velocity - up * velocity.Dot(up) + up * std::max(velocity.Dot(up), 2.5f);
+        }
         character.SetLinearVelocity(velocity);
 
         if (c->turnToMove && glm::length(move) > 0.1f)

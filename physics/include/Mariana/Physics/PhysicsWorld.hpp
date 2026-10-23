@@ -5,6 +5,7 @@
 #include <Mariana/Physics/Vehicle.hpp>
 #include <Mariana/Physics/Character.hpp>
 #include <Mariana/Physics/Joint.hpp>
+#include <Mariana/Physics/Water.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
 #include <memory>
@@ -73,8 +74,9 @@ public:
     PhysicsWorld(const PhysicsWorld&) = delete;
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
 
-    // RigidBody, the colliders, Joint, Vehicle, VehicleWheel, CharacterController, PlayerControl and
-    // FollowCamera, also in scene files (SceneFile); call before Scene::UpdateComponentRegistry.
+    // RigidBody, the colliders, Joint, Vehicle, VehicleWheel, CharacterController, PlayerControl,
+    // FollowCamera and WaterVolume, also in scene files (SceneFile); call before
+    // Scene::UpdateComponentRegistry.
     static void RegisterComponents();
 
     const PhysicsSettings& Settings() const;
@@ -131,6 +133,8 @@ public:
     // A vehicle's or a character's state while it runs (false when the entity has none).
     bool GetVehicleInfo(Entity entity, VehicleInfo& info) const;
     bool GetCharacterInfo(Entity entity, CharacterInfo& info) const;
+    // The water a point is in and its surface there (false when it is in none).
+    bool WaterAt(const glm::vec3& point, WaterSurface& surface) const;
     // A joint's state (false when the entity has no Joint).
     bool GetJointInfo(Entity entity, JointInfo& info) const;
     // The joints that broke during the last Step call.

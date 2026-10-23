@@ -24,6 +24,7 @@
 #include <Mariana/Physics/VehiclePresets.hpp>
 #include <Mariana/Physics/CharacterPresets.hpp>
 #include <Mariana/Physics/JointPresets.hpp>
+#include <Mariana/Physics/WaterPresets.hpp>
 
 #include "ImGuizmo.h"
 
@@ -275,12 +276,14 @@ Entity EditorApp::SpawnJointPreset(int which)
     glm::vec3 forward = glm::vec3(info.invView[2]);
     forward.y = 0.0f;
     forward = glm::length(forward) > 1e-4f ? glm::normalize(forward) : glm::vec3(0.0f, 0.0f, 1.0f);
-    glm::vec3 at = info.pos + forward * 8.0f;
+    glm::vec3 at = info.pos + forward * (which >= 4 ? 16.0f : 8.0f);
     at.y = 0.0f;
     Entity spawned = which == 0 ? JointPresets::SpawnChain(scene, assets, at + glm::vec3(0.0f, 6.0f, 0.0f))
                    : which == 1 ? JointPresets::SpawnDoor(scene, assets, at)
                    : which == 2 ? JointPresets::SpawnSpinner(scene, assets, at)
-                   : JointPresets::SpawnWreckingBall(scene, assets, at);
+                   : which == 3 ? JointPresets::SpawnWreckingBall(scene, assets, at)
+                   : which == 4 ? WaterPresets::SpawnWater(scene, assets, at + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(10.0f, 2.0f, 10.0f))
+                   : WaterPresets::SpawnPool(scene, assets, at);
     scene.Update(0.0f);
     DeselectEntity();
     SelectEntity(spawned.RawId());
@@ -1063,6 +1066,9 @@ void EditorApp::DrawTopMenu()
                 if (ImGui::MenuItem("Door")) SpawnJointPreset(1);
                 if (ImGui::MenuItem("Spinner")) SpawnJointPreset(2);
                 if (ImGui::MenuItem("Wrecking Ball")) SpawnJointPreset(3);
+                ImGui::Separator();
+                if (ImGui::MenuItem("Water")) SpawnJointPreset(4);
+                if (ImGui::MenuItem("Water Pool")) SpawnJointPreset(5);
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Vehicle"))

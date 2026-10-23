@@ -20,6 +20,9 @@ namespace BuiltinAssets
     // 1x1 tangent-space normal pointing straight out of the surface.
     AssetHandle<Texture> FlatNormalTexture(AssetManager2& assets);
 
+    // 256x256 tangent-space normal map of small waves that tiles (made in code), for water.
+    AssetHandle<Texture> WaterNormalTexture(AssetManager2& assets);
+
     // Plain white, rough, non-metallic material for primitives that don't specify one.
     AssetHandle<MaterialAsset> DefaultMaterial(AssetManager2& assets);
 

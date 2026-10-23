@@ -51,6 +51,7 @@ struct MaterialProperties {
     uvSets: u32, // bit i: texture i (albedo, normal, metallic-roughness, occlusion, emissive) reads uv1
     clearcoat: f32,
     clearcoatRoughness: f32,
+    alphaBlend: u32, // 1: premultiplied alpha blending
     uvMatrix: array<vec4f, 5>, // texture i reads (dot(m.xy, uv), dot(m.zw, uv)) + uvOffset[i]
     uvOffset: array<vec2f, 5>,
 };
@@ -420,7 +421,9 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
     let shadow = shadowFactor(input.world_pos, Ng, saturate(dot(Ng, L)), viewDepth);
 
     // ----- Sun -----
-    let direct = (diffuse + spec) * NoL * shadow * UniformBufferObject.sunColor.rgb;
+    let sunLight = NoL * shadow * UniformBufferObject.sunColor.rgb;
+    let directDiffuse = diffuse * sunLight;
+    let directSpecular = spec * sunLight;
 
     // ----- Sky: diffuse from its spherical harmonics, reflections from the cubemap -----
     let envSpecular = envBRDFApprox(F0, perceptualRoughness, NoV);
@@ -428,14 +431,18 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
     let skySpecular = skyReflection(reflect(-V, N), perceptualRoughness) * envSpecular * UniformBufferObject.skyParams.y;
     // Screen-space AO (from the prepass) and the material's own: the darker wins, so baked crevices
     // aren't darkened twice. It only affects sky light, never the sun.
+    // Blended surfaces (glass, water) aren't in the prepass: the screen AO there is what is behind them.
+    let blended = Material.alphaBlend != 0u;
     let aoPixel = min(vec2u(input.position.xy), textureDimensions(aoTexture) - 1u);
-    let visibility = min(aoTerm, textureLoad(aoTexture, aoPixel, 0).r);
-    let ambient = skyDiffuse * multiBounceAO(visibility, baseColor) + skySpecular * specularOcclusion(NoV, visibility, perceptualRoughness);
+    let visibility = min(aoTerm, select(textureLoad(aoTexture, aoPixel, 0).r, 1.0, blended));
+    let ambientDiffuse = skyDiffuse * multiBounceAO(visibility, baseColor);
+    let ambientSpecular = skySpecular * specularOcclusion(NoV, visibility, perceptualRoughness);
 
     // ----- Clearcoat: a smooth varnish over all of the above (car paint), reflecting along the
     // surface's own normal (the normal map only bends what is under it); what it reflects is
     // taken from the light reaching the layer below -----
-    var lit = direct + ambient;
+    var lightDiffuse = directDiffuse + ambientDiffuse;
+    var lightSpecular = directSpecular + ambientSpecular;
     if (Material.clearcoat > 0.0) {
         let coatRoughness = clamp(Material.clearcoatRoughness, 0.04, 1.0);
         let ac = max(1e-3, coatRoughness * coatRoughness);
@@ -448,8 +455,12 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
         }
         let coatEnv = envBRDFApprox(vec3f(0.04), coatRoughness, NcV).x * Material.clearcoat;
         let coatSky = skyReflection(reflect(-V, Ng), coatRoughness) * coatEnv * UniformBufferObject.skyParams.y * specularOcclusion(NcV, visibility, coatRoughness);
-        lit = direct * (1.0 - Fc) + ambient * (1.0 - coatEnv) + coatSpec * Fc * NcL * shadow * UniformBufferObject.sunColor.rgb + coatSky;
+        lightDiffuse = directDiffuse * (1.0 - Fc) + ambientDiffuse * (1.0 - coatEnv);
+        lightSpecular = directSpecular * (1.0 - Fc) + ambientSpecular * (1.0 - coatEnv) + coatSpec * Fc * NcL * shadow * UniformBufferObject.sunColor.rgb + coatSky;
     }
+    // Blended surfaces are premultiplied: their diffuse light covers what is behind them by their
+    // alpha, their reflections add on top (so glass and water keep their highlights).
+    let lit = select(lightDiffuse + lightSpecular, lightDiffuse * alpha + lightSpecular, blended);
 
     // ----- Emissive -----
     // The emissive texture is sampled through an sRGB view, so it is already linear here.
@@ -459,7 +470,7 @@ fn fragmentMain(input: VertexOutput, @builtin(front_facing) frontFacing: bool) -
     var out: FragOut;
     // Points and lines without normals can't be lit: they show their base color.
     let hasNormal = dot(input.world_normal, input.world_normal) > 1e-8;
-    out.color = vec4f(select(baseColor, lit, hasNormal) + emissive, coverage);
+    out.color = vec4f(select(baseColor, lit, hasNormal) + emissive, select(coverage, alpha, blended));
     //out.color = vec4f(input.world_normal * 0.5 + 0.5, 1.0);
     return out;
 }

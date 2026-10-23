@@ -6,6 +6,7 @@
 #include <Mariana/Physics/Vehicle.hpp>
 #include <Mariana/Physics/Character.hpp>
 #include <Mariana/Physics/Joint.hpp>
+#include <Mariana/Physics/Water.hpp>
 
 #include "JoltCommon.hpp"
 #include "Shapes.hpp"
@@ -226,6 +227,17 @@ struct PhysicsWorld::Impl
         uint32_t writtenVersion = ~0u;
     };
 
+    // A WaterVolume as placed this step: its box (center, axes, half extents), its still surface's
+    // center and its world bounds.
+    struct WaterRecord
+    {
+        uint64_t entity = 0;
+        WaterVolume water;
+        glm::vec3 center{ 0.0f }, top{ 0.0f }, half{ 0.0f };
+        glm::vec3 right{ 1.0f, 0.0f, 0.0f }, up{ 0.0f, 1.0f, 0.0f }, forward{ 0.0f, 0.0f, 1.0f };
+        glm::vec3 boundsMin{ 0.0f }, boundsMax{ 0.0f };
+    };
+
     struct Touching
     {
         JPH::BodyID body1, body2;
@@ -265,6 +277,8 @@ struct PhysicsWorld::Impl
     std::unordered_map<uint64_t, JointRecord> joints; // per joint entity
     JPH::Ref<PhysicsInternal::JointCollisionFilter> jointFilter; // made with the first system (Jolt's allocator is set up then)
     std::vector<Entity> brokenJoints;
+    std::vector<WaterRecord> waters; // found by Collect
+    float waterTime = 0.0f;          // simulated seconds, for the waves
     // Debug drawing of contacts: wanted by the last DebugDraw call, drawn by Jolt during steps.
     bool drawContacts = false;
     size_t maxContactLines = 0;
@@ -297,6 +311,12 @@ struct PhysicsWorld::Impl
     void DriveJoints();
     void CheckJoints(float dt);
     void ProcessContacts();
+    void AddWater(Entity entity, const glm::mat4& world, const WaterVolume& water);
+    // The water a point is in (within its sides and depth, waves included), or null.
+    const WaterRecord* WaterAt(const glm::vec3& point) const;
+    void ApplyBuoyancy(float dt);
+    // Scrolls the normal maps of the water's meshes (the surface).
+    void RippleWater();
     // After each step: the poses moving bodies and characters reached, for interpolation.
     void TrackPoses();
     // Shows bodies, wheels and characters `alpha` of the way from their previous step to their last

@@ -20,7 +20,8 @@ class Shader2;
 // The AlphaToCoverage ones are the three triangle variants with alpha to coverage, for alpha-tested
 // materials in MSAA passes (other passes fall back to the plain ones).
 enum class ShaderVariant : uint8_t { Default, DoubleSided, Mirrored, Lines, Points,
-                                     AlphaToCoverage, AlphaToCoverageDoubleSided, AlphaToCoverageMirrored, Count };
+                                     AlphaToCoverage, AlphaToCoverageDoubleSided, AlphaToCoverageMirrored,
+                                     Blended, BlendedDoubleSided, Count };
 
 class Renderpass 
 {

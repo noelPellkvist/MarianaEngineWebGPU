@@ -329,6 +329,7 @@ void PhysicsWorld::Impl::RemoveAll()
     contactLines.clear();
     contacts.Clear();
     accumulator = 0.0f;
+    waterTime = 0.0f;
 }
 
 // Every body the scene asks for, from its hierarchy. Shapes are placed relative to their body from
@@ -336,6 +337,7 @@ void PhysicsWorld::Impl::RemoveAll()
 void PhysicsWorld::Impl::Collect()
 {
     candidates.clear();
+    waters.clear();
     std::function<void(Entity, const glm::mat4&, const glm::vec3&, int, const glm::mat4&)> walk =
         [&](Entity e, const glm::mat4& parentWorld, const glm::vec3& parentScale, int owner, const glm::mat4& parentRelative) {
             if (e.TryGet<VehicleWheel>() || e.TryGet<CharacterController>())
@@ -345,6 +347,8 @@ void PhysicsWorld::Impl::Collect()
             const glm::mat4 world = parentWorld * local;
             const glm::vec3 scale = trs ? parentScale * glm::vec3(trs->scl[0], trs->scl[1], trs->scl[2]) : parentScale;
             glm::mat4 relative = parentRelative * local;
+            if (const WaterVolume* water = e.TryGet<WaterVolume>())
+                AddWater(e, world, *water);
 
             if (const RigidBody* body = e.TryGet<RigidBody>())
             {
@@ -818,7 +822,9 @@ void PhysicsWorld::Impl::Step(float dt)
         DriveVehicles();
         MoveCharacters(step);
         DriveJoints();
+        ApplyBuoyancy(step);
         system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
+        waterTime += step;
         TrackPoses();
         ProcessContacts();
         CheckJoints(step);
@@ -831,7 +837,10 @@ void PhysicsWorld::Impl::Step(float dt)
         accumulator = 0.0f; // too far behind: let the simulation run slow instead of piling up
     accumulator = std::max(accumulator, 0.0f);
     if (steps > 0)
+    {
         pending.clear();
+        RippleWater();
+    }
     // Frames between steps show the bodies moving on too.
     const float alpha = settings.interpolation ? std::clamp(accumulator / step, 0.0f, 1.0f) : 1.0f;
     WriteBack(alpha);
@@ -873,6 +882,7 @@ void PhysicsWorld::RegisterComponents()
     ECS::RegisterComponent<FollowCamera>("FollowCamera");
     ECS::RegisterComponent<CharacterController>("CharacterController");
     ECS::RegisterComponent<Joint>("Joint");
+    ECS::RegisterComponent<WaterVolume>("WaterVolume");
     RegisterSerializers();
 }
 

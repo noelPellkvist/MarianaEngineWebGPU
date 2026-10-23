@@ -13,6 +13,7 @@
 #include <Mariana/Physics/VehiclePresets.hpp>
 #include <Mariana/Physics/CharacterPresets.hpp>
 #include <Mariana/Physics/JointPresets.hpp>
+#include <Mariana/Physics/WaterPresets.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
@@ -274,6 +275,8 @@ void PlayerApp::OnStart()
                 JointPresets::SpawnSpinner(scene, assets, spawn.position);
             else if (spawn.preset == "wrecking ball")
                 JointPresets::SpawnWreckingBall(scene, assets, spawn.position);
+            else if (spawn.preset == "pool")
+                WaterPresets::SpawnPool(scene, assets, spawn.position);
             else
                 Logger::Error("Unknown preset " + spawn.preset);
             continue;

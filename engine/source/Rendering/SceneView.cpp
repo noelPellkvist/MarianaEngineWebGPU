@@ -28,14 +28,16 @@ namespace
     }
 
     // The pipeline a submesh draws with: lines and points have their own, double-sided materials skip
-    // culling, a mirroring transform (negative determinant) culls the other side, and alpha-tested
-    // materials use alpha to coverage.
-    ShaderVariant DrawVariant(PrimitiveTopology topology, bool doubleSided, bool mirrored, bool alphaTested)
+    // culling, a mirroring transform (negative determinant) culls the other side, alpha-tested
+    // materials use alpha to coverage and blended ones blend.
+    ShaderVariant DrawVariant(PrimitiveTopology topology, bool doubleSided, bool mirrored, bool alphaTested, bool blended = false)
     {
         if (topology == PrimitiveTopology::Lines)
             return ShaderVariant::Lines;
         if (topology == PrimitiveTopology::Points)
             return ShaderVariant::Points;
+        if (blended)
+            return doubleSided ? ShaderVariant::BlendedDoubleSided : ShaderVariant::Blended;
         if (doubleSided)
             return alphaTested ? ShaderVariant::AlphaToCoverageDoubleSided : ShaderVariant::DoubleSided;
         if (mirrored)
@@ -243,8 +245,18 @@ void SceneView::CreateSystems()
                 : nullptr;
             if (!material || material->GetGpuSlot() == MaterialAsset::kInvalidSlot)
                 material = renderer.defaultMaterial.Get().get();
-            if (material)
-                drawItems.push_back({ material, mesh, i, form.id, boneOffset, DrawVariant(mesh->submeshes[i].topology, material->doubleSided, mirrored, material->properties.alphaCutoff > 0.0f) });
+            if (!material)
+                continue;
+            const bool blended = material->GetAlphaMode() == AlphaMode::Blend && mesh->submeshes[i].topology == PrimitiveTopology::Triangles;
+            const ShaderVariant variant = DrawVariant(mesh->submeshes[i].topology, material->doubleSided, mirrored, material->properties.alphaCutoff > 0.0f, blended);
+            if (!blended)
+            {
+                drawItems.push_back({ material, mesh, i, form.id, boneOffset, variant });
+                continue;
+            }
+            // How far it is, for the back to front order.
+            const glm::vec3 center = glm::vec3(glm::make_mat4(form.model) * glm::vec4(0.5f * (mesh->boundsMin + mesh->boundsMax), 1.0f));
+            blendedItems.push_back({ material, mesh, i, form.id, boneOffset, variant, glm::distance(center, glm::vec3(cameraInfo.pos)) });
         }
     });
 
@@ -261,14 +273,20 @@ void SceneView::CreateSystems()
         // Depth doesn't need materials, so a caster is drawn whole, except its alpha-tested submeshes:
         // those go on their own with their material, which cuts their holes out of the shadow, and
         // the opaque rest is drawn in as few index ranges as possible.
-        auto alphaTestedMaterial = [&](const Submesh& sm) -> MaterialAsset* {
+        auto materialOf = [&](const Submesh& sm) -> MaterialAsset* {
             MaterialAsset* material = sm.materialIndex < meshComp.materials.size() ? meshComp.materials[sm.materialIndex].Get().get() : nullptr;
-            const bool alphaTested = material && material->GetGpuSlot() != MaterialAsset::kInvalidSlot && material->properties.alphaCutoff > 0.0f;
-            return alphaTested ? material : nullptr;
+            return material && material->GetGpuSlot() != MaterialAsset::kInvalidSlot ? material : nullptr;
+        };
+        auto alphaTestedMaterial = [&](const Submesh& sm) -> MaterialAsset* {
+            MaterialAsset* material = materialOf(sm);
+            return material && material->properties.alphaCutoff > 0.0f ? material : nullptr;
         };
 
-        // Points and lines cast no shadow.
-        auto isTriangles = [](const Submesh& sm) { return sm.topology == PrimitiveTopology::Triangles; };
+        // Points, lines and see-through surfaces cast no shadow.
+        auto isTriangles = [&](const Submesh& sm) {
+            const MaterialAsset* material = materialOf(sm);
+            return sm.topology == PrimitiveTopology::Triangles && !(material && material->GetAlphaMode() == AlphaMode::Blend);
+        };
 
         casterParts.clear();
         if (std::all_of(mesh->submeshes.begin(), mesh->submeshes.end(), isTriangles) &&
@@ -422,9 +440,11 @@ void SceneView::UpdateShadowCascades(const ICamera& camera)
 void SceneView::BuildDrawLists()
 {
     drawItems.clear();
+    blendedItems.clear();
     for (auto& items : shadowItems)
         items.clear();
     mainBatches.clear();
+    blendedBatches.clear();
     for (auto& batches : shadowBatches)
         batches.clear();
     frameDraws.clear();
@@ -458,6 +478,17 @@ void SceneView::BuildDrawLists()
         }
         frameDraws.push_back(DrawData{ item.transformIndex, item.material->GetGpuSlot(), item.boneOffset });
         ++batch->instanceCount;
+    }
+
+    // See-through surfaces one by one, the farthest first, so the nearer blend over them.
+    std::stable_sort(blendedItems.begin(), blendedItems.end(), [](const DrawItem& a, const DrawItem& b) { return a.distance > b.distance; });
+    for (const DrawItem& item : blendedItems)
+    {
+        if (frameDraws.size() >= StandardPBRView::kMaxDraws)
+            break;
+        const Submesh& sm = item.mesh->submeshes[item.submesh];
+        blendedBatches.push_back({ item.mesh, item.material, item.submesh, sm.indexCount, sm.startIndex, static_cast<uint32_t>(frameDraws.size()), 1, item.variant });
+        frameDraws.push_back(DrawData{ item.transformIndex, item.material->GetGpuSlot(), item.boneOffset });
     }
 
     // The light is static, so a cascade only needs redrawing when it moved (camera) or the set of
@@ -566,5 +597,14 @@ void SceneView::RecordForward(Renderpass& pass)
         pass.SetShader2(skyboxShader);
         pass.SetMesh(renderer.skyMesh.get());
         pass.Draw(static_cast<uint32_t>(renderer.skyMesh->IndexCount()), 0, 0);
+    }
+
+    // Over everything, sky included.
+    for (const DrawBatch& batch : blendedBatches)
+    {
+        pass.SetShader2(pbrShader, batch.variant);
+        pass.SetMesh(batch.mesh);
+        pass.SetMaterial2(pbrShader, batch.material->material);
+        pass.Draw(batch.indexCount, batch.startIndex, batch.firstInstance, batch.instanceCount);
     }
 }

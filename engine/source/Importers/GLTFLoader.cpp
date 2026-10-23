@@ -856,13 +856,13 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, Parsed
         if (emissiveStrength != mat.extensions.end() && emissiveStrength->second.Has("emissiveStrength")) {
             props.emissiveFactor *= (float)emissiveStrength->second.Get("emissiveStrength").GetNumberAsDouble();
         }
-        // KHR_materials_transmission (glass) isn't rendered: what lets light through becomes dark,
-        // so a window reads as tinted glass (its reflections stay) rather than a white panel.
-        auto transmission = mat.extensions.find("KHR_materials_transmission");
-        if (transmission != mat.extensions.end() && transmission->second.Has("transmissionFactor")) {
-            const float t = glm::clamp((float)transmission->second.Get("transmissionFactor").GetNumberAsDouble(), 0.0f, 1.0f);
-            props.baseColor = glm::vec4(glm::vec3(props.baseColor) * (1.0f - 0.95f * t), props.baseColor.a);
-        }
+        // KHR_materials_transmission (glass) isn't refracted: what lets light through is blended
+        // instead, see-through by as much (its reflections stay).
+        float transmission = 0.0f;
+        if (auto ext = mat.extensions.find("KHR_materials_transmission"); ext != mat.extensions.end() && ext->second.Has("transmissionFactor"))
+            transmission = glm::clamp((float)ext->second.Get("transmissionFactor").GetNumberAsDouble(), 0.0f, 1.0f);
+        if (transmission > 0.0f)
+            props.baseColor.a *= 1.0f - 0.9f * transmission;
         // KHR_materials_clearcoat: its factors (its textures aren't supported).
         auto clearcoat = mat.extensions.find("KHR_materials_clearcoat");
         if (clearcoat != mat.extensions.end()) {
@@ -871,8 +871,7 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, Parsed
             if (clearcoat->second.Has("clearcoatRoughnessFactor"))
                 props.clearcoatRoughness = glm::clamp((float)clearcoat->second.Get("clearcoatRoughnessFactor").GetNumberAsDouble(), 0.0f, 1.0f);
         }
-        // Blending isn't supported yet; BLEND draws like MASK.
-        const AlphaMode alphaMode = mat.alphaMode == "MASK" ? AlphaMode::Mask : mat.alphaMode == "BLEND" ? AlphaMode::Blend : AlphaMode::Opaque;
+        const AlphaMode alphaMode = mat.alphaMode == "MASK" ? AlphaMode::Mask : mat.alphaMode == "BLEND" || transmission > 0.0f ? AlphaMode::Blend : AlphaMode::Opaque;
         material->SetAlphaMode(alphaMode, (float)mat.alphaCutoff);
         material->doubleSided = mat.doubleSided;
 

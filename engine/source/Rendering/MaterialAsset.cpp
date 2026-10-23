@@ -90,7 +90,8 @@ void MaterialAsset::SetTextureTransform(MaterialTexture slot, const TextureTrans
 void MaterialAsset::SetAlphaMode(AlphaMode mode, float cutoff)
 {
     m_AlphaMode = mode;
-    // The shaders alpha test whenever the cutoff is above 0.
-    properties.alphaCutoff = mode == AlphaMode::Opaque ? 0.0f : std::max(cutoff, 1e-4f);
+    // The shaders alpha test whenever the cutoff is above 0; blended surfaces aren't cut.
+    properties.alphaCutoff = mode == AlphaMode::Mask ? std::max(cutoff, 1e-4f) : 0.0f;
+    properties.alphaBlend = mode == AlphaMode::Blend ? 1u : 0u;
     MarkDirty();
 }

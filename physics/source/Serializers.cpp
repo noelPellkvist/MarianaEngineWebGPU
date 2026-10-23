@@ -37,6 +37,7 @@ namespace PhysicsInternal
             a.Field("startAngularVelocity", b.startAngularVelocity);
             a.Field("centerOfMass", b.centerOfMass);
             a.Field("interpolate", b.interpolate);
+            a.Field("buoyancy", b.buoyancy);
         });
         SceneFile::RegisterComponent<BoxCollider>("BoxCollider", [](SceneArchive& a, BoxCollider& c) {
             ColliderFields(a, c);
@@ -121,6 +122,18 @@ namespace PhysicsInternal
             a.Field("turnToMove", c.turnToMove);
             a.Field("turnSpeed", c.turnSpeed);
             a.Field("layer", c.layer);
+        });
+        SceneFile::RegisterComponent<WaterVolume>("WaterVolume", [](SceneArchive& a, WaterVolume& w) {
+            a.Field("size", w.size);
+            a.Field("density", w.density);
+            a.Field("linearDrag", w.linearDrag);
+            a.Field("angularDrag", w.angularDrag);
+            a.Field("damping", w.damping);
+            a.Field("flow", w.flow);
+            a.Field("waveHeight", w.waveHeight);
+            a.Field("waveLength", w.waveLength);
+            a.Field("waveSpeed", w.waveSpeed);
+            a.Field("rippleSpeed", w.rippleSpeed);
         });
         SceneFile::RegisterComponent<Joint>("Joint", [](SceneArchive& a, Joint& j) {
             a.Field("type", j.type, { "Fixed", "Point", "Distance", "Hinge", "Slider", "Cone", "SwingTwist", "SixDOF" });

@@ -35,6 +35,7 @@ struct RigidBody
     glm::vec3 startAngularVelocity{ 0.0f }; // world space rad/s
     glm::vec3 centerOfMass{ 0.0f };         // moves the colliders' center of mass (body space; low = steadier cars)
     bool interpolate = true;      // shown between steps when PhysicsSettings::interpolation is on
+    float buoyancy = 1.0f;        // how much water (WaterVolume) holds it up; 0 = not at all
 };
 
 // What every collider has: where it sits on its entity (scaled with it) and how its surface acts.

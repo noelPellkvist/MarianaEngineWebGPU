@@ -51,6 +51,7 @@ struct MaterialProperties {
     uvSets: u32,
     clearcoat: f32,
     clearcoatRoughness: f32,
+    alphaBlend: u32, // 1: premultiplied alpha blending
     uvMatrix: array<vec4f, 5>,
     uvOffset: array<vec2f, 5>,
 };

@@ -32,6 +32,8 @@ struct PBRMaterialProperties
     // how much of it (0 = none) and how rough it is. It reflects along the surface's own normal.
     float clearcoat{0};
     float clearcoatRoughness{0};
+    // 1: alpha blended (AlphaMode::Blend), set through MaterialAsset::SetAlphaMode.
+    uint32_t alphaBlend{0};
 
     // Texture i reads uv' = M * uv + uvOffset[i], M's rows in uvMatrix[i] (xy, zw); set through
     // MaterialAsset::SetTextureTransform.
@@ -42,7 +44,8 @@ struct PBRMaterialProperties
     bool operator==(const PBRMaterialProperties&) const = default;
 };
 
-// Blend isn't supported by the renderer yet and draws like Mask.
+// Mask cuts the surface where alpha is under the cutoff; Blend sees through it by its alpha
+// (drawn after everything opaque, back to front, casting no shadow).
 enum class AlphaMode { Opaque, Mask, Blend };
 
 // A PBR material, independent of where it came from (a glTF file, code, the editor): its constants,

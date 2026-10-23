@@ -391,6 +391,19 @@ Shader2& Shader2::Build(bool shadow)
             build(ShaderVariant::AlphaToCoverage, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::Back);
             build(ShaderVariant::AlphaToCoverageDoubleSided, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::None);
             build(ShaderVariant::AlphaToCoverageMirrored, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::Front);
+            descriptor.multisample.alphaToCoverageEnabled = false;
+        }
+
+        // Blended surfaces: premultiplied alpha over what is there, depth tested but not written.
+        if (descriptor.fragment && !colorTargetStates.empty())
+        {
+            const wgpu::BlendComponent over{ .operation = wgpu::BlendOperation::Add, .srcFactor = wgpu::BlendFactor::One, .dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha };
+            const wgpu::BlendState blend{ .color = over, .alpha = over };
+            for (wgpu::ColorTargetState& target : colorTargetStates)
+                target.blend = &blend;
+            depthStencilState.depthWriteEnabled = false;
+            build(ShaderVariant::Blended, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::Back);
+            build(ShaderVariant::BlendedDoubleSided, wgpu::PrimitiveTopology::TriangleList, wgpu::CullMode::None);
         }
     }
     
@@ -412,6 +425,7 @@ void* Shader2::GetPipeline(ShaderVariant variant)
         if (variant == ShaderVariant::AlphaToCoverage) variant = ShaderVariant::Default;
         else if (variant == ShaderVariant::AlphaToCoverageDoubleSided) variant = ShaderVariant::DoubleSided;
         else if (variant == ShaderVariant::AlphaToCoverageMirrored) variant = ShaderVariant::Mirrored;
+        else if (variant == ShaderVariant::BlendedDoubleSided) variant = ShaderVariant::DoubleSided;
     }
     wgpu::RenderPipeline& pipeline = _impl->m_Pipelines[static_cast<size_t>(variant)];
     return pipeline ? &pipeline : &_impl->m_Pipelines[static_cast<size_t>(ShaderVariant::Default)];

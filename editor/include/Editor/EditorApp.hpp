@@ -89,6 +89,7 @@ class EditorApp : public Application
         Entity SpawnCharacter();
         Entity SpawnCharacterCourse();
         // A chain, a door, a spinner or a wrecking ball (0..3), in front of the camera.
+        // 0 chain, 1 door, 2 spinner, 3 wrecking ball, 4 water, 5 water pool, on the ground ahead.
         Entity SpawnJointPreset(int which);
         // A camera following the player-controlled entity, unless the scene has a FollowCamera.
         void AddChaseCamera(float distance, float height, float lookHeight);

@@ -7,6 +7,7 @@
 #include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
+#include <Mariana/Physics/Water.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <imgui.h>
 
@@ -207,6 +208,22 @@ namespace
         }
     };
 
+    // A water volume: its box in blue, the surface brighter.
+    void DrawWater(const Painter& painter, const glm::mat4& world, const WaterVolume& water)
+    {
+        const glm::vec3 h = 0.5f * water.size;
+        glm::vec3 corners[8];
+        for (int i = 0; i < 8; ++i)
+            corners[i] = glm::vec3(world * glm::vec4((i & 1) ? h.x : -h.x, (i & 2) ? h.y : -h.y, (i & 4) ? h.z : -h.z, 1.0f));
+        const ImU32 side = IM_COL32(60, 140, 255, 200), surface = IM_COL32(120, 210, 255, 255);
+        const int edges[12][2] = { { 0, 1 }, { 0, 4 }, { 1, 5 }, { 4, 5 }, { 0, 2 }, { 1, 3 }, { 4, 6 }, { 5, 7 }, { 2, 3 }, { 2, 6 }, { 3, 7 }, { 6, 7 } };
+        for (int e = 0; e < 12; ++e)
+        {
+            const bool top = (edges[e][0] & 2) && (edges[e][1] & 2);
+            painter.Line(corners[edges[e][0]], corners[edges[e][1]], top ? surface : side);
+        }
+    }
+
     // A vehicle wheel: its tyre's circle and edges where it hangs, and the suspension travel up from it.
     void DrawWheel(const Painter& painter, const glm::mat4& world, const VehicleWheel& w)
     {
@@ -374,6 +391,9 @@ namespace PhysicsEditor
                         changed |= ImGui::SliderFloat("Linear Damping", &b.linearDamping, 0.0f, 5.0f, "%.2f");
                         changed |= ImGui::SliderFloat("Angular Damping", &b.angularDamping, 0.0f, 5.0f, "%.2f");
                         changed |= ImGui::DragFloat("Gravity Factor", &b.gravityFactor, 0.01f, -10.0f, 10.0f, "%.2f");
+                        changed |= ImGui::DragFloat("Buoyancy", &b.buoyancy, 0.01f, 0.0f, 10.0f, "%.2f");
+                        if (ImGui::IsItemHovered())
+                            ImGui::SetTooltip("How much water holds it up (1 = as its density says, 0 = not at all)");
                         changed |= ImGui::Checkbox("Continuous", &b.continuous);
                         if (ImGui::IsItemHovered())
                             ImGui::SetTooltip("Sweeps it between steps so it doesn't pass through thin bodies when fast");
@@ -866,6 +886,33 @@ namespace PhysicsEditor
             ImGui::PopID();
         });
 
+        inspector.SetComponentDrawer("WaterVolume", [&inspector, &undo](Entity& entity) {
+            ImGui::PushID("WaterVolume");
+            if (Section<WaterVolume>(inspector, undo, entity, "Water Volume"))
+            {
+                EditComponent<WaterVolume>(entity, undo, "Edit Water Volume", [&](WaterVolume& w) {
+                    bool changed = ImGui::DragFloat3("Size", glm::value_ptr(w.size), 0.05f, 0.01f, 10000.0f, "%.2f m");
+                    changed |= ImGui::DragFloat("Density", &w.density, 5.0f, 0.0f, 20000.0f, "%.0f kg/m3");
+                    changed |= ImGui::SliderFloat("Drag", &w.linearDrag, 0.0f, 5.0f, "%.2f");
+                    changed |= ImGui::SliderFloat("Angular Drag", &w.angularDrag, 0.0f, 1.0f, "%.3f");
+                    changed |= ImGui::SliderFloat("Damping", &w.damping, 0.0f, 10.0f, "%.2f /s");
+                    changed |= ImGui::DragFloat3("Flow", glm::value_ptr(w.flow), 0.05f, -100.0f, 100.0f, "%.2f m/s");
+                    ImGui::SeparatorText("Waves");
+                    changed |= ImGui::DragFloat("Height", &w.waveHeight, 0.005f, 0.0f, 10.0f, "%.3f m");
+                    changed |= ImGui::DragFloat("Length", &w.waveLength, 0.05f, 0.1f, 1000.0f, "%.2f m");
+                    changed |= ImGui::DragFloat("Speed", &w.waveSpeed, 0.05f, 0.0f, 100.0f, "%.2f m/s");
+                    changed |= ImGui::DragFloat2("Ripples", glm::value_ptr(w.rippleSpeed), 0.001f, -1.0f, 1.0f, "%.3f");
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("How fast the normal maps of the meshes on it and below it scroll while playing");
+                    return changed;
+                });
+            }
+            ImGui::PopID();
+        });
+
+        inspector.AddComponentOption({ "Physics", "Water Volume",
+            [](Entity e) { return !e.TryGet<WaterVolume>(); },
+            [&undo](Entity e) { AddWithUndo(undo, e, "Water Volume", WaterVolume{}); } });
         inspector.AddComponentOption({ "Physics", "Rigid Body",
             [](Entity e) { return !e.TryGet<RigidBody>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Rigid Body", RigidBody{}); } });
@@ -932,6 +979,8 @@ namespace PhysicsEditor
                 DrawCharacter(painter, glm::make_mat4(world->model), *character);
                 return;
             }
+            if (const WaterVolume* water = entity.TryGet<WaterVolume>())
+                DrawWater(painter, glm::make_mat4(world->model), *water);
             if (const Joint* joint = entity.TryGet<Joint>())
                 DrawJoint(painter, scene, glm::make_mat4(world->model), *joint);
             if (HasCollider(entity))

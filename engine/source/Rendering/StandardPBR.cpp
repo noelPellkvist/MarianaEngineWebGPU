@@ -18,6 +18,7 @@ StandardPBRPipeline::StandardPBRPipeline()
           materialData.uvSets,
           materialData.clearcoat,
           materialData.clearcoatRoughness,
+          materialData.alphaBlend,
           materialData.uvMatrix,
           materialData.uvOffset),
       boneLayout(kMaxBones, boneData, boneData.model),

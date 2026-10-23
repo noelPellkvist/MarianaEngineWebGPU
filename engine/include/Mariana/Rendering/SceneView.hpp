@@ -49,7 +49,7 @@ public:
     Buffer& CameraBuffer() { return buffers.cameraBuffer; }
 
 private:
-    struct DrawItem { MaterialAsset* material; IMesh* mesh; uint32_t submesh; uint32_t transformIndex; uint32_t boneOffset; ShaderVariant variant; };
+    struct DrawItem { MaterialAsset* material; IMesh* mesh; uint32_t submesh; uint32_t transformIndex; uint32_t boneOffset; ShaderVariant variant; float distance = 0.0f; };
     // An index range of a caster; `material` is only set for alpha-tested parts (nullptr = opaque).
     struct ShadowItem { IMesh* mesh; MaterialAsset* material; uint32_t startIndex; uint32_t indexCount; uint32_t transformIndex; uint32_t transformVersion; uint32_t boneOffset; };
     struct CasterPart { MaterialAsset* material; uint32_t startIndex; uint32_t indexCount; };
@@ -82,9 +82,11 @@ private:
     Frustum cameraFrustum{};
     std::array<Frustum, kShadowCascades> cascadeFrustums{};
     std::vector<DrawItem> drawItems;
+    std::vector<DrawItem> blendedItems; // see-through surfaces, drawn last, farthest first
     std::array<std::vector<ShadowItem>, kShadowCascades> shadowItems;
     std::vector<CasterPart> casterParts; // scratch for gatherShadowCastersSystem
     std::vector<DrawBatch> mainBatches;
+    std::vector<DrawBatch> blendedBatches;
     std::array<std::vector<DrawBatch>, kShadowCascades> shadowBatches;
     std::vector<DrawData> frameDraws;
     // A cascade is only re-rendered when it moved or the casters inside it changed (or the light did: shadowsDirty).
