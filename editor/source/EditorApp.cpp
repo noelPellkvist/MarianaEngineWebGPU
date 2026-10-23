@@ -283,7 +283,10 @@ Entity EditorApp::SpawnJointPreset(int which)
                    : which == 2 ? JointPresets::SpawnSpinner(scene, assets, at)
                    : which == 3 ? JointPresets::SpawnWreckingBall(scene, assets, at)
                    : which == 4 ? WaterPresets::SpawnWater(scene, assets, at + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(10.0f, 2.0f, 10.0f))
-                   : WaterPresets::SpawnPool(scene, assets, at);
+                   : which == 5 ? WaterPresets::SpawnPool(scene, assets, at)
+                   : CharacterPresets::SpawnRagdoll(scene, assets, at, glm::angleAxis(std::atan2(-forward.x, -forward.z), glm::vec3(0.0f, 1.0f, 0.0f)));
+    if (!spawned.IsValid())
+        return spawned;
     scene.Update(0.0f);
     DeselectEntity();
     SelectEntity(spawned.RawId());
@@ -776,7 +779,7 @@ void EditorApp::DrawSceneOverlay(ViewportWindow& window)
 {
     DrawCameraFrustums(window);
     PhysicsEditor::DrawColliders(scene, selectedEntity, physicsWindow->showAllColliders, cam->Projection() * cam->View(),
-                                 window.ImageMin(), window.ImageMax() - window.ImageMin());
+                                 window.ImageMin(), window.ImageMax() - window.ImageMin(), physics.get());
     // Jolt's own view of the simulation, while there is one.
     PhysicsDebugDraw debugDraw = physicsWindow->debugDrawSettings;
     if (!physicsWindow->debugDraw || !gameClock.IsPlaying())
@@ -1069,6 +1072,8 @@ void EditorApp::DrawTopMenu()
                 ImGui::Separator();
                 if (ImGui::MenuItem("Water")) SpawnJointPreset(4);
                 if (ImGui::MenuItem("Water Pool")) SpawnJointPreset(5);
+                ImGui::Separator();
+                if (ImGui::MenuItem("Ragdoll (dancing)")) SpawnJointPreset(6);
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Vehicle"))

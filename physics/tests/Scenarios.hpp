@@ -7,6 +7,7 @@
 #include <Mariana/Physics/Components.hpp>
 #include <Mariana/Physics/Joint.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
+#include <Mariana/Physics/Ragdoll.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
 #include <Mariana/Physics/Water.hpp>
 #include <Mariana/Scene/ECS.hpp>
@@ -282,10 +283,60 @@ namespace PhysicsScenarios
                       std::abs(floating - 4.0f) < 0.01f && std::abs(sunk - 0.25f) < 0.02f);
     }
 
+    // A limp ragdoll of a 1.8 m skeleton (Mixamo's bone names, a T-pose, no skin) dropped from 2 m
+    // comes to rest on the ground: nothing below it, nothing still standing.
+    inline Result RagdollFall(const Log& log)
+    {
+        using namespace detail;
+        Scene scene;
+        scene.UpdateComponentRegistry();
+        PhysicsWorld world(scene, Settings());
+        Box(scene, "Ground", glm::vec3(0.0f, -0.5f, 0.0f), glm::vec3(40.0f, 1.0f, 40.0f), MotionType::Static, 0.0f);
+        Entity model = Make(scene, "Model", glm::vec3(0.0f));
+        Ragdoll ragdoll;
+        ragdoll.mode = RagdollMode::Limp;
+        model.Add<Ragdoll>(ragdoll);
+        std::vector<Entity> bones;
+        auto bone = [&](const char* name, Entity parent, glm::vec3 at) { Entity e = Make(scene, name, at, parent); bones.push_back(e); return e; };
+        Entity hips = bone("mixamorig:Hips", model, glm::vec3(0.0f, 3.0f, 0.0f));
+        Entity spine = bone("mixamorig:Spine", hips, glm::vec3(0.0f, 0.12f, 0.0f));
+        Entity spine1 = bone("mixamorig:Spine1", spine, glm::vec3(0.0f, 0.14f, 0.0f));
+        Entity spine2 = bone("mixamorig:Spine2", spine1, glm::vec3(0.0f, 0.14f, 0.0f));
+        Entity neck = bone("mixamorig:Neck", spine2, glm::vec3(0.0f, 0.16f, 0.0f));
+        Entity head = bone("mixamorig:Head", neck, glm::vec3(0.0f, 0.1f, 0.0f));
+        bone("mixamorig:HeadTop_End", head, glm::vec3(0.0f, 0.2f, 0.0f));
+        for (float side : { 1.0f, -1.0f })
+        {
+            const bool left = side > 0.0f;
+            Entity shoulder = bone(left ? "mixamorig:LeftShoulder" : "mixamorig:RightShoulder", spine2, glm::vec3(0.05f * side, 0.1f, 0.0f));
+            Entity arm = bone(left ? "mixamorig:LeftArm" : "mixamorig:RightArm", shoulder, glm::vec3(0.12f * side, 0.0f, 0.0f));
+            Entity forearm = bone(left ? "mixamorig:LeftForeArm" : "mixamorig:RightForeArm", arm, glm::vec3(0.28f * side, 0.0f, 0.0f));
+            Entity hand = bone(left ? "mixamorig:LeftHand" : "mixamorig:RightHand", forearm, glm::vec3(0.26f * side, 0.0f, 0.0f));
+            bone(left ? "mixamorig:LeftHandMiddle1" : "mixamorig:RightHandMiddle1", hand, glm::vec3(0.1f * side, 0.0f, 0.0f));
+            Entity thigh = bone(left ? "mixamorig:LeftUpLeg" : "mixamorig:RightUpLeg", hips, glm::vec3(0.1f * side, -0.06f, 0.0f));
+            Entity shin = bone(left ? "mixamorig:LeftLeg" : "mixamorig:RightLeg", thigh, glm::vec3(0.0f, -0.42f, 0.0f));
+            Entity foot = bone(left ? "mixamorig:LeftFoot" : "mixamorig:RightFoot", shin, glm::vec3(0.0f, -0.42f, 0.0f));
+            bone(left ? "mixamorig:LeftToeBase" : "mixamorig:RightToeBase", foot, glm::vec3(0.0f, -0.06f, 0.14f));
+        }
+        scene.Update(0.0f);
+        const size_t planned = PlanRagdoll(scene, model).size();
+        Run(scene, world, 60 * 5);
+        RagdollInfo info;
+        const bool made = world.GetRagdollInfo(model, info);
+        float lowest = 1e9f, highest = -1e9f;
+        for (const RagdollInfo::Bone& b : info.bones)
+        {
+            lowest = std::min({ lowest, b.a.y - b.radius, b.b.y - b.radius });
+            highest = std::max({ highest, b.a.y + b.radius, b.b.y + b.radius });
+        }
+        return Finish(log, "ragdoll", Format("%.0f bodies (of %.0f bones); after 5 s its lowest point at y %.3f, highest %.3f", static_cast<double>(info.bones.size()), static_cast<double>(bones.size()), lowest, highest),
+                      made && planned == 18 && info.bones.size() == 18 && lowest > -0.02f && highest < 0.6f);
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         std::vector<Result> results;
-        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &Water })
+        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &Water, &RagdollFall })
             results.push_back(scenario(log));
         return results;
     }

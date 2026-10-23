@@ -6,6 +6,7 @@
 #include <Mariana/Physics/Character.hpp>
 #include <Mariana/Physics/Joint.hpp>
 #include <Mariana/Physics/Water.hpp>
+#include <Mariana/Physics/Ragdoll.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
 #include <memory>
@@ -75,7 +76,7 @@ public:
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
 
     // RigidBody, the colliders, Joint, Vehicle, VehicleWheel, CharacterController, PlayerControl,
-    // FollowCamera and WaterVolume, also in scene files (SceneFile); call before
+    // FollowCamera, WaterVolume and Ragdoll, also in scene files (SceneFile); call before
     // Scene::UpdateComponentRegistry.
     static void RegisterComponents();
 
@@ -133,6 +134,11 @@ public:
     // A vehicle's or a character's state while it runs (false when the entity has none).
     bool GetVehicleInfo(Entity entity, VehicleInfo& info) const;
     bool GetCharacterInfo(Entity entity, CharacterInfo& info) const;
+    // Ragdolls: switching how one moves (which also wakes one that was knocked limp), pushing one
+    // (a bone's body, or for the model's root its hips) and what it is doing.
+    void SetRagdollMode(Entity root, RagdollMode mode);
+    bool AddRagdollImpulse(Entity entity, const glm::vec3& impulse);
+    bool GetRagdollInfo(Entity root, RagdollInfo& info) const;
     // The water a point is in and its surface there (false when it is in none).
     bool WaterAt(const glm::vec3& point, WaterSurface& surface) const;
     // A joint's state (false when the entity has no Joint).

@@ -26,7 +26,8 @@ namespace PhysicsEditor
 
     // Collider outlines over a viewport image (`imageMin`, `imageSize` in screen pixels): those of
     // `selected` and everything below it, or of every entity when `all`.
-    void DrawColliders(const Scene& scene, Entity selected, bool all, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize);
+    // Ragdolls show their capsules: as they will be made, or with `world` running, as they are.
+    void DrawColliders(const Scene& scene, Entity selected, bool all, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize, const PhysicsWorld* world = nullptr);
     // Dots on the selected entity's own box, sphere, capsule and cylinder colliders: drag one to move
     // that face (the opposite one stays; with Shift both move), or a round collider's radius. Each
     // drag is one undo step. True while a dot is under the mouse or being dragged (so the click is

@@ -453,9 +453,10 @@ void Animator::Update(Entity root, float dt)
     else
         AdvanceClips(delta);
 
-    // Paused or held at the end: the pose is already written.
-    if (!StateChanged(useGraph))
+    // Paused or held at the end: the pose is already written (unless something else moved the bones).
+    if (!StateChanged(useGraph) && !m_Refresh)
         return;
+    m_Refresh = false;
 
     if (useGraph)
         EvaluateNode(m_BoundGraph->output, m_Pose, 0);

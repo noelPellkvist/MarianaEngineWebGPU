@@ -1,4 +1,5 @@
 #include <Mariana/Graphics/Shader.hpp>
+#include <algorithm>
 #include <Mariana/Foundation/Logger.hpp>
 #include "Graphics/Init.hpp"
 #include <webgpu/webgpu_cpp.h>
@@ -394,8 +395,18 @@ Shader2& Shader2::Build(bool shadow)
             descriptor.multisample.alphaToCoverageEnabled = false;
         }
 
-        // Blended surfaces: premultiplied alpha over what is there, depth tested but not written.
-        if (descriptor.fragment && !colorTargetStates.empty())
+        // Blended surfaces: premultiplied alpha over what is there, depth tested but not written
+        // (not in passes with integer targets, which can't blend: the prepass's entity ids).
+        auto blendable = [](wgpu::TextureFormat f) {
+            using F = wgpu::TextureFormat;
+            for (F integer : { F::R8Uint, F::R8Sint, F::R16Uint, F::R16Sint, F::R32Uint, F::R32Sint, F::RG8Uint, F::RG8Sint, F::RG16Uint, F::RG16Sint,
+                               F::RG32Uint, F::RG32Sint, F::RGBA8Uint, F::RGBA8Sint, F::RGBA16Uint, F::RGBA16Sint, F::RGBA32Uint, F::RGBA32Sint, F::RGB10A2Uint })
+                if (f == integer)
+                    return false;
+            return true;
+        };
+        if (descriptor.fragment && !colorTargetStates.empty() &&
+            std::all_of(colorTargetStates.begin(), colorTargetStates.end(), [&](const wgpu::ColorTargetState& t) { return blendable(t.format); }))
         {
             const wgpu::BlendComponent over{ .operation = wgpu::BlendOperation::Add, .srcFactor = wgpu::BlendFactor::One, .dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha };
             const wgpu::BlendState blend{ .color = over, .alpha = over };

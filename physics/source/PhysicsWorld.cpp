@@ -303,6 +303,10 @@ void PhysicsWorld::Impl::RemoveBody(JPH::BodyID& id)
 
 void PhysicsWorld::Impl::RemoveAll()
 {
+    for (auto& [id, ragdoll] : ragdolls)
+        RemoveRagdoll(ragdoll);
+    ragdolls.clear();
+    ragdollBones.clear();
     for (auto& [id, joint] : joints)
         RemoveJoint(joint);
     joints.clear();
@@ -599,6 +603,7 @@ void PhysicsWorld::Impl::Sync()
     SyncVehicles();
     SyncCharacters();
     SyncJoints();
+    SyncRagdolls();
 }
 
 void PhysicsWorld::Impl::MoveKinematics(float dt)
@@ -761,6 +766,9 @@ void PhysicsWorld::Impl::TrackPoses()
         record.currentYaw = record.yaw;
         record.tracked = true;
     }
+    for (auto& [id, ragdoll] : ragdolls)
+        if (ragdoll.ragdoll)
+            TrackRagdoll(ragdoll, false);
 }
 
 // Dynamic bodies move their entities (in their parent's space, parents first so a nested body is
@@ -823,10 +831,13 @@ void PhysicsWorld::Impl::Step(float dt)
         MoveCharacters(step);
         DriveJoints();
         ApplyBuoyancy(step);
+        DriveRagdolls(step);
         system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
         waterTime += step;
         TrackPoses();
+        const size_t eventsBefore = events.size();
         ProcessContacts();
+        CheckRagdollImpacts(eventsBefore);
         CheckJoints(step);
         accumulator -= step;
         ++steps;
@@ -846,6 +857,7 @@ void PhysicsWorld::Impl::Step(float dt)
     WriteBack(alpha);
     WriteWheels();
     WriteCharacters(alpha, steps > 0);
+    WriteRagdolls(alpha);
 }
 
 JPH::BodyID PhysicsWorld::Impl::BodyOf(Entity entity) const
@@ -883,6 +895,7 @@ void PhysicsWorld::RegisterComponents()
     ECS::RegisterComponent<CharacterController>("CharacterController");
     ECS::RegisterComponent<Joint>("Joint");
     ECS::RegisterComponent<WaterVolume>("WaterVolume");
+    ECS::RegisterComponent<Ragdoll>("Ragdoll");
     RegisterSerializers();
 }
 
@@ -914,6 +927,7 @@ void PhysicsWorld::ShowLatest()
     m_Impl->WriteBack(1.0f);
     m_Impl->WriteWheels();
     m_Impl->WriteCharacters(1.0f, false);
+    m_Impl->WriteRagdolls(1.0f);
 }
 
 void PhysicsWorld::Reset()

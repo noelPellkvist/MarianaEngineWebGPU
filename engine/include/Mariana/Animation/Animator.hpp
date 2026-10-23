@@ -122,6 +122,9 @@ struct Animator
 
     // The last pose written, by skeleton bone.
     const Pose& GetPose() const { return m_Pose; }
+    // Writes the whole pose to the bones at the next update even if nothing changed (after
+    // something else moved them, a ragdoll say).
+    void Refresh() { m_Refresh = true; }
     // Bones that have an entity below the root, and tracks of the current clip that found a bone.
     size_t BoundBones() const { return m_BoundBones; }
     size_t BoundTracks() const;
@@ -187,6 +190,7 @@ private:
     };
     std::vector<PendingState> m_PendingStates; // asked for before the graph was bound
     bool m_Preview = false;
+    bool m_Refresh = false;
     std::vector<Pose> m_Scratch;
     Pose m_Pose;
     std::vector<float> m_State;   // what the pose was made from (clips, times, parameters)

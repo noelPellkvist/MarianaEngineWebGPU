@@ -8,6 +8,7 @@
 #include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/Water.hpp>
+#include <Mariana/Physics/Ragdoll.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <imgui.h>
 
@@ -273,6 +274,24 @@ namespace
     }
 
     // A character's capsule standing on its entity's origin.
+    // A capsule from `a` to `b` (its spheres' centres), as rings and lines.
+    void DrawCapsule(const Painter& painter, const glm::vec3& a, const glm::vec3& b, float r, ImU32 color)
+    {
+        glm::vec3 axis = b - a;
+        const float length = glm::length(axis);
+        axis = length > 1e-5f ? axis / length : glm::vec3(0.0f, 1.0f, 0.0f);
+        glm::vec3 x = glm::cross(axis, std::abs(axis.y) < 0.9f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f));
+        x = glm::normalize(x);
+        const glm::vec3 z = glm::cross(x, axis);
+        const float pi = glm::pi<float>(), twoPi = glm::two_pi<float>();
+        painter.Arc(a, x, z, r, 0.0f, twoPi, color, 16);
+        painter.Arc(b, x, z, r, 0.0f, twoPi, color, 16);
+        for (const glm::vec3& side : { x, -x, z, -z })
+            painter.Line(a + side * r, b + side * r, color);
+        painter.Arc(b, x, axis, r, 0.0f, pi, color, 8);
+        painter.Arc(a, x, axis, r, pi, twoPi, color, 8);
+    }
+
     void DrawCharacter(const Painter& painter, const glm::mat4& world, const CharacterController& c)
     {
         const ImU32 color = IM_COL32(120, 200, 255, 230);
@@ -910,6 +929,61 @@ namespace PhysicsEditor
             ImGui::PopID();
         });
 
+        inspector.SetComponentDrawer("Ragdoll", [&inspector, &undo, &world, &scene](Entity& entity) {
+            ImGui::PushID("Ragdoll");
+            if (Section<Ragdoll>(inspector, undo, entity, "Ragdoll"))
+            {
+                EditComponent<Ragdoll>(entity, undo, "Edit Ragdoll", [&](Ragdoll& r) {
+                    const char* const modes[] = { "Animated", "Powered", "Limp" };
+                    int mode = static_cast<int>(r.mode);
+                    bool changed = false;
+                    if (ImGui::Combo("Mode", &mode, modes, 3))
+                    {
+                        r.mode = static_cast<RagdollMode>(mode);
+                        changed = true;
+                    }
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Animated: follows the animation (kinematic)\nPowered: motors hold the animated pose, knocks move it\nLimp: falls");
+                    changed |= ImGui::DragFloat("Mass", &r.mass, 0.5f, 1.0f, 2000.0f, "%.1f kg");
+                    changed |= ImGui::DragFloat("Strength", &r.strength, 5.0f, 0.0f, 100000.0f, "%.0f N m");
+                    changed |= ImGui::DragFloat("Limp On Impact", &r.limpOnImpact, 0.05f, 0.0f, 100.0f, r.limpOnImpact > 0.0f ? "%.2f m/s" : "never");
+                    changed |= ImGui::SliderFloat("Friction", &r.friction, 0.0f, 2.0f, "%.2f");
+                    changed |= ImGui::SliderFloat("Joint Limits", &r.jointLimitScale, 0.1f, 2.0f, "x %.2f");
+                    int layer = static_cast<int>(r.layer);
+                    if (ImGui::InputInt("Layer", &layer))
+                    {
+                        r.layer = static_cast<uint32_t>(std::clamp(layer, 0, PhysicsSettings::kMaxLayers - 1));
+                        changed = true;
+                    }
+                    return changed;
+                });
+                RagdollInfo info;
+                if (world.GetRagdollInfo(entity, info))
+                {
+                    const char* const names[] = { "following the animation", "powered", "limp" };
+                    const Ragdoll* r = entity.TryGet<Ragdoll>();
+                    const bool knocked = r && r->mode != RagdollMode::Limp && info.mode == RagdollMode::Limp;
+                    ImGui::TextDisabled("%zu bodies, %s%s", info.bones.size(), names[std::min<int>(static_cast<int>(info.mode), 2)],
+                                        knocked ? " (knocked out: pick another mode and back to get up)" : "");
+                }
+                else
+                {
+                    const std::vector<RagdollBone> plan = PlanRagdoll(scene, entity);
+                    ImGui::TextDisabled("%zu bodies when playing", plan.size());
+                    if (!plan.empty() && ImGui::TreeNode("Bones"))
+                    {
+                        for (const RagdollBone& b : plan)
+                            ImGui::TextDisabled("%s  r %.3f  %.2f m", b.name.c_str(), b.radius, glm::length(b.b - b.a));
+                        ImGui::TreePop();
+                    }
+                }
+            }
+            ImGui::PopID();
+        });
+        inspector.AddComponentOption({ "Physics", "Ragdoll",
+            [](Entity e) { return !e.TryGet<Ragdoll>(); },
+            [&undo](Entity e) { AddWithUndo(undo, e, "Ragdoll", Ragdoll{}); } });
+
         inspector.AddComponentOption({ "Physics", "Water Volume",
             [](Entity e) { return !e.TryGet<WaterVolume>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Water Volume", WaterVolume{}); } });
@@ -962,29 +1036,43 @@ namespace PhysicsEditor
             } });
     }
 
-    void DrawColliders(const Scene& scene, Entity selected, bool all, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize)
+    void DrawColliders(const Scene& scene, Entity selected, bool all, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize, const PhysicsWorld* world)
     {
         const Painter painter{ ImGui::GetWindowDrawList(), viewProj, imageMin, imageSize };
         auto draw = [&](Entity entity) {
-            const WorldXform* world = entity.TryGet<WorldXform>();
-            if (!world)
+            const WorldXform* transform = entity.TryGet<WorldXform>();
+            if (!transform)
                 return;
             if (const VehicleWheel* wheel = entity.TryGet<VehicleWheel>())
             {
-                DrawWheel(painter, glm::make_mat4(world->model), *wheel);
+                DrawWheel(painter, glm::make_mat4(transform->model), *wheel);
                 return;
             }
             if (const CharacterController* character = entity.TryGet<CharacterController>())
             {
-                DrawCharacter(painter, glm::make_mat4(world->model), *character);
+                DrawCharacter(painter, glm::make_mat4(transform->model), *character);
                 return;
             }
             if (const WaterVolume* water = entity.TryGet<WaterVolume>())
-                DrawWater(painter, glm::make_mat4(world->model), *water);
+                DrawWater(painter, glm::make_mat4(transform->model), *water);
+            if (entity.TryGet<Ragdoll>())
+            {
+                RagdollInfo info;
+                if (world && world->GetRagdollInfo(entity, info))
+                {
+                    for (const RagdollInfo::Bone& b : info.bones)
+                        DrawCapsule(painter, b.a, b.b, b.radius, b.touching ? IM_COL32(255, 120, 60, 240) : IM_COL32(255, 190, 70, 220));
+                }
+                else
+                {
+                    for (const RagdollBone& b : PlanRagdoll(scene, entity))
+                        DrawCapsule(painter, b.a, b.b, b.radius, IM_COL32(255, 210, 120, 160));
+                }
+            }
             if (const Joint* joint = entity.TryGet<Joint>())
-                DrawJoint(painter, scene, glm::make_mat4(world->model), *joint);
+                DrawJoint(painter, scene, glm::make_mat4(transform->model), *joint);
             if (HasCollider(entity))
-                ForEachCollider(entity, glm::make_mat4(world->model), [&](const ColliderGeometry& g) { DrawGeometry(painter, g); });
+                ForEachCollider(entity, glm::make_mat4(transform->model), [&](const ColliderGeometry& g) { DrawGeometry(painter, g); });
         };
         if (all)
         {

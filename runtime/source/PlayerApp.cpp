@@ -277,6 +277,8 @@ void PlayerApp::OnStart()
                 JointPresets::SpawnWreckingBall(scene, assets, spawn.position);
             else if (spawn.preset == "pool")
                 WaterPresets::SpawnPool(scene, assets, spawn.position);
+            else if (spawn.preset == "ragdoll")
+                CharacterPresets::SpawnRagdoll(scene, assets, spawn.position, glm::quat(glm::radians(spawn.rotation)));
             else
                 Logger::Error("Unknown preset " + spawn.preset);
             continue;

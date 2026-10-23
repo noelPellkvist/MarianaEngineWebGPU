@@ -7,6 +7,7 @@
 #include <Mariana/Physics/Character.hpp>
 #include <Mariana/Physics/Joint.hpp>
 #include <Mariana/Physics/Water.hpp>
+#include <Mariana/Physics/Ragdoll.hpp>
 
 #include "JoltCommon.hpp"
 #include "Shapes.hpp"
@@ -19,6 +20,8 @@
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/Collision/GroupFilter.h>
 #include <Jolt/Physics/Constraints/TwoBodyConstraint.h>
+#include <Jolt/Physics/Ragdoll/Ragdoll.h>
+#include <Jolt/Skeleton/SkeletonPose.h>
 
 #include <memory>
 #include <mutex>
@@ -238,6 +241,32 @@ struct PhysicsWorld::Impl
         glm::vec3 boundsMin{ 0.0f }, boundsMax{ 0.0f };
     };
 
+    // A ragdoll on a model's root: Jolt's ragdoll (bodies in PlanRagdoll's order, parents first),
+    // each bone's entity, capsule and the poses of its last two steps, and how it moves now.
+    struct RagdollRecord
+    {
+        struct Bone
+        {
+            uint64_t entity = 0;
+            JPH::BodyID body;
+            float radius = 0.0f;
+            glm::vec3 localA{ 0.0f }, localB{ 0.0f }; // the capsule's ends in the body's frame
+            LocalTRS rest{};                          // its transform when made (a pose without an Animator)
+            glm::vec3 previousPosition{ 0.0f }, currentPosition{ 0.0f };
+            glm::quat previousRotation{ 1.0f, 0.0f, 0.0f, 0.0f }, currentRotation{ 1.0f, 0.0f, 0.0f, 0.0f };
+        };
+        uint64_t root = 0;
+        JPH::Ref<JPH::RagdollSettings> settings;
+        JPH::Ref<JPH::Ragdoll> ragdoll;
+        std::vector<Bone> bones;
+        uint64_t signature = 0;
+        RagdollMode mode = RagdollMode::Powered; // as applied to the bodies and motors
+        float strength = 0.0f;
+        bool knockedOut = false; // hit too hard: limp until the mode is set again
+        RagdollMode asked = RagdollMode::Powered; // the component's mode last step (a change gets it up)
+        bool seen = false;
+    };
+
     struct Touching
     {
         JPH::BodyID body1, body2;
@@ -278,6 +307,9 @@ struct PhysicsWorld::Impl
     JPH::Ref<PhysicsInternal::JointCollisionFilter> jointFilter; // made with the first system (Jolt's allocator is set up then)
     std::vector<Entity> brokenJoints;
     std::vector<WaterRecord> waters; // found by Collect
+    std::unordered_map<uint64_t, RagdollRecord> ragdolls; // per model root
+    std::unordered_map<uint64_t, uint64_t> ragdollBones;  // bone entity -> its ragdoll's root
+    uint32_t ragdollGroups = 0;
     float waterTime = 0.0f;          // simulated seconds, for the waves
     // Debug drawing of contacts: wanted by the last DebugDraw call, drawn by Jolt during steps.
     bool drawContacts = false;
@@ -315,6 +347,16 @@ struct PhysicsWorld::Impl
     // The water a point is in (within its sides and depth, waves included), or null.
     const WaterRecord* WaterAt(const glm::vec3& point) const;
     void ApplyBuoyancy(float dt);
+    void SyncRagdolls();
+    void BuildRagdoll(Entity root, const Ragdoll& settings, RagdollRecord& record);
+    void RemoveRagdoll(RagdollRecord& record);
+    // The ragdoll's bones where the animation has them (world space).
+    bool TargetPose(const RagdollRecord& record, JPH::SkeletonPose& pose);
+    void DriveRagdolls(float dt);
+    // Contact events from `firstEvent` on that knock a ragdoll out.
+    void CheckRagdollImpacts(size_t firstEvent);
+    void TrackRagdoll(RagdollRecord& record, bool place);
+    void WriteRagdolls(float alpha);
     // Scrolls the normal maps of the water's meshes (the surface).
     void RippleWater();
     // After each step: the poses moving bodies and characters reached, for interpolation.

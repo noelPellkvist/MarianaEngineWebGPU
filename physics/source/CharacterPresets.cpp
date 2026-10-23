@@ -1,4 +1,7 @@
 #include <Mariana/Physics/CharacterPresets.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
+#include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Scene/Prefab.hpp>
 
 #include <Mariana/Physics/Character.hpp>
 #include <Mariana/Physics/Controllers.hpp>
@@ -63,6 +66,25 @@ namespace CharacterPresets
         trigger.isTrigger = true;
         zone.Add<BoxCollider>(trigger);
         Part(scene, assets, zone, BuiltinMesh::Cube, "Pad", glm::vec3(0.3f, 0.85f, 0.9f), glm::vec3(0.0f, -0.99f, 0.0f), kIdentity, glm::vec3(3.0f, 0.02f, 3.0f), Solid::None);
+        return root;
+    }
+
+    Entity SpawnRagdoll(Scene& scene, AssetManager2& assets, const glm::vec3& position, const glm::quat& rotation, RagdollMode mode, const std::string& model)
+    {
+        const std::filesystem::path file = FileSystem::Resolve(model);
+        std::shared_ptr<Prefab> prefab = file.empty() ? nullptr : assets.Load<Prefab>(file).Get();
+        if (!prefab)
+        {
+            Logger::Warning("SpawnRagdoll: couldn't load " + model);
+            return {};
+        }
+        Entity root = scene.Instantiate(*prefab, file.stem().string().c_str());
+        root.SetPosition(position.x, position.y, position.z);
+        root.SetRotationQuat(rotation.x, rotation.y, rotation.z, rotation.w);
+        Ragdoll ragdoll;
+        ragdoll.mode = mode;
+        root.Add<Ragdoll>(ragdoll);
+        scene.Update(0.0f);
         return root;
     }
 }

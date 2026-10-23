@@ -135,6 +135,15 @@ namespace PhysicsInternal
             a.Field("waveSpeed", w.waveSpeed);
             a.Field("rippleSpeed", w.rippleSpeed);
         });
+        SceneFile::RegisterComponent<Ragdoll>("Ragdoll", [](SceneArchive& a, Ragdoll& r) {
+            a.Field("mode", r.mode, { "Animated", "Powered", "Limp" });
+            a.Field("mass", r.mass);
+            a.Field("strength", r.strength);
+            a.Field("limpOnImpact", r.limpOnImpact);
+            a.Field("friction", r.friction);
+            a.Field("jointLimitScale", r.jointLimitScale);
+            a.Field("layer", r.layer);
+        });
         SceneFile::RegisterComponent<Joint>("Joint", [](SceneArchive& a, Joint& j) {
             a.Field("type", j.type, { "Fixed", "Point", "Distance", "Hinge", "Slider", "Cone", "SwingTwist", "SixDOF" });
             a.Field("connected", j.connected);
