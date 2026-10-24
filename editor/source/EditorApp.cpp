@@ -645,14 +645,28 @@ void EditorApp::DrawScenePopups()
 
 void EditorApp::BuildStartupScene()
 {
-    // Until scenes can be saved: the vehicle playground with the concept car (or the primitive car
-    // when the project doesn't have it) and a chase camera for the Game view.
+    // What the Sandbox's Playground.scene was saved from: the vehicle playground with the concept car
+    // (or the primitive car when the project doesn't have it) and a chase camera for the Game view,
+    // three dancers in the car's way (thrown when it hits them), a pool to its right with jellies on
+    // the way there, and a flag on its left.
     VehiclePresets::SpawnPlayground(scene, assets, glm::vec3(0.0f));
     scene.Update(0.0f);
     Entity car = VehiclePresets::SpawnCar(scene, assets, "/Models/CarConcept/CarConcept.gltf", glm::vec3(0.0f));
     if (!car.IsValid())
         car = VehiclePresets::Spawn(scene, assets, VehicleType::Wheeled, glm::vec3(0.0f, 1.0f, 0.0f));
     AddChaseCamera(FollowCamera{}.distance, FollowCamera{}.height, FollowCamera{}.lookHeight);
+    const glm::quat facingCar = glm::angleAxis(glm::pi<float>(), glm::vec3(0.0f, 1.0f, 0.0f));
+    for (const glm::vec3& at : { glm::vec3(0.0f, 0.0f, 14.0f), glm::vec3(-0.9f, 0.0f, 16.0f), glm::vec3(0.9f, 0.0f, 16.0f) })
+        if (Entity dancer = CharacterPresets::SpawnRagdoll(scene, assets, at, facingCar); dancer.IsValid())
+        {
+            Ragdoll* ragdoll = dancer.Get<Ragdoll>();
+            ragdoll->knockback = 1.6f;
+            ragdoll->knockbackLift = 0.6f;
+        }
+    WaterPresets::SpawnPool(scene, assets, glm::vec3(15.0f, 0.0f, 4.0f));
+    SoftBodyPresets::SpawnJelly(scene, assets, glm::vec3(3.5f, 0.0f, 6.0f));
+    SoftBodyPresets::SpawnJelly(scene, assets, glm::vec3(5.0f, 0.0f, 4.5f));
+    SoftBodyPresets::SpawnFlag(scene, assets, glm::vec3(-5.0f, 0.0f, 8.0f), facingCar);
     scene.Update(0.0f);
     DeselectEntity();
     savedUndoVersion = undo.Version();

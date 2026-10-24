@@ -1,7 +1,8 @@
 {
   "version": 1,
   "dependencies": [
-    "/Models/CarConcept/CarConcept.gltf"
+    "/Models/CarConcept/CarConcept.gltf",
+    "/Models/Rumba.glb"
   ],
   "materials": [
     {
@@ -698,6 +699,554 @@
       "alphaMode": "Opaque",
       "alphaCutoff": 0.5,
       "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Floor Material",
+      "baseColor": [
+        0.25,
+        0.45,
+        0.5,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Wall N Material",
+      "baseColor": [
+        0.62,
+        0.62,
+        0.6,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Wall S Material",
+      "baseColor": [
+        0.62,
+        0.62,
+        0.6,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Wall E Material",
+      "baseColor": [
+        0.62,
+        0.62,
+        0.6,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Wall W Material",
+      "baseColor": [
+        0.62,
+        0.62,
+        0.6,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Ramp Material",
+      "baseColor": [
+        0.62,
+        0.62,
+        0.6,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Surface Material",
+      "baseColor": [
+        0.03,
+        0.17,
+        0.2,
+        0.6
+      ],
+      "metallic": 0.0,
+      "roughness": 0.06,
+      "normalStrength": 0.5,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Blend",
+      "alphaCutoff": 0.5,
+      "doubleSided": true,
+      "textures": {
+        "normal": {
+          "asset": "builtin://texture/water_normal",
+          "uvSet": 0,
+          "wrapU": "Repeat",
+          "wrapV": "Repeat",
+          "magFilter": "Linear",
+          "minFilter": "Linear",
+          "mipFilter": "Linear",
+          "mipmaps": true,
+          "offset": [
+            0.0,
+            0.0
+          ],
+          "rotation": 0.0,
+          "scale": [
+            4.666667,
+            4.666667
+          ]
+        }
+      }
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.55,
+        0.36,
+        0.18,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.55,
+        0.36,
+        0.18,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.55,
+        0.36,
+        0.18,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Crate Material",
+      "baseColor": [
+        0.55,
+        0.36,
+        0.18,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Log Material",
+      "baseColor": [
+        0.36,
+        0.24,
+        0.13,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Steel Ball Material",
+      "baseColor": [
+        0.3,
+        0.3,
+        0.3,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Plank Material",
+      "baseColor": [
+        0.36,
+        0.24,
+        0.13,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Plank Material",
+      "baseColor": [
+        0.55,
+        0.36,
+        0.18,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Plank Material",
+      "baseColor": [
+        0.36,
+        0.24,
+        0.13,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Plank Material",
+      "baseColor": [
+        0.55,
+        0.36,
+        0.18,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Plank Material",
+      "baseColor": [
+        0.36,
+        0.24,
+        0.13,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Pole Material",
+      "baseColor": [
+        0.75,
+        0.75,
+        0.75,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 1.0,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": false,
+      "textures": {}
+    },
+    {
+      "name": "Flag Cloth Material",
+      "baseColor": [
+        0.8,
+        0.1,
+        0.08,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.8,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": true,
+      "textures": {}
+    },
+    {
+      "name": "Jelly Material",
+      "baseColor": [
+        0.3,
+        0.85,
+        0.25,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.25,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": true,
+      "textures": {}
+    },
+    {
+      "name": "Jelly Material",
+      "baseColor": [
+        0.3,
+        0.85,
+        0.25,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.25,
+      "normalStrength": 1.0,
+      "occlusionStrength": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.0,
+      "alphaMode": "Opaque",
+      "alphaCutoff": 0.5,
+      "doubleSided": true,
       "textures": {}
     }
   ],
@@ -1714,7 +2263,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -1797,7 +2347,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -1880,7 +2431,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -1963,7 +2515,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -2046,7 +2599,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -2129,7 +2683,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -2212,7 +2767,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -2295,7 +2851,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -2378,7 +2935,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -2461,7 +3019,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -2544,7 +3103,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -2627,7 +3187,8 @@
             0.0,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "BoxCollider": {
           "center": [
@@ -2658,6 +3219,1428 @@
     },
     {
       "id": 30,
+      "name": "Pool",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            15.0,
+            0.0,
+            4.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      }
+    },
+    {
+      "id": 31,
+      "name": "Floor",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            -0.2,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            15.2,
+            0.4,
+            15.2
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/29"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 32,
+      "name": "Wall N",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            1.1,
+            7.3
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            15.2,
+            2.2,
+            0.6
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/30"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 33,
+      "name": "Wall S",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            1.1,
+            -7.3
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            15.2,
+            2.2,
+            0.6
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/31"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 34,
+      "name": "Wall E",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            7.3,
+            1.1,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.6,
+            2.2,
+            14.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/32"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 35,
+      "name": "Wall W",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -7.3,
+            1.1,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.6,
+            2.2,
+            14.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/33"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 36,
+      "name": "Ramp",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.903279,
+            -13.563935
+          ],
+          "rotation": [
+            -0.090536,
+            -0.0,
+            -0.0,
+            0.995893
+          ],
+          "scale": [
+            6.0,
+            0.4,
+            12.2
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/34"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 37,
+      "name": "Water",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": true,
+          "size": [
+            14.0,
+            2.0,
+            14.0
+          ]
+        },
+        "WaterVolume": {
+          "size": [
+            14.0,
+            2.0,
+            14.0
+          ],
+          "density": 1000.0,
+          "linearDrag": 0.5,
+          "angularDrag": 0.05,
+          "damping": 1.0,
+          "flow": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "waveHeight": 0.06,
+          "waveLength": 6.0,
+          "waveSpeed": 1.5,
+          "rippleSpeed": [
+            0.04,
+            0.025
+          ]
+        }
+      }
+    },
+    {
+      "id": 38,
+      "name": "Surface",
+      "parent": 37,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.4,
+            1.0,
+            1.4
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Plane",
+          "materials": [
+            "#material/35"
+          ]
+        }
+      }
+    },
+    {
+      "id": 39,
+      "name": "Crate",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.5,
+            2.5,
+            2.5
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/36"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 0.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true,
+          "buoyancy": 1.0
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 500.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 40,
+      "name": "Crate",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.5,
+            2.5,
+            2.5
+          ],
+          "rotation": [
+            0.0,
+            0.173648,
+            0.0,
+            0.984808
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/37"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 0.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true,
+          "buoyancy": 1.0
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 500.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 41,
+      "name": "Crate",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.5,
+            2.5,
+            -2.5
+          ],
+          "rotation": [
+            0.0,
+            0.34202,
+            0.0,
+            0.939693
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/38"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 0.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true,
+          "buoyancy": 1.0
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 500.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 42,
+      "name": "Crate",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.5,
+            2.5,
+            -2.5
+          ],
+          "rotation": [
+            0.0,
+            0.5,
+            0.0,
+            0.866025
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/39"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 0.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true,
+          "buoyancy": 1.0
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 500.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 43,
+      "name": "Log",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.5,
+            4.5
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.707107,
+            0.707107
+          ],
+          "scale": [
+            0.6,
+            3.0,
+            0.6
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cylinder",
+          "materials": [
+            "#material/40"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 0.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true,
+          "buoyancy": 1.0
+        },
+        "CylinderCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 600.0,
+          "trigger": false,
+          "radius": 0.5,
+          "height": 1.0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 44,
+      "name": "Steel Ball",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -4.5,
+            2.6,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Sphere",
+          "materials": [
+            "#material/41"
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 0.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true,
+          "buoyancy": 1.0
+        },
+        "SphereCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 7800.0,
+          "trigger": false,
+          "radius": 0.5
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 45,
+      "name": "Raft",
+      "parent": 30,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            3.8,
+            2.3,
+            -3.5
+          ],
+          "rotation": [
+            0.0,
+            0.130526,
+            0.0,
+            0.991445
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "RigidBody": {
+          "motion": "Dynamic",
+          "mass": 0.0,
+          "linearDamping": 0.05,
+          "angularDamping": 0.05,
+          "gravityFactor": 1.0,
+          "continuous": false,
+          "allowSleeping": true,
+          "lockedAxes": 0,
+          "layer": 0,
+          "startVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "startAngularVelocity": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "centerOfMass": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "interpolate": true,
+          "buoyancy": 1.0
+        }
+      }
+    },
+    {
+      "id": 46,
+      "name": "Plank",
+      "parent": 45,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.46,
+            0.14,
+            2.4
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/42"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 500.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 47,
+      "name": "Plank",
+      "parent": 45,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.5,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.46,
+            0.14,
+            2.4
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/43"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 500.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 48,
+      "name": "Plank",
+      "parent": 45,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.46,
+            0.14,
+            2.4
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/44"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 500.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 49,
+      "name": "Plank",
+      "parent": 45,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.5,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.46,
+            0.14,
+            2.4
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/45"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 500.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 50,
+      "name": "Plank",
+      "parent": 45,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.46,
+            0.14,
+            2.4
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cube",
+          "materials": [
+            "#material/46"
+          ]
+        },
+        "BoxCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 500.0,
+          "trigger": false,
+          "size": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 51,
+      "name": "Flag",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -5.0,
+            0.0,
+            8.0
+          ],
+          "rotation": [
+            0.0,
+            1.0,
+            0.0,
+            -0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      }
+    },
+    {
+      "id": 52,
+      "name": "Pole",
+      "parent": 51,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.1,
+            4.0,
+            0.1
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Cylinder",
+          "materials": [
+            "#material/47"
+          ]
+        },
+        "CylinderCollider": {
+          "center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "friction": 0.5,
+          "restitution": 0.0,
+          "density": 1000.0,
+          "trigger": false,
+          "radius": 0.5,
+          "height": 1.0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 53,
+      "name": "Flag Cloth",
+      "parent": 51,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.06,
+            3.35,
+            0.0
+          ],
+          "rotation": [
+            0.707107,
+            0.0,
+            0.0,
+            0.707107
+          ],
+          "scale": [
+            2.0,
+            1.0,
+            1.2
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/Grid",
+          "materials": [
+            "#material/48"
+          ]
+        },
+        "SoftBody": {
+          "mass": 0.3,
+          "stiffness": 0.9,
+          "bendStiffness": 0.1,
+          "pressure": 0.0,
+          "friction": 0.5,
+          "restitution": 0.0,
+          "damping": 0.1,
+          "gravityFactor": 1.0,
+          "iterations": 5,
+          "thickness": 0.01,
+          "pin": "Left",
+          "wind": [
+            -8.0,
+            0.0,
+            1e-06
+          ],
+          "gusts": 0.6,
+          "layer": 0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 54,
       "name": "CarConcept",
       "components": {
         "LocalTRS": {
@@ -2703,7 +4686,8 @@
             -0.25,
             0.0
           ],
-          "interpolate": true
+          "interpolate": true,
+          "buoyancy": 1.0
         },
         "Vehicle": {
           "type": "Wheeled",
@@ -2739,9 +4723,9 @@
       }
     },
     {
-      "id": 31,
+      "id": 55,
       "name": "BodyUnderside",
-      "parent": 30,
+      "parent": 54,
       "components": {
         "LocalTRS": {
           "position": [
@@ -2795,9 +4779,9 @@
       ]
     },
     {
-      "id": 32,
+      "id": 56,
       "name": "BodyWindshield",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -2832,9 +4816,9 @@
       ]
     },
     {
-      "id": 33,
+      "id": 57,
       "name": "BodyWindshieldGasket",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -2869,9 +4853,9 @@
       ]
     },
     {
-      "id": 34,
+      "id": 58,
       "name": "BodyWindshieldWipers",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -2906,9 +4890,9 @@
       ]
     },
     {
-      "id": 35,
+      "id": 59,
       "name": "BodyWindshieldWipersBase",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -2943,9 +4927,9 @@
       ]
     },
     {
-      "id": 36,
+      "id": 60,
       "name": "Engine",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -2980,9 +4964,9 @@
       ]
     },
     {
-      "id": 37,
+      "id": 61,
       "name": "InteriorCage",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3017,9 +5001,9 @@
       ]
     },
     {
-      "id": 38,
+      "id": 62,
       "name": "InteriorDashMid",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3054,9 +5038,9 @@
       ]
     },
     {
-      "id": 39,
+      "id": 63,
       "name": "InteriorDashSides",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3091,9 +5075,9 @@
       ]
     },
     {
-      "id": 40,
+      "id": 64,
       "name": "Axles",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3128,9 +5112,9 @@
       ]
     },
     {
-      "id": 41,
+      "id": 65,
       "name": "InteriorFloormats",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3165,9 +5149,9 @@
       ]
     },
     {
-      "id": 42,
+      "id": 66,
       "name": "InteriorMid",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3203,9 +5187,9 @@
       ]
     },
     {
-      "id": 43,
+      "id": 67,
       "name": "InteriorPedalAccel",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3240,9 +5224,9 @@
       ]
     },
     {
-      "id": 44,
+      "id": 68,
       "name": "InteriorPedalAccelArm",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3277,9 +5261,9 @@
       ]
     },
     {
-      "id": 45,
+      "id": 69,
       "name": "InteriorPedalBrake",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3314,9 +5298,9 @@
       ]
     },
     {
-      "id": 46,
+      "id": 70,
       "name": "InteriorPedalBrakeArm",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3351,9 +5335,9 @@
       ]
     },
     {
-      "id": 47,
+      "id": 71,
       "name": "InteriorPillar",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3388,9 +5372,9 @@
       ]
     },
     {
-      "id": 48,
+      "id": 72,
       "name": "InteriorSeatsColor1",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3425,9 +5409,9 @@
       ]
     },
     {
-      "id": 49,
+      "id": 73,
       "name": "InteriorSeatsColor2",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3462,9 +5446,9 @@
       ]
     },
     {
-      "id": 50,
+      "id": 74,
       "name": "InteriorSeatsFrame1",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3499,9 +5483,9 @@
       ]
     },
     {
-      "id": 51,
+      "id": 75,
       "name": "InteriorSeatsFrame2",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3536,9 +5520,9 @@
       ]
     },
     {
-      "id": 52,
+      "id": 76,
       "name": "InteriorSteeringBase",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3573,9 +5557,9 @@
       ]
     },
     {
-      "id": 53,
+      "id": 77,
       "name": "InteriorSteeringCylinder",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3610,9 +5594,9 @@
       ]
     },
     {
-      "id": 54,
+      "id": 78,
       "name": "InteriorSteeringEmblem",
-      "parent": 53,
+      "parent": 77,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3647,9 +5631,9 @@
       ]
     },
     {
-      "id": 55,
+      "id": 79,
       "name": "InteriorSteeringWheel04",
-      "parent": 53,
+      "parent": 77,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3684,9 +5668,9 @@
       ]
     },
     {
-      "id": 56,
+      "id": 80,
       "name": "InteriorSteeringWheel01",
-      "parent": 53,
+      "parent": 77,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3721,9 +5705,9 @@
       ]
     },
     {
-      "id": 57,
+      "id": 81,
       "name": "InteriorSteeringWheel02",
-      "parent": 53,
+      "parent": 77,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3758,9 +5742,9 @@
       ]
     },
     {
-      "id": 58,
+      "id": 82,
       "name": "InteriorSteeringWheel03",
-      "parent": 53,
+      "parent": 77,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3795,9 +5779,9 @@
       ]
     },
     {
-      "id": 59,
+      "id": 83,
       "name": "InteriorSteeringDash",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3832,9 +5816,9 @@
       ]
     },
     {
-      "id": 60,
+      "id": 84,
       "name": "InteriorSteeringDashColumn",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3869,9 +5853,9 @@
       ]
     },
     {
-      "id": 61,
+      "id": 85,
       "name": "InteriorSteeringHandleL",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3906,9 +5890,9 @@
       ]
     },
     {
-      "id": 62,
+      "id": 86,
       "name": "InteriorSteeringHandleR",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3943,9 +5927,9 @@
       ]
     },
     {
-      "id": 63,
+      "id": 87,
       "name": "License Plate",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -3980,9 +5964,9 @@
       ]
     },
     {
-      "id": 64,
+      "id": 88,
       "name": "BodyRoofPanel",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4017,9 +6001,9 @@
       ]
     },
     {
-      "id": 65,
+      "id": 89,
       "name": "BodyRearPanelsColor1",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4054,9 +6038,9 @@
       ]
     },
     {
-      "id": 66,
+      "id": 90,
       "name": "InteriorRearHatch",
-      "parent": 65,
+      "parent": 89,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4091,9 +6075,9 @@
       ]
     },
     {
-      "id": 67,
+      "id": 91,
       "name": "InteriorRearPanels",
-      "parent": 65,
+      "parent": 89,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4129,9 +6113,9 @@
       ]
     },
     {
-      "id": 68,
+      "id": 92,
       "name": "BodyWindowsRearSides",
-      "parent": 65,
+      "parent": 89,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4166,9 +6150,9 @@
       ]
     },
     {
-      "id": 69,
+      "id": 93,
       "name": "BodyTurnsignalsRear",
-      "parent": 65,
+      "parent": 89,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4203,9 +6187,9 @@
       ]
     },
     {
-      "id": 70,
+      "id": 94,
       "name": "BodyTaillightsPanels",
-      "parent": 65,
+      "parent": 89,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4240,9 +6224,9 @@
       ]
     },
     {
-      "id": 71,
+      "id": 95,
       "name": "BodyTaillights",
-      "parent": 65,
+      "parent": 89,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4277,9 +6261,9 @@
       ]
     },
     {
-      "id": 72,
+      "id": 96,
       "name": "BodyRearwindow",
-      "parent": 65,
+      "parent": 89,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4314,9 +6298,9 @@
       ]
     },
     {
-      "id": 73,
+      "id": 97,
       "name": "BodyDoorLColor1",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4351,9 +6335,9 @@
       ]
     },
     {
-      "id": 74,
+      "id": 98,
       "name": "InteriorDoorL04",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4388,9 +6372,9 @@
       ]
     },
     {
-      "id": 75,
+      "id": 99,
       "name": "InteriorDoorL01",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4426,9 +6410,9 @@
       ]
     },
     {
-      "id": 76,
+      "id": 100,
       "name": "InteriorDoorL02",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4463,9 +6447,9 @@
       ]
     },
     {
-      "id": 77,
+      "id": 101,
       "name": "InteriorDoorL03",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4500,9 +6484,9 @@
       ]
     },
     {
-      "id": 78,
+      "id": 102,
       "name": "InteriorDoorL05",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4537,9 +6521,9 @@
       ]
     },
     {
-      "id": 79,
+      "id": 103,
       "name": "InteriorDoorL06",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4574,9 +6558,9 @@
       ]
     },
     {
-      "id": 80,
+      "id": 104,
       "name": "BodyDoorLColor2",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4611,9 +6595,9 @@
       ]
     },
     {
-      "id": 81,
+      "id": 105,
       "name": "BodyDoorLHandle01",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4648,9 +6632,9 @@
       ]
     },
     {
-      "id": 82,
+      "id": 106,
       "name": "BodyDoorLHandle02",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4685,9 +6669,9 @@
       ]
     },
     {
-      "id": 83,
+      "id": 107,
       "name": "BodyDoorLMirror",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4722,9 +6706,9 @@
       ]
     },
     {
-      "id": 84,
+      "id": 108,
       "name": "BodyDoorLMirrorColor1",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4759,9 +6743,9 @@
       ]
     },
     {
-      "id": 85,
+      "id": 109,
       "name": "BodyDoorLWindowGasket",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4796,9 +6780,9 @@
       ]
     },
     {
-      "id": 86,
+      "id": 110,
       "name": "BodyDoorLWindow",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4833,9 +6817,9 @@
       ]
     },
     {
-      "id": 87,
+      "id": 111,
       "name": "BodyDoorLMirrorColor2",
-      "parent": 73,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4870,9 +6854,9 @@
       ]
     },
     {
-      "id": 88,
+      "id": 112,
       "name": "BodyPanelsColor2",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4907,9 +6891,9 @@
       ]
     },
     {
-      "id": 89,
+      "id": 113,
       "name": "BodyHood",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4944,9 +6928,9 @@
       ]
     },
     {
-      "id": 90,
+      "id": 114,
       "name": "BodyHoodInterior01",
-      "parent": 89,
+      "parent": 113,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4981,9 +6965,9 @@
       ]
     },
     {
-      "id": 91,
+      "id": 115,
       "name": "BodyHoodInterior02",
-      "parent": 89,
+      "parent": 113,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5018,9 +7002,9 @@
       ]
     },
     {
-      "id": 92,
+      "id": 116,
       "name": "BodyHoodTopgrill",
-      "parent": 89,
+      "parent": 113,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5055,9 +7039,9 @@
       ]
     },
     {
-      "id": 93,
+      "id": 117,
       "name": "BodyHoodUnder",
-      "parent": 89,
+      "parent": 113,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5092,9 +7076,9 @@
       ]
     },
     {
-      "id": 94,
+      "id": 118,
       "name": "BodyHeadlights",
-      "parent": 89,
+      "parent": 113,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5129,9 +7113,9 @@
       ]
     },
     {
-      "id": 95,
+      "id": 119,
       "name": "BodyDoorRColor1",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5166,9 +7150,9 @@
       ]
     },
     {
-      "id": 96,
+      "id": 120,
       "name": "BodyDoorRColor2",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5203,9 +7187,9 @@
       ]
     },
     {
-      "id": 97,
+      "id": 121,
       "name": "BodyDoorRHandle01",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5240,9 +7224,9 @@
       ]
     },
     {
-      "id": 98,
+      "id": 122,
       "name": "BodyDoorRHandle02",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5277,9 +7261,9 @@
       ]
     },
     {
-      "id": 99,
+      "id": 123,
       "name": "BodyDoorRMirror",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5314,9 +7298,9 @@
       ]
     },
     {
-      "id": 100,
+      "id": 124,
       "name": "BodyDoorRMirrorColor1",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5351,9 +7335,9 @@
       ]
     },
     {
-      "id": 101,
+      "id": 125,
       "name": "BodyDoorRMirrorColor2",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5388,9 +7372,9 @@
       ]
     },
     {
-      "id": 102,
+      "id": 126,
       "name": "BodyDoorRWindow",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5425,9 +7409,9 @@
       ]
     },
     {
-      "id": 103,
+      "id": 127,
       "name": "BodyDoorRWindowGasket",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5462,9 +7446,9 @@
       ]
     },
     {
-      "id": 104,
+      "id": 128,
       "name": "InteriorDoorR01",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5500,9 +7484,9 @@
       ]
     },
     {
-      "id": 105,
+      "id": 129,
       "name": "InteriorDoorR02",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5537,9 +7521,9 @@
       ]
     },
     {
-      "id": 106,
+      "id": 130,
       "name": "InteriorDoorR03",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5574,9 +7558,9 @@
       ]
     },
     {
-      "id": 107,
+      "id": 131,
       "name": "InteriorDoorR04",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5611,9 +7595,9 @@
       ]
     },
     {
-      "id": 108,
+      "id": 132,
       "name": "InteriorDoorR05",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5648,9 +7632,9 @@
       ]
     },
     {
-      "id": 109,
+      "id": 133,
       "name": "InteriorDoorR06",
-      "parent": 95,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5685,9 +7669,9 @@
       ]
     },
     {
-      "id": 110,
+      "id": 134,
       "name": "WheelFrontL",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5726,9 +7710,9 @@
       }
     },
     {
-      "id": 111,
+      "id": 135,
       "name": "WheelFrontLRim",
-      "parent": 110,
+      "parent": 134,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5764,9 +7748,9 @@
       ]
     },
     {
-      "id": 112,
+      "id": 136,
       "name": "WheelFrontLBrakePad",
-      "parent": 110,
+      "parent": 134,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5801,9 +7785,9 @@
       ]
     },
     {
-      "id": 113,
+      "id": 137,
       "name": "WheelFrontLBrakeDisc",
-      "parent": 110,
+      "parent": 134,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5838,9 +7822,9 @@
       ]
     },
     {
-      "id": 114,
+      "id": 138,
       "name": "Node 84",
-      "parent": 110,
+      "parent": 134,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5876,9 +7860,9 @@
       ]
     },
     {
-      "id": 115,
+      "id": 139,
       "name": "WheelFrontR",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5917,9 +7901,9 @@
       }
     },
     {
-      "id": 116,
+      "id": 140,
       "name": "WheelFrontRRim",
-      "parent": 115,
+      "parent": 139,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5955,9 +7939,9 @@
       ]
     },
     {
-      "id": 117,
+      "id": 141,
       "name": "WheelFrontRBrakePad",
-      "parent": 115,
+      "parent": 139,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5992,9 +7976,9 @@
       ]
     },
     {
-      "id": 118,
+      "id": 142,
       "name": "WheelFrontRBrakeDisc",
-      "parent": 115,
+      "parent": 139,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6029,9 +8013,9 @@
       ]
     },
     {
-      "id": 119,
+      "id": 143,
       "name": "Node 89",
-      "parent": 115,
+      "parent": 139,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6067,9 +8051,9 @@
       ]
     },
     {
-      "id": 120,
+      "id": 144,
       "name": "WheelRearL",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6108,9 +8092,9 @@
       }
     },
     {
-      "id": 121,
+      "id": 145,
       "name": "WheelRearLBrakeDisc",
-      "parent": 120,
+      "parent": 144,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6145,9 +8129,9 @@
       ]
     },
     {
-      "id": 122,
+      "id": 146,
       "name": "WheelRearLBrakePad",
-      "parent": 120,
+      "parent": 144,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6182,9 +8166,9 @@
       ]
     },
     {
-      "id": 123,
+      "id": 147,
       "name": "WheelRearLRim",
-      "parent": 120,
+      "parent": 144,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6220,9 +8204,9 @@
       ]
     },
     {
-      "id": 124,
+      "id": 148,
       "name": "Node 94",
-      "parent": 120,
+      "parent": 144,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6258,9 +8242,9 @@
       ]
     },
     {
-      "id": 125,
+      "id": 149,
       "name": "WheelRearR",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6299,9 +8283,9 @@
       }
     },
     {
-      "id": 126,
+      "id": 150,
       "name": "WheelRearRBrakeDisc",
-      "parent": 125,
+      "parent": 149,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6336,9 +8320,9 @@
       ]
     },
     {
-      "id": 127,
+      "id": 151,
       "name": "WheelRearRBrakePad",
-      "parent": 125,
+      "parent": 149,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6373,9 +8357,9 @@
       ]
     },
     {
-      "id": 128,
+      "id": 152,
       "name": "WheelRearRRim",
-      "parent": 125,
+      "parent": 149,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6411,9 +8395,9 @@
       ]
     },
     {
-      "id": 129,
+      "id": 153,
       "name": "Node 99",
-      "parent": 125,
+      "parent": 149,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6449,9 +8433,9 @@
       ]
     },
     {
-      "id": 130,
+      "id": 154,
       "name": "InteriorFloor",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6505,9 +8489,9 @@
       ]
     },
     {
-      "id": 131,
+      "id": 155,
       "name": "BodyPillars",
-      "parent": 31,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6561,20 +8545,20 @@
       ]
     },
     {
-      "id": 132,
+      "id": 156,
       "name": "Chase Camera",
       "components": {
         "LocalTRS": {
           "position": [
-            0.0,
-            0.0,
-            0.0
+            -5.5,
+            3.2,
+            -8.0
           ],
           "rotation": [
-            0.0,
-            0.0,
-            0.0,
-            1.0
+            0.101201,
+            0.228507,
+            -0.02389,
+            0.967973
           ],
           "scale": [
             1.0,
@@ -6595,6 +8579,6046 @@
           "stiffness": 5.0
         }
       }
+    },
+    {
+      "id": 157,
+      "name": "Rumba",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            14.0
+          ],
+          "rotation": [
+            0.0,
+            1.0,
+            0.0,
+            -0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Animator": {
+          "skeleton": "/Models/Rumba.glb#skeleton",
+          "clips": [
+            {
+              "name": "Armature|mixamo.com|Layer0",
+              "clip": "/Models/Rumba.glb#animation/0"
+            }
+          ],
+          "graph": "",
+          "speed": 1.0,
+          "playing": true,
+          "clip": 0,
+          "loop": true,
+          "time": 0.0
+        },
+        "Ragdoll": {
+          "mode": "Powered",
+          "mass": 80.0,
+          "strength": 600.0,
+          "limpOnImpact": 4.0,
+          "knockback": 1.6,
+          "knockbackLift": 0.6,
+          "friction": 0.6,
+          "jointLimitScale": 1.0,
+          "layer": 0
+        }
+      }
+    },
+    {
+      "id": 158,
+      "name": "Armature",
+      "parent": 157,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.707107,
+            0.0,
+            0.0,
+            0.707107
+          ],
+          "scale": [
+            0.01,
+            0.01,
+            0.01
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 67
+        }
+      }
+    },
+    {
+      "id": 159,
+      "name": "mixamorig:Hips",
+      "parent": 158,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.437496,
+            -0.761911,
+            -95.875282
+          ],
+          "rotation": [
+            -0.776457,
+            -0.039172,
+            -0.021514,
+            0.628583
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 64
+        }
+      }
+    },
+    {
+      "id": 160,
+      "name": "mixamorig:Spine",
+      "parent": 159,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.00086,
+            9.923462,
+            -1.227335
+          ],
+          "rotation": [
+            -0.018932,
+            0.013257,
+            -0.009317,
+            0.99969
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 53
+        }
+      }
+    },
+    {
+      "id": 161,
+      "name": "mixamorig:Spine1",
+      "parent": 160,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            11.731978,
+            -0.0
+          ],
+          "rotation": [
+            0.050276,
+            0.015452,
+            0.006211,
+            0.998596
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 52
+        }
+      }
+    },
+    {
+      "id": 162,
+      "name": "mixamorig:Spine2",
+      "parent": 161,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            13.458843,
+            -2e-06
+          ],
+          "rotation": [
+            0.10779,
+            0.015257,
+            0.005098,
+            0.994044
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 51
+        }
+      }
+    },
+    {
+      "id": 163,
+      "name": "mixamorig:Neck",
+      "parent": 162,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.5e-05,
+            15.027761,
+            0.877907
+          ],
+          "rotation": [
+            0.008828,
+            -7.7e-05,
+            0.029688,
+            0.99952
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 2
+        }
+      }
+    },
+    {
+      "id": 164,
+      "name": "mixamorig:Head",
+      "parent": 163,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            3e-06,
+            10.321838,
+            3.142429
+          ],
+          "rotation": [
+            0.018853,
+            0.04922,
+            0.003284,
+            0.998605
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 1
+        }
+      }
+    },
+    {
+      "id": 165,
+      "name": "mixamorig:HeadTop_End",
+      "parent": 164,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.000155,
+            18.47467,
+            6.6364
+          ],
+          "rotation": [
+            -0.0,
+            -0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 0
+        }
+      }
+    },
+    {
+      "id": 166,
+      "name": "mixamorig:LeftShoulder",
+      "parent": 162,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            6.105824,
+            9.106276,
+            0.757063
+          ],
+          "rotation": [
+            0.437992,
+            0.537952,
+            -0.636714,
+            0.336698
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 26
+        }
+      }
+    },
+    {
+      "id": 167,
+      "name": "mixamorig:LeftArm",
+      "parent": 166,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            12.922286,
+            3.5e-05
+          ],
+          "rotation": [
+            0.463435,
+            0.200404,
+            0.222003,
+            0.834135
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 25
+        }
+      }
+    },
+    {
+      "id": 168,
+      "name": "mixamorig:LeftForeArm",
+      "parent": 167,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            27.404675,
+            -1e-06
+          ],
+          "rotation": [
+            1e-06,
+            -0.0,
+            0.527666,
+            0.849452
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 24
+        }
+      }
+    },
+    {
+      "id": 169,
+      "name": "mixamorig:LeftHand",
+      "parent": 168,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.4e-05,
+            27.614452,
+            -1e-05
+          ],
+          "rotation": [
+            -0.072059,
+            0.088652,
+            -0.01111,
+            0.993391
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 23
+        }
+      }
+    },
+    {
+      "id": 170,
+      "name": "mixamorig:LeftHandThumb1",
+      "parent": 169,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -3.002974,
+            3.788821,
+            2.167166
+          ],
+          "rotation": [
+            0.125695,
+            -0.014363,
+            0.050943,
+            0.990656
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 6
+        }
+      }
+    },
+    {
+      "id": 171,
+      "name": "mixamorig:LeftHandThumb2",
+      "parent": 170,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            4.744966,
+            -8e-06
+          ],
+          "rotation": [
+            0.007962,
+            -0.025318,
+            -0.002118,
+            0.999646
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 5
+        }
+      }
+    },
+    {
+      "id": 172,
+      "name": "mixamorig:LeftHandThumb3",
+      "parent": 171,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2e-06,
+            4.382133,
+            -2.3e-05
+          ],
+          "rotation": [
+            -0.114309,
+            -0.002639,
+            0.096161,
+            0.988777
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 4
+        }
+      }
+    },
+    {
+      "id": 173,
+      "name": "mixamorig:LeftHandThumb4",
+      "parent": 172,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -5e-06,
+            3.459077,
+            -2.5e-05
+          ],
+          "rotation": [
+            0.009146,
+            0.125638,
+            0.072073,
+            0.989412
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 3
+        }
+      }
+    },
+    {
+      "id": 174,
+      "name": "mixamorig:LeftHandIndex1",
+      "parent": 169,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.822044,
+            12.26662,
+            0.231831
+          ],
+          "rotation": [
+            0.135684,
+            0.035085,
+            -0.030304,
+            0.989667
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 10
+        }
+      }
+    },
+    {
+      "id": 175,
+      "name": "mixamorig:LeftHandIndex2",
+      "parent": 174,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.891966,
+            -1e-06
+          ],
+          "rotation": [
+            0.453135,
+            -0.0,
+            -0.046436,
+            0.890232
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 9
+        }
+      }
+    },
+    {
+      "id": 176,
+      "name": "mixamorig:LeftHandIndex3",
+      "parent": 175,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.415155,
+            -6e-06
+          ],
+          "rotation": [
+            0.462021,
+            -0.0,
+            -0.047347,
+            0.885604
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 8
+        }
+      }
+    },
+    {
+      "id": 177,
+      "name": "mixamorig:LeftHandIndex4",
+      "parent": 176,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.077999,
+            -1e-06
+          ],
+          "rotation": [
+            2e-06,
+            0.004002,
+            2.3e-05,
+            0.999992
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 7
+        }
+      }
+    },
+    {
+      "id": 178,
+      "name": "mixamorig:LeftHandMiddle1",
+      "parent": 169,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.9e-05,
+            12.775531,
+            4e-06
+          ],
+          "rotation": [
+            0.233153,
+            -0.004208,
+            -0.04427,
+            0.971423
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 14
+        }
+      }
+    },
+    {
+      "id": 179,
+      "name": "mixamorig:LeftHandMiddle2",
+      "parent": 178,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.61397,
+            2e-06
+          ],
+          "rotation": [
+            0.443817,
+            -0.0,
+            -0.045481,
+            0.894962
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 13
+        }
+      }
+    },
+    {
+      "id": 180,
+      "name": "mixamorig:LeftHandMiddle3",
+      "parent": 179,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.8e-05,
+            3.459759,
+            8e-06
+          ],
+          "rotation": [
+            0.5523,
+            -0.0,
+            -0.056598,
+            0.831722
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 12
+        }
+      }
+    },
+    {
+      "id": 181,
+      "name": "mixamorig:LeftHandMiddle4",
+      "parent": 180,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -3e-05,
+            3.680192,
+            4e-06
+          ],
+          "rotation": [
+            -1e-06,
+            0.004579,
+            -0.000654,
+            0.999989
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 11
+        }
+      }
+    },
+    {
+      "id": 182,
+      "name": "mixamorig:LeftHandRing1",
+      "parent": 169,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.21663,
+            12.147013,
+            -0.009991
+          ],
+          "rotation": [
+            0.359481,
+            -0.003499,
+            -0.064987,
+            0.93088
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 18
+        }
+      }
+    },
+    {
+      "id": 183,
+      "name": "mixamorig:LeftHandRing2",
+      "parent": 182,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.601183,
+            -0.0
+          ],
+          "rotation": [
+            0.446418,
+            -0.0,
+            -0.045748,
+            0.893654
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 17
+        }
+      }
+    },
+    {
+      "id": 184,
+      "name": "mixamorig:LeftHandRing3",
+      "parent": 183,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            3.30733,
+            2e-06
+          ],
+          "rotation": [
+            0.535512,
+            -0.0,
+            -0.054878,
+            0.842743
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 16
+        }
+      }
+    },
+    {
+      "id": 185,
+      "name": "mixamorig:LeftHandRing4",
+      "parent": 184,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.4e-05,
+            3.660118,
+            1.8e-05
+          ],
+          "rotation": [
+            9e-06,
+            0.007396,
+            0.000771,
+            0.999972
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 15
+        }
+      }
+    },
+    {
+      "id": 186,
+      "name": "mixamorig:LeftHandPinky1",
+      "parent": 169,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            4.725832,
+            10.908199,
+            0.226139
+          ],
+          "rotation": [
+            0.341007,
+            -0.136756,
+            -0.079247,
+            0.926678
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 22
+        }
+      }
+    },
+    {
+      "id": 187,
+      "name": "mixamorig:LeftHandPinky2",
+      "parent": 186,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            4.136653,
+            1e-05
+          ],
+          "rotation": [
+            0.568,
+            -1e-06,
+            -0.058206,
+            0.820967
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 21
+        }
+      }
+    },
+    {
+      "id": 188,
+      "name": "mixamorig:LeftHandPinky3",
+      "parent": 187,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2e-06,
+            2.594839,
+            -2.5e-05
+          ],
+          "rotation": [
+            0.566111,
+            1e-06,
+            -0.058013,
+            0.822285
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 20
+        }
+      }
+    },
+    {
+      "id": 189,
+      "name": "mixamorig:LeftHandPinky4",
+      "parent": 188,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.923872,
+            1e-05
+          ],
+          "rotation": [
+            -3e-06,
+            0.0041,
+            -0.000575,
+            0.999991
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 19
+        }
+      }
+    },
+    {
+      "id": 190,
+      "name": "mixamorig:RightShoulder",
+      "parent": 162,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -6.105696,
+            9.106368,
+            0.757076
+          ],
+          "rotation": [
+            0.555891,
+            -0.449031,
+            0.609263,
+            0.343735
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 50
+        }
+      }
+    },
+    {
+      "id": 191,
+      "name": "mixamorig:RightArm",
+      "parent": 190,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            12.92229,
+            1.1e-05
+          ],
+          "rotation": [
+            0.404091,
+            0.060425,
+            -0.326424,
+            0.852354
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 49
+        }
+      }
+    },
+    {
+      "id": 192,
+      "name": "mixamorig:RightForeArm",
+      "parent": 191,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            27.404665,
+            -1.3e-05
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.848016,
+            0.529971
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 48
+        }
+      }
+    },
+    {
+      "id": 193,
+      "name": "mixamorig:RightHand",
+      "parent": 192,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.3e-05,
+            27.614462,
+            1e-05
+          ],
+          "rotation": [
+            0.14266,
+            -0.161161,
+            -0.108215,
+            0.970549
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 47
+        }
+      }
+    },
+    {
+      "id": 194,
+      "name": "mixamorig:RightHandThumb1",
+      "parent": 193,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            3.002975,
+            3.7888,
+            2.167159
+          ],
+          "rotation": [
+            0.26346,
+            -0.0169,
+            -0.026656,
+            0.964154
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 30
+        }
+      }
+    },
+    {
+      "id": 195,
+      "name": "mixamorig:RightHandThumb2",
+      "parent": 194,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            5e-06,
+            4.744967,
+            -1.8e-05
+          ],
+          "rotation": [
+            -0.026441,
+            -0.007355,
+            0.111625,
+            0.993371
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 29
+        }
+      }
+    },
+    {
+      "id": 196,
+      "name": "mixamorig:RightHandThumb3",
+      "parent": 195,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2e-06,
+            4.382133,
+            -8e-06
+          ],
+          "rotation": [
+            -0.199118,
+            -0.043821,
+            0.218632,
+            0.95427
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 28
+        }
+      }
+    },
+    {
+      "id": 197,
+      "name": "mixamorig:RightHandThumb4",
+      "parent": 196,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            6e-06,
+            3.45908,
+            -3.2e-05
+          ],
+          "rotation": [
+            0.009232,
+            -0.127131,
+            -0.072328,
+            0.989202
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 27
+        }
+      }
+    },
+    {
+      "id": 198,
+      "name": "mixamorig:RightHandIndex1",
+      "parent": 193,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.822043,
+            12.266601,
+            0.231839
+          ],
+          "rotation": [
+            0.122565,
+            -0.093656,
+            -0.060148,
+            0.986199
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 34
+        }
+      }
+    },
+    {
+      "id": 199,
+      "name": "mixamorig:RightHandIndex2",
+      "parent": 198,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.891968,
+            1e-06
+          ],
+          "rotation": [
+            0.35006,
+            0.0,
+            0.028517,
+            0.936293
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 33
+        }
+      }
+    },
+    {
+      "id": 200,
+      "name": "mixamorig:RightHandIndex3",
+      "parent": 199,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.415159,
+            6e-06
+          ],
+          "rotation": [
+            0.392215,
+            0.0,
+            0.031951,
+            0.919318
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 32
+        }
+      }
+    },
+    {
+      "id": 201,
+      "name": "mixamorig:RightHandIndex4",
+      "parent": 200,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.077988,
+            1e-06
+          ],
+          "rotation": [
+            -7.3e-05,
+            -0.006709,
+            0.001375,
+            0.999977
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 31
+        }
+      }
+    },
+    {
+      "id": 202,
+      "name": "mixamorig:RightHandMiddle1",
+      "parent": 193,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.7e-05,
+            12.775513,
+            1.3e-05
+          ],
+          "rotation": [
+            0.180977,
+            0.008304,
+            0.006312,
+            0.983432
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 38
+        }
+      }
+    },
+    {
+      "id": 203,
+      "name": "mixamorig:RightHandMiddle2",
+      "parent": 202,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            3.613966,
+            -2e-06
+          ],
+          "rotation": [
+            0.419841,
+            0.0,
+            0.034201,
+            0.906953
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 37
+        }
+      }
+    },
+    {
+      "id": 204,
+      "name": "mixamorig:RightHandMiddle3",
+      "parent": 203,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -3e-05,
+            3.459766,
+            -8e-06
+          ],
+          "rotation": [
+            0.513712,
+            1e-06,
+            0.041848,
+            0.856942
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 36
+        }
+      }
+    },
+    {
+      "id": 205,
+      "name": "mixamorig:RightHandMiddle4",
+      "parent": 204,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.9e-05,
+            3.680189,
+            -4e-06
+          ],
+          "rotation": [
+            -5.1e-05,
+            -0.006695,
+            -0.001708,
+            0.999976
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 35
+        }
+      }
+    },
+    {
+      "id": 206,
+      "name": "mixamorig:RightHandRing1",
+      "parent": 193,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.216632,
+            12.146989,
+            -0.009982
+          ],
+          "rotation": [
+            0.277706,
+            0.000539,
+            0.057638,
+            0.958935
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 42
+        }
+      }
+    },
+    {
+      "id": 207,
+      "name": "mixamorig:RightHandRing2",
+      "parent": 206,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.601195,
+            1e-06
+          ],
+          "rotation": [
+            0.43103,
+            0.0,
+            0.035113,
+            0.901654
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 41
+        }
+      }
+    },
+    {
+      "id": 208,
+      "name": "mixamorig:RightHandRing3",
+      "parent": 207,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            3.307302,
+            -2e-06
+          ],
+          "rotation": [
+            0.452543,
+            0.0,
+            0.036865,
+            0.89098
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 40
+        }
+      }
+    },
+    {
+      "id": 209,
+      "name": "mixamorig:RightHandRing4",
+      "parent": 208,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.4e-05,
+            3.660113,
+            4e-06
+          ],
+          "rotation": [
+            -6.1e-05,
+            -0.007613,
+            -0.0003,
+            0.999971
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 39
+        }
+      }
+    },
+    {
+      "id": 210,
+      "name": "mixamorig:RightHandPinky1",
+      "parent": 193,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -4.725833,
+            10.90818,
+            0.226145
+          ],
+          "rotation": [
+            0.300294,
+            0.122743,
+            0.105307,
+            0.940036
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 46
+        }
+      }
+    },
+    {
+      "id": 211,
+      "name": "mixamorig:RightHandPinky2",
+      "parent": 210,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            4.136647,
+            -5e-06
+          ],
+          "rotation": [
+            0.513674,
+            0.0,
+            0.041845,
+            0.856965
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 45
+        }
+      }
+    },
+    {
+      "id": 212,
+      "name": "mixamorig:RightHandPinky3",
+      "parent": 211,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            2.594846,
+            -8e-06
+          ],
+          "rotation": [
+            0.474331,
+            0.0,
+            0.03864,
+            0.879498
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 44
+        }
+      }
+    },
+    {
+      "id": 213,
+      "name": "mixamorig:RightHandPinky4",
+      "parent": 212,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.923877,
+            9e-06
+          ],
+          "rotation": [
+            -8.3e-05,
+            -0.008499,
+            0.002206,
+            0.999961
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 43
+        }
+      }
+    },
+    {
+      "id": 214,
+      "name": "mixamorig:LeftUpLeg",
+      "parent": 159,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            9.123874,
+            -6.657188,
+            -0.055403
+          ],
+          "rotation": [
+            -0.106006,
+            -0.048565,
+            -0.981897,
+            0.149273
+          ],
+          "scale": [
+            0.999996,
+            1.0,
+            0.999982
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 58
+        }
+      }
+    },
+    {
+      "id": 215,
+      "name": "mixamorig:LeftLeg",
+      "parent": 214,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            40.59943,
+            -0.0
+          ],
+          "rotation": [
+            -0.311231,
+            0.030978,
+            0.074047,
+            0.946939
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 57
+        }
+      }
+    },
+    {
+      "id": 216,
+      "name": "mixamorig:LeftFoot",
+      "parent": 215,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            42.09903,
+            0.0
+          ],
+          "rotation": [
+            0.665687,
+            -0.024287,
+            -0.028135,
+            0.745305
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 56
+        }
+      }
+    },
+    {
+      "id": 217,
+      "name": "mixamorig:LeftToeBase",
+      "parent": 216,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            15.721791,
+            1e-06
+          ],
+          "rotation": [
+            0.22764,
+            -0.032522,
+            -0.015366,
+            0.973081
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 55
+        }
+      }
+    },
+    {
+      "id": 218,
+      "name": "mixamorig:LeftToe_End",
+      "parent": 217,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            10.000177,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            -0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 54
+        }
+      }
+    },
+    {
+      "id": 219,
+      "name": "mixamorig:RightUpLeg",
+      "parent": 159,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -9.125032,
+            -6.655602,
+            -0.055353
+          ],
+          "rotation": [
+            -0.019599,
+            -0.049817,
+            0.998558,
+            -0.003988
+          ],
+          "scale": [
+            1.000176,
+            1.0,
+            1.000757
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 63
+        }
+      }
+    },
+    {
+      "id": 220,
+      "name": "mixamorig:RightLeg",
+      "parent": 219,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2e-06,
+            40.599445,
+            -0.0
+          ],
+          "rotation": [
+            -0.25119,
+            -0.00223,
+            0.024344,
+            0.967629
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 62
+        }
+      }
+    },
+    {
+      "id": 221,
+      "name": "mixamorig:RightFoot",
+      "parent": 220,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2e-06,
+            42.098976,
+            -0.0
+          ],
+          "rotation": [
+            0.664561,
+            -0.007606,
+            -0.020102,
+            0.746925
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 61
+        }
+      }
+    },
+    {
+      "id": 222,
+      "name": "mixamorig:RightToeBase",
+      "parent": 221,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            15.71176,
+            1e-06
+          ],
+          "rotation": [
+            0.242441,
+            0.034038,
+            0.015515,
+            0.969445
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 60
+        }
+      }
+    },
+    {
+      "id": 223,
+      "name": "mixamorig:RightToe_End",
+      "parent": 222,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            9.992543,
+            -0.0
+          ],
+          "rotation": [
+            0.0,
+            -6e-06,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 59
+        }
+      }
+    },
+    {
+      "id": 224,
+      "name": "Alpha_Joints",
+      "parent": 158,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/Rumba.glb#mesh/0",
+          "materials": [
+            "/Models/Rumba.glb#material/0"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 65
+        },
+        "SkinComponent": {
+          "skin": "/Models/Rumba.glb#skin/0"
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 225,
+      "name": "Alpha_Surface",
+      "parent": 158,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/Rumba.glb#mesh/1",
+          "materials": [
+            "/Models/Rumba.glb#material/1"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 66
+        },
+        "SkinComponent": {
+          "skin": "/Models/Rumba.glb#skin/1"
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 226,
+      "name": "Rumba",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.9,
+            0.0,
+            16.0
+          ],
+          "rotation": [
+            0.0,
+            1.0,
+            0.0,
+            -0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Animator": {
+          "skeleton": "/Models/Rumba.glb#skeleton",
+          "clips": [
+            {
+              "name": "Armature|mixamo.com|Layer0",
+              "clip": "/Models/Rumba.glb#animation/0"
+            }
+          ],
+          "graph": "",
+          "speed": 1.0,
+          "playing": true,
+          "clip": 0,
+          "loop": true,
+          "time": 0.0
+        },
+        "Ragdoll": {
+          "mode": "Powered",
+          "mass": 80.0,
+          "strength": 600.0,
+          "limpOnImpact": 4.0,
+          "knockback": 1.6,
+          "knockbackLift": 0.6,
+          "friction": 0.6,
+          "jointLimitScale": 1.0,
+          "layer": 0
+        }
+      }
+    },
+    {
+      "id": 227,
+      "name": "Armature",
+      "parent": 226,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.707107,
+            0.0,
+            0.0,
+            0.707107
+          ],
+          "scale": [
+            0.01,
+            0.01,
+            0.01
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 67
+        }
+      }
+    },
+    {
+      "id": 228,
+      "name": "mixamorig:Hips",
+      "parent": 227,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.437496,
+            -0.761911,
+            -95.875282
+          ],
+          "rotation": [
+            -0.776457,
+            -0.039172,
+            -0.021514,
+            0.628583
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 64
+        }
+      }
+    },
+    {
+      "id": 229,
+      "name": "mixamorig:Spine",
+      "parent": 228,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.00086,
+            9.923462,
+            -1.227335
+          ],
+          "rotation": [
+            -0.018932,
+            0.013257,
+            -0.009317,
+            0.99969
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 53
+        }
+      }
+    },
+    {
+      "id": 230,
+      "name": "mixamorig:Spine1",
+      "parent": 229,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            11.731978,
+            -0.0
+          ],
+          "rotation": [
+            0.050276,
+            0.015452,
+            0.006211,
+            0.998596
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 52
+        }
+      }
+    },
+    {
+      "id": 231,
+      "name": "mixamorig:Spine2",
+      "parent": 230,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            13.458843,
+            -2e-06
+          ],
+          "rotation": [
+            0.10779,
+            0.015257,
+            0.005098,
+            0.994044
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 51
+        }
+      }
+    },
+    {
+      "id": 232,
+      "name": "mixamorig:Neck",
+      "parent": 231,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.5e-05,
+            15.027761,
+            0.877907
+          ],
+          "rotation": [
+            0.008828,
+            -7.7e-05,
+            0.029688,
+            0.99952
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 2
+        }
+      }
+    },
+    {
+      "id": 233,
+      "name": "mixamorig:Head",
+      "parent": 232,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            3e-06,
+            10.321838,
+            3.142429
+          ],
+          "rotation": [
+            0.018853,
+            0.04922,
+            0.003284,
+            0.998605
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 1
+        }
+      }
+    },
+    {
+      "id": 234,
+      "name": "mixamorig:HeadTop_End",
+      "parent": 233,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.000155,
+            18.47467,
+            6.6364
+          ],
+          "rotation": [
+            -0.0,
+            -0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 0
+        }
+      }
+    },
+    {
+      "id": 235,
+      "name": "mixamorig:LeftShoulder",
+      "parent": 231,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            6.105824,
+            9.106276,
+            0.757063
+          ],
+          "rotation": [
+            0.437992,
+            0.537952,
+            -0.636714,
+            0.336698
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 26
+        }
+      }
+    },
+    {
+      "id": 236,
+      "name": "mixamorig:LeftArm",
+      "parent": 235,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            12.922286,
+            3.5e-05
+          ],
+          "rotation": [
+            0.463435,
+            0.200404,
+            0.222003,
+            0.834135
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 25
+        }
+      }
+    },
+    {
+      "id": 237,
+      "name": "mixamorig:LeftForeArm",
+      "parent": 236,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            27.404675,
+            -1e-06
+          ],
+          "rotation": [
+            1e-06,
+            -0.0,
+            0.527666,
+            0.849452
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 24
+        }
+      }
+    },
+    {
+      "id": 238,
+      "name": "mixamorig:LeftHand",
+      "parent": 237,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.4e-05,
+            27.614452,
+            -1e-05
+          ],
+          "rotation": [
+            -0.072059,
+            0.088652,
+            -0.01111,
+            0.993391
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 23
+        }
+      }
+    },
+    {
+      "id": 239,
+      "name": "mixamorig:LeftHandThumb1",
+      "parent": 238,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -3.002974,
+            3.788821,
+            2.167166
+          ],
+          "rotation": [
+            0.125695,
+            -0.014363,
+            0.050943,
+            0.990656
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 6
+        }
+      }
+    },
+    {
+      "id": 240,
+      "name": "mixamorig:LeftHandThumb2",
+      "parent": 239,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            4.744966,
+            -8e-06
+          ],
+          "rotation": [
+            0.007962,
+            -0.025318,
+            -0.002118,
+            0.999646
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 5
+        }
+      }
+    },
+    {
+      "id": 241,
+      "name": "mixamorig:LeftHandThumb3",
+      "parent": 240,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2e-06,
+            4.382133,
+            -2.3e-05
+          ],
+          "rotation": [
+            -0.114309,
+            -0.002639,
+            0.096161,
+            0.988777
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 4
+        }
+      }
+    },
+    {
+      "id": 242,
+      "name": "mixamorig:LeftHandThumb4",
+      "parent": 241,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -5e-06,
+            3.459077,
+            -2.5e-05
+          ],
+          "rotation": [
+            0.009146,
+            0.125638,
+            0.072073,
+            0.989412
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 3
+        }
+      }
+    },
+    {
+      "id": 243,
+      "name": "mixamorig:LeftHandIndex1",
+      "parent": 238,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.822044,
+            12.26662,
+            0.231831
+          ],
+          "rotation": [
+            0.135684,
+            0.035085,
+            -0.030304,
+            0.989667
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 10
+        }
+      }
+    },
+    {
+      "id": 244,
+      "name": "mixamorig:LeftHandIndex2",
+      "parent": 243,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.891966,
+            -1e-06
+          ],
+          "rotation": [
+            0.453135,
+            -0.0,
+            -0.046436,
+            0.890232
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 9
+        }
+      }
+    },
+    {
+      "id": 245,
+      "name": "mixamorig:LeftHandIndex3",
+      "parent": 244,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.415155,
+            -6e-06
+          ],
+          "rotation": [
+            0.462021,
+            -0.0,
+            -0.047347,
+            0.885604
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 8
+        }
+      }
+    },
+    {
+      "id": 246,
+      "name": "mixamorig:LeftHandIndex4",
+      "parent": 245,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.077999,
+            -1e-06
+          ],
+          "rotation": [
+            2e-06,
+            0.004002,
+            2.3e-05,
+            0.999992
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 7
+        }
+      }
+    },
+    {
+      "id": 247,
+      "name": "mixamorig:LeftHandMiddle1",
+      "parent": 238,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.9e-05,
+            12.775531,
+            4e-06
+          ],
+          "rotation": [
+            0.233153,
+            -0.004208,
+            -0.04427,
+            0.971423
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 14
+        }
+      }
+    },
+    {
+      "id": 248,
+      "name": "mixamorig:LeftHandMiddle2",
+      "parent": 247,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.61397,
+            2e-06
+          ],
+          "rotation": [
+            0.443817,
+            -0.0,
+            -0.045481,
+            0.894962
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 13
+        }
+      }
+    },
+    {
+      "id": 249,
+      "name": "mixamorig:LeftHandMiddle3",
+      "parent": 248,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.8e-05,
+            3.459759,
+            8e-06
+          ],
+          "rotation": [
+            0.5523,
+            -0.0,
+            -0.056598,
+            0.831722
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 12
+        }
+      }
+    },
+    {
+      "id": 250,
+      "name": "mixamorig:LeftHandMiddle4",
+      "parent": 249,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -3e-05,
+            3.680192,
+            4e-06
+          ],
+          "rotation": [
+            -1e-06,
+            0.004579,
+            -0.000654,
+            0.999989
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 11
+        }
+      }
+    },
+    {
+      "id": 251,
+      "name": "mixamorig:LeftHandRing1",
+      "parent": 238,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.21663,
+            12.147013,
+            -0.009991
+          ],
+          "rotation": [
+            0.359481,
+            -0.003499,
+            -0.064987,
+            0.93088
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 18
+        }
+      }
+    },
+    {
+      "id": 252,
+      "name": "mixamorig:LeftHandRing2",
+      "parent": 251,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.601183,
+            -0.0
+          ],
+          "rotation": [
+            0.446418,
+            -0.0,
+            -0.045748,
+            0.893654
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 17
+        }
+      }
+    },
+    {
+      "id": 253,
+      "name": "mixamorig:LeftHandRing3",
+      "parent": 252,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            3.30733,
+            2e-06
+          ],
+          "rotation": [
+            0.535512,
+            -0.0,
+            -0.054878,
+            0.842743
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 16
+        }
+      }
+    },
+    {
+      "id": 254,
+      "name": "mixamorig:LeftHandRing4",
+      "parent": 253,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.4e-05,
+            3.660118,
+            1.8e-05
+          ],
+          "rotation": [
+            9e-06,
+            0.007396,
+            0.000771,
+            0.999972
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 15
+        }
+      }
+    },
+    {
+      "id": 255,
+      "name": "mixamorig:LeftHandPinky1",
+      "parent": 238,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            4.725832,
+            10.908199,
+            0.226139
+          ],
+          "rotation": [
+            0.341007,
+            -0.136756,
+            -0.079247,
+            0.926678
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 22
+        }
+      }
+    },
+    {
+      "id": 256,
+      "name": "mixamorig:LeftHandPinky2",
+      "parent": 255,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            4.136653,
+            1e-05
+          ],
+          "rotation": [
+            0.568,
+            -1e-06,
+            -0.058206,
+            0.820967
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 21
+        }
+      }
+    },
+    {
+      "id": 257,
+      "name": "mixamorig:LeftHandPinky3",
+      "parent": 256,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2e-06,
+            2.594839,
+            -2.5e-05
+          ],
+          "rotation": [
+            0.566111,
+            1e-06,
+            -0.058013,
+            0.822285
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 20
+        }
+      }
+    },
+    {
+      "id": 258,
+      "name": "mixamorig:LeftHandPinky4",
+      "parent": 257,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.923872,
+            1e-05
+          ],
+          "rotation": [
+            -3e-06,
+            0.0041,
+            -0.000575,
+            0.999991
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 19
+        }
+      }
+    },
+    {
+      "id": 259,
+      "name": "mixamorig:RightShoulder",
+      "parent": 231,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -6.105696,
+            9.106368,
+            0.757076
+          ],
+          "rotation": [
+            0.555891,
+            -0.449031,
+            0.609263,
+            0.343735
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 50
+        }
+      }
+    },
+    {
+      "id": 260,
+      "name": "mixamorig:RightArm",
+      "parent": 259,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            12.92229,
+            1.1e-05
+          ],
+          "rotation": [
+            0.404091,
+            0.060425,
+            -0.326424,
+            0.852354
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 49
+        }
+      }
+    },
+    {
+      "id": 261,
+      "name": "mixamorig:RightForeArm",
+      "parent": 260,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            27.404665,
+            -1.3e-05
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.848016,
+            0.529971
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 48
+        }
+      }
+    },
+    {
+      "id": 262,
+      "name": "mixamorig:RightHand",
+      "parent": 261,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.3e-05,
+            27.614462,
+            1e-05
+          ],
+          "rotation": [
+            0.14266,
+            -0.161161,
+            -0.108215,
+            0.970549
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 47
+        }
+      }
+    },
+    {
+      "id": 263,
+      "name": "mixamorig:RightHandThumb1",
+      "parent": 262,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            3.002975,
+            3.7888,
+            2.167159
+          ],
+          "rotation": [
+            0.26346,
+            -0.0169,
+            -0.026656,
+            0.964154
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 30
+        }
+      }
+    },
+    {
+      "id": 264,
+      "name": "mixamorig:RightHandThumb2",
+      "parent": 263,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            5e-06,
+            4.744967,
+            -1.8e-05
+          ],
+          "rotation": [
+            -0.026441,
+            -0.007355,
+            0.111625,
+            0.993371
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 29
+        }
+      }
+    },
+    {
+      "id": 265,
+      "name": "mixamorig:RightHandThumb3",
+      "parent": 264,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2e-06,
+            4.382133,
+            -8e-06
+          ],
+          "rotation": [
+            -0.199118,
+            -0.043821,
+            0.218632,
+            0.95427
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 28
+        }
+      }
+    },
+    {
+      "id": 266,
+      "name": "mixamorig:RightHandThumb4",
+      "parent": 265,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            6e-06,
+            3.45908,
+            -3.2e-05
+          ],
+          "rotation": [
+            0.009232,
+            -0.127131,
+            -0.072328,
+            0.989202
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 27
+        }
+      }
+    },
+    {
+      "id": 267,
+      "name": "mixamorig:RightHandIndex1",
+      "parent": 262,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.822043,
+            12.266601,
+            0.231839
+          ],
+          "rotation": [
+            0.122565,
+            -0.093656,
+            -0.060148,
+            0.986199
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 34
+        }
+      }
+    },
+    {
+      "id": 268,
+      "name": "mixamorig:RightHandIndex2",
+      "parent": 267,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.891968,
+            1e-06
+          ],
+          "rotation": [
+            0.35006,
+            0.0,
+            0.028517,
+            0.936293
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 33
+        }
+      }
+    },
+    {
+      "id": 269,
+      "name": "mixamorig:RightHandIndex3",
+      "parent": 268,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.415159,
+            6e-06
+          ],
+          "rotation": [
+            0.392215,
+            0.0,
+            0.031951,
+            0.919318
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 32
+        }
+      }
+    },
+    {
+      "id": 270,
+      "name": "mixamorig:RightHandIndex4",
+      "parent": 269,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.077988,
+            1e-06
+          ],
+          "rotation": [
+            -7.3e-05,
+            -0.006709,
+            0.001375,
+            0.999977
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 31
+        }
+      }
+    },
+    {
+      "id": 271,
+      "name": "mixamorig:RightHandMiddle1",
+      "parent": 262,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.7e-05,
+            12.775513,
+            1.3e-05
+          ],
+          "rotation": [
+            0.180977,
+            0.008304,
+            0.006312,
+            0.983432
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 38
+        }
+      }
+    },
+    {
+      "id": 272,
+      "name": "mixamorig:RightHandMiddle2",
+      "parent": 271,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            3.613966,
+            -2e-06
+          ],
+          "rotation": [
+            0.419841,
+            0.0,
+            0.034201,
+            0.906953
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 37
+        }
+      }
+    },
+    {
+      "id": 273,
+      "name": "mixamorig:RightHandMiddle3",
+      "parent": 272,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -3e-05,
+            3.459766,
+            -8e-06
+          ],
+          "rotation": [
+            0.513712,
+            1e-06,
+            0.041848,
+            0.856942
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 36
+        }
+      }
+    },
+    {
+      "id": 274,
+      "name": "mixamorig:RightHandMiddle4",
+      "parent": 273,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.9e-05,
+            3.680189,
+            -4e-06
+          ],
+          "rotation": [
+            -5.1e-05,
+            -0.006695,
+            -0.001708,
+            0.999976
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 35
+        }
+      }
+    },
+    {
+      "id": 275,
+      "name": "mixamorig:RightHandRing1",
+      "parent": 262,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.216632,
+            12.146989,
+            -0.009982
+          ],
+          "rotation": [
+            0.277706,
+            0.000539,
+            0.057638,
+            0.958935
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 42
+        }
+      }
+    },
+    {
+      "id": 276,
+      "name": "mixamorig:RightHandRing2",
+      "parent": 275,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.601195,
+            1e-06
+          ],
+          "rotation": [
+            0.43103,
+            0.0,
+            0.035113,
+            0.901654
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 41
+        }
+      }
+    },
+    {
+      "id": 277,
+      "name": "mixamorig:RightHandRing3",
+      "parent": 276,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            3.307302,
+            -2e-06
+          ],
+          "rotation": [
+            0.452543,
+            0.0,
+            0.036865,
+            0.89098
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 40
+        }
+      }
+    },
+    {
+      "id": 278,
+      "name": "mixamorig:RightHandRing4",
+      "parent": 277,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.4e-05,
+            3.660113,
+            4e-06
+          ],
+          "rotation": [
+            -6.1e-05,
+            -0.007613,
+            -0.0003,
+            0.999971
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 39
+        }
+      }
+    },
+    {
+      "id": 279,
+      "name": "mixamorig:RightHandPinky1",
+      "parent": 262,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -4.725833,
+            10.90818,
+            0.226145
+          ],
+          "rotation": [
+            0.300294,
+            0.122743,
+            0.105307,
+            0.940036
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 46
+        }
+      }
+    },
+    {
+      "id": 280,
+      "name": "mixamorig:RightHandPinky2",
+      "parent": 279,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            4.136647,
+            -5e-06
+          ],
+          "rotation": [
+            0.513674,
+            0.0,
+            0.041845,
+            0.856965
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 45
+        }
+      }
+    },
+    {
+      "id": 281,
+      "name": "mixamorig:RightHandPinky3",
+      "parent": 280,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            2.594846,
+            -8e-06
+          ],
+          "rotation": [
+            0.474331,
+            0.0,
+            0.03864,
+            0.879498
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 44
+        }
+      }
+    },
+    {
+      "id": 282,
+      "name": "mixamorig:RightHandPinky4",
+      "parent": 281,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.923877,
+            9e-06
+          ],
+          "rotation": [
+            -8.3e-05,
+            -0.008499,
+            0.002206,
+            0.999961
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 43
+        }
+      }
+    },
+    {
+      "id": 283,
+      "name": "mixamorig:LeftUpLeg",
+      "parent": 228,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            9.123874,
+            -6.657188,
+            -0.055403
+          ],
+          "rotation": [
+            -0.106006,
+            -0.048565,
+            -0.981897,
+            0.149273
+          ],
+          "scale": [
+            0.999996,
+            1.0,
+            0.999982
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 58
+        }
+      }
+    },
+    {
+      "id": 284,
+      "name": "mixamorig:LeftLeg",
+      "parent": 283,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            40.59943,
+            -0.0
+          ],
+          "rotation": [
+            -0.311231,
+            0.030978,
+            0.074047,
+            0.946939
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 57
+        }
+      }
+    },
+    {
+      "id": 285,
+      "name": "mixamorig:LeftFoot",
+      "parent": 284,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            42.09903,
+            0.0
+          ],
+          "rotation": [
+            0.665687,
+            -0.024287,
+            -0.028135,
+            0.745305
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 56
+        }
+      }
+    },
+    {
+      "id": 286,
+      "name": "mixamorig:LeftToeBase",
+      "parent": 285,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            15.721791,
+            1e-06
+          ],
+          "rotation": [
+            0.22764,
+            -0.032522,
+            -0.015366,
+            0.973081
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 55
+        }
+      }
+    },
+    {
+      "id": 287,
+      "name": "mixamorig:LeftToe_End",
+      "parent": 286,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            10.000177,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            -0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 54
+        }
+      }
+    },
+    {
+      "id": 288,
+      "name": "mixamorig:RightUpLeg",
+      "parent": 228,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -9.125032,
+            -6.655602,
+            -0.055353
+          ],
+          "rotation": [
+            -0.019599,
+            -0.049817,
+            0.998558,
+            -0.003988
+          ],
+          "scale": [
+            1.000176,
+            1.0,
+            1.000757
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 63
+        }
+      }
+    },
+    {
+      "id": 289,
+      "name": "mixamorig:RightLeg",
+      "parent": 288,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2e-06,
+            40.599445,
+            -0.0
+          ],
+          "rotation": [
+            -0.25119,
+            -0.00223,
+            0.024344,
+            0.967629
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 62
+        }
+      }
+    },
+    {
+      "id": 290,
+      "name": "mixamorig:RightFoot",
+      "parent": 289,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2e-06,
+            42.098976,
+            -0.0
+          ],
+          "rotation": [
+            0.664561,
+            -0.007606,
+            -0.020102,
+            0.746925
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 61
+        }
+      }
+    },
+    {
+      "id": 291,
+      "name": "mixamorig:RightToeBase",
+      "parent": 290,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            15.71176,
+            1e-06
+          ],
+          "rotation": [
+            0.242441,
+            0.034038,
+            0.015515,
+            0.969445
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 60
+        }
+      }
+    },
+    {
+      "id": 292,
+      "name": "mixamorig:RightToe_End",
+      "parent": 291,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            9.992543,
+            -0.0
+          ],
+          "rotation": [
+            0.0,
+            -6e-06,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 59
+        }
+      }
+    },
+    {
+      "id": 293,
+      "name": "Alpha_Joints",
+      "parent": 227,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/Rumba.glb#mesh/0",
+          "materials": [
+            "/Models/Rumba.glb#material/0"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 65
+        },
+        "SkinComponent": {
+          "skin": "/Models/Rumba.glb#skin/0"
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 294,
+      "name": "Alpha_Surface",
+      "parent": 227,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/Rumba.glb#mesh/1",
+          "materials": [
+            "/Models/Rumba.glb#material/1"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 66
+        },
+        "SkinComponent": {
+          "skin": "/Models/Rumba.glb#skin/1"
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 295,
+      "name": "Rumba",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.9,
+            0.0,
+            16.0
+          ],
+          "rotation": [
+            0.0,
+            1.0,
+            0.0,
+            -0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Animator": {
+          "skeleton": "/Models/Rumba.glb#skeleton",
+          "clips": [
+            {
+              "name": "Armature|mixamo.com|Layer0",
+              "clip": "/Models/Rumba.glb#animation/0"
+            }
+          ],
+          "graph": "",
+          "speed": 1.0,
+          "playing": true,
+          "clip": 0,
+          "loop": true,
+          "time": 0.0
+        },
+        "Ragdoll": {
+          "mode": "Powered",
+          "mass": 80.0,
+          "strength": 600.0,
+          "limpOnImpact": 4.0,
+          "knockback": 1.6,
+          "knockbackLift": 0.6,
+          "friction": 0.6,
+          "jointLimitScale": 1.0,
+          "layer": 0
+        }
+      }
+    },
+    {
+      "id": 296,
+      "name": "Armature",
+      "parent": 295,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.707107,
+            0.0,
+            0.0,
+            0.707107
+          ],
+          "scale": [
+            0.01,
+            0.01,
+            0.01
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 67
+        }
+      }
+    },
+    {
+      "id": 297,
+      "name": "mixamorig:Hips",
+      "parent": 296,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.437496,
+            -0.761911,
+            -95.875282
+          ],
+          "rotation": [
+            -0.776457,
+            -0.039172,
+            -0.021514,
+            0.628583
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 64
+        }
+      }
+    },
+    {
+      "id": 298,
+      "name": "mixamorig:Spine",
+      "parent": 297,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.00086,
+            9.923462,
+            -1.227335
+          ],
+          "rotation": [
+            -0.018932,
+            0.013257,
+            -0.009317,
+            0.99969
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 53
+        }
+      }
+    },
+    {
+      "id": 299,
+      "name": "mixamorig:Spine1",
+      "parent": 298,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            11.731978,
+            -0.0
+          ],
+          "rotation": [
+            0.050276,
+            0.015452,
+            0.006211,
+            0.998596
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 52
+        }
+      }
+    },
+    {
+      "id": 300,
+      "name": "mixamorig:Spine2",
+      "parent": 299,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            13.458843,
+            -2e-06
+          ],
+          "rotation": [
+            0.10779,
+            0.015257,
+            0.005098,
+            0.994044
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 51
+        }
+      }
+    },
+    {
+      "id": 301,
+      "name": "mixamorig:Neck",
+      "parent": 300,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.5e-05,
+            15.027761,
+            0.877907
+          ],
+          "rotation": [
+            0.008828,
+            -7.7e-05,
+            0.029688,
+            0.99952
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 2
+        }
+      }
+    },
+    {
+      "id": 302,
+      "name": "mixamorig:Head",
+      "parent": 301,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            3e-06,
+            10.321838,
+            3.142429
+          ],
+          "rotation": [
+            0.018853,
+            0.04922,
+            0.003284,
+            0.998605
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 1
+        }
+      }
+    },
+    {
+      "id": 303,
+      "name": "mixamorig:HeadTop_End",
+      "parent": 302,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.000155,
+            18.47467,
+            6.6364
+          ],
+          "rotation": [
+            -0.0,
+            -0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 0
+        }
+      }
+    },
+    {
+      "id": 304,
+      "name": "mixamorig:LeftShoulder",
+      "parent": 300,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            6.105824,
+            9.106276,
+            0.757063
+          ],
+          "rotation": [
+            0.437992,
+            0.537952,
+            -0.636714,
+            0.336698
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 26
+        }
+      }
+    },
+    {
+      "id": 305,
+      "name": "mixamorig:LeftArm",
+      "parent": 304,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            12.922286,
+            3.5e-05
+          ],
+          "rotation": [
+            0.463435,
+            0.200404,
+            0.222003,
+            0.834135
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 25
+        }
+      }
+    },
+    {
+      "id": 306,
+      "name": "mixamorig:LeftForeArm",
+      "parent": 305,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            27.404675,
+            -1e-06
+          ],
+          "rotation": [
+            1e-06,
+            -0.0,
+            0.527666,
+            0.849452
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 24
+        }
+      }
+    },
+    {
+      "id": 307,
+      "name": "mixamorig:LeftHand",
+      "parent": 306,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.4e-05,
+            27.614452,
+            -1e-05
+          ],
+          "rotation": [
+            -0.072059,
+            0.088652,
+            -0.01111,
+            0.993391
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 23
+        }
+      }
+    },
+    {
+      "id": 308,
+      "name": "mixamorig:LeftHandThumb1",
+      "parent": 307,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -3.002974,
+            3.788821,
+            2.167166
+          ],
+          "rotation": [
+            0.125695,
+            -0.014363,
+            0.050943,
+            0.990656
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 6
+        }
+      }
+    },
+    {
+      "id": 309,
+      "name": "mixamorig:LeftHandThumb2",
+      "parent": 308,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            4.744966,
+            -8e-06
+          ],
+          "rotation": [
+            0.007962,
+            -0.025318,
+            -0.002118,
+            0.999646
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 5
+        }
+      }
+    },
+    {
+      "id": 310,
+      "name": "mixamorig:LeftHandThumb3",
+      "parent": 309,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2e-06,
+            4.382133,
+            -2.3e-05
+          ],
+          "rotation": [
+            -0.114309,
+            -0.002639,
+            0.096161,
+            0.988777
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 4
+        }
+      }
+    },
+    {
+      "id": 311,
+      "name": "mixamorig:LeftHandThumb4",
+      "parent": 310,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -5e-06,
+            3.459077,
+            -2.5e-05
+          ],
+          "rotation": [
+            0.009146,
+            0.125638,
+            0.072073,
+            0.989412
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 3
+        }
+      }
+    },
+    {
+      "id": 312,
+      "name": "mixamorig:LeftHandIndex1",
+      "parent": 307,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.822044,
+            12.26662,
+            0.231831
+          ],
+          "rotation": [
+            0.135684,
+            0.035085,
+            -0.030304,
+            0.989667
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 10
+        }
+      }
+    },
+    {
+      "id": 313,
+      "name": "mixamorig:LeftHandIndex2",
+      "parent": 312,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.891966,
+            -1e-06
+          ],
+          "rotation": [
+            0.453135,
+            -0.0,
+            -0.046436,
+            0.890232
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 9
+        }
+      }
+    },
+    {
+      "id": 314,
+      "name": "mixamorig:LeftHandIndex3",
+      "parent": 313,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.415155,
+            -6e-06
+          ],
+          "rotation": [
+            0.462021,
+            -0.0,
+            -0.047347,
+            0.885604
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 8
+        }
+      }
+    },
+    {
+      "id": 315,
+      "name": "mixamorig:LeftHandIndex4",
+      "parent": 314,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.077999,
+            -1e-06
+          ],
+          "rotation": [
+            2e-06,
+            0.004002,
+            2.3e-05,
+            0.999992
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 7
+        }
+      }
+    },
+    {
+      "id": 316,
+      "name": "mixamorig:LeftHandMiddle1",
+      "parent": 307,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1.9e-05,
+            12.775531,
+            4e-06
+          ],
+          "rotation": [
+            0.233153,
+            -0.004208,
+            -0.04427,
+            0.971423
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 14
+        }
+      }
+    },
+    {
+      "id": 317,
+      "name": "mixamorig:LeftHandMiddle2",
+      "parent": 316,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.61397,
+            2e-06
+          ],
+          "rotation": [
+            0.443817,
+            -0.0,
+            -0.045481,
+            0.894962
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 13
+        }
+      }
+    },
+    {
+      "id": 318,
+      "name": "mixamorig:LeftHandMiddle3",
+      "parent": 317,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.8e-05,
+            3.459759,
+            8e-06
+          ],
+          "rotation": [
+            0.5523,
+            -0.0,
+            -0.056598,
+            0.831722
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 12
+        }
+      }
+    },
+    {
+      "id": 319,
+      "name": "mixamorig:LeftHandMiddle4",
+      "parent": 318,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -3e-05,
+            3.680192,
+            4e-06
+          ],
+          "rotation": [
+            -1e-06,
+            0.004579,
+            -0.000654,
+            0.999989
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 11
+        }
+      }
+    },
+    {
+      "id": 320,
+      "name": "mixamorig:LeftHandRing1",
+      "parent": 307,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.21663,
+            12.147013,
+            -0.009991
+          ],
+          "rotation": [
+            0.359481,
+            -0.003499,
+            -0.064987,
+            0.93088
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 18
+        }
+      }
+    },
+    {
+      "id": 321,
+      "name": "mixamorig:LeftHandRing2",
+      "parent": 320,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.601183,
+            -0.0
+          ],
+          "rotation": [
+            0.446418,
+            -0.0,
+            -0.045748,
+            0.893654
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 17
+        }
+      }
+    },
+    {
+      "id": 322,
+      "name": "mixamorig:LeftHandRing3",
+      "parent": 321,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            3.30733,
+            2e-06
+          ],
+          "rotation": [
+            0.535512,
+            -0.0,
+            -0.054878,
+            0.842743
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 16
+        }
+      }
+    },
+    {
+      "id": 323,
+      "name": "mixamorig:LeftHandRing4",
+      "parent": 322,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.4e-05,
+            3.660118,
+            1.8e-05
+          ],
+          "rotation": [
+            9e-06,
+            0.007396,
+            0.000771,
+            0.999972
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 15
+        }
+      }
+    },
+    {
+      "id": 324,
+      "name": "mixamorig:LeftHandPinky1",
+      "parent": 307,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            4.725832,
+            10.908199,
+            0.226139
+          ],
+          "rotation": [
+            0.341007,
+            -0.136756,
+            -0.079247,
+            0.926678
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 22
+        }
+      }
+    },
+    {
+      "id": 325,
+      "name": "mixamorig:LeftHandPinky2",
+      "parent": 324,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            4.136653,
+            1e-05
+          ],
+          "rotation": [
+            0.568,
+            -1e-06,
+            -0.058206,
+            0.820967
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 21
+        }
+      }
+    },
+    {
+      "id": 326,
+      "name": "mixamorig:LeftHandPinky3",
+      "parent": 325,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2e-06,
+            2.594839,
+            -2.5e-05
+          ],
+          "rotation": [
+            0.566111,
+            1e-06,
+            -0.058013,
+            0.822285
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 20
+        }
+      }
+    },
+    {
+      "id": 327,
+      "name": "mixamorig:LeftHandPinky4",
+      "parent": 326,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.923872,
+            1e-05
+          ],
+          "rotation": [
+            -3e-06,
+            0.0041,
+            -0.000575,
+            0.999991
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 19
+        }
+      }
+    },
+    {
+      "id": 328,
+      "name": "mixamorig:RightShoulder",
+      "parent": 300,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -6.105696,
+            9.106368,
+            0.757076
+          ],
+          "rotation": [
+            0.555891,
+            -0.449031,
+            0.609263,
+            0.343735
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 50
+        }
+      }
+    },
+    {
+      "id": 329,
+      "name": "mixamorig:RightArm",
+      "parent": 328,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            12.92229,
+            1.1e-05
+          ],
+          "rotation": [
+            0.404091,
+            0.060425,
+            -0.326424,
+            0.852354
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 49
+        }
+      }
+    },
+    {
+      "id": 330,
+      "name": "mixamorig:RightForeArm",
+      "parent": 329,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            27.404665,
+            -1.3e-05
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -0.848016,
+            0.529971
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 48
+        }
+      }
+    },
+    {
+      "id": 331,
+      "name": "mixamorig:RightHand",
+      "parent": 330,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.3e-05,
+            27.614462,
+            1e-05
+          ],
+          "rotation": [
+            0.14266,
+            -0.161161,
+            -0.108215,
+            0.970549
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 47
+        }
+      }
+    },
+    {
+      "id": 332,
+      "name": "mixamorig:RightHandThumb1",
+      "parent": 331,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            3.002975,
+            3.7888,
+            2.167159
+          ],
+          "rotation": [
+            0.26346,
+            -0.0169,
+            -0.026656,
+            0.964154
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 30
+        }
+      }
+    },
+    {
+      "id": 333,
+      "name": "mixamorig:RightHandThumb2",
+      "parent": 332,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            5e-06,
+            4.744967,
+            -1.8e-05
+          ],
+          "rotation": [
+            -0.026441,
+            -0.007355,
+            0.111625,
+            0.993371
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 29
+        }
+      }
+    },
+    {
+      "id": 334,
+      "name": "mixamorig:RightHandThumb3",
+      "parent": 333,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2e-06,
+            4.382133,
+            -8e-06
+          ],
+          "rotation": [
+            -0.199118,
+            -0.043821,
+            0.218632,
+            0.95427
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 28
+        }
+      }
+    },
+    {
+      "id": 335,
+      "name": "mixamorig:RightHandThumb4",
+      "parent": 334,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            6e-06,
+            3.45908,
+            -3.2e-05
+          ],
+          "rotation": [
+            0.009232,
+            -0.127131,
+            -0.072328,
+            0.989202
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 27
+        }
+      }
+    },
+    {
+      "id": 336,
+      "name": "mixamorig:RightHandIndex1",
+      "parent": 331,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.822043,
+            12.266601,
+            0.231839
+          ],
+          "rotation": [
+            0.122565,
+            -0.093656,
+            -0.060148,
+            0.986199
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 34
+        }
+      }
+    },
+    {
+      "id": 337,
+      "name": "mixamorig:RightHandIndex2",
+      "parent": 336,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.891968,
+            1e-06
+          ],
+          "rotation": [
+            0.35006,
+            0.0,
+            0.028517,
+            0.936293
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 33
+        }
+      }
+    },
+    {
+      "id": 338,
+      "name": "mixamorig:RightHandIndex3",
+      "parent": 337,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.415159,
+            6e-06
+          ],
+          "rotation": [
+            0.392215,
+            0.0,
+            0.031951,
+            0.919318
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 32
+        }
+      }
+    },
+    {
+      "id": 339,
+      "name": "mixamorig:RightHandIndex4",
+      "parent": 338,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            3.077988,
+            1e-06
+          ],
+          "rotation": [
+            -7.3e-05,
+            -0.006709,
+            0.001375,
+            0.999977
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 31
+        }
+      }
+    },
+    {
+      "id": 340,
+      "name": "mixamorig:RightHandMiddle1",
+      "parent": 331,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1.7e-05,
+            12.775513,
+            1.3e-05
+          ],
+          "rotation": [
+            0.180977,
+            0.008304,
+            0.006312,
+            0.983432
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 38
+        }
+      }
+    },
+    {
+      "id": 341,
+      "name": "mixamorig:RightHandMiddle2",
+      "parent": 340,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            3.613966,
+            -2e-06
+          ],
+          "rotation": [
+            0.419841,
+            0.0,
+            0.034201,
+            0.906953
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 37
+        }
+      }
+    },
+    {
+      "id": 342,
+      "name": "mixamorig:RightHandMiddle3",
+      "parent": 341,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -3e-05,
+            3.459766,
+            -8e-06
+          ],
+          "rotation": [
+            0.513712,
+            1e-06,
+            0.041848,
+            0.856942
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 36
+        }
+      }
+    },
+    {
+      "id": 343,
+      "name": "mixamorig:RightHandMiddle4",
+      "parent": 342,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.9e-05,
+            3.680189,
+            -4e-06
+          ],
+          "rotation": [
+            -5.1e-05,
+            -0.006695,
+            -0.001708,
+            0.999976
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 35
+        }
+      }
+    },
+    {
+      "id": 344,
+      "name": "mixamorig:RightHandRing1",
+      "parent": 331,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2.216632,
+            12.146989,
+            -0.009982
+          ],
+          "rotation": [
+            0.277706,
+            0.000539,
+            0.057638,
+            0.958935
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 42
+        }
+      }
+    },
+    {
+      "id": 345,
+      "name": "mixamorig:RightHandRing2",
+      "parent": 344,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            3.601195,
+            1e-06
+          ],
+          "rotation": [
+            0.43103,
+            0.0,
+            0.035113,
+            0.901654
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 41
+        }
+      }
+    },
+    {
+      "id": 346,
+      "name": "mixamorig:RightHandRing3",
+      "parent": 345,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            3.307302,
+            -2e-06
+          ],
+          "rotation": [
+            0.452543,
+            0.0,
+            0.036865,
+            0.89098
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 40
+        }
+      }
+    },
+    {
+      "id": 347,
+      "name": "mixamorig:RightHandRing4",
+      "parent": 346,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2.4e-05,
+            3.660113,
+            4e-06
+          ],
+          "rotation": [
+            -6.1e-05,
+            -0.007613,
+            -0.0003,
+            0.999971
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 39
+        }
+      }
+    },
+    {
+      "id": 348,
+      "name": "mixamorig:RightHandPinky1",
+      "parent": 331,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -4.725833,
+            10.90818,
+            0.226145
+          ],
+          "rotation": [
+            0.300294,
+            0.122743,
+            0.105307,
+            0.940036
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 46
+        }
+      }
+    },
+    {
+      "id": 349,
+      "name": "mixamorig:RightHandPinky2",
+      "parent": 348,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            4.136647,
+            -5e-06
+          ],
+          "rotation": [
+            0.513674,
+            0.0,
+            0.041845,
+            0.856965
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 45
+        }
+      }
+    },
+    {
+      "id": 350,
+      "name": "mixamorig:RightHandPinky3",
+      "parent": 349,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -0.0,
+            2.594846,
+            -8e-06
+          ],
+          "rotation": [
+            0.474331,
+            0.0,
+            0.03864,
+            0.879498
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 44
+        }
+      }
+    },
+    {
+      "id": 351,
+      "name": "mixamorig:RightHandPinky4",
+      "parent": 350,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            2.923877,
+            9e-06
+          ],
+          "rotation": [
+            -8.3e-05,
+            -0.008499,
+            0.002206,
+            0.999961
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 43
+        }
+      }
+    },
+    {
+      "id": 352,
+      "name": "mixamorig:LeftUpLeg",
+      "parent": 297,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            9.123874,
+            -6.657188,
+            -0.055403
+          ],
+          "rotation": [
+            -0.106006,
+            -0.048565,
+            -0.981897,
+            0.149273
+          ],
+          "scale": [
+            0.999996,
+            1.0,
+            0.999982
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 58
+        }
+      }
+    },
+    {
+      "id": 353,
+      "name": "mixamorig:LeftLeg",
+      "parent": 352,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            40.59943,
+            -0.0
+          ],
+          "rotation": [
+            -0.311231,
+            0.030978,
+            0.074047,
+            0.946939
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 57
+        }
+      }
+    },
+    {
+      "id": 354,
+      "name": "mixamorig:LeftFoot",
+      "parent": 353,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            42.09903,
+            0.0
+          ],
+          "rotation": [
+            0.665687,
+            -0.024287,
+            -0.028135,
+            0.745305
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 56
+        }
+      }
+    },
+    {
+      "id": 355,
+      "name": "mixamorig:LeftToeBase",
+      "parent": 354,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            15.721791,
+            1e-06
+          ],
+          "rotation": [
+            0.22764,
+            -0.032522,
+            -0.015366,
+            0.973081
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 55
+        }
+      }
+    },
+    {
+      "id": 356,
+      "name": "mixamorig:LeftToe_End",
+      "parent": 355,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            10.000177,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            -0.0,
+            -0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 54
+        }
+      }
+    },
+    {
+      "id": 357,
+      "name": "mixamorig:RightUpLeg",
+      "parent": 297,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -9.125032,
+            -6.655602,
+            -0.055353
+          ],
+          "rotation": [
+            -0.019599,
+            -0.049817,
+            0.998558,
+            -0.003988
+          ],
+          "scale": [
+            1.000176,
+            1.0,
+            1.000757
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 63
+        }
+      }
+    },
+    {
+      "id": 358,
+      "name": "mixamorig:RightLeg",
+      "parent": 357,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -2e-06,
+            40.599445,
+            -0.0
+          ],
+          "rotation": [
+            -0.25119,
+            -0.00223,
+            0.024344,
+            0.967629
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 62
+        }
+      }
+    },
+    {
+      "id": 359,
+      "name": "mixamorig:RightFoot",
+      "parent": 358,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            2e-06,
+            42.098976,
+            -0.0
+          ],
+          "rotation": [
+            0.664561,
+            -0.007606,
+            -0.020102,
+            0.746925
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 61
+        }
+      }
+    },
+    {
+      "id": 360,
+      "name": "mixamorig:RightToeBase",
+      "parent": 359,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -1e-06,
+            15.71176,
+            1e-06
+          ],
+          "rotation": [
+            0.242441,
+            0.034038,
+            0.015515,
+            0.969445
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 60
+        }
+      }
+    },
+    {
+      "id": 361,
+      "name": "mixamorig:RightToe_End",
+      "parent": 360,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            1e-06,
+            9.992543,
+            -0.0
+          ],
+          "rotation": [
+            0.0,
+            -6e-06,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 59
+        }
+      }
+    },
+    {
+      "id": 362,
+      "name": "Alpha_Joints",
+      "parent": 296,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/Rumba.glb#mesh/0",
+          "materials": [
+            "/Models/Rumba.glb#material/0"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 65
+        },
+        "SkinComponent": {
+          "skin": "/Models/Rumba.glb#skin/0"
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 363,
+      "name": "Alpha_Surface",
+      "parent": 296,
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "/Models/Rumba.glb#mesh/1",
+          "materials": [
+            "/Models/Rumba.glb#material/1"
+          ]
+        },
+        "AnimationTargetEntity": {
+          "node": 66
+        },
+        "SkinComponent": {
+          "skin": "/Models/Rumba.glb#skin/1"
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 364,
+      "name": "Jelly",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            3.5,
+            1.5,
+            6.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/SubdividedCube",
+          "materials": [
+            "#material/49"
+          ]
+        },
+        "SoftBody": {
+          "mass": 5.0,
+          "stiffness": 0.9,
+          "bendStiffness": 0.9,
+          "pressure": 8.0,
+          "friction": 0.6,
+          "restitution": 0.2,
+          "damping": 0.3,
+          "gravityFactor": 1.0,
+          "iterations": 5,
+          "thickness": 0.02,
+          "pin": "None",
+          "wind": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "gusts": 0.5,
+          "layer": 0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
+    },
+    {
+      "id": 365,
+      "name": "Jelly",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            5.0,
+            1.5,
+            4.5
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "MeshComponent": {
+          "mesh": "builtin://mesh/SubdividedCube",
+          "materials": [
+            "#material/50"
+          ]
+        },
+        "SoftBody": {
+          "mass": 5.0,
+          "stiffness": 0.9,
+          "bendStiffness": 0.9,
+          "pressure": 8.0,
+          "friction": 0.6,
+          "restitution": 0.2,
+          "damping": 0.3,
+          "gravityFactor": 1.0,
+          "iterations": 5,
+          "thickness": 0.02,
+          "pin": "None",
+          "wind": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "gusts": 0.5,
+          "layer": 0
+        }
+      },
+      "tags": [
+        "ShadowCasterTag"
+      ]
     }
   ]
 }

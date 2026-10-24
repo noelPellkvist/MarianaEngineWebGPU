@@ -94,8 +94,8 @@ class EditorApp : public Application
         Entity SpawnJointPreset(int which);
         // A camera following the player-controlled entity, unless the scene has a FollowCamera.
         void AddChaseCamera(float distance, float height, float lookHeight);
-        // What the editor opens with when the project has no /Scenes/Playground.scene: the vehicle
-        // playground and a drivable car.
+        // What the editor opens with when the project has no /Scenes/Playground.scene (and what that
+        // was saved from): the vehicle playground, a drivable car, dancers, a pool, jellies and a flag.
         void BuildStartupScene();
 
         // Scene files (SceneFile): the one being edited (empty until saved), and whether it changed

@@ -37,6 +37,35 @@ _If it runs in your browser and on your PC with the same codebase, that’s not 
 
 ---
 
+## 🧩 Features
+
+**Rendering**
+- PBR forward renderer on a render graph: cascaded shadow maps, sky lighting and reflections, HDR, ambient occlusion (GTAO), bloom, tonemapping
+- Render pipelines and post effects as data files; several views of one scene share its GPU data
+- glTF 2.0 models: skinning, animations, texture transforms, clearcoat, emissive strength, alpha masking and see-through blending
+
+**Animation**
+- Clips, cross-fades, 1D/2D blend spaces, additive layers, bone masks and state machines, saved as `.animgraph` files and edited in a node graph editor
+
+**Physics** (Jolt Physics, native and web)
+- Rigid bodies with box, sphere, capsule, cylinder, mesh and convex colliders; triggers, raycasts, shape casts, contact events, layers
+- Vehicles: cars (any glTF car with `Wheel…` nodes becomes drivable), motorcycles and tanks
+- A character controller that climbs stairs, walks slopes, pushes crates and swims
+- Joints: hinges, sliders, chains, doors, motors, breakable joints
+- Water: buoyancy, drag, waves and currents
+- Ragdolls from animated skeletons: powered ragdolls keep dancing until something hits them
+- Soft bodies: cloth, flags in the wind, jelly and balloons
+
+**Editor** (Dear ImGui)
+- Scene and game views, hierarchy, inspector, asset browser with rendered thumbnails, material editor, undo/redo, play/pause/step, scene files
+
+**Player**
+- Runs a project without the editor from its `Player.json`; its web build packages only what the project uses
+
+**Try it:** the Sandbox project opens in a playground scene with a car, a pool, jellies, a flag and three dancers in the car's way. Press Play (Ctrl+P) in the editor, or open the player, and drive with W A S D (Space is the hand brake).
+
+---
+
 ## 📦 Getting Started
 
 ### 1) Clone the repository
@@ -65,8 +94,9 @@ cmake --build build -j4
 
 **Run**
 ```bash
-# Example (adjust to your actual sample/runner name):
-./build/app
+# The editor, and the player (runs the Sandbox project without the editor)
+./build/bin/Debug/MarianaEditor
+./build/bin/Debug/MarianaPlayer
 ```
 
 #### Option B — Web (WASM via Emscripten)
@@ -87,11 +117,11 @@ cmake --build build-web -j4
 **Serve locally**
 ```bash
 # Using emrun or any static server
-emrun --no_browser --port 8000 build-web/
+emrun --no_browser --port 8000 build-web/bin
 # then open http://localhost:8000 in your browser
 ```
 
-> Note: Exact target names/paths may differ.
+The editor is built into `build-web/bin`, the player into `build-web/player` (a standalone site to upload as is). WebGPU needs a secure context: https, or localhost.
 
 ---
 
@@ -148,6 +178,7 @@ Contributions are welcome! Please:
 
 - **Google Dawn** — WebGPU implementation powering both native and web backends
 - **WebGPU** — modern graphics API for the Web and native
+- **Jolt Physics**, **flecs**, **Dear ImGui**, **ImGuizmo**, **tinygltf**, **glm**, **stb_image** and **nlohmann/json**
 - **Car Concept** (`projects/Sandbox/Models/CarConcept/`) — © 2024 Darmstadt Graphics Group GmbH, created by Eric Chadwick, based on a public domain model by Unity Fan; from the Khronos glTF Sample Assets, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (Khronos logos and trademarks excluded)
 - Everyone who likes triangles and frame times under 16ms
 
