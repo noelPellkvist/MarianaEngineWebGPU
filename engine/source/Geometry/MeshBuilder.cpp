@@ -166,10 +166,11 @@ MeshData PrepareMesh(std::vector<MeshSection> sections)
     return data;
 }
 
-std::shared_ptr<IMesh> UploadMesh(MeshData data)
+std::shared_ptr<IMesh> UploadMesh(MeshData data, MeshUsage usage)
 {
     if (data.Empty())
         return nullptr;
+    std::shared_ptr<const MeshData> source = usage == MeshUsage::Static ? nullptr : std::make_shared<const MeshData>(data);
 
     // Physics keeps its own copy of the triangles (12 bytes a vertex plus the indices).
     auto collision = std::make_shared<MeshCollisionData>();
@@ -198,13 +199,15 @@ std::shared_ptr<IMesh> UploadMesh(MeshData data)
     mesh->submeshes = std::move(data.submeshes);
     if (!collision->triangles.empty())
         mesh->collision = std::move(collision);
+    mesh->source = std::move(source);
+    mesh->SetUsage(usage);
     mesh->BuildMesh();
     // The GPU has its own copy now; only the counts and bounds are kept on the CPU.
     mesh->Clear();
     return mesh;
 }
 
-std::shared_ptr<IMesh> BuildMesh(std::vector<MeshSection> sections)
+std::shared_ptr<IMesh> BuildMesh(std::vector<MeshSection> sections, MeshUsage usage)
 {
-    return UploadMesh(PrepareMesh(std::move(sections)));
+    return UploadMesh(PrepareMesh(std::move(sections)), usage);
 }

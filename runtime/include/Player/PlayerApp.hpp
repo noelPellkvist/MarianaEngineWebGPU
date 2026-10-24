@@ -29,7 +29,8 @@
 // motorcycle, tank: a vehicle the keyboard drives, W A S D and Space; playground: ground with ramps;
 // character: one that walks with W A S D, Shift and Space; course: steps, slopes and crates for it;
 // chain (hanging from `position`), door, spinner, wrecking ball: joints at work; pool: water with
-// things floating in it and a ramp to drive in; ragdoll: the dancing Rumba, knocked limp by a hit).
+// things floating in it and a ramp to drive in; ragdoll: the dancing Rumba, knocked limp by a hit;
+// soft bodies: flag (on a pole, in the wind), drape (cloth falling over a ball), jelly, balloon).
 // With `follow` (and optional `distance`, `height`) the camera chases the driven vehicle. A prefab
 // with "vehicle": "car" is rigged as a car (its "Wheel..." entities become its wheels); one with
 // "ragdoll": "powered" (or "animated", "limp") gets a Ragdoll of its skeleton, so an animated

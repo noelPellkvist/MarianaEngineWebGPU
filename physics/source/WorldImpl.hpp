@@ -8,6 +8,10 @@
 #include <Mariana/Physics/Joint.hpp>
 #include <Mariana/Physics/Water.hpp>
 #include <Mariana/Physics/Ragdoll.hpp>
+#include <Mariana/Physics/SoftBody.hpp>
+#include <Mariana/Assets/AssetManager.hpp>
+#include <Mariana/Geometry/Vertex.hpp>
+#include <Mariana/Graphics/Mesh.hpp>
 
 #include "JoltCommon.hpp"
 #include "Shapes.hpp"
@@ -269,6 +273,30 @@ struct PhysicsWorld::Impl
         bool seen = false;
     };
 
+    // A soft body on an entity: Jolt's body, the mesh the entity had and the copy it draws now, how
+    // the copy's vertices map to particles, and where the particles were after the last two steps.
+    struct SoftBodyRecord
+    {
+        JPH::BodyID body;
+        uint64_t signature = 0;
+        bool made = false;
+        AssetHandle<IMesh> original, deformed;
+        std::vector<StandardVertex> vertices;  // the copy's, written every frame it moves
+        std::vector<uint32_t> triangles;       // the copy's triangles (its indices), for tangents
+        std::vector<uint32_t> particleOf;      // per vertex (~0u: not part of a triangle)
+        std::vector<uint32_t> faces;           // particles, three per face, wound as modelled
+        std::vector<uint32_t> normalStart, normalFaces; // per vertex: the faces its normal is made of
+        std::vector<std::pair<uint32_t, glm::vec3>> pins; // particle, its place in the entity's space
+        float invMass = 1.0f;
+        float restVolume = 0.0f;
+        bool closed = false;
+        float pressureScale = 0.0f; // Jolt's pressure (n R T) for a push of one weight
+        std::vector<glm::vec3> previous, current; // particles, world
+        std::vector<glm::vec3> shown, faceNormals; // scratch
+        bool awake = false, written = false;
+        bool seen = false;
+    };
+
     struct Touching
     {
         JPH::BodyID body1, body2;
@@ -312,6 +340,7 @@ struct PhysicsWorld::Impl
     std::unordered_map<uint64_t, RagdollRecord> ragdolls; // per model root
     std::unordered_map<uint64_t, uint64_t> ragdollBones;  // bone entity -> its ragdoll's root
     uint32_t ragdollGroups = 0;
+    std::unordered_map<uint64_t, SoftBodyRecord> softBodies; // per entity
     float waterTime = 0.0f;          // simulated seconds, for the waves
     // Debug drawing of contacts: wanted by the last DebugDraw call, drawn by Jolt during steps.
     bool drawContacts = false;
@@ -360,6 +389,15 @@ struct PhysicsWorld::Impl
     void KnockBack(RagdollRecord& record, const Ragdoll& settings, Entity hitter, const glm::vec3& point);
     void TrackRagdoll(RagdollRecord& record, bool place);
     void WriteRagdolls(float alpha);
+    void SyncSoftBodies();
+    void BuildSoftBody(Entity entity, const SoftBody& settings, const AssetHandle<IMesh>& source, SoftBodyRecord& record);
+    // Takes the body away and gives the entity back the mesh it had.
+    void RemoveSoftBody(uint64_t entity, SoftBodyRecord& record);
+    // Before each step: pinned particles follow the entity, the wind blows.
+    void DriveSoftBodies(float dt);
+    void TrackSoftBodies();
+    // Writes the meshes `alpha` of the way from the previous step's particles to the last's.
+    void WriteSoftBodies(float alpha);
     // Scrolls the normal maps of the water's meshes (the surface).
     void RippleWater();
     // After each step: the poses moving bodies and characters reached, for interpolation.

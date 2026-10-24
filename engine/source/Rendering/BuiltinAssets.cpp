@@ -99,7 +99,7 @@ namespace BuiltinAssets
 
     AssetHandle<IMesh> PrimitiveMesh(AssetManager2& assets, BuiltinMesh shape)
     {
-        const char* const names[] = { "Cube", "Sphere", "Plane", "Cylinder", "Capsule" };
+        const char* const names[] = { "Cube", "Sphere", "Plane", "Cylinder", "Capsule", "Grid", "SubdividedCube" };
         const char* name = names[static_cast<int>(shape)];
         const std::string key = std::string("builtin://mesh/") + name;
         if (AssetHandle<IMesh> existing = assets.Find<IMesh>(key); existing.IsValid())
@@ -109,8 +109,11 @@ namespace BuiltinAssets
                             : shape == BuiltinMesh::Sphere ? Primitives::Sphere(0.5f)
                             : shape == BuiltinMesh::Cylinder ? Primitives::Cylinder(0.5f, 1.0f)
                             : shape == BuiltinMesh::Capsule ? Primitives::Capsule(0.5f, 2.0f)
+                            : shape == BuiltinMesh::Grid ? Primitives::Plane(1.0f, 24)
+                            : shape == BuiltinMesh::SubdividedCube ? Primitives::Cube(1.0f, 8)
                             : Primitives::Plane(10.0f, 10);
-        std::shared_ptr<IMesh> mesh = BuildMesh({ std::move(section) });
+        // Kept on the CPU too (they are small), so an entity can make a soft body of one.
+        std::shared_ptr<IMesh> mesh = BuildMesh({ std::move(section) }, MeshUsage::KeepData);
         if (!mesh)
             return {};
         return assets.RegisterAsset<IMesh>(mesh, AssetType::Mesh, name, key);
@@ -130,8 +133,8 @@ namespace BuiltinAssets
             return WaterNormalTexture(assets).GetID();
         if (key == "builtin://material/default")
             return DefaultMaterial(assets).GetID();
-        const char* const meshes[] = { "Cube", "Sphere", "Plane", "Cylinder", "Capsule" };
-        for (int i = 0; i < 5; ++i)
+        const char* const meshes[] = { "Cube", "Sphere", "Plane", "Cylinder", "Capsule", "Grid", "SubdividedCube" };
+        for (int i = 0; i < 7; ++i)
             if (key == std::string("builtin://mesh/") + meshes[i])
                 return PrimitiveMesh(assets, static_cast<BuiltinMesh>(i)).GetID();
         return {};

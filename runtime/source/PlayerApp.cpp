@@ -15,6 +15,7 @@
 #include <Mariana/Physics/CharacterPresets.hpp>
 #include <Mariana/Physics/JointPresets.hpp>
 #include <Mariana/Physics/WaterPresets.hpp>
+#include <Mariana/Physics/SoftBodyPresets.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
@@ -290,6 +291,14 @@ void PlayerApp::OnStart()
                 WaterPresets::SpawnPool(scene, assets, spawn.position);
             else if (spawn.preset == "ragdoll")
                 CharacterPresets::SpawnRagdoll(scene, assets, spawn.position, glm::quat(glm::radians(spawn.rotation)));
+            else if (spawn.preset == "flag")
+                SoftBodyPresets::SpawnFlag(scene, assets, spawn.position, glm::quat(glm::radians(spawn.rotation)));
+            else if (spawn.preset == "drape")
+                SoftBodyPresets::SpawnDrape(scene, assets, spawn.position);
+            else if (spawn.preset == "jelly")
+                SoftBodyPresets::SpawnJelly(scene, assets, spawn.position);
+            else if (spawn.preset == "balloon")
+                SoftBodyPresets::SpawnBalloon(scene, assets, spawn.position);
             else
                 Logger::Error("Unknown preset " + spawn.preset);
             continue;

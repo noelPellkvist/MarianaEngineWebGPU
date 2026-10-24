@@ -303,6 +303,9 @@ void PhysicsWorld::Impl::RemoveBody(JPH::BodyID& id)
 
 void PhysicsWorld::Impl::RemoveAll()
 {
+    for (auto& [id, softBody] : softBodies)
+        RemoveSoftBody(id, softBody);
+    softBodies.clear();
     for (auto& [id, ragdoll] : ragdolls)
         RemoveRagdoll(ragdoll);
     ragdolls.clear();
@@ -604,6 +607,7 @@ void PhysicsWorld::Impl::Sync()
     SyncCharacters();
     SyncJoints();
     SyncRagdolls();
+    SyncSoftBodies();
 }
 
 void PhysicsWorld::Impl::MoveKinematics(float dt)
@@ -769,6 +773,7 @@ void PhysicsWorld::Impl::TrackPoses()
     for (auto& [id, ragdoll] : ragdolls)
         if (ragdoll.ragdoll)
             TrackRagdoll(ragdoll, false);
+    TrackSoftBodies();
 }
 
 // Dynamic bodies move their entities (in their parent's space, parents first so a nested body is
@@ -832,6 +837,7 @@ void PhysicsWorld::Impl::Step(float dt)
         DriveJoints();
         ApplyBuoyancy(step);
         DriveRagdolls(step);
+        DriveSoftBodies(step);
         system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
         waterTime += step;
         TrackPoses();
@@ -858,6 +864,7 @@ void PhysicsWorld::Impl::Step(float dt)
     WriteWheels();
     WriteCharacters(alpha, steps > 0);
     WriteRagdolls(alpha);
+    WriteSoftBodies(alpha);
 }
 
 JPH::BodyID PhysicsWorld::Impl::BodyOf(Entity entity) const
@@ -896,6 +903,7 @@ void PhysicsWorld::RegisterComponents()
     ECS::RegisterComponent<Joint>("Joint");
     ECS::RegisterComponent<WaterVolume>("WaterVolume");
     ECS::RegisterComponent<Ragdoll>("Ragdoll");
+    ECS::RegisterComponent<SoftBody>("SoftBody");
     RegisterSerializers();
 }
 
@@ -928,6 +936,7 @@ void PhysicsWorld::ShowLatest()
     m_Impl->WriteWheels();
     m_Impl->WriteCharacters(1.0f, false);
     m_Impl->WriteRagdolls(1.0f);
+    m_Impl->WriteSoftBodies(1.0f);
 }
 
 void PhysicsWorld::Reset()

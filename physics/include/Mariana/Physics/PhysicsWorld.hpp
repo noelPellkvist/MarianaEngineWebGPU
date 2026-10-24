@@ -7,6 +7,7 @@
 #include <Mariana/Physics/Joint.hpp>
 #include <Mariana/Physics/Water.hpp>
 #include <Mariana/Physics/Ragdoll.hpp>
+#include <Mariana/Physics/SoftBody.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
 #include <memory>
@@ -76,7 +77,7 @@ public:
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
 
     // RigidBody, the colliders, Joint, Vehicle, VehicleWheel, CharacterController, PlayerControl,
-    // FollowCamera, WaterVolume and Ragdoll, also in scene files (SceneFile); call before
+    // FollowCamera, WaterVolume, Ragdoll and SoftBody, also in scene files (SceneFile); call before
     // Scene::UpdateComponentRegistry.
     static void RegisterComponents();
 
@@ -139,6 +140,8 @@ public:
     void SetRagdollMode(Entity root, RagdollMode mode);
     bool AddRagdollImpulse(Entity entity, const glm::vec3& impulse);
     bool GetRagdollInfo(Entity root, RagdollInfo& info) const;
+    // A soft body's state while it runs (false when the entity has none).
+    bool GetSoftBodyInfo(Entity entity, SoftBodyInfo& info) const;
     // The water a point is in and its surface there (false when it is in none).
     bool WaterAt(const glm::vec3& point, WaterSurface& surface) const;
     // A joint's state (false when the entity has no Joint).

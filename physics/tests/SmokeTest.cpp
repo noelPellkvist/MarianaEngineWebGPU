@@ -2,12 +2,15 @@
 // and prints what each measured. A console program: no window, no GPU. Exits 1 when one fails.
 #include "Scenarios.hpp"
 
+#include <Mariana/Rendering/SceneRenderer.hpp>
+
 #include <cstdio>
 #include <thread>
 
 int main()
 {
     PhysicsWorld::RegisterComponents();
+    SceneRenderer::RegisterComponents(); // MeshComponent, for soft bodies
     std::printf("MarianaPhysicsTest: Jolt's thread pool, %u hardware threads\n", std::thread::hardware_concurrency());
 
     const std::vector<PhysicsScenarios::Result> results = PhysicsScenarios::RunAll([](const std::string& line) {

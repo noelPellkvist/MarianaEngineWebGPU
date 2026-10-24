@@ -96,6 +96,9 @@ public:
         return manager != nullptr && id.IsValid();
     }
 
+    // The manager the asset belongs to (null for an empty handle).
+    AssetManager2* Manager() const { return manager; }
+
 private:
     void AddRef();
     void ReleaseRef();

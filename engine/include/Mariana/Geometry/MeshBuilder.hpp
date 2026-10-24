@@ -35,12 +35,13 @@ struct MeshData
 
 // Builds a GPU mesh from sections: converts strips, fans and loops to lists, generates flat
 // normals and tangents where missing, uses 16-bit indices when possible, and computes bounds.
-// Returns nullptr when there is nothing to draw. Same as UploadMesh(PrepareMesh(sections)).
-std::shared_ptr<IMesh> BuildMesh(std::vector<MeshSection> sections);
+// Returns nullptr when there is nothing to draw. Same as UploadMesh(PrepareMesh(sections), usage).
+std::shared_ptr<IMesh> BuildMesh(std::vector<MeshSection> sections, MeshUsage usage = MeshUsage::Static);
 // The CPU part of BuildMesh (no GPU work, so it can run on any thread).
 MeshData PrepareMesh(std::vector<MeshSection> sections);
-// The GPU part: uploads prepared data (main thread). nullptr when it is empty.
-std::shared_ptr<IMesh> UploadMesh(MeshData data);
+// The GPU part: uploads prepared data (main thread). nullptr when it is empty. KeepData and Dynamic
+// keep a copy of the data as the mesh's `source`.
+std::shared_ptr<IMesh> UploadMesh(MeshData data, MeshUsage usage = MeshUsage::Static);
 
 // The steps BuildMesh uses, for code that needs them on their own.
 namespace Geometry

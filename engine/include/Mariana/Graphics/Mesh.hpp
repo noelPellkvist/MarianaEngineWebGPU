@@ -34,6 +34,13 @@ struct MeshCollisionData
     std::vector<uint32_t> triangles; // three indices into positions each
 };
 
+struct MeshData; // Geometry/MeshBuilder.hpp
+
+// What UploadMesh keeps of a mesh: Static frees the CPU arrays once the GPU has them; KeepData also
+// keeps what it was made from (`source`, so it can be copied: soft bodies); Dynamic keeps that too
+// and lets its vertices be written again (WriteVertices).
+enum class MeshUsage : uint8_t { Static, KeepData, Dynamic };
+
 
 class IMesh
 {
@@ -71,9 +78,25 @@ class IMesh
         // another way, or without triangles).
         std::shared_ptr<const MeshCollisionData> collision;
 
+        // The vertices, indices and submeshes it was made from, for MeshUsage::KeepData and Dynamic
+        // (null for Static meshes).
+        std::shared_ptr<const MeshData> source;
+
+        // Set before BuildMesh: a Dynamic mesh's vertex buffer can be written again.
+        void SetUsage(MeshUsage usage) { m_Usage = usage; }
+        MeshUsage Usage() const { return m_Usage; }
+
+        // Dynamic meshes: replaces every vertex (as many, of the size it was built with) and the
+        // bounds, and bumps deformVersion. False for a mesh that isn't dynamic or another count.
+        bool WriteVertices(const void* vertices, size_t count, size_t vertexSize, const Bounds& bounds);
+        // Bumped by every WriteVertices (shadow caches compare it).
+        uint32_t deformVersion = 0;
+
     protected:
         size_t m_VertexCount = 0;
         size_t m_IndexCount = 0;
+        size_t m_VertexSize = 0;
+        MeshUsage m_Usage = MeshUsage::Static;
 
         void _buildMesh(void* vertices, size_t verticesLength, size_t vertexSize, void* indices, size_t indicesLength, size_t indexSize);
 };

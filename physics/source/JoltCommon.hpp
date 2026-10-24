@@ -90,8 +90,11 @@ namespace PhysicsInternal
         float restitution;
     };
 
+    // A soft body has its own (and Jolt asks with no sub-shape for it).
     inline float Friction(const JPH::Body& body, const JPH::SubShapeID& subShape)
     {
+        if (body.IsSoftBody())
+            return body.GetFriction();
         if (const auto* material = dynamic_cast<const ColliderMaterial*>(body.GetShape()->GetMaterial(subShape)))
             return material->friction;
         return body.GetFriction();
@@ -99,6 +102,8 @@ namespace PhysicsInternal
 
     inline float Restitution(const JPH::Body& body, const JPH::SubShapeID& subShape)
     {
+        if (body.IsSoftBody())
+            return body.GetRestitution();
         if (const auto* material = dynamic_cast<const ColliderMaterial*>(body.GetShape()->GetMaterial(subShape)))
             return material->restitution;
         return body.GetRestitution();

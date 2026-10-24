@@ -42,10 +42,11 @@ namespace
 
 namespace Primitives
 {
-    MeshSection Cube(float size)
+    MeshSection Cube(float size, uint32_t subdivisions)
     {
         MeshSection section;
         const float h = size * 0.5f;
+        const uint32_t cells = std::max(subdivisions, 1u);
         const glm::vec3 axes[3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
         for (int axis = 0; axis < 3; ++axis)
         {
@@ -55,12 +56,23 @@ namespace Primitives
                 const glm::vec3 u = axes[(axis + 1) % 3];
                 const glm::vec3 v = axes[(axis + 2) % 3];
                 const uint32_t base = static_cast<uint32_t>(section.vertices.size());
-                for (glm::vec2 corner : { glm::vec2(-1, -1), glm::vec2(1, -1), glm::vec2(1, 1), glm::vec2(-1, 1) })
+                for (uint32_t j = 0; j <= cells; ++j)
                 {
-                    const glm::vec3 p = (n + u * corner.x + v * corner.y) * h;
-                    section.vertices.push_back(MakeVertex(p, n, corner * 0.5f + 0.5f));
+                    for (uint32_t i = 0; i <= cells; ++i)
+                    {
+                        const glm::vec2 t(static_cast<float>(i) / cells, static_cast<float>(j) / cells);
+                        const glm::vec3 p = (n + u * (t.x * 2.0f - 1.0f) + v * (t.y * 2.0f - 1.0f)) * h;
+                        section.vertices.push_back(MakeVertex(p, n, t));
+                    }
                 }
-                AddQuad(section, base, base + 1, base + 2, base + 3, n);
+                for (uint32_t j = 0; j < cells; ++j)
+                {
+                    for (uint32_t i = 0; i < cells; ++i)
+                    {
+                        const uint32_t a = base + j * (cells + 1) + i;
+                        AddQuad(section, a, a + 1, a + cells + 2, a + cells + 1, n);
+                    }
+                }
             }
         }
         return section;

@@ -1,15 +1,21 @@
 #pragma once
 // Physics scenarios with known answers, run by the native smoke test (MarianaPhysicsTest, Jolt's
 // thread pool) and by the web build (single-threaded), so both are checked on the same numbers.
-// Colliders only: no window, GPU or meshes. Every scenario has a scene and a world of its own and
-// steps exactly 1/60 s at a time.
+// No window or GPU: colliders, and for soft bodies meshes that only exist on the CPU (without a GPU
+// UploadMesh makes no buffers). Every scenario has a scene and a world of its own and steps exactly
+// 1/60 s at a time.
+#include <Mariana/Assets/AssetManager.hpp>
+#include <Mariana/Geometry/Primitives.hpp>
 #include <Mariana/Physics/Character.hpp>
 #include <Mariana/Physics/Components.hpp>
 #include <Mariana/Physics/Joint.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/Ragdoll.hpp>
+#include <Mariana/Physics/SoftBody.hpp>
+#include <Mariana/Physics/SoftBodyPresets.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
 #include <Mariana/Physics/Water.hpp>
+#include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
 #include <glm/gtc/constants.hpp>
@@ -91,6 +97,16 @@ namespace PhysicsScenarios
                 world.Step(kStep);
                 scene.Update(0.0f);
             }
+        }
+
+        // An entity drawing a mesh kept on the CPU (what a soft body is made of).
+        inline Entity MeshEntity(Scene& scene, AssetManager2& assets, const char* name, const glm::vec3& position, MeshSection section)
+        {
+            Entity e = Make(scene, name, position);
+            MeshComponent mesh;
+            mesh.mesh = assets.RegisterAsset<IMesh>(BuildMesh({ std::move(section) }, MeshUsage::KeepData), AssetType::Mesh, name);
+            e.Add<MeshComponent>(mesh);
+            return e;
         }
 
         inline Result Finish(const Log& log, const char* name, std::string detail, bool passed)
@@ -333,10 +349,99 @@ namespace PhysicsScenarios
                       made && planned == 18 && info.bones.size() == 18 && lowest > -0.02f && highest < 0.6f);
     }
 
+    // A level 1 m square of cloth (10 x 10 cells) held by its two corners at +Z falls and swings
+    // from them: at the bottom of its swings its far edge is about 1 m below them (long range
+    // attachments keep it from stretching), its corners stay where they were, its mesh is written.
+    inline Result Cloth(const Log& log)
+    {
+        using namespace detail;
+        AssetManager2 assets;
+        Scene scene;
+        scene.UpdateComponentRegistry();
+        PhysicsWorld world(scene, Settings());
+        Entity cloth = MeshEntity(scene, assets, "Cloth", glm::vec3(0.0f, 3.0f, 0.0f), Primitives::Plane(1.0f, 10));
+        const IMesh* original = cloth.Get<MeshComponent>()->mesh.Get().get();
+        SoftBody soft;
+        soft.mass = 0.3f;
+        soft.pin = SoftBodyPin::TopCorners;
+        cloth.Add<SoftBody>(soft);
+        scene.Update(0.0f);
+        float lowest = 1e9f;
+        Run(scene, world, 60 * 8, [&](int step) {
+            SoftBodyInfo now;
+            if (step >= 60 * 4 && world.GetSoftBodyInfo(cloth, now))
+                lowest = std::min(lowest, now.boundsMin.y);
+        });
+        SoftBodyInfo info;
+        const bool made = world.GetSoftBodyInfo(cloth, info);
+        const IMesh* drawn = cloth.Get<MeshComponent>()->mesh.Get().get();
+        const bool written = drawn && drawn != original && drawn->deformVersion > 0;
+        return Finish(log, "cloth", Format("%.0f particles, %.0f pinned; hangs from y %.3f down to %.3f", static_cast<double>(info.particles), static_cast<double>(info.pinned), info.boundsMax.y, lowest) +
+                      (written ? "" : ", mesh not written"),
+                      made && written && info.particles == 121 && info.pinned == 2 && info.boundsMax.y < 3.03f && lowest > 1.9f && lowest < 2.05f);
+    }
+
+    // A 1 m ball of rubber (a closed sphere with pressure) dropped from 2 m comes to rest on the
+    // ground keeping its volume.
+    inline Result Balloon(const Log& log)
+    {
+        using namespace detail;
+        AssetManager2 assets;
+        Scene scene;
+        scene.UpdateComponentRegistry();
+        PhysicsWorld world(scene, Settings());
+        Box(scene, "Ground", glm::vec3(0.0f, -0.5f, 0.0f), glm::vec3(20.0f, 1.0f, 20.0f), MotionType::Static, 0.0f);
+        Entity ball = MeshEntity(scene, assets, "Ball", glm::vec3(0.0f, 2.0f, 0.0f), Primitives::Sphere(0.5f, 24, 12));
+        SoftBody soft;
+        soft.mass = 0.5f;
+        soft.pressure = 20.0f;
+        soft.restitution = 0.5f;
+        ball.Add<SoftBody>(soft);
+        scene.Update(0.0f);
+        Run(scene, world, 60 * 6);
+        SoftBodyInfo info;
+        const bool made = world.GetSoftBodyInfo(ball, info);
+        const float kept = info.restVolume > 0.0f ? info.volume / info.restVolume : 0.0f;
+        return Finish(log, "balloon", Format("%.0f particles; rests from y %.3f to %.3f with %.0f%% of its volume", static_cast<double>(info.particles), info.boundsMin.y, info.boundsMax.y, 100.0 * kept),
+                      made && info.boundsMin.y > -0.03f && info.boundsMin.y < 0.05f && kept > 0.85f && kept < 1.5f);
+    }
+
+    // The presets' jelly cube (0.8 m) and balloon (1 m) dropped on the ground: over their last 2 s
+    // (of 6) neither sinks into it, the jelly keeps its size and the balloon its volume.
+    inline Result SoftPresets(const Log& log)
+    {
+        using namespace detail;
+        AssetManager2 assets;
+        Scene scene;
+        scene.UpdateComponentRegistry();
+        PhysicsWorld world(scene, Settings());
+        Box(scene, "Ground", glm::vec3(0.0f, -0.5f, 0.0f), glm::vec3(40.0f, 1.0f, 40.0f), MotionType::Static, 0.0f);
+        Entity jelly = SoftBodyPresets::SpawnJelly(scene, assets, glm::vec3(-2.0f, 0.0f, 0.0f));
+        Entity balloon = SoftBodyPresets::SpawnBalloon(scene, assets, glm::vec3(2.0f, 0.0f, 0.0f));
+        scene.Update(0.0f);
+        float jellyLow = 1e9f, jellyHigh = 0.0f, jellyVolume[2] = { 1e9f, 0.0f }, ballLow = 1e9f, ballVolume[2] = { 1e9f, 0.0f };
+        Run(scene, world, 60 * 6, [&](int step) {
+            SoftBodyInfo j, b;
+            if (step < 60 * 4 || !world.GetSoftBodyInfo(jelly, j) || !world.GetSoftBodyInfo(balloon, b))
+                return;
+            jellyLow = std::min(jellyLow, j.boundsMin.y);
+            jellyHigh = std::max(jellyHigh, j.boundsMax.y);
+            jellyVolume[0] = std::min(jellyVolume[0], j.volume / j.restVolume);
+            jellyVolume[1] = std::max(jellyVolume[1], j.volume / j.restVolume);
+            ballLow = std::min(ballLow, b.boundsMin.y);
+            ballVolume[0] = std::min(ballVolume[0], b.volume / b.restVolume);
+            ballVolume[1] = std::max(ballVolume[1], b.volume / b.restVolume);
+        });
+        return Finish(log, "soft presets", Format("jelly %.2f m tall, %.0f..%.0f%% of its volume; ", jellyHigh - jellyLow, 100.0 * jellyVolume[0], 100.0 * jellyVolume[1]) +
+                      Format("balloon %.0f..%.0f%%, lowest y %.3f / %.3f", 100.0 * ballVolume[0], 100.0 * ballVolume[1], ballLow, jellyLow),
+                      jellyLow > -0.03f && ballLow > -0.03f && jellyHigh - jellyLow > 0.65f && jellyHigh - jellyLow < 0.9f &&
+                      jellyVolume[0] > 0.85f && jellyVolume[1] < 1.15f && ballVolume[0] > 0.85f && ballVolume[1] < 1.15f);
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         std::vector<Result> results;
-        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &Water, &RagdollFall })
+        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &Water, &RagdollFall, &Cloth, &Balloon, &SoftPresets })
             results.push_back(scenario(log));
         return results;
     }

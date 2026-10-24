@@ -25,6 +25,7 @@
 #include <Mariana/Physics/CharacterPresets.hpp>
 #include <Mariana/Physics/JointPresets.hpp>
 #include <Mariana/Physics/WaterPresets.hpp>
+#include <Mariana/Physics/SoftBodyPresets.hpp>
 
 #include "ImGuizmo.h"
 
@@ -276,15 +277,20 @@ Entity EditorApp::SpawnJointPreset(int which)
     glm::vec3 forward = glm::vec3(info.invView[2]);
     forward.y = 0.0f;
     forward = glm::length(forward) > 1e-4f ? glm::normalize(forward) : glm::vec3(0.0f, 0.0f, 1.0f);
-    glm::vec3 at = info.pos + forward * (which >= 4 ? 16.0f : 8.0f);
+    glm::vec3 at = info.pos + forward * (which == 4 || which == 5 ? 16.0f : 8.0f);
     at.y = 0.0f;
+    const glm::quat facing = glm::angleAxis(std::atan2(-forward.x, -forward.z), glm::vec3(0.0f, 1.0f, 0.0f));
     Entity spawned = which == 0 ? JointPresets::SpawnChain(scene, assets, at + glm::vec3(0.0f, 6.0f, 0.0f))
                    : which == 1 ? JointPresets::SpawnDoor(scene, assets, at)
                    : which == 2 ? JointPresets::SpawnSpinner(scene, assets, at)
                    : which == 3 ? JointPresets::SpawnWreckingBall(scene, assets, at)
                    : which == 4 ? WaterPresets::SpawnWater(scene, assets, at + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(10.0f, 2.0f, 10.0f))
                    : which == 5 ? WaterPresets::SpawnPool(scene, assets, at)
-                   : CharacterPresets::SpawnRagdoll(scene, assets, at, glm::angleAxis(std::atan2(-forward.x, -forward.z), glm::vec3(0.0f, 1.0f, 0.0f)));
+                   : which == 6 ? CharacterPresets::SpawnRagdoll(scene, assets, at, facing)
+                   : which == 7 ? SoftBodyPresets::SpawnFlag(scene, assets, at, facing)
+                   : which == 8 ? SoftBodyPresets::SpawnDrape(scene, assets, at)
+                   : which == 9 ? SoftBodyPresets::SpawnJelly(scene, assets, at)
+                   : SoftBodyPresets::SpawnBalloon(scene, assets, at);
     if (!spawned.IsValid())
         return spawned;
     scene.Update(0.0f);
@@ -1074,6 +1080,14 @@ void EditorApp::DrawTopMenu()
                 if (ImGui::MenuItem("Water Pool")) SpawnJointPreset(5);
                 ImGui::Separator();
                 if (ImGui::MenuItem("Ragdoll (dancing)")) SpawnJointPreset(6);
+                if (ImGui::BeginMenu("Soft Body"))
+                {
+                    if (ImGui::MenuItem("Flag")) SpawnJointPreset(7);
+                    if (ImGui::MenuItem("Cloth Drape")) SpawnJointPreset(8);
+                    if (ImGui::MenuItem("Jelly Cube")) SpawnJointPreset(9);
+                    if (ImGui::MenuItem("Balloon")) SpawnJointPreset(10);
+                    ImGui::EndMenu();
+                }
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Vehicle"))

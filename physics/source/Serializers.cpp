@@ -146,6 +146,22 @@ namespace PhysicsInternal
             a.Field("jointLimitScale", r.jointLimitScale);
             a.Field("layer", r.layer);
         });
+        SceneFile::RegisterComponent<SoftBody>("SoftBody", [](SceneArchive& a, SoftBody& s) {
+            a.Field("mass", s.mass);
+            a.Field("stiffness", s.stiffness);
+            a.Field("bendStiffness", s.bendStiffness);
+            a.Field("pressure", s.pressure);
+            a.Field("friction", s.friction);
+            a.Field("restitution", s.restitution);
+            a.Field("damping", s.damping);
+            a.Field("gravityFactor", s.gravityFactor);
+            a.Field("iterations", s.iterations);
+            a.Field("thickness", s.thickness);
+            a.Field("pin", s.pin, { "None", "Top", "Bottom", "Left", "Right", "Front", "Back", "Corners", "TopCorners" });
+            a.Field("wind", s.wind);
+            a.Field("gusts", s.gusts);
+            a.Field("layer", s.layer);
+        });
         SceneFile::RegisterComponent<Joint>("Joint", [](SceneArchive& a, Joint& j) {
             a.Field("type", j.type, { "Fixed", "Point", "Distance", "Hinge", "Slider", "Cone", "SwingTwist", "SixDOF" });
             a.Field("connected", j.connected);

@@ -9,6 +9,7 @@
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/Water.hpp>
 #include <Mariana/Physics/Ragdoll.hpp>
+#include <Mariana/Physics/SoftBody.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <imgui.h>
 
@@ -989,6 +990,69 @@ namespace PhysicsEditor
             [](Entity e) { return !e.TryGet<Ragdoll>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Ragdoll", Ragdoll{}); } });
 
+        inspector.SetComponentDrawer("SoftBody", [&inspector, &undo, &world](Entity& entity) {
+            ImGui::PushID("SoftBody");
+            if (Section<SoftBody>(inspector, undo, entity, "Soft Body"))
+            {
+                EditComponent<SoftBody>(entity, undo, "Edit Soft Body", [&](SoftBody& s) {
+                    bool changed = false;
+                    changed |= ImGui::DragFloat("Mass", &s.mass, 0.01f, 0.001f, 10000.0f, "%.3f kg");
+                    changed |= ImGui::SliderFloat("Stiffness", &s.stiffness, 0.0f, 1.0f, "%.2f");
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("How little its edges stretch: 0 = a rubber band, 1 = not at all");
+                    changed |= ImGui::SliderFloat("Bend Stiffness", &s.bendStiffness, 0.0f, 1.0f, s.bendStiffness > 0.0f ? "%.2f" : "folds freely");
+                    changed |= ImGui::DragFloat("Pressure", &s.pressure, 0.1f, 0.0f, 1000.0f, s.pressure > 0.0f ? "%.1f x its weight" : "none");
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Closed meshes: how hard the gas inside pushes out at rest size, in its weights\n(10 = a soft ball, 50 = a firm one); more when it is squashed");
+                    const char* const pins[] = { "None", "Top", "Bottom", "Left", "Right", "Front", "Back", "Corners", "Top Corners" };
+                    int pin = static_cast<int>(s.pin);
+                    if (ImGui::Combo("Pin", &pin, pins, 9))
+                    {
+                        s.pin = static_cast<SoftBodyPin>(pin);
+                        changed = true;
+                    }
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Vertices held by the entity (they move with it): a side of the mesh in its own axes\n(Top = +Y, Right = +X, Front = +Z; a plane lies in XZ), or its corners");
+                    changed |= ImGui::DragFloat3("Wind", glm::value_ptr(s.wind), 0.05f, -100.0f, 100.0f, "%.2f");
+                    if (glm::length(s.wind) > 0.0f)
+                        changed |= ImGui::SliderFloat("Gusts", &s.gusts, 0.0f, 1.0f, "%.2f");
+                    changed |= ImGui::SliderFloat("Friction", &s.friction, 0.0f, 2.0f, "%.2f");
+                    changed |= ImGui::SliderFloat("Restitution", &s.restitution, 0.0f, 1.0f, "%.2f");
+                    changed |= ImGui::DragFloat("Damping", &s.damping, 0.01f, 0.0f, 10.0f, "%.2f /s");
+                    changed |= ImGui::DragFloat("Gravity Factor", &s.gravityFactor, 0.01f, -10.0f, 10.0f, "%.2f");
+                    int iterations = static_cast<int>(s.iterations);
+                    if (ImGui::SliderInt("Iterations", &iterations, 1, 30))
+                    {
+                        s.iterations = static_cast<uint32_t>(iterations);
+                        changed = true;
+                    }
+                    changed |= ImGui::DragFloat("Thickness", &s.thickness, 0.001f, 0.0f, 0.5f, "%.3f m");
+                    int layer = static_cast<int>(s.layer);
+                    if (ImGui::InputInt("Layer", &layer))
+                    {
+                        s.layer = static_cast<uint32_t>(std::clamp(layer, 0, PhysicsSettings::kMaxLayers - 1));
+                        changed = true;
+                    }
+                    return changed;
+                });
+                SoftBodyInfo info;
+                if (world.GetSoftBodyInfo(entity, info))
+                {
+                    ImGui::TextDisabled("%zu particles, %zu faces, %zu springs, %zu pinned", info.particles, info.faces, info.edges, info.pinned);
+                    if (info.closed && info.restVolume > 0.0f)
+                        ImGui::TextDisabled("Closed, %.0f%% of its volume, %zu touching, %s", 100.0f * info.volume / info.restVolume, info.touching, info.active ? "awake" : "asleep");
+                    else
+                        ImGui::TextDisabled("Open (pressure does nothing), %zu touching, %s", info.touching, info.active ? "awake" : "asleep");
+                }
+                else
+                    ImGui::TextDisabled("Made of its mesh when playing");
+            }
+            ImGui::PopID();
+        });
+
+        inspector.AddComponentOption({ "Physics", "Soft Body",
+            [](Entity e) { return !e.TryGet<SoftBody>() && e.TryGet<MeshComponent>(); },
+            [&undo](Entity e) { AddWithUndo(undo, e, "Soft Body", SoftBody{}); } });
         inspector.AddComponentOption({ "Physics", "Water Volume",
             [](Entity e) { return !e.TryGet<WaterVolume>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Water Volume", WaterVolume{}); } });
