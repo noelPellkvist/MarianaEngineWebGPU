@@ -13,6 +13,7 @@
 #include <Mariana/Physics/Ragdoll.hpp>
 #include <Mariana/Physics/SoftBody.hpp>
 #include <Mariana/Physics/SoftBodyPresets.hpp>
+#include <Mariana/Physics/VehiclePresets.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
 #include <Mariana/Physics/Water.hpp>
 #include <Mariana/Rendering/Components.hpp>
@@ -438,10 +439,52 @@ namespace PhysicsScenarios
                       jellyVolume[0] > 0.85f && jellyVolume[1] < 1.15f && ballVolume[0] > 0.85f && ballVolume[1] < 1.15f);
     }
 
+    // The primitive car (with a bumper, so its body has three colliders) driven at full throttle into
+    // a jelly cube head on and over another with its left wheels, and a character walking into a
+    // third: the car drives on, the jellies stay whole. Jolt asks for the friction of what is near a
+    // soft body without a sub-shape (with three colliders that index is past the end), and wheels
+    // must not stand on soft bodies (Jolt's vehicle would move one as if it were rigid); natively a
+    // debug build logs Jolt's asserts when either goes wrong, on the web it crashed.
+    inline Result CarIntoJelly(const Log& log)
+    {
+        using namespace detail;
+        AssetManager2 assets;
+        Scene scene;
+        scene.UpdateComponentRegistry();
+        PhysicsWorld world(scene, Settings());
+        Box(scene, "Ground", glm::vec3(0.0f, -0.5f, 0.0f), glm::vec3(200.0f, 1.0f, 200.0f), MotionType::Static, 0.0f);
+        Entity car = VehiclePresets::Spawn(scene, assets, VehicleType::Wheeled, glm::vec3(0.0f, 1.0f, -12.0f));
+        BoxCollider bumper;
+        bumper.size = glm::vec3(1.8f, 0.25f, 0.2f);
+        Make(scene, "Bumper", glm::vec3(0.0f, -0.1f, 2.15f), car).Add<BoxCollider>(bumper);
+        Entity ahead = SoftBodyPresets::SpawnJelly(scene, assets, glm::vec3(0.0f, 0.0f, 0.0f));
+        Entity under = SoftBodyPresets::SpawnJelly(scene, assets, glm::vec3(-0.9f, 0.0f, 14.0f));
+        Entity walked = SoftBodyPresets::SpawnJelly(scene, assets, glm::vec3(6.0f, 0.0f, 0.0f));
+        Entity walker = Make(scene, "Character", glm::vec3(6.0f, 0.0f, -3.0f));
+        walker.Add<CharacterController>(CharacterController{});
+        scene.Update(0.0f);
+        Run(scene, world, 120); // settle
+        car.Get<Vehicle>()->throttle = 1.0f;
+        walker.Get<CharacterController>()->move = glm::vec3(0.0f, 0.0f, 1.0f);
+        float lowest = 1e9f, highest = -1e9f;
+        Run(scene, world, 60 * 5, [&](int) {
+            for (Entity jelly : { ahead, under, walked })
+                if (SoftBodyInfo info; world.GetSoftBodyInfo(jelly, info))
+                {
+                    lowest = std::min(lowest, info.boundsMin.y);
+                    highest = std::max(highest, info.boundsMax.y);
+                }
+        });
+        const glm::vec3 p = Position(car);
+        const glm::vec3 w = Position(walker);
+        return Finish(log, "into jelly", Format("the car at z %.1f, the character at z %.1f; the jellies between y %.2f and %.2f", p.z, w.z, lowest, highest),
+                      p.z > 20.0f && lowest > -0.5f && highest < 10.0f);
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         std::vector<Result> results;
-        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &Water, &RagdollFall, &Cloth, &Balloon, &SoftPresets })
+        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &Water, &RagdollFall, &Cloth, &Balloon, &SoftPresets, &CarIntoJelly })
             results.push_back(scenario(log));
         return results;
     }

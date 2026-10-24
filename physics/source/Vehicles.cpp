@@ -20,6 +20,19 @@ using namespace PhysicsInternal;
 
 namespace
 {
+    // What a wheel stands on: anything but its own vehicle and soft bodies (Jolt's vehicle would push
+    // a soft body about as if it were rigid; the chassis still bumps into them).
+    class WheelBodyFilter final : public JPH::BodyFilter
+    {
+    public:
+        explicit WheelBodyFilter(JPH::BodyID vehicle) : m_Vehicle(vehicle) {}
+        bool ShouldCollide(const JPH::BodyID& body) const override { return body != m_Vehicle; }
+        bool ShouldCollideLocked(const JPH::Body& body) const override { return !body.IsSoftBody(); }
+
+    private:
+        JPH::BodyID m_Vehicle;
+    };
+
     struct Hash
     {
         uint64_t value = 1469598103934665603ull;
@@ -351,15 +364,19 @@ void PhysicsWorld::Impl::SyncVehicles()
         float narrowest = FLT_MAX;
         for (const WheelPlacement& w : wheels)
             narrowest = std::min(narrowest, w.settings.width);
+        JPH::Ref<JPH::VehicleCollisionTester> tester;
         switch (vehicle->collision)
         {
-        case WheelCollision::Ray: record.constraint->SetVehicleCollisionTester(new JPH::VehicleCollisionTesterRay(layer)); break;
-        case WheelCollision::Sphere: record.constraint->SetVehicleCollisionTester(new JPH::VehicleCollisionTesterCastSphere(layer, 0.5f * narrowest)); break;
+        case WheelCollision::Ray: tester = new JPH::VehicleCollisionTesterRay(layer); break;
+        case WheelCollision::Sphere: tester = new JPH::VehicleCollisionTesterCastSphere(layer, 0.5f * narrowest); break;
         case WheelCollision::Cylinder:
             // A rounded tyre on a motorcycle, a flat one otherwise.
-            record.constraint->SetVehicleCollisionTester(new JPH::VehicleCollisionTesterCastCylinder(layer, vehicle->type == VehicleType::Motorcycle ? 1.0f : 0.1f));
+            tester = new JPH::VehicleCollisionTesterCastCylinder(layer, vehicle->type == VehicleType::Motorcycle ? 1.0f : 0.1f);
             break;
         }
+        record.wheelFilter = std::make_unique<WheelBodyFilter>(record.body);
+        tester->SetBodyFilter(record.wheelFilter.get());
+        record.constraint->SetVehicleCollisionTester(tester);
         if (vehicle->type == VehicleType::Wheeled)
         {
             // Jolt's own car was tuned with tyres that grip ten times harder along their rolling

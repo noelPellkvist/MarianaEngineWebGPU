@@ -90,23 +90,26 @@ namespace PhysicsInternal
         float restitution;
     };
 
-    // A soft body has its own (and Jolt asks with no sub-shape for it).
+    // The collider's material a contact is on. A soft body has none of its own, and Jolt asks for
+    // what touches a soft body with no sub-shape, which a body of several colliders can't look up:
+    // both use the body's (its first collider's).
+    inline const ColliderMaterial* ContactMaterial(const JPH::Body& body, const JPH::SubShapeID& subShape)
+    {
+        if (body.IsSoftBody() || (subShape.IsEmpty() && body.GetShape()->GetSubShapeIDBitsRecursive() > 0))
+            return nullptr;
+        return dynamic_cast<const ColliderMaterial*>(body.GetShape()->GetMaterial(subShape));
+    }
+
     inline float Friction(const JPH::Body& body, const JPH::SubShapeID& subShape)
     {
-        if (body.IsSoftBody())
-            return body.GetFriction();
-        if (const auto* material = dynamic_cast<const ColliderMaterial*>(body.GetShape()->GetMaterial(subShape)))
-            return material->friction;
-        return body.GetFriction();
+        const ColliderMaterial* material = ContactMaterial(body, subShape);
+        return material ? material->friction : body.GetFriction();
     }
 
     inline float Restitution(const JPH::Body& body, const JPH::SubShapeID& subShape)
     {
-        if (body.IsSoftBody())
-            return body.GetRestitution();
-        if (const auto* material = dynamic_cast<const ColliderMaterial*>(body.GetShape()->GetMaterial(subShape)))
-            return material->restitution;
-        return body.GetRestitution();
+        const ColliderMaterial* material = ContactMaterial(body, subShape);
+        return material ? material->restitution : body.GetRestitution();
     }
 
     // Like most engines: the geometric mean of the frictions, the larger restitution.

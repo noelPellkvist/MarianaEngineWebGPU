@@ -192,6 +192,7 @@ struct PhysicsWorld::Impl
             uint64_t entity = 0;
             JPH::Vec3 modelRight = JPH::Vec3::sAxisX(), modelUp = JPH::Vec3::sAxisY(); // the wheel entity's axes that map to the axle and up
         };
+        std::unique_ptr<JPH::BodyFilter> wheelFilter; // what its wheels stand on (outlives the constraint)
         JPH::Ref<JPH::VehicleConstraint> constraint;
         JPH::BodyID body;
         VehicleType type = VehicleType::Wheeled;
