@@ -1,6 +1,6 @@
 #pragma once
-// Private to MarianaPhysics: what a PhysicsWorld holds (PhysicsWorld.cpp runs it; Queries.cpp and
-// DebugDraw.cpp read it).
+// Private to MarianaPhysics: what a PhysicsWorld holds (PhysicsWorld.cpp runs it, each feature's
+// file its part; Queries.cpp and DebugDraw.cpp read it).
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
@@ -27,6 +27,7 @@
 #include <Jolt/Physics/Ragdoll/Ragdoll.h>
 #include <Jolt/Skeleton/SkeletonPose.h>
 
+#include <initializer_list>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -131,6 +132,58 @@ namespace PhysicsInternal
     // The physics components' serializers for scene files (Serializers.cpp).
     void RegisterSerializers();
 
+    // Runtime components (ECS::RegisterRuntimeComponent: never cloned, snapshotted or saved) the world
+    // puts on the entities it moves. Its systems write the scene from them; the world keeps what
+    // makes them move (Jolt's bodies, characters, constraints), so it can take that away when an
+    // entity or its components go.
+
+    // An entity the simulation moves (a dynamic body, a character, a ragdoll's bone): where the last
+    // two steps left it, which the write-back system shows `alpha` of the way between.
+    struct PhysicsBody
+    {
+        uint32_t body = JPH::BodyID::cInvalidBodyID; // the body it follows (index and sequence); invalid: its owner tracks it (a character)
+        bool interpolate = true;
+        bool show = true;              // false while the simulation doesn't move it (an Animated ragdoll's bone)
+        uint32_t writtenVersion = ~0u; // its LocalTRS.version after the write-back last moved it
+        glm::vec3 previousPosition{ 0.0f }, currentPosition{ 0.0f }, shownPosition{ 0.0f };
+        glm::quat previousRotation{ 1.0f, 0.0f, 0.0f, 0.0f }, currentRotation{ 1.0f, 0.0f, 0.0f, 0.0f }, shownRotation{ 1.0f, 0.0f, 0.0f, 0.0f };
+        void Place(const glm::vec3& p, const glm::quat& r)
+        {
+            previousPosition = currentPosition = shownPosition = p;
+            previousRotation = currentRotation = shownRotation = r;
+        }
+    };
+
+    // A vehicle's wheel entity: which wheel of which chassis it shows.
+    struct PhysicsWheel
+    {
+        uint64_t chassis = 0;
+        uint32_t index = 0;
+    };
+
+    // A soft body's entity: the copy of its mesh it draws, how that is made from the particles, and
+    // where the particles were after the last two steps.
+    struct PhysicsSoftBody
+    {
+        uint32_t body = JPH::BodyID::cInvalidBodyID;
+        AssetHandle<IMesh> mesh;               // the copy, written every frame it moves
+        std::vector<StandardVertex> vertices;  // the copy's
+        std::vector<uint32_t> triangles;       // the copy's triangles (its indices), for tangents
+        std::vector<uint32_t> particleOf;      // per vertex (~0u: not part of a triangle)
+        std::vector<uint32_t> faces;           // particles, three per face, wound as modelled
+        std::vector<uint32_t> normalStart, normalFaces; // per vertex: the faces its normal is made of
+        std::vector<glm::vec3> previous, current; // particles, world
+        std::vector<glm::vec3> shown, faceNormals; // scratch
+        bool awake = false, written = false;
+    };
+
+    // A cached query that lists the entities with a component (PhysicsWorld::Impl::Find runs them).
+    template <class T>
+    System MakeFinder(Scene& scene, std::vector<Entity>& into)
+    {
+        return scene.CreateSystem<T>([&into](Entity e, T&, float) { into.push_back(e); });
+    }
+
     // Jolt's debug renderer (one for the process), collecting lines while a target is set: the
     // contacts Jolt draws during steps, and DebugDraw's bodies.
     void AcquireDebugRenderer();
@@ -153,26 +206,26 @@ struct PhysicsWorld::Impl
         std::vector<ColliderGeometry> triggers;
     };
 
+    // A body the world owns (a dynamic one's entity also has a PhysicsBody, for the write-back).
     struct Record
     {
         JPH::BodyID body;   // the solid colliders (or the triggers when there are only those)
         JPH::BodyID sensor; // the triggers of a body that has solid colliders too, following it
         uint64_t signature = 0;
         MotionType motion = MotionType::Static;
-        glm::vec3 position{ 0.0f };
+        glm::vec3 position{ 0.0f }; // where its entity was at the last sync (kinematic bodies go there)
         glm::quat rotation{ 1.0f, 0.0f, 0.0f, 0.0f };
-        uint32_t writtenVersion = ~0u; // the owner's LocalTRS.version after the body last moved it
         bool seen = false;
-        // Dynamic bodies: where the last two steps left them, and where the entity is shown (between
-        // the two with interpolation).
-        bool interpolate = true;
-        glm::vec3 previousPosition{ 0.0f }, currentPosition{ 0.0f }, shownPosition{ 0.0f };
-        glm::quat previousRotation{ 1.0f, 0.0f, 0.0f, 0.0f }, currentRotation{ 1.0f, 0.0f, 0.0f, 0.0f }, shownRotation{ 1.0f, 0.0f, 0.0f, 0.0f };
-        void Place(const glm::vec3& p, const glm::quat& r)
-        {
-            previousPosition = currentPosition = shownPosition = p;
-            previousRotation = currentRotation = shownRotation = r;
-        }
+    };
+
+    // Where an entity is during a sync: its world matrix and scale from the root down (as the
+    // transform system multiplies them), and whether it is on or below a vehicle's wheel or a
+    // character (no body is made of what is there).
+    struct Node
+    {
+        glm::mat4 world{ 1.0f };
+        glm::vec3 scale{ 1.0f };
+        bool excluded = false;
     };
 
     // Forces and impulses waiting for the next Step (AddForce and the rest).
@@ -201,18 +254,15 @@ struct PhysicsWorld::Impl
         bool seen = false;
     };
 
+    // A character (its entity also has a PhysicsBody, which TrackPoses fills from it).
     struct CharacterRecord
     {
         JPH::Ref<JPH::CharacterVirtual> character;
         JPH::BodyID innerBody;
         uint64_t signature = 0;
-        uint32_t writtenVersion = ~0u; // the entity's LocalTRS.version after the character last moved it
         float yaw = 0.0f;
         bool seen = false;
-        // Where the last two steps left it (feet and yaw), for interpolation.
-        glm::vec3 previousPosition{ 0.0f }, currentPosition{ 0.0f };
-        float previousYaw = 0.0f, currentYaw = 0.0f;
-        bool tracked = false;
+        bool tracked = false; // stepped since it was made or put somewhere
     };
 
     struct JointRecord
@@ -247,7 +297,7 @@ struct PhysicsWorld::Impl
     };
 
     // A ragdoll on a model's root: Jolt's ragdoll (bodies in PlanRagdoll's order, parents first),
-    // each bone's entity, capsule and the poses of its last two steps, and how it moves now.
+    // each bone's entity (which has a PhysicsBody) and capsule, and how it moves now.
     struct RagdollRecord
     {
         struct Bone
@@ -257,8 +307,6 @@ struct PhysicsWorld::Impl
             float radius = 0.0f;
             glm::vec3 localA{ 0.0f }, localB{ 0.0f }; // the capsule's ends in the body's frame
             LocalTRS rest{};                          // its transform when made (a pose without an Animator)
-            glm::vec3 previousPosition{ 0.0f }, currentPosition{ 0.0f };
-            glm::quat previousRotation{ 1.0f, 0.0f, 0.0f, 0.0f }, currentRotation{ 1.0f, 0.0f, 0.0f, 0.0f };
         };
         uint64_t root = 0;
         JPH::Ref<JPH::RagdollSettings> settings;
@@ -274,27 +322,20 @@ struct PhysicsWorld::Impl
         bool seen = false;
     };
 
-    // A soft body on an entity: Jolt's body, the mesh the entity had and the copy it draws now, how
-    // the copy's vertices map to particles, and where the particles were after the last two steps.
+    // A soft body on an entity: Jolt's body and the mesh the entity had (what it draws now, made
+    // from the particles, is its PhysicsSoftBody).
     struct SoftBodyRecord
     {
         JPH::BodyID body;
         uint64_t signature = 0;
         bool made = false;
-        AssetHandle<IMesh> original, deformed;
-        std::vector<StandardVertex> vertices;  // the copy's, written every frame it moves
-        std::vector<uint32_t> triangles;       // the copy's triangles (its indices), for tangents
-        std::vector<uint32_t> particleOf;      // per vertex (~0u: not part of a triangle)
-        std::vector<uint32_t> faces;           // particles, three per face, wound as modelled
-        std::vector<uint32_t> normalStart, normalFaces; // per vertex: the faces its normal is made of
+        AssetHandle<IMesh> original;
+        std::vector<uint32_t> faces;           // particles, three per face, wound as modelled (the wind's)
         std::vector<std::pair<uint32_t, glm::vec3>> pins; // particle, its place in the entity's space
         float invMass = 1.0f;
         float restVolume = 0.0f;
         bool closed = false;
         float pressureScale = 0.0f; // Jolt's pressure (n R T) for a push of one weight
-        std::vector<glm::vec3> previous, current; // particles, world
-        std::vector<glm::vec3> shown, faceNormals; // scratch
-        bool awake = false, written = false;
         bool seen = false;
     };
 
@@ -342,6 +383,14 @@ struct PhysicsWorld::Impl
     std::unordered_map<uint64_t, uint64_t> ragdollBones;  // bone entity -> its ragdoll's root
     uint32_t ragdollGroups = 0;
     std::unordered_map<uint64_t, SoftBodyRecord> softBodies; // per entity
+    std::unordered_map<uint64_t, Node> nodes; // the entities placed during this sync
+    // Cached queries listing the entities with each component the world works from (Find), and the
+    // systems that follow the bodies after each step (TrackPoses) and write the scene (Show).
+    std::vector<Entity> finding;
+    System rigidBodyFinder, boxFinder, sphereFinder, capsuleFinder, cylinderFinder, meshColliderFinder, waterFinder;
+    System vehicleFinder, characterFinder, jointFinder, ragdollFinder, softBodyFinder, playerControlFinder, followCameraFinder;
+    System trackBodies, trackSoftBodies;
+    System showBodies, showWheels, showSoftBodies;
     float waterTime = 0.0f;          // simulated seconds, for the waves
     // Debug drawing of contacts: wanted by the last DebugDraw call, drawn by Jolt during steps.
     bool drawContacts = false;
@@ -352,9 +401,14 @@ struct PhysicsWorld::Impl
     ~Impl();
 
     void CreateSystem();
+    void MakeSystems();
     void Apply();
     void RemoveBody(JPH::BodyID& id);
     void RemoveAll();
+    // The entities the finders list, each once, in id order (bodies are made in this order, so the
+    // simulation doesn't depend on how the scene stores its entities).
+    std::vector<Entity> Find(std::initializer_list<System*> finders);
+    const Node& NodeOf(Entity entity);
     void Collect();
     JPH::BodyID Create(const Candidate& c, std::vector<ColliderGeometry> parts, bool sensor, const glm::vec3& position, const glm::quat& rotation);
     void Sync();
@@ -363,11 +417,15 @@ struct PhysicsWorld::Impl
     void SyncVehicles();
     void RemoveVehicle(VehicleRecord& record);
     void DriveVehicles();
-    void WriteWheels();
+    // The wheel system's: a wheel entity where Jolt has its wheel, on its chassis as shown.
+    void ShowWheel(Entity entity, const PhysicsInternal::PhysicsWheel& wheel, LocalTRS& trs);
     void SyncCharacters();
-    void RemoveCharacter(CharacterRecord& record);
+    void RemoveCharacter(uint64_t entity, CharacterRecord& record);
     void MoveCharacters(float dt);
-    void WriteCharacters(float alpha, bool stepped);
+    // After each step: where each character is now, into its entity's PhysicsBody.
+    void TrackCharacters();
+    // After the steps of a Step call: the jumps asked for are spent.
+    void SpendJumps();
     void SyncJoints();
     void RemoveJoint(JointRecord& record);
     // Takes away the joints holding a body (before the body goes).
@@ -388,24 +446,26 @@ struct PhysicsWorld::Impl
     // Contact events from `firstEvent` on that knock a ragdoll out.
     void CheckRagdollImpacts(size_t firstEvent);
     void KnockBack(RagdollRecord& record, const Ragdoll& settings, Entity hitter, const glm::vec3& point);
-    void TrackRagdoll(RagdollRecord& record, bool place);
-    void WriteRagdolls(float alpha);
+    // Whether the write-back moves the bones' entities (not while the animation moves the bodies).
+    void ShowRagdoll(const RagdollRecord& record, bool show);
     void SyncSoftBodies();
     void BuildSoftBody(Entity entity, const SoftBody& settings, const AssetHandle<IMesh>& source, SoftBodyRecord& record);
     // Takes the body away and gives the entity back the mesh it had.
     void RemoveSoftBody(uint64_t entity, SoftBodyRecord& record);
     // Before each step: pinned particles follow the entity, the wind blows.
     void DriveSoftBodies(float dt);
-    void TrackSoftBodies();
-    // Writes the meshes `alpha` of the way from the previous step's particles to the last's.
-    void WriteSoftBodies(float alpha);
+    // The soft body systems': after each step, where its particles are; and the mesh written `alpha`
+    // of the way from the previous step's particles to the last's.
+    void TrackSoftBody(PhysicsInternal::PhysicsSoftBody& drawn);
+    void ShowSoftBody(Entity entity, PhysicsInternal::PhysicsSoftBody& drawn, float alpha);
     // Scrolls the normal maps of the water's meshes (the surface).
     void RippleWater();
-    // After each step: the poses moving bodies and characters reached, for interpolation.
+    // After each step: the poses moving bodies, characters and particles reached, for interpolation.
     void TrackPoses();
-    // Shows bodies, wheels and characters `alpha` of the way from their previous step to their last
-    // (1 = where the last step left them).
-    void WriteBack(float alpha);
+    // Runs the write-back systems: entities `alpha` of the way from where their previous step left
+    // them to where the last did (1 = the last), wheels on their chassis, soft bodies' meshes.
+    void Show(float alpha);
+    void UpdateFollowCameras(float dt);
     void Step(float dt);
 
     // The entity's body (its solid one when it has both), invalid when it has none.

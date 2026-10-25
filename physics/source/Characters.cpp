@@ -78,8 +78,10 @@ namespace PhysicsInternal
     }
 }
 
-void PhysicsWorld::Impl::RemoveCharacter(CharacterRecord& record)
+void PhysicsWorld::Impl::RemoveCharacter(uint64_t entity, CharacterRecord& record)
 {
+    if (Entity e = scene.FromId(entity); e.IsValid() && e.TryGet<PhysicsBody>())
+        e.Remove<PhysicsBody>();
     if (!record.character)
         return;
     characterCollision->Remove(record.character);
@@ -96,17 +98,17 @@ void PhysicsWorld::Impl::SyncCharacters()
     for (auto& [id, record] : characters)
         record.seen = false;
 
-    std::function<void(Entity)> visit = [&](Entity e) {
-        e.ForEachChild(visit);
+    for (Entity e : Find({ &characterFinder }))
+    {
         const CharacterController* c = e.TryGet<CharacterController>();
         const LocalTRS* trs = e.TryGet<LocalTRS>();
         if (!c || !trs)
-            return;
+            continue;
         if (e.TryGet<RigidBody>())
         {
             if (warnedDynamicMesh.insert(e.RawId()).second)
                 Logger::Warning(std::string("Physics: ") + e.GetName() + " has a CharacterController and a RigidBody; the character is left out");
-            return;
+            continue;
         }
         glm::vec3 position;
         glm::quat rotation;
@@ -115,23 +117,28 @@ void PhysicsWorld::Impl::SyncCharacters()
         CharacterRecord& record = characters[e.RawId()];
         record.seen = true;
         const uint64_t signature = Signature(*c);
-        if (record.character && record.signature == signature)
+        PhysicsBody* shown = e.Get<PhysicsBody>();
+        if (record.character && record.signature == signature && shown)
         {
-            if (trs->version != record.writtenVersion)
+            // Moved by someone else (the editor, a script): the character goes there.
+            if (trs->version != shown->writtenVersion)
             {
                 record.character->SetPosition(JPH::RVec3(ToJolt(position)));
                 record.yaw = YawOf(rotation);
                 record.character->SetRotation(ToJolt(Yaw(record.yaw)));
-                record.writtenVersion = trs->version;
+                shown->writtenVersion = trs->version;
+                shown->Place(position, Yaw(record.yaw));
                 record.tracked = false;
             }
-            return;
+            continue;
         }
 
         JPH::Vec3 velocity = JPH::Vec3::sZero();
         if (record.character)
             velocity = record.character->GetLinearVelocity();
-        RemoveCharacter(record);
+        const uint32_t version = trs->version;
+        RemoveCharacter(e.RawId(), record);
+        c = e.TryGet<CharacterController>(); // taking its PhysicsBody away moved the entity's components
 
         // A capsule standing on the entity's origin.
         const float radius = std::max(c->radius, 0.01f);
@@ -139,7 +146,7 @@ void PhysicsWorld::Impl::SyncCharacters()
         JPH::RotatedTranslatedShapeSettings shapeSettings(JPH::Vec3(0.0f, halfCylinder + radius, 0.0f), JPH::Quat::sIdentity(), new JPH::CapsuleShape(halfCylinder, radius));
         const JPH::ShapeSettings::ShapeResult shape = shapeSettings.Create();
         if (shape.HasError())
-            return;
+            continue;
 
         JPH::Ref<JPH::CharacterVirtualSettings> settings = new JPH::CharacterVirtualSettings();
         settings->mShape = shape.Get();
@@ -162,10 +169,14 @@ void PhysicsWorld::Impl::SyncCharacters()
         if (!record.innerBody.IsInvalid())
             bodyEntities[record.innerBody.GetIndexAndSequenceNumber()] = e.RawId();
         record.signature = signature;
-        record.writtenVersion = trs->version;
         record.tracked = false;
-    };
-    scene.ForEachRoot([&](Entity root) { visit(root); });
+        // The write-back puts its entity where it is. Added last: adding a component moves the
+        // entity's components (`c` and `trs` point at them).
+        PhysicsBody body;
+        body.writtenVersion = version;
+        body.Place(position, Yaw(record.yaw));
+        e.Add<PhysicsBody>(body);
+    }
 
     for (auto it = characters.begin(); it != characters.end();)
     {
@@ -174,7 +185,7 @@ void PhysicsWorld::Impl::SyncCharacters()
             ++it;
             continue;
         }
-        RemoveCharacter(it->second);
+        RemoveCharacter(it->first, it->second);
         it = characters.erase(it);
     }
 }
@@ -256,28 +267,33 @@ void PhysicsWorld::Impl::MoveCharacters(float dt)
     }
 }
 
-// After the steps: each entity where its character is; jumps are spent.
-void PhysicsWorld::Impl::WriteCharacters(float alpha, bool stepped)
+// After each step: where the character is (its feet) and the way it faces, which the write-back
+// shows its entity between (the first step after it was placed starts from there).
+void PhysicsWorld::Impl::TrackCharacters()
 {
     for (auto& [id, record] : characters)
     {
         Entity e = scene.FromId(id);
-        LocalTRS* trs = e.IsValid() ? e.Get<LocalTRS>() : nullptr;
-        if (!trs || !record.character)
+        PhysicsBody* shown = e.IsValid() ? e.Get<PhysicsBody>() : nullptr;
+        if (!shown || !record.character)
             continue;
-        if (CharacterController* c = stepped ? e.Get<CharacterController>() : nullptr)
+        const glm::vec3 position = ToGlm(JPH::Vec3(record.character->GetPosition()));
+        const glm::quat rotation = Yaw(record.yaw);
+        shown->previousPosition = record.tracked ? shown->currentPosition : position;
+        shown->previousRotation = record.tracked ? shown->currentRotation : rotation;
+        shown->currentPosition = position;
+        shown->currentRotation = rotation;
+        record.tracked = true;
+    }
+}
+
+void PhysicsWorld::Impl::SpendJumps()
+{
+    for (auto& [id, record] : characters)
+    {
+        Entity e = scene.FromId(id);
+        if (CharacterController* c = record.character && e.IsValid() ? e.Get<CharacterController>() : nullptr)
             c->jump = false;
-        glm::vec3 position = ToGlm(JPH::Vec3(record.character->GetPosition()));
-        float yaw = record.yaw;
-        if (record.tracked)
-        {
-            // Between its last two steps, turning the short way round.
-            position = glm::mix(record.previousPosition, record.currentPosition, alpha);
-            const float turn = std::remainder(record.currentYaw - record.previousYaw, glm::two_pi<float>());
-            yaw = record.previousYaw + turn * alpha;
-        }
-        SetWorldPose(scene, e, *trs, position, Yaw(yaw));
-        record.writtenVersion = trs->version;
     }
 }
 

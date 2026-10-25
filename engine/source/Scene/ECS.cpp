@@ -87,6 +87,7 @@ struct RegisteredComponent {
     std::size_t size = 0;
     std::size_t align = 0;
     const ECS::ComponentLifecycle* lifecycle = nullptr;
+    bool runtime = false;
 };
 
 std::vector<RegisteredComponent>& GlobalComponentRegistry() {
@@ -413,14 +414,6 @@ void Scene::Clear() {
     _p->next_trs_id = 0;
 }
 
-namespace {
-// Components that follow from others (a snapshot leaves them out; they are recomputed).
-bool IsDerivedComponent(const char* name) {
-    return std::strcmp(name, "WorldXform") == 0 || std::strcmp(name, "_XformCache") == 0 || std::strcmp(name, "XformCache") == 0
-        || std::strcmp(name, "_TransformClock") == 0 || std::strcmp(name, "TransformClock") == 0;
-}
-}
-
 struct SceneSnapshot::Impl {
     // An entity of the scene: its id, its parent's (0 = a root), its copy and its transform slot.
     struct Record {
@@ -454,7 +447,7 @@ SceneSnapshot Scene::Snapshot() const {
         const WorldXform* world = entity.TryGet<WorldXform>();
         const uint64_t copy = data.copies._create(nullptr);
         ForEachComponent(entity, [&](const ComponentView& c) {
-            if (!c.name || !*c.name || IsDerivedComponent(c.name)) return;
+            if (!c.name || !*c.name || ECS::IsRuntimeComponent(c.name)) return;
             data.copies._addById(copy, data.copies._ensureComponentByName(c.name, c.size, c.align), c.data, c.size, c.align);
         });
         data.records.push_back({ id, parent, copy, world ? world->id : ~0u });
@@ -511,7 +504,7 @@ void Scene::Restore(const SceneSnapshot& snapshot) {
         const uint64_t id = ids[r.original];
         ecs_clear(w, (ecs_entity_t)id);
         data.copies.ForEachComponent(data.copies.FromId(r.copy), [&](const ComponentView& c) {
-            if (!c.name || !*c.name || IsDerivedComponent(c.name)) return;
+            if (!c.name || !*c.name || ECS::IsRuntimeComponent(c.name)) return;
             _addById(id, _ensureComponentByName(c.name, c.size, c.align), c.data, c.size, c.align);
         });
         WorldXform world{};
@@ -746,7 +739,7 @@ System Scene::_create_system(const std::vector<const std::type_info*>& compTypes
                              const std::vector<std::size_t>& aligns,
                              void(*cb)(void* ctx, uint64_t eid, void** comps, float dt),
                              void* ctx,
-                             bool /*cascade*/)
+                             bool cascade)
 {
     // create the Impl and set up the query
     auto* simpl = new System::Impl();
@@ -798,6 +791,15 @@ qd.flags = 0;
 // Copy the fixed array into qd.terms
 for(size_t i = 0; i < term_count; ++i) {
     qd.terms[i] = terms[i];
+}
+// Parents first: one more term (optional, so roots match too, and not handed to the callback) whose
+// cascade traversal of ChildOf makes the cached query return tables ordered by depth.
+if (cascade && term_count < FLECS_TERM_COUNT_MAX) {
+    ecs_term_t& depth = qd.terms[term_count];
+    depth.id = _p->ensureComponent(ECS::detail::TypeSlot<LocalTRS>(), typeid(LocalTRS), sizeof(LocalTRS), alignof(LocalTRS));
+    depth.src.id = EcsUp | EcsCascade;
+    depth.trav = EcsChildOf;
+    depth.oper = EcsOptional;
 }
     ecs_query_t* q = ecs_query_init(simpl->world, &qd);
     if (!q) {
@@ -862,12 +864,13 @@ void RegisterBuiltinComponents() {
     registered = true;
     RegisterComponent<NameComponent>("NameComponent");
     RegisterComponent<LocalTRS>("LocalTRS");
-    RegisterComponent<WorldXform>("WorldXform");
-    RegisterComponent<TransformClock>("TransformClock");
-    RegisterComponent<XformCache>("XformCache");
+    // Derived from LocalTRS and the hierarchy by the transform system.
+    RegisterRuntimeComponent<WorldXform>("WorldXform");
+    RegisterRuntimeComponent<TransformClock>("TransformClock");
+    RegisterRuntimeComponent<XformCache>("XformCache");
 }
 
-void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle) {
+static void Register(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle, bool runtime) {
     std::vector<RegisteredComponent>& registry = GlobalComponentRegistry();
     std::type_index key(ti);
     const char* resolvedName = (name && *name) ? name : ti.name();
@@ -880,6 +883,7 @@ void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t a
             if (lifecycle) {
                 entry.lifecycle = lifecycle;
             }
+            entry.runtime = entry.runtime || runtime;
             return;
         }
     }
@@ -890,7 +894,25 @@ void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t a
     entry.size = size;
     entry.align = align;
     entry.lifecycle = lifecycle;
+    entry.runtime = runtime;
     registry.push_back(entry);
+}
+
+void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle) {
+    Register(ti, size, align, name, lifecycle, false);
+}
+
+void RegisterRuntimeComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle) {
+    Register(ti, size, align, name, lifecycle, true);
+}
+
+bool IsRuntimeComponent(const char* name) {
+    if (!name || !*name)
+        return false;
+    if (name[0] == '_')
+        return true;
+    const RegisteredComponent* entry = FindRegisteredComponentByName(name);
+    return entry && entry->runtime;
 }
 
 void RegisterTag(const std::type_info& ti, const char* name) {

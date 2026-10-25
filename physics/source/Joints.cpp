@@ -13,6 +13,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <algorithm>
 #include <functional>
 
 using namespace PhysicsInternal;
@@ -99,16 +100,18 @@ void PhysicsWorld::Impl::SyncJoints()
     for (auto& [id, record] : joints)
         record.seen = false;
 
-    // Entities by name (the first of each, in hierarchy order) for `connected`.
+    const std::vector<Entity> withJoints = Find({ &jointFinder });
+    // Entities by name (the first of each, in hierarchy order) for `connected`: the whole scene, so
+    // only when a joint names what it holds on to.
     std::unordered_map<std::string, Entity> named;
-    std::vector<Entity> withJoints;
-    std::function<void(Entity)> gather = [&](Entity e) {
-        named.emplace(e.GetName(), e);
-        if (e.TryGet<Joint>())
-            withJoints.push_back(e);
-        e.ForEachChild(gather);
-    };
-    scene.ForEachRoot([&](Entity root) { gather(root); });
+    if (std::any_of(withJoints.begin(), withJoints.end(), [](Entity e) { const Joint* j = e.TryGet<Joint>(); return !j->toParent && !j->connected.empty(); }))
+    {
+        std::function<void(Entity)> gather = [&](Entity e) {
+            named.emplace(e.GetName(), e);
+            e.ForEachChild(gather);
+        };
+        scene.ForEachRoot([&](Entity root) { gather(root); });
+    }
 
     // The body at or above an entity: the nearest one with a RigidBody, else its own static body.
     auto bodyOf = [&](Entity e, Entity& owner) {

@@ -371,7 +371,7 @@ void PlayerApp::OnUpdate(float deltaTime)
     animationSystem.Run(gameClock.DeltaTime());
     physics->UpdatePlayerControls(input, gameClock.DeltaTime(), glm::vec3(cam->GetCameraInfo().invView[2]));
     physics->Step(gameClock.DeltaTime());
-    UpdateFollowCameras(scene, gameClock.DeltaTime());
+    physics->UpdateFollowCameras(gameClock.DeltaTime());
 
     // The camera chases the driven vehicle.
     if (config.follow)

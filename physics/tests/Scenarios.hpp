@@ -481,10 +481,46 @@ namespace PhysicsScenarios
                       p.z > 20.0f && lowest > -0.5f && highest < 10.0f);
     }
 
+    // Three falling boxes, each the child of the next, made deepest first (so the scene stores the
+    // children before their parents): the write-back puts parents first, so each entity is where its
+    // body is and the three fall level with each other.
+    inline Result NestedBodies(const Log& log)
+    {
+        using namespace detail;
+        Scene scene;
+        scene.UpdateComponentRegistry();
+        PhysicsWorld world(scene, Settings());
+        auto box = [&](const char* name) {
+            Entity e = scene.Instantiate(name);
+            BoxCollider collider;
+            collider.size = glm::vec3(0.5f);
+            e.Add<BoxCollider>(collider);
+            RigidBody body;
+            body.mass = 1.0f;
+            e.Add<RigidBody>(body);
+            return e;
+        };
+        Entity deep = box("Deep"), middle = box("Middle"), top = box("Top");
+        top.SetPosition(0.0f, 10.0f, 0.0f);
+        middle.SetParent(top);
+        middle.SetPosition(1.0f, 0.0f, 0.0f);
+        deep.SetParent(middle);
+        deep.SetPosition(1.0f, 0.0f, 0.0f);
+        scene.Update(0.0f);
+        float spread = 0.0f;
+        auto height = [](Entity e) { return e.TryGet<WorldXform>()->model[13]; };
+        Run(scene, world, 60, [&](int step) {
+            if (step > 0)
+                spread = std::max(spread, std::max({ height(top), height(middle), height(deep) }) - std::min({ height(top), height(middle), height(deep) }));
+        });
+        return Finish(log, "nested bodies", Format("after 1 s the top one at y %.3f, the three %.5f m apart at most", height(top), spread),
+                      spread < 1e-4f && height(top) < 6.0f && height(deep) < 6.0f);
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         std::vector<Result> results;
-        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &Water, &RagdollFall, &Cloth, &Balloon, &SoftPresets, &CarIntoJelly })
+        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &Water, &RagdollFall, &Cloth, &Balloon, &SoftPresets, &CarIntoJelly, &NestedBodies })
             results.push_back(scenario(log));
         return results;
     }

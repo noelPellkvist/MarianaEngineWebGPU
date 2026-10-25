@@ -121,23 +121,17 @@ void PhysicsWorld::Impl::SyncSoftBodies()
     for (auto& [id, record] : softBodies)
         record.seen = false;
 
-    std::vector<Entity> found;
-    std::function<void(Entity)> visit = [&](Entity e) {
-        if (e.TryGet<SoftBody>() && e.TryGet<MeshComponent>())
-            found.push_back(e);
-        e.ForEachChild(visit);
-    };
-    scene.ForEachRoot([&](Entity root) { visit(root); });
-    std::sort(found.begin(), found.end(), [](Entity a, Entity b) { return a.RawId() < b.RawId(); });
-
-    for (Entity entity : found)
+    for (Entity entity : Find({ &softBodyFinder }))
     {
-        const SoftBody& settings = *entity.TryGet<SoftBody>();
+        if (!entity.TryGet<MeshComponent>())
+            continue;
+        const SoftBody settings = *entity.TryGet<SoftBody>(); // a copy: making it again moves the entity's components
         MeshComponent& meshComponent = *entity.Get<MeshComponent>();
         SoftBodyRecord& record = softBodies[entity.RawId()];
         record.seen = true;
         // What it is made of: the entity's mesh, unless that is the copy it got from here.
-        const bool ours = record.deformed.Get() && meshComponent.mesh.Get() == record.deformed.Get();
+        const PhysicsSoftBody* drawn = entity.TryGet<PhysicsSoftBody>();
+        const bool ours = drawn && drawn->mesh.Get() && meshComponent.mesh.Get() == drawn->mesh.Get();
         const AssetHandle<IMesh> source = ours ? record.original : meshComponent.mesh;
 
         // Pressure and wind act as they are each step; anything else makes it again.
@@ -195,20 +189,21 @@ void PhysicsWorld::Impl::BuildSoftBody(Entity entity, const SoftBody& settings, 
     }
 
     // Vertices at the same place become one particle; triangle submeshes become its faces.
+    PhysicsSoftBody drawn;
     std::map<std::tuple<int, int, int>, uint32_t> weld;
     std::vector<glm::vec3> local;
-    record.particleOf.assign(data.vertices.size(), ~0u);
-    record.faces.clear();
-    record.triangles.clear();
+    drawn.particleOf.assign(data.vertices.size(), ~0u);
+    drawn.faces.clear();
+    drawn.triangles.clear();
     auto particle = [&](uint32_t vertex) {
-        if (record.particleOf[vertex] != ~0u)
-            return record.particleOf[vertex];
+        if (drawn.particleOf[vertex] != ~0u)
+            return drawn.particleOf[vertex];
         const glm::vec3 p = data.vertices[vertex].position;
         const glm::ivec3 q = glm::ivec3(glm::round(p * 1e4f)); // a tenth of a millimetre
         const auto [it, added] = weld.try_emplace(std::make_tuple(q.x, q.y, q.z), static_cast<uint32_t>(local.size()));
         if (added)
             local.push_back(p);
-        return record.particleOf[vertex] = it->second;
+        return drawn.particleOf[vertex] = it->second;
     };
     for (const Submesh& submesh : data.submeshes)
     {
@@ -217,13 +212,13 @@ void PhysicsWorld::Impl::BuildSoftBody(Entity entity, const SoftBody& settings, 
         for (uint32_t i = submesh.startIndex; i + 2 < submesh.startIndex + submesh.indexCount; i += 3)
         {
             const uint32_t a = data.indices[i], b = data.indices[i + 1], c = data.indices[i + 2];
-            record.triangles.insert(record.triangles.end(), { a, b, c });
+            drawn.triangles.insert(drawn.triangles.end(), { a, b, c });
             const uint32_t pa = particle(a), pb = particle(b), pc = particle(c);
             if (pa != pb && pb != pc && pa != pc)
-                record.faces.insert(record.faces.end(), { pa, pb, pc });
+                drawn.faces.insert(drawn.faces.end(), { pa, pb, pc });
         }
     }
-    if (record.faces.empty())
+    if (drawn.faces.empty())
     {
         if (warnedDynamicMesh.insert(entity.RawId()).second)
             Logger::Warning(std::string("Physics: ") + entity.GetName() + " has a SoftBody but no mesh with triangles to make one of");
@@ -233,41 +228,41 @@ void PhysicsWorld::Impl::BuildSoftBody(Entity entity, const SoftBody& settings, 
     // Each drawn vertex's normal is the particles' faces around it that face its way (within 60
     // degrees of how it was modelled): smooth across seams, creases kept.
     std::vector<std::vector<uint32_t>> facesOf(local.size());
-    std::vector<glm::vec3> restNormals(record.faces.size() / 3);
-    for (uint32_t f = 0; f < record.faces.size() / 3; ++f)
+    std::vector<glm::vec3> restNormals(drawn.faces.size() / 3);
+    for (uint32_t f = 0; f < drawn.faces.size() / 3; ++f)
     {
-        const glm::vec3& a = local[record.faces[f * 3]];
-        const glm::vec3& b = local[record.faces[f * 3 + 1]];
-        const glm::vec3& c = local[record.faces[f * 3 + 2]];
+        const glm::vec3& a = local[drawn.faces[f * 3]];
+        const glm::vec3& b = local[drawn.faces[f * 3 + 1]];
+        const glm::vec3& c = local[drawn.faces[f * 3 + 2]];
         const glm::vec3 n = glm::cross(b - a, c - a);
         restNormals[f] = glm::length(n) > 0.0f ? glm::normalize(n) : glm::vec3(0.0f);
         for (int k = 0; k < 3; ++k)
-            facesOf[record.faces[f * 3 + k]].push_back(f);
+            facesOf[drawn.faces[f * 3 + k]].push_back(f);
     }
-    record.normalStart.assign(1, 0);
-    record.normalFaces.clear();
+    drawn.normalStart.assign(1, 0);
+    drawn.normalFaces.clear();
     for (size_t v = 0; v < data.vertices.size(); ++v)
     {
-        const uint32_t p = record.particleOf[v];
+        const uint32_t p = drawn.particleOf[v];
         if (p != ~0u)
         {
             const glm::vec3 modelled = data.vertices[v].normal;
-            const size_t before = record.normalFaces.size();
+            const size_t before = drawn.normalFaces.size();
             for (uint32_t f : facesOf[p])
                 if (glm::dot(restNormals[f], modelled) > 0.5f)
-                    record.normalFaces.push_back(f);
-            if (record.normalFaces.size() == before)
-                record.normalFaces.insert(record.normalFaces.end(), facesOf[p].begin(), facesOf[p].end());
+                    drawn.normalFaces.push_back(f);
+            if (drawn.normalFaces.size() == before)
+                drawn.normalFaces.insert(drawn.normalFaces.end(), facesOf[p].begin(), facesOf[p].end());
         }
-        record.normalStart.push_back(static_cast<uint32_t>(record.normalFaces.size()));
+        drawn.normalStart.push_back(static_cast<uint32_t>(drawn.normalFaces.size()));
     }
 
     // Closed: every edge between exactly two faces.
     std::map<std::pair<uint32_t, uint32_t>, int> edgeUse;
-    for (size_t f = 0; f + 2 < record.faces.size(); f += 3)
+    for (size_t f = 0; f + 2 < drawn.faces.size(); f += 3)
         for (int k = 0; k < 3; ++k)
         {
-            const uint32_t a = record.faces[f + k], b = record.faces[f + (k + 1) % 3];
+            const uint32_t a = drawn.faces[f + k], b = drawn.faces[f + (k + 1) % 3];
             ++edgeUse[{ std::min(a, b), std::max(a, b) }];
         }
     record.closed = std::all_of(edgeUse.begin(), edgeUse.end(), [](const auto& e) { return e.second == 2; });
@@ -308,18 +303,18 @@ void PhysicsWorld::Impl::BuildSoftBody(Entity entity, const SoftBody& settings, 
     std::vector<glm::vec3> relative(placed.size());
     for (size_t p = 0; p < placed.size(); ++p)
         relative[p] = placed[p] - center;
-    float volume = SignedVolume(relative, record.faces);
+    float volume = SignedVolume(relative, drawn.faces);
     const bool flip = volume < 0.0f;
     record.restVolume = std::abs(volume);
     // Pressure is a push of so many weights over its whole surface at its rest volume.
     float area = 0.0f;
-    for (size_t f = 0; f + 2 < record.faces.size(); f += 3)
-        area += 0.5f * glm::length(glm::cross(relative[record.faces[f + 1]] - relative[record.faces[f]], relative[record.faces[f + 2]] - relative[record.faces[f]]));
+    for (size_t f = 0; f + 2 < drawn.faces.size(); f += 3)
+        area += 0.5f * glm::length(glm::cross(relative[drawn.faces[f + 1]] - relative[drawn.faces[f]], relative[drawn.faces[f + 2]] - relative[drawn.faces[f]]));
     const float gravity = glm::length(this->settings.gravity) > 0.0f ? glm::length(this->settings.gravity) : 9.81f;
     record.pressureScale = area > 0.0f ? std::max(settings.mass, 1e-4f) * gravity * record.restVolume / area : 0.0f;
-    for (size_t f = 0; f + 2 < record.faces.size(); f += 3)
-        shared->AddFace(flip ? JPH::SoftBodySharedSettings::Face(record.faces[f], record.faces[f + 2], record.faces[f + 1])
-                             : JPH::SoftBodySharedSettings::Face(record.faces[f], record.faces[f + 1], record.faces[f + 2]));
+    for (size_t f = 0; f + 2 < drawn.faces.size(); f += 3)
+        shared->AddFace(flip ? JPH::SoftBodySharedSettings::Face(drawn.faces[f], drawn.faces[f + 2], drawn.faces[f + 1])
+                             : JPH::SoftBodySharedSettings::Face(drawn.faces[f], drawn.faces[f + 1], drawn.faces[f + 2]));
 
     const uint32_t iterations = std::max(settings.iterations, 1u);
     const float subStep = std::max(this->settings.fixedTimestep, 1e-4f) / static_cast<float>(iterations);
@@ -345,26 +340,33 @@ void PhysicsWorld::Impl::BuildSoftBody(Entity entity, const SoftBody& settings, 
         return;
     bodyEntities[record.body.GetIndexAndSequenceNumber()] = entity.RawId();
 
-    // The entity draws a copy of its own, written as it moves.
-    record.vertices = data.vertices;
+    // The entity draws a copy of its own, written as it moves (its PhysicsSoftBody).
+    record.faces = drawn.faces;
+    drawn.body = record.body.GetIndexAndSequenceNumber();
+    drawn.vertices = data.vertices;
     std::shared_ptr<IMesh> copy = UploadMesh(std::move(data), MeshUsage::Dynamic);
     record.original = source;
-    record.deformed = assets->RegisterAsset<IMesh>(copy, AssetType::Mesh, entity.GetName() + std::string(" (soft body)"));
-    entity.Get<MeshComponent>()->mesh = record.deformed;
-    record.previous = record.current = placed;
-    record.awake = true;
-    record.written = false;
+    drawn.mesh = assets->RegisterAsset<IMesh>(copy, AssetType::Mesh, entity.GetName() + std::string(" (soft body)"));
+    entity.Get<MeshComponent>()->mesh = drawn.mesh;
+    drawn.previous = drawn.current = placed;
+    drawn.awake = true;
+    drawn.written = false;
+    entity.Add<PhysicsSoftBody>(drawn);
 }
 
 void PhysicsWorld::Impl::RemoveSoftBody(uint64_t entityId, SoftBodyRecord& record)
 {
     RemoveBody(record.body);
     // The entity gets back the mesh it had.
-    Entity entity = scene.FromId(entityId);
-    if (MeshComponent* meshComponent = entity.IsValid() ? entity.Get<MeshComponent>() : nullptr)
-        if (record.deformed.Get() && meshComponent->mesh.Get() == record.deformed.Get())
-            meshComponent->mesh = record.original;
-    record.deformed.Reset();
+    if (Entity entity = scene.FromId(entityId); entity.IsValid())
+    {
+        const PhysicsSoftBody* drawn = entity.TryGet<PhysicsSoftBody>();
+        if (MeshComponent* meshComponent = entity.Get<MeshComponent>())
+            if (drawn && drawn->mesh.Get() && meshComponent->mesh.Get() == drawn->mesh.Get())
+                meshComponent->mesh = record.original;
+        if (drawn)
+            entity.Remove<PhysicsSoftBody>();
+    }
     record.original.Reset();
 }
 
@@ -442,70 +444,62 @@ void PhysicsWorld::Impl::DriveSoftBodies(float dt)
         system->GetBodyInterface().ActivateBodies(wake.data(), static_cast<int>(wake.size()));
 }
 
-void PhysicsWorld::Impl::TrackSoftBodies()
+void PhysicsWorld::Impl::TrackSoftBody(PhysicsSoftBody& drawn)
 {
-    const JPH::BodyLockInterface& locks = system->GetBodyLockInterface();
-    for (auto& [id, record] : softBodies)
-    {
-        if (record.body.IsInvalid())
-            continue;
-        JPH::BodyLockRead lock(locks, record.body);
-        if (!lock.Succeeded())
-            continue;
-        const JPH::Body& body = lock.GetBody();
-        const auto* motion = static_cast<const JPH::SoftBodyMotionProperties*>(body.GetMotionProperties());
-        const JPH::RMat44 frame = body.GetCenterOfMassTransform();
-        const JPH::Array<JPH::SoftBodyVertex>& vertices = motion->GetVertices();
-        record.previous.swap(record.current);
-        record.current.resize(vertices.size());
-        for (size_t p = 0; p < vertices.size(); ++p)
-            record.current[p] = ToGlm(JPH::Vec3(frame * JPH::RVec3(vertices[p].mPosition)));
-        record.awake = body.IsActive();
-        if (record.awake)
-            record.written = false;
-    }
+    if (drawn.body == JPH::BodyID::cInvalidBodyID)
+        return;
+    JPH::BodyLockRead lock(system->GetBodyLockInterface(), JPH::BodyID(drawn.body));
+    if (!lock.Succeeded())
+        return;
+    const JPH::Body& body = lock.GetBody();
+    const auto* motion = static_cast<const JPH::SoftBodyMotionProperties*>(body.GetMotionProperties());
+    const JPH::RMat44 frame = body.GetCenterOfMassTransform();
+    const JPH::Array<JPH::SoftBodyVertex>& vertices = motion->GetVertices();
+    drawn.previous.swap(drawn.current);
+    drawn.current.resize(vertices.size());
+    for (size_t p = 0; p < vertices.size(); ++p)
+        drawn.current[p] = ToGlm(JPH::Vec3(frame * JPH::RVec3(vertices[p].mPosition)));
+    drawn.awake = body.IsActive();
+    if (drawn.awake)
+        drawn.written = false;
 }
 
-void PhysicsWorld::Impl::WriteSoftBodies(float alpha)
+void PhysicsWorld::Impl::ShowSoftBody(Entity entity, PhysicsSoftBody& drawn, float alpha)
 {
-    for (auto& [id, record] : softBodies)
-    {
-        IMesh* mesh = record.deformed.Get().get();
-        Entity entity = scene.FromId(id);
-        if (!mesh || !entity.IsValid() || record.current.size() != record.previous.size() || (record.written && !record.awake))
-            continue;
-        const glm::mat4 toLocal = glm::inverse(WorldMatrix(scene, entity));
-        std::vector<glm::vec3>& positions = record.shown;
-        positions.resize(record.current.size());
-        for (size_t p = 0; p < positions.size(); ++p)
-            positions[p] = glm::vec3(toLocal * glm::vec4(glm::mix(record.previous[p], record.current[p], alpha), 1.0f));
+    IMesh* mesh = drawn.mesh.Get().get();
+    if (!mesh || drawn.current.size() != drawn.previous.size() || (drawn.written && !drawn.awake))
+        return;
+    const glm::mat4 toLocal = glm::inverse(WorldMatrix(scene, entity));
+    std::vector<glm::vec3>& positions = drawn.shown;
+    positions.resize(drawn.current.size());
+    for (size_t p = 0; p < positions.size(); ++p)
+        positions[p] = glm::vec3(toLocal * glm::vec4(glm::mix(drawn.previous[p], drawn.current[p], alpha), 1.0f));
 
-        std::vector<glm::vec3>& faceNormals = record.faceNormals;
-        faceNormals.resize(record.faces.size() / 3);
-        for (size_t f = 0; f < faceNormals.size(); ++f)
-        {
-            const glm::vec3& a = positions[record.faces[f * 3]];
-            faceNormals[f] = glm::cross(positions[record.faces[f * 3 + 1]] - a, positions[record.faces[f * 3 + 2]] - a); // area weighted
-        }
-        Bounds bounds;
-        for (size_t v = 0; v < record.vertices.size(); ++v)
-        {
-            const uint32_t p = record.particleOf[v];
-            if (p == ~0u)
-                continue;
-            StandardVertex& vertex = record.vertices[v];
-            vertex.position = positions[p];
-            glm::vec3 normal(0.0f);
-            for (uint32_t i = record.normalStart[v]; i < record.normalStart[v + 1]; ++i)
-                normal += faceNormals[record.normalFaces[i]];
-            if (glm::dot(normal, normal) > 1e-20f)
-                vertex.normal = glm::normalize(normal);
-            bounds.Add(vertex.position);
-        }
-        Geometry::GenerateTangents(record.vertices, record.triangles);
-        mesh->WriteVertices(record.vertices.data(), record.vertices.size(), sizeof(StandardVertex), bounds);
-        record.written = true;
+    std::vector<glm::vec3>& faceNormals = drawn.faceNormals;
+    faceNormals.resize(drawn.faces.size() / 3);
+    for (size_t f = 0; f < faceNormals.size(); ++f)
+    {
+        const glm::vec3& a = positions[drawn.faces[f * 3]];
+        faceNormals[f] = glm::cross(positions[drawn.faces[f * 3 + 1]] - a, positions[drawn.faces[f * 3 + 2]] - a); // area weighted
     }
+    Bounds bounds;
+    for (size_t v = 0; v < drawn.vertices.size(); ++v)
+    {
+        const uint32_t p = drawn.particleOf[v];
+        if (p == ~0u)
+            continue;
+        StandardVertex& vertex = drawn.vertices[v];
+        vertex.position = positions[p];
+        glm::vec3 normal(0.0f);
+        for (uint32_t i = drawn.normalStart[v]; i < drawn.normalStart[v + 1]; ++i)
+            normal += faceNormals[drawn.normalFaces[i]];
+        if (glm::dot(normal, normal) > 1e-20f)
+            vertex.normal = glm::normalize(normal);
+        bounds.Add(vertex.position);
+    }
+    Geometry::GenerateTangents(drawn.vertices, drawn.triangles);
+    mesh->WriteVertices(drawn.vertices.data(), drawn.vertices.size(), sizeof(StandardVertex), bounds);
+    drawn.written = true;
 }
 
 bool PhysicsWorld::GetSoftBodyInfo(Entity entity, SoftBodyInfo& info) const

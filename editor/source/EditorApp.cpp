@@ -749,7 +749,7 @@ void EditorApp::OnUpdate(float deltaTime)
         // Paused, a Step shows what its step did rather than the frame before it.
         if (gameClock.IsPaused())
             physics->ShowLatest();
-        UpdateFollowCameras(scene, gameClock.DeltaTime());
+        physics->UpdateFollowCameras(gameClock.DeltaTime());
     }
 
     sceneCameras.clear();

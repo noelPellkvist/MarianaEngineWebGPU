@@ -152,6 +152,9 @@ public:
     // Step, with the game time, while the player may drive): a Vehicle's pedals and steering, or a
     // CharacterController's walking, relative to `viewForward` (where the camera looks).
     void UpdatePlayerControls(const IInput& input, float dt, const glm::vec3& viewForward = glm::vec3(0.0f, 0.0f, 1.0f));
+    // Moves every FollowCamera entity after its target (call once per frame with game time, after
+    // Step).
+    void UpdateFollowCameras(float dt);
 
     // Lines picturing the simulation, added to `lines`.
     void DebugDraw(const PhysicsDebugDraw& settings, std::vector<DebugLine>& lines);

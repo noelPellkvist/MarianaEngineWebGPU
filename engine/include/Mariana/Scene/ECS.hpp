@@ -59,6 +59,13 @@ namespace ECS {
 
     void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name = nullptr);
     void RegisterComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle);
+    // A component that only exists while something runs (what a system derives, or what a simulation
+    // keeps on the entities it moves): queried like any other, but never cloned into prefab
+    // instances, copied by Scene::Snapshot, put back by Restore or saved in scene files.
+    void RegisterRuntimeComponent(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle);
+    // Whether a component (by name) is a runtime one; so are names starting with '_' (flecs's own
+    // copies of the transform system's components).
+    bool IsRuntimeComponent(const char* name);
     void RegisterTag(const std::type_info& ti, const char* name = nullptr);
     // The ECS's own components (names, transforms); every Scene does this on construction.
     void RegisterBuiltinComponents();
@@ -138,6 +145,11 @@ namespace ECS {
     template<class T>
     inline void RegisterComponent(const char* name = nullptr) {
         RegisterComponent(typeid(T), sizeof(T), alignof(T), name, GetComponentLifecycle<T>());
+    }
+
+    template<class T>
+    inline void RegisterRuntimeComponent(const char* name) {
+        RegisterRuntimeComponent(typeid(T), sizeof(T), alignof(T), name, GetComponentLifecycle<T>());
     }
 
     template<class T>
@@ -282,6 +294,8 @@ public:
     template<class Fn>
     void ForEachComponent(Entity e, Fn&& fn) const;
 
+    // A cached query over entities with all of Components, calling fn(entity, components..., delta)
+    // for each when the System is Run. With `cascade`, parents come before their children.
     template<typename... Components, typename Fn>
     System CreateSystem(Fn&& fn, bool cascade = false);
 

@@ -312,16 +312,7 @@ void PhysicsWorld::Impl::SyncRagdolls()
     for (auto& [id, record] : ragdolls)
         record.seen = false;
 
-    std::vector<Entity> roots;
-    std::function<void(Entity)> visit = [&](Entity e) {
-        if (e.TryGet<Ragdoll>())
-            roots.push_back(e);
-        e.ForEachChild(visit);
-    };
-    scene.ForEachRoot([&](Entity root) { visit(root); });
-    std::sort(roots.begin(), roots.end(), [](Entity a, Entity b) { return a.RawId() < b.RawId(); });
-
-    for (Entity root : roots)
+    for (Entity root : Find({ &ragdollFinder }))
     {
         const Ragdoll& settings = *root.TryGet<Ragdoll>();
         uint64_t signature = 1469598103934665603ull;
@@ -503,9 +494,21 @@ void PhysicsWorld::Impl::BuildRagdoll(Entity root, const Ragdoll& settings, Ragd
         record.ragdoll->SetPose(pose);
         record.ragdoll->SetLinearAndAngularVelocity(JPH::Vec3::sZero(), JPH::Vec3::sZero());
     }
-    TrackRagdoll(record, true);
     record.mode = static_cast<RagdollMode>(255); // applied at the first drive
     record.asked = settings.mode;
+
+    // The write-back shows each bone's entity where its body is (from where it is now).
+    for (const RagdollRecord::Bone& bone : record.bones)
+    {
+        JPH::RVec3 p;
+        JPH::Quat q;
+        bodies.GetPositionAndRotation(bone.body, p, q);
+        PhysicsBody shown;
+        shown.body = bone.body.GetIndexAndSequenceNumber();
+        shown.Place(ToGlm(JPH::Vec3(p)), ToGlm(q));
+        if (Entity e = scene.FromId(bone.entity); e.IsValid())
+            e.Add<PhysicsBody>(shown);
+    }
 }
 
 void PhysicsWorld::Impl::RemoveRagdoll(RagdollRecord& record)
@@ -517,6 +520,8 @@ void PhysicsWorld::Impl::RemoveRagdoll(RagdollRecord& record)
     {
         removedBodies.push_back(bone.body.GetIndexAndSequenceNumber());
         ragdollBones.erase(bone.entity);
+        if (Entity e = scene.FromId(bone.entity); e.IsValid() && e.TryGet<PhysicsBody>())
+            e.Remove<PhysicsBody>();
     }
     record.ragdoll = nullptr; // destroys its bodies
     // The animation takes the bones back.
@@ -628,6 +633,7 @@ void PhysicsWorld::Impl::DriveRagdolls(float dt)
             if (mode == RagdollMode::Animated)
                 if (Animator* animator = root.Get<Animator>())
                     animator->Refresh();
+            ShowRagdoll(record, mode != RagdollMode::Animated);
             record.mode = mode;
             record.strength = settings->strength;
             record.hasPreviousTarget = false;
@@ -717,38 +723,13 @@ void PhysicsWorld::Impl::KnockBack(RagdollRecord& record, const Ragdoll& setting
     }
 }
 
-void PhysicsWorld::Impl::TrackRagdoll(RagdollRecord& record, bool place)
+// Only what the simulation moves is shown: an animated ragdoll's bodies follow its entities.
+void PhysicsWorld::Impl::ShowRagdoll(const RagdollRecord& record, bool show)
 {
-    JPH::BodyInterface& bodies = system->GetBodyInterface();
-    for (RagdollRecord::Bone& bone : record.bones)
-    {
-        JPH::RVec3 p;
-        JPH::Quat q;
-        bodies.GetPositionAndRotation(bone.body, p, q);
-        bone.previousPosition = place ? ToGlm(JPH::Vec3(p)) : bone.currentPosition;
-        bone.previousRotation = place ? ToGlm(q) : bone.currentRotation;
-        bone.currentPosition = ToGlm(JPH::Vec3(p));
-        bone.currentRotation = ToGlm(q);
-    }
-}
-
-void PhysicsWorld::Impl::WriteRagdolls(float alpha)
-{
-    for (auto& [id, record] : ragdolls)
-    {
-        // Only what the simulation moves: an animated ragdoll follows its entities.
-        if (!record.ragdoll || record.mode == RagdollMode::Animated)
-            continue;
-        for (RagdollRecord::Bone& bone : record.bones) // parents first
-        {
-            Entity e = scene.FromId(bone.entity);
-            LocalTRS* trs = e.IsValid() ? e.Get<LocalTRS>() : nullptr;
-            if (!trs)
-                continue;
-            SetWorldPose(scene, e, *trs, glm::mix(bone.previousPosition, bone.currentPosition, alpha),
-                         glm::normalize(glm::slerp(bone.previousRotation, bone.currentRotation, alpha)));
-        }
-    }
+    for (const RagdollRecord::Bone& bone : record.bones)
+        if (Entity e = scene.FromId(bone.entity); e.IsValid())
+            if (PhysicsBody* shown = e.Get<PhysicsBody>())
+                shown->show = show;
 }
 
 void PhysicsWorld::SetRagdollMode(Entity entity, RagdollMode mode)

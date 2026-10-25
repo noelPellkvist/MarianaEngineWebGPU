@@ -244,8 +244,11 @@ bool PhysicsWorld::Teleport(Entity entity, const glm::vec3& position, const glm:
             bodies.SetPositionAndRotation(body, JPH::RVec3(ToJolt(position)), ToJolt(r), record.motion == MotionType::Static ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
     record.position = position;
     record.rotation = r;
-    record.Place(position, r);
-    record.writtenVersion = trs->version;
+    if (PhysicsBody* shown = entity.Get<PhysicsBody>())
+    {
+        shown->Place(position, r);
+        shown->writtenVersion = trs->version;
+    }
     return true;
 }
 

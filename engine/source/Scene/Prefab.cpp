@@ -67,11 +67,7 @@ uint64_t Prefab::CloneEntityRecursive(const Scene& src, Scene& dst, uint64_t src
 
     src.ForEachComponent(srcEnt, [&](const ComponentView& c){
         if (!c.name || !*c.name) return;
-        if (std::strcmp(c.name, "WorldXform") == 0) return;
-        if (std::strcmp(c.name, "_XformCache") == 0) return;
-        if (std::strcmp(c.name, "XformCache") == 0) return;
-        if (std::strcmp(c.name, "_TransformClock") == 0) return;
-        if (std::strcmp(c.name, "TransformClock") == 0) return;
+        if (ECS::IsRuntimeComponent(c.name)) return;
         uint64_t dstCompId = dst._ensureComponentByName(c.name, c.size, c.align);
         dst._addById(dstEnt.RawId(), dstCompId, c.data, c.size, c.align);
     });

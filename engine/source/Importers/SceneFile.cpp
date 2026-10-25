@@ -52,10 +52,10 @@ namespace
         return serializers;
     }
 
-    // What every entity has that is rebuilt rather than saved.
+    // What isn't saved as a component: the name (saved apart), and runtime components (rebuilt).
     bool Derived(const std::string& name)
     {
-        return name == "NameComponent" || name == "WorldXform" || name == "XformCache" || name == "_XformCache" || name == "TransformClock";
+        return name == "NameComponent" || ECS::IsRuntimeComponent(name.c_str());
     }
 
     const Serializer* FindSerializer(const std::string& name)

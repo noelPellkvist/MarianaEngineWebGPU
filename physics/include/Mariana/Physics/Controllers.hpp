@@ -16,7 +16,8 @@ struct PlayerControl
 };
 
 // Puts its entity (a camera) behind and above a target, following it smoothly in game time
-// (UpdateFollowCameras): the entity named `target`, or the first one with a PlayerControl.
+// (PhysicsWorld::UpdateFollowCameras): the entity named `target`, or the first one with a
+// PlayerControl.
 struct FollowCamera
 {
     std::string target;
@@ -37,6 +38,3 @@ struct ChaseCamera
 
     void Update(const glm::mat4& target, const FollowCamera& settings, float dt);
 };
-
-// Moves every FollowCamera entity (call once per frame with game time, after the physics step).
-void UpdateFollowCameras(Scene& scene, float dt);

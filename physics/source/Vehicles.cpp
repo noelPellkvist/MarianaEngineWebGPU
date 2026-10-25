@@ -137,6 +137,9 @@ void PhysicsWorld::Impl::RemoveVehicle(VehicleRecord& record)
 {
     if (!record.constraint)
         return;
+    for (const VehicleRecord::Wheel& wheel : record.wheels)
+        if (Entity e = scene.FromId(wheel.entity); e.IsValid() && e.TryGet<PhysicsWheel>())
+            e.Remove<PhysicsWheel>();
     system->RemoveStepListener(record.constraint);
     system->RemoveConstraint(record.constraint);
     record.constraint = nullptr;
@@ -149,8 +152,7 @@ void PhysicsWorld::Impl::SyncVehicles()
     for (auto& [id, record] : vehicles)
         record.seen = false;
 
-    std::function<void(Entity)> visit = [&](Entity chassis) {
-        chassis.ForEachChild(visit);
+    auto sync = [&](Entity chassis) {
         const Vehicle* vehicle = chassis.TryGet<Vehicle>();
         const auto body = records.find(chassis.RawId());
         if (!vehicle || body == records.end() || body->second.motion != MotionType::Dynamic || body->second.body.IsInvalid())
@@ -391,8 +393,13 @@ void PhysicsWorld::Impl::SyncVehicles()
         lock.ReleaseLock();
         system->AddConstraint(record.constraint);
         system->AddStepListener(record.constraint);
+        // The wheel system shows each wheel entity where Jolt has its wheel.
+        for (size_t i = 0; i < record.wheels.size(); ++i)
+            if (Entity wheel = scene.FromId(record.wheels[i].entity); wheel.IsValid())
+                wheel.Add<PhysicsWheel>(PhysicsWheel{ chassis.RawId(), static_cast<uint32_t>(i) });
     };
-    scene.ForEachRoot([&](Entity root) { visit(root); });
+    for (Entity chassis : Find({ &vehicleFinder }))
+        sync(chassis);
 
     for (auto it = vehicles.begin(); it != vehicles.end();)
     {
@@ -454,33 +461,23 @@ void PhysicsWorld::Impl::DriveVehicles()
 }
 
 // After the steps: each wheel entity where its wheel is now (in its parent's space).
-void PhysicsWorld::Impl::WriteWheels()
+void PhysicsWorld::Impl::ShowWheel(Entity entity, const PhysicsWheel& wheel, LocalTRS& trs)
 {
-    for (auto& [id, record] : vehicles)
-    {
-        const auto chassis = records.find(id);
-        if (!record.constraint || chassis == records.end())
-            continue;
-        // On the chassis as it is shown (interpolated).
-        const glm::vec3 chassisPosition = chassis->second.shownPosition;
-        const glm::quat chassisRotation = chassis->second.shownRotation;
-        for (size_t i = 0; i < record.wheels.size(); ++i)
-        {
-            const VehicleRecord::Wheel& wheel = record.wheels[i];
-            Entity entity = scene.FromId(wheel.entity);
-            LocalTRS* trs = entity.IsValid() ? entity.Get<LocalTRS>() : nullptr;
-            if (!trs)
-                continue;
-            const JPH::Mat44 local = record.constraint->GetWheelLocalTransform(static_cast<JPH::uint>(i), wheel.modelRight, wheel.modelUp);
-            const glm::vec3 position = chassisPosition + chassisRotation * ToGlm(local.GetTranslation());
-            const glm::quat rotation = glm::normalize(chassisRotation * ToGlm(local.GetQuaternion()));
-            WheelRest& rest = wheelRests[wheel.entity];
-            if (trs->version != rest.writtenVersion && rest.writtenVersion != ~0u)
-                continue; // moved by someone else since: the next sync makes that its rest pose
-            SetWorldPose(scene, entity, *trs, position, rotation);
-            rest.writtenVersion = trs->version;
-        }
-    }
+    // On the chassis as it is shown (interpolated): the write-back has just put it there.
+    const auto vehicle = vehicles.find(wheel.chassis);
+    const Entity chassis = scene.FromId(wheel.chassis);
+    const PhysicsBody* shown = chassis.IsValid() ? chassis.TryGet<PhysicsBody>() : nullptr;
+    if (vehicle == vehicles.end() || !vehicle->second.constraint || !shown || wheel.index >= vehicle->second.wheels.size())
+        return;
+    WheelRest& rest = wheelRests[entity.RawId()];
+    if (trs.version != rest.writtenVersion && rest.writtenVersion != ~0u)
+        return; // moved by someone else since: the next sync makes that its rest pose
+    const VehicleRecord::Wheel& axes = vehicle->second.wheels[wheel.index];
+    const JPH::Mat44 local = vehicle->second.constraint->GetWheelLocalTransform(wheel.index, axes.modelRight, axes.modelUp);
+    const glm::vec3 position = shown->shownPosition + shown->shownRotation * ToGlm(local.GetTranslation());
+    const glm::quat rotation = glm::normalize(shown->shownRotation * ToGlm(local.GetQuaternion()));
+    SetWorldPose(scene, entity, trs, position, rotation);
+    rest.writtenVersion = trs.version;
 }
 
 bool PhysicsWorld::GetVehicleInfo(Entity entity, VehicleInfo& info) const
@@ -539,11 +536,11 @@ void PhysicsWorld::UpdatePlayerControls(const IInput& input, float dt, const glm
     forward = glm::length(forward) > 1e-4f ? glm::normalize(forward) : glm::vec3(0.0f, 0.0f, 1.0f);
     const glm::vec3 right(forward.z, 0.0f, -forward.x);
 
-    std::function<void(Entity)> visit = [&](Entity e) {
-        e.ForEachChild(visit);
+    for (Entity e : m_Impl->Find({ &m_Impl->playerControlFinder }))
+    {
         const PlayerControl* control = e.TryGet<PlayerControl>();
         if (!control || !control->enabled)
-            return;
+            continue;
         if (CharacterController* character = e.Get<CharacterController>())
         {
             glm::vec3 move = forward * wanted + right * steerTarget;
@@ -553,11 +550,11 @@ void PhysicsWorld::UpdatePlayerControls(const IInput& input, float dt, const glm
             character->run = run;
             if (jump)
                 character->jump = true;
-            return;
+            continue;
         }
         Vehicle* vehicle = e.Get<Vehicle>();
         if (!vehicle)
-            return;
+            continue;
         VehicleInfo info;
         const float speed = GetVehicleInfo(e, info) ? info.speed : 0.0f;
         // Going the other way: brake until it has (nearly) stopped, then drive.
@@ -580,6 +577,5 @@ void PhysicsWorld::UpdatePlayerControls(const IInput& input, float dt, const glm
         const float rate = std::max(control->steerSpeed, 0.1f) * dt * (steerTarget == 0.0f ? 2.0f : 1.0f);
         const float delta = steerTarget * lock - vehicle->steering;
         vehicle->steering += std::clamp(delta, -rate, rate);
-    };
-    m_Impl->scene.ForEachRoot([&](Entity root) { visit(root); });
+    }
 }

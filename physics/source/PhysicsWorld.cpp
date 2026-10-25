@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <optional>
 
 using namespace PhysicsInternal;
 
@@ -250,6 +251,7 @@ PhysicsWorld::Impl::Impl(Scene& scene, const PhysicsSettings& initial) : scene(s
     jobs = std::make_unique<JPH::JobSystemThreadPool>(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers);
 #endif
     CreateSystem();
+    MakeSystems();
 }
 
 PhysicsWorld::Impl::~Impl()
@@ -278,6 +280,75 @@ void PhysicsWorld::Impl::CreateSystem()
         jointFilter = new JointCollisionFilter();
     characterContacts.collector = &contacts;
     Apply();
+}
+
+// The scene's side: cached queries for the entities each part of the world works from, and the
+// systems that follow the bodies after each step and write the scene from them.
+void PhysicsWorld::Impl::MakeSystems()
+{
+    rigidBodyFinder = MakeFinder<RigidBody>(scene, finding);
+    boxFinder = MakeFinder<BoxCollider>(scene, finding);
+    sphereFinder = MakeFinder<SphereCollider>(scene, finding);
+    capsuleFinder = MakeFinder<CapsuleCollider>(scene, finding);
+    cylinderFinder = MakeFinder<CylinderCollider>(scene, finding);
+    meshColliderFinder = MakeFinder<MeshCollider>(scene, finding);
+    waterFinder = MakeFinder<WaterVolume>(scene, finding);
+    vehicleFinder = MakeFinder<Vehicle>(scene, finding);
+    characterFinder = MakeFinder<CharacterController>(scene, finding);
+    jointFinder = MakeFinder<Joint>(scene, finding);
+    ragdollFinder = MakeFinder<Ragdoll>(scene, finding);
+    softBodyFinder = MakeFinder<SoftBody>(scene, finding);
+    playerControlFinder = MakeFinder<PlayerControl>(scene, finding);
+    followCameraFinder = MakeFinder<FollowCamera>(scene, finding);
+
+    // After each step: where the body an entity follows is now (one asleep stays where it was).
+    trackBodies = scene.CreateSystem<PhysicsBody>([this](Entity, PhysicsBody& shown, float) {
+        if (shown.body == JPH::BodyID::cInvalidBodyID)
+            return;
+        shown.previousPosition = shown.currentPosition;
+        shown.previousRotation = shown.currentRotation;
+        const JPH::BodyInterface& bodies = system->GetBodyInterface();
+        const JPH::BodyID body(shown.body);
+        if (!bodies.IsActive(body))
+            return;
+        JPH::RVec3 p;
+        JPH::Quat q;
+        bodies.GetPositionAndRotation(body, p, q);
+        shown.currentPosition = ToGlm(JPH::Vec3(p));
+        shown.currentRotation = ToGlm(q);
+    });
+    trackSoftBodies = scene.CreateSystem<PhysicsSoftBody>([this](Entity, PhysicsSoftBody& drawn, float) { TrackSoftBody(drawn); });
+
+    // Entities where the simulation has them, parents first (so a body below another is put under
+    // its new pose), in their parent's space.
+    showBodies = scene.CreateSystem<PhysicsBody, LocalTRS>([this](Entity e, PhysicsBody& shown, LocalTRS& trs, float alpha) {
+        if (!shown.show)
+            return;
+        const float a = shown.interpolate ? alpha : 1.0f;
+        shown.shownPosition = glm::mix(shown.previousPosition, shown.currentPosition, a);
+        shown.shownRotation = glm::normalize(glm::slerp(shown.previousRotation, shown.currentRotation, a));
+        SetWorldPose(scene, e, trs, shown.shownPosition, shown.shownRotation);
+        shown.writtenVersion = trs.version;
+    }, true);
+    showWheels = scene.CreateSystem<PhysicsWheel, LocalTRS>([this](Entity e, PhysicsWheel& wheel, LocalTRS& trs, float) { ShowWheel(e, wheel, trs); });
+    showSoftBodies = scene.CreateSystem<PhysicsSoftBody>([this](Entity e, PhysicsSoftBody& drawn, float alpha) { ShowSoftBody(e, drawn, alpha); });
+}
+
+std::vector<Entity> PhysicsWorld::Impl::Find(std::initializer_list<System*> finders)
+{
+    finding.clear();
+    for (System* finder : finders)
+        finder->Run();
+    std::sort(finding.begin(), finding.end(), [](Entity a, Entity b) { return a.RawId() < b.RawId(); });
+    finding.erase(std::unique(finding.begin(), finding.end(), [](Entity a, Entity b) { return a.RawId() == b.RawId(); }), finding.end());
+    return finding;
+}
+
+void PhysicsWorld::Impl::Show(float alpha)
+{
+    showBodies.Run(alpha);
+    showWheels.Run();
+    showSoftBodies.Run(alpha);
 }
 
 void PhysicsWorld::Impl::Apply()
@@ -316,7 +387,7 @@ void PhysicsWorld::Impl::RemoveAll()
     jointFilter->pairs.clear();
     brokenJoints.clear();
     for (auto& [id, character] : characters)
-        RemoveCharacter(character);
+        RemoveCharacter(id, character);
     characters.clear();
     for (auto& [id, vehicle] : vehicles)
         RemoveVehicle(vehicle);
@@ -326,6 +397,8 @@ void PhysicsWorld::Impl::RemoveAll()
     {
         RemoveBody(record.body);
         RemoveBody(record.sensor);
+        if (Entity e = scene.FromId(id); e.IsValid() && e.TryGet<PhysicsBody>())
+            e.Remove<PhysicsBody>();
     }
     records.clear();
     pending.clear();
@@ -339,57 +412,94 @@ void PhysicsWorld::Impl::RemoveAll()
     waterTime = 0.0f;
 }
 
-// Every body the scene asks for, from its hierarchy. Shapes are placed relative to their body from
-// the LocalTRS values below it (and the scale above it), so they don't change as it moves.
+// Where an entity is, from the root down as the transform system multiplies it (so a body that
+// nothing moves stays exactly where it was), remembered for the rest of the sync.
+const PhysicsWorld::Impl::Node& PhysicsWorld::Impl::NodeOf(Entity entity)
+{
+    if (const auto found = nodes.find(entity.RawId()); found != nodes.end())
+        return found->second;
+    const Entity parent = scene.Parent(entity);
+    const Node above = parent.IsValid() ? NodeOf(parent) : Node{};
+    const LocalTRS* trs = entity.TryGet<LocalTRS>();
+    Node node;
+    node.world = above.world * (trs ? LocalMatrix(*trs) : glm::mat4(1.0f));
+    node.scale = trs ? above.scale * glm::vec3(trs->scl[0], trs->scl[1], trs->scl[2]) : above.scale;
+    // A vehicle's wheel or a character (and what is on them) is no body.
+    node.excluded = above.excluded || entity.TryGet<VehicleWheel>() || entity.TryGet<CharacterController>();
+    return nodes.emplace(entity.RawId(), node).first->second;
+}
+
+// Every body the scene asks for: one per RigidBody (its colliders and those below it, down to the
+// next RigidBody), and one per entity with colliders but no RigidBody on or above it (a static body
+// of its own). Shapes are placed relative to their body from the LocalTRS values below it (and the
+// scale above it), so they don't change as it moves; a body's colliders go in in entity id order.
 void PhysicsWorld::Impl::Collect()
 {
     candidates.clear();
     waters.clear();
-    std::function<void(Entity, const glm::mat4&, const glm::vec3&, int, const glm::mat4&)> walk =
-        [&](Entity e, const glm::mat4& parentWorld, const glm::vec3& parentScale, int owner, const glm::mat4& parentRelative) {
-            if (e.TryGet<VehicleWheel>() || e.TryGet<CharacterController>())
-                return; // a vehicle's wheel or a character (and what is on them) is no body
-            const LocalTRS* trs = e.TryGet<LocalTRS>();
-            const glm::mat4 local = trs ? LocalMatrix(*trs) : glm::mat4(1.0f);
-            const glm::mat4 world = parentWorld * local;
-            const glm::vec3 scale = trs ? parentScale * glm::vec3(trs->scl[0], trs->scl[1], trs->scl[2]) : parentScale;
-            glm::mat4 relative = parentRelative * local;
-            if (const WaterVolume* water = e.TryGet<WaterVolume>())
-                AddWater(e, world, *water);
+    nodes.clear();
+    std::unordered_map<uint64_t, size_t> candidateOf;
+    for (Entity e : Find({ &rigidBodyFinder }))
+    {
+        const Node& node = NodeOf(e);
+        if (node.excluded)
+            continue;
+        Candidate candidate;
+        candidate.owner = e;
+        candidate.hasBody = true;
+        candidate.body = *e.TryGet<RigidBody>();
+        candidate.world = node.world;
+        candidateOf[e.RawId()] = candidates.size();
+        candidates.push_back(std::move(candidate));
+    }
 
-            if (const RigidBody* body = e.TryGet<RigidBody>())
+    std::vector<Entity> below;
+    for (Entity e : Find({ &boxFinder, &sphereFinder, &capsuleFinder, &cylinderFinder, &meshColliderFinder }))
+    {
+        const Node node = NodeOf(e);
+        if (node.excluded)
+            continue;
+        // On the nearest RigidBody on or above it: under that entity's scale, then each LocalTRS
+        // from there down to this one.
+        below.clear();
+        Entity owner = e;
+        while (owner.IsValid() && !owner.TryGet<RigidBody>())
+        {
+            below.push_back(owner);
+            owner = scene.Parent(owner);
+        }
+        const auto body = owner.IsValid() ? candidateOf.find(owner.RawId()) : candidateOf.end();
+        size_t target;
+        glm::mat4 placement;
+        if (body != candidateOf.end())
+        {
+            target = body->second;
+            placement = glm::scale(glm::mat4(1.0f), NodeOf(owner).scale);
+            for (auto it = below.rbegin(); it != below.rend(); ++it)
             {
-                Candidate candidate;
-                candidate.owner = e;
-                candidate.hasBody = true;
-                candidate.body = *body;
-                candidate.world = world;
-                candidates.push_back(std::move(candidate));
-                owner = static_cast<int>(candidates.size()) - 1;
-                relative = glm::scale(glm::mat4(1.0f), scale);
+                const LocalTRS* trs = it->TryGet<LocalTRS>();
+                placement = placement * (trs ? LocalMatrix(*trs) : glm::mat4(1.0f));
             }
+        }
+        else
+        {
+            // No RigidBody: a static body of its own.
+            Candidate candidate;
+            candidate.owner = e;
+            candidate.world = node.world;
+            target = candidates.size();
+            candidates.push_back(std::move(candidate));
+            placement = glm::scale(glm::mat4(1.0f), node.scale);
+        }
+        ForEachCollider(e, placement, [&](const ColliderGeometry& g) {
+            (g.collider->isTrigger ? candidates[target].triggers : candidates[target].solid).push_back(g);
+        });
+    }
 
-            if (HasCollider(e))
-            {
-                int target = owner;
-                glm::mat4 placement = relative;
-                if (target < 0)
-                {
-                    Candidate candidate;
-                    candidate.owner = e;
-                    candidate.world = world;
-                    candidates.push_back(std::move(candidate));
-                    target = static_cast<int>(candidates.size()) - 1;
-                    placement = glm::scale(glm::mat4(1.0f), scale);
-                }
-                ForEachCollider(e, placement, [&](const ColliderGeometry& g) {
-                    (g.collider->isTrigger ? candidates[target].triggers : candidates[target].solid).push_back(g);
-                });
-            }
+    for (Entity e : Find({ &waterFinder }))
+        if (const Node& node = NodeOf(e); !node.excluded)
+            AddWater(e, node.world, *e.TryGet<WaterVolume>());
 
-            e.ForEachChild([&](Entity child) { walk(child, world, scale, owner, relative); });
-        };
-    scene.ForEachRoot([&](Entity root) { walk(root, glm::mat4(1.0f), glm::vec3(1.0f), -1, glm::mat4(1.0f)); });
     // Bodies are made in the order of their entities, not of the scene's storage (which a restored
     // scene may have shuffled).
     std::stable_sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) { return a.owner.RawId() < b.owner.RawId(); });
@@ -482,6 +592,7 @@ void PhysicsWorld::Impl::Sync()
         record.seen = false;
 
     size_t created = 0;
+    std::vector<std::pair<Entity, std::optional<PhysicsBody>>> shownBodies;
     for (const Candidate& c : candidates)
     {
         if (c.solid.empty() && c.triggers.empty())
@@ -499,7 +610,8 @@ void PhysicsWorld::Impl::Sync()
         glm::vec3 position;
         glm::quat rotation;
         SplitPose(c.world, position, rotation);
-        const LocalTRS* trs = c.owner.TryGet<LocalTRS>();
+        Entity owner = c.owner;
+        const LocalTRS* trs = owner.TryGet<LocalTRS>();
 
         auto found = records.find(c.owner.RawId());
         // A body made again keeps moving as it did.
@@ -531,7 +643,6 @@ void PhysicsWorld::Impl::Sync()
             record.motion = c.hasBody ? c.body.motion : MotionType::Static;
             record.position = position;
             record.rotation = rotation;
-            record.writtenVersion = trs ? trs->version : ~0u;
             if (!c.solid.empty())
             {
                 record.body = Create(c, c.solid, false, position, rotation);
@@ -544,17 +655,30 @@ void PhysicsWorld::Impl::Sync()
             }
             if (keepVelocity && record.motion == MotionType::Dynamic && !record.body.IsInvalid())
                 bodies.SetLinearAndAngularVelocity(record.body, linearVelocity, angularVelocity);
-            record.interpolate = !c.hasBody || c.body.interpolate;
-            record.Place(position, rotation);
+            // A dynamic body moves its entity (the write-back follows its PhysicsBody); a body that
+            // isn't dynamic any more no longer does. Given after the loop: adding a component moves
+            // the entity's components, and the candidates point at colliders.
+            if (record.motion == MotionType::Dynamic && !record.body.IsInvalid())
+            {
+                PhysicsBody shown;
+                shown.body = record.body.GetIndexAndSequenceNumber();
+                shown.interpolate = c.body.interpolate;
+                shown.writtenVersion = trs ? trs->version : ~0u;
+                shown.Place(position, rotation);
+                shownBodies.emplace_back(owner, shown);
+            }
+            else if (owner.TryGet<PhysicsBody>())
+            {
+                shownBodies.emplace_back(owner, std::nullopt);
+            }
             record.seen = true;
-            records.emplace(c.owner.RawId(), record);
+            records.emplace(owner.RawId(), record);
             ++created;
             continue;
         }
 
         Record& record = found->second;
         record.seen = true;
-        record.interpolate = !c.hasBody || c.body.interpolate;
         switch (record.motion)
         {
         case MotionType::Static:
@@ -569,17 +693,28 @@ void PhysicsWorld::Impl::Sync()
         case MotionType::Kinematic:
             break; // moved toward the entity each step
         case MotionType::Dynamic:
-            // Moved by something other than the simulation: put the body there.
-            if (trs && trs->version != record.writtenVersion)
+            if (PhysicsBody* shown = owner.Get<PhysicsBody>())
             {
-                bodies.SetPositionAndRotation(record.body, PhysicsInternal::ToJolt(position), PhysicsInternal::ToJolt(rotation), JPH::EActivation::Activate);
-                record.writtenVersion = trs->version;
-                record.Place(position, rotation);
+                shown->interpolate = c.body.interpolate;
+                // Moved by something other than the simulation: put the body there.
+                if (trs && trs->version != shown->writtenVersion)
+                {
+                    bodies.SetPositionAndRotation(record.body, PhysicsInternal::ToJolt(position), PhysicsInternal::ToJolt(rotation), JPH::EActivation::Activate);
+                    shown->writtenVersion = trs->version;
+                    shown->Place(position, rotation);
+                }
             }
             break;
         }
         record.position = position;
         record.rotation = rotation;
+    }
+    for (auto& [entity, shown] : shownBodies)
+    {
+        if (shown)
+            entity.Add<PhysicsBody>(*shown);
+        else
+            entity.Remove<PhysicsBody>();
     }
 
     for (auto it = records.begin(); it != records.end();)
@@ -598,6 +733,8 @@ void PhysicsWorld::Impl::Sync()
         RemoveBody(it->second.body);
         RemoveBody(it->second.sensor);
         pending.erase(it->first);
+        if (Entity e = scene.FromId(it->first); e.IsValid() && e.TryGet<PhysicsBody>())
+            e.Remove<PhysicsBody>();
         it = records.erase(it);
     }
 
@@ -736,79 +873,20 @@ void PhysicsWorld::Impl::ProcessContacts()
 
 void PhysicsWorld::Impl::TrackPoses()
 {
+    // Triggers follow their bodies.
     JPH::BodyInterface& bodies = system->GetBodyInterface();
     for (auto& [id, record] : records)
     {
-        if (!record.sensor.IsInvalid())
-        {
-            // Triggers follow their bodies.
-            JPH::RVec3 p;
-            JPH::Quat q;
-            bodies.GetPositionAndRotation(record.body, p, q);
-            bodies.SetPositionAndRotation(record.sensor, p, q, JPH::EActivation::DontActivate);
-        }
-        if (record.motion != MotionType::Dynamic || record.body.IsInvalid())
-            continue;
-        record.previousPosition = record.currentPosition;
-        record.previousRotation = record.currentRotation;
-        if (!bodies.IsActive(record.body))
+        if (record.sensor.IsInvalid())
             continue;
         JPH::RVec3 p;
         JPH::Quat q;
         bodies.GetPositionAndRotation(record.body, p, q);
-        record.currentPosition = ToGlm(p);
-        record.currentRotation = ToGlm(q);
+        bodies.SetPositionAndRotation(record.sensor, p, q, JPH::EActivation::DontActivate);
     }
-    for (auto& [id, record] : characters)
-    {
-        if (!record.character)
-            continue;
-        const glm::vec3 position = ToGlm(JPH::Vec3(record.character->GetPosition()));
-        record.previousPosition = record.tracked ? record.currentPosition : position;
-        record.previousYaw = record.tracked ? record.currentYaw : record.yaw;
-        record.currentPosition = position;
-        record.currentYaw = record.yaw;
-        record.tracked = true;
-    }
-    for (auto& [id, ragdoll] : ragdolls)
-        if (ragdoll.ragdoll)
-            TrackRagdoll(ragdoll, false);
-    TrackSoftBodies();
-}
-
-// Dynamic bodies move their entities (in their parent's space, parents first so a nested body is
-// placed under its parent's new pose).
-void PhysicsWorld::Impl::WriteBack(float alpha)
-{
-    std::vector<std::pair<int, uint64_t>> moved; // (depth, entity)
-    for (auto& [id, record] : records)
-    {
-        if (record.motion != MotionType::Dynamic || record.body.IsInvalid())
-            continue;
-        const float a = record.interpolate ? alpha : 1.0f;
-        const glm::vec3 position = glm::mix(record.previousPosition, record.currentPosition, a);
-        const glm::quat rotation = glm::normalize(glm::slerp(record.previousRotation, record.currentRotation, a));
-        if (position == record.shownPosition && rotation == record.shownRotation)
-            continue;
-        record.shownPosition = position;
-        record.shownRotation = rotation;
-        int depth = 0;
-        for (Entity e = scene.Parent(scene.FromId(id)); e.IsValid(); e = scene.Parent(e))
-            ++depth;
-        moved.emplace_back(depth, id);
-    }
-    std::sort(moved.begin(), moved.end());
-
-    for (const auto& [depth, id] : moved)
-    {
-        Record& record = records[id];
-        Entity entity = scene.FromId(id);
-        LocalTRS* trs = entity.IsValid() ? entity.Get<LocalTRS>() : nullptr;
-        if (!trs)
-            continue;
-        SetWorldPose(scene, entity, *trs, record.shownPosition, record.shownRotation);
-        record.writtenVersion = trs->version;
-    }
+    trackBodies.Run(); // dynamic bodies and ragdolls' bones
+    TrackCharacters();
+    trackSoftBodies.Run();
 }
 
 void PhysicsWorld::Impl::Step(float dt)
@@ -859,12 +937,9 @@ void PhysicsWorld::Impl::Step(float dt)
         RippleWater();
     }
     // Frames between steps show the bodies moving on too.
-    const float alpha = settings.interpolation ? std::clamp(accumulator / step, 0.0f, 1.0f) : 1.0f;
-    WriteBack(alpha);
-    WriteWheels();
-    WriteCharacters(alpha, steps > 0);
-    WriteRagdolls(alpha);
-    WriteSoftBodies(alpha);
+    Show(settings.interpolation ? std::clamp(accumulator / step, 0.0f, 1.0f) : 1.0f);
+    if (steps > 0)
+        SpendJumps();
 }
 
 JPH::BodyID PhysicsWorld::Impl::BodyOf(Entity entity) const
@@ -904,6 +979,9 @@ void PhysicsWorld::RegisterComponents()
     ECS::RegisterComponent<WaterVolume>("WaterVolume");
     ECS::RegisterComponent<Ragdoll>("Ragdoll");
     ECS::RegisterComponent<SoftBody>("SoftBody");
+    ECS::RegisterRuntimeComponent<PhysicsBody>("PhysicsBody");
+    ECS::RegisterRuntimeComponent<PhysicsWheel>("PhysicsWheel");
+    ECS::RegisterRuntimeComponent<PhysicsSoftBody>("PhysicsSoftBody");
     RegisterSerializers();
 }
 
@@ -932,11 +1010,7 @@ void PhysicsWorld::Step(float dt)
 
 void PhysicsWorld::ShowLatest()
 {
-    m_Impl->WriteBack(1.0f);
-    m_Impl->WriteWheels();
-    m_Impl->WriteCharacters(1.0f, false);
-    m_Impl->WriteRagdolls(1.0f);
-    m_Impl->WriteSoftBodies(1.0f);
+    m_Impl->Show(1.0f);
 }
 
 void PhysicsWorld::Reset()

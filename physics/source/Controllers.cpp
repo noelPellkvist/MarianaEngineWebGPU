@@ -5,6 +5,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <functional>
 
@@ -36,21 +37,29 @@ void ChaseCamera::Update(const glm::mat4& target, const FollowCamera& settings, 
     lookAt += (wantedLook - lookAt) * kLook;
 }
 
-void UpdateFollowCameras(Scene& scene, float dt)
+void PhysicsWorld::UpdateFollowCameras(float dt)
 {
-    // Targets by name, and the first entity with a PlayerControl.
-    Entity firstControlled;
-    std::vector<std::pair<std::string, Entity>> named;
-    std::vector<Entity> cameras;
-    std::function<void(Entity)> visit = [&](Entity e) {
-        if (!firstControlled.IsValid() && e.TryGet<PlayerControl>())
-            firstControlled = e;
-        if (e.TryGet<FollowCamera>())
-            cameras.push_back(e);
-        named.emplace_back(e.GetName(), e);
-        e.ForEachChild(visit);
-    };
-    scene.ForEachRoot([&](Entity root) { visit(root); });
+    m_Impl->UpdateFollowCameras(dt);
+}
+
+void PhysicsWorld::Impl::UpdateFollowCameras(float dt)
+{
+    const std::vector<Entity> cameras = Find({ &followCameraFinder });
+    if (cameras.empty())
+        return;
+    // Targets: the first entity with a PlayerControl, or one by name (the first of each in hierarchy
+    // order: the whole scene, so only when a camera names its target).
+    const std::vector<Entity> controlled = Find({ &playerControlFinder });
+    const Entity firstControlled = controlled.empty() ? Entity{} : controlled.front();
+    std::unordered_map<std::string, Entity> named;
+    if (std::any_of(cameras.begin(), cameras.end(), [](Entity c) { return !c.TryGet<FollowCamera>()->target.empty(); }))
+    {
+        std::function<void(Entity)> visit = [&](Entity e) {
+            named.emplace(e.GetName(), e);
+            e.ForEachChild(visit);
+        };
+        scene.ForEachRoot([&](Entity root) { visit(root); });
+    }
 
     for (Entity camera : cameras)
     {
@@ -58,13 +67,8 @@ void UpdateFollowCameras(Scene& scene, float dt)
         Entity target = firstControlled;
         if (!settings.target.empty())
         {
-            target = {};
-            for (const auto& [name, e] : named)
-                if (name == settings.target)
-                {
-                    target = e;
-                    break;
-                }
+            const auto found = named.find(settings.target);
+            target = found == named.end() ? Entity{} : found->second;
         }
         LocalTRS* trs = camera.Get<LocalTRS>();
         if (!target.IsValid() || !trs || target.RawId() == camera.RawId())
