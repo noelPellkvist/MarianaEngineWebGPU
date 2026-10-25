@@ -44,22 +44,16 @@ void PhysicsWorld::UpdateFollowCameras(float dt)
 
 void PhysicsWorld::Impl::UpdateFollowCameras(float dt)
 {
-    const std::vector<Entity> cameras = Find({ &followCameraFinder });
+    const std::vector<Entity> cameras = Find<FollowCamera>();
     if (cameras.empty())
         return;
-    // Targets: the first entity with a PlayerControl, or one by name (the first of each in hierarchy
-    // order: the whole scene, so only when a camera names its target).
-    const std::vector<Entity> controlled = Find({ &playerControlFinder });
+    // Targets: the first entity (by id) with a PlayerControl, or one by name (only looked up when a
+    // camera names its target).
+    const std::vector<Entity> controlled = Find<PlayerControl>();
     const Entity firstControlled = controlled.empty() ? Entity{} : controlled.front();
     std::unordered_map<std::string, Entity> named;
     if (std::any_of(cameras.begin(), cameras.end(), [](Entity c) { return !c.TryGet<FollowCamera>()->target.empty(); }))
-    {
-        std::function<void(Entity)> visit = [&](Entity e) {
-            named.emplace(e.GetName(), e);
-            e.ForEachChild(visit);
-        };
-        scene.ForEachRoot([&](Entity root) { visit(root); });
-    }
+        named = EntitiesByName();
 
     for (Entity camera : cameras)
     {

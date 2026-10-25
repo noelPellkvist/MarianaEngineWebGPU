@@ -514,18 +514,11 @@ namespace InspectorComponents
     size_t CountMaterialUsers(const Scene& scene, const MaterialAsset* material)
     {
         size_t count = 0;
-        auto visit = [&](Entity e) {
-            const MeshComponent* mesh = e.TryGet<MeshComponent>();
-            if (!mesh)
-                return;
-            const bool uses = std::any_of(mesh->materials.begin(), mesh->materials.end(),
+        scene.Each<MeshComponent>([&](Entity, const MeshComponent& mesh) {
+            const bool uses = std::any_of(mesh.materials.begin(), mesh.materials.end(),
                 [&](const AssetHandle<MaterialAsset>& m) { return m.Get().get() == material; });
             if (uses)
                 ++count;
-        };
-        scene.ForEachRoot([&](Entity root) {
-            visit(root);
-            scene.ForEachDescendant(root, visit);
         });
         return count;
     }

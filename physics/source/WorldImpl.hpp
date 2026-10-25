@@ -12,6 +12,8 @@
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Geometry/Vertex.hpp>
 #include <Mariana/Graphics/Mesh.hpp>
+#include <Mariana/Rendering/Components.hpp>
+#include <Mariana/Rendering/MaterialAsset.hpp>
 
 #include "JoltCommon.hpp"
 #include "Shapes.hpp"
@@ -27,9 +29,10 @@
 #include <Jolt/Physics/Ragdoll/Ragdoll.h>
 #include <Jolt/Skeleton/SkeletonPose.h>
 
-#include <initializer_list>
+#include <algorithm>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -161,12 +164,11 @@ namespace PhysicsInternal
         uint32_t index = 0;
     };
 
-    // A soft body's entity: the copy of its mesh it draws, how that is made from the particles, and
-    // where the particles were after the last two steps.
+    // A soft body's entity: how the copy of its mesh it draws (its MeshOverride, written every frame
+    // it moves) is made from the particles, and where the particles were after the last two steps.
     struct PhysicsSoftBody
     {
         uint32_t body = JPH::BodyID::cInvalidBodyID;
-        AssetHandle<IMesh> mesh;               // the copy, written every frame it moves
         std::vector<StandardVertex> vertices;  // the copy's
         std::vector<uint32_t> triangles;       // the copy's triangles (its indices), for tangents
         std::vector<uint32_t> particleOf;      // per vertex (~0u: not part of a triangle)
@@ -177,12 +179,20 @@ namespace PhysicsInternal
         bool awake = false, written = false;
     };
 
-    // A cached query that lists the entities with a component (PhysicsWorld::Impl::Find runs them).
-    template <class T>
-    System MakeFinder(Scene& scene, std::vector<Entity>& into)
+    // FNV-1a over what something is made from: when its signature changes, it is made again.
+    struct Signature
     {
-        return scene.CreateSystem<T>([&into](Entity e, T&, float) { into.push_back(e); });
-    }
+        uint64_t value = 1469598103934665603ull;
+        void Bytes(const void* data, size_t size)
+        {
+            const auto* bytes = static_cast<const unsigned char*>(data);
+            for (size_t i = 0; i < size; ++i)
+                value = (value ^ bytes[i]) * 1099511628211ull;
+        }
+        template <typename T>
+        void Add(const T& v) { Bytes(&v, sizeof(T)); }
+        void Add(const std::string& s) { Bytes(s.data(), s.size()); }
+    };
 
     // Jolt's debug renderer (one for the process), collecting lines while a target is set: the
     // contacts Jolt draws during steps, and DebugDraw's bodies.
@@ -273,6 +283,7 @@ struct PhysicsWorld::Impl
         uint64_t noCollidePair = 0;
         bool hasNoCollidePair = false;
         float force = 0.0f, torque = 0.0f;
+        bool broken = false; // pulled apart: not made again until Reset
         bool seen = false;
     };
 
@@ -322,14 +333,13 @@ struct PhysicsWorld::Impl
         bool seen = false;
     };
 
-    // A soft body on an entity: Jolt's body and the mesh the entity had (what it draws now, made
-    // from the particles, is its PhysicsSoftBody).
+    // A soft body on an entity: Jolt's body (what the entity draws now, made from the particles, is
+    // its MeshOverride and PhysicsSoftBody).
     struct SoftBodyRecord
     {
         JPH::BodyID body;
         uint64_t signature = 0;
         bool made = false;
-        AssetHandle<IMesh> original;
         std::vector<uint32_t> faces;           // particles, three per face, wound as modelled (the wind's)
         std::vector<std::pair<uint32_t, glm::vec3>> pins; // particle, its place in the entity's space
         float invMass = 1.0f;
@@ -383,12 +393,10 @@ struct PhysicsWorld::Impl
     std::unordered_map<uint64_t, uint64_t> ragdollBones;  // bone entity -> its ragdoll's root
     uint32_t ragdollGroups = 0;
     std::unordered_map<uint64_t, SoftBodyRecord> softBodies; // per entity
+    // The materials the water scrolls, and their normal maps' offset before (Reset puts it back).
+    std::vector<std::pair<AssetHandle<MaterialAsset>, glm::vec2>> rippled;
     std::unordered_map<uint64_t, Node> nodes; // the entities placed during this sync
-    // Cached queries listing the entities with each component the world works from (Find), and the
-    // systems that follow the bodies after each step (TrackPoses) and write the scene (Show).
-    std::vector<Entity> finding;
-    System rigidBodyFinder, boxFinder, sphereFinder, capsuleFinder, cylinderFinder, meshColliderFinder, waterFinder;
-    System vehicleFinder, characterFinder, jointFinder, ragdollFinder, softBodyFinder, playerControlFinder, followCameraFinder;
+    // The systems that follow the bodies after each step (TrackPoses) and write the scene (Show).
     System trackBodies, trackSoftBodies;
     System showBodies, showWheels, showSoftBodies;
     float waterTime = 0.0f;          // simulated seconds, for the waves
@@ -405,9 +413,20 @@ struct PhysicsWorld::Impl
     void Apply();
     void RemoveBody(JPH::BodyID& id);
     void RemoveAll();
-    // The entities the finders list, each once, in id order (bodies are made in this order, so the
-    // simulation doesn't depend on how the scene stores its entities).
-    std::vector<Entity> Find(std::initializer_list<System*> finders);
+    // The entities with any of the components (Scene::Each), each once, in id order: bodies are made
+    // in this order, so the simulation doesn't depend on how the scene stores its entities.
+    template <class... T>
+    std::vector<Entity> Find() const
+    {
+        std::vector<Entity> found;
+        (scene.Each<T>([&](Entity e, const T&) { found.push_back(e); }), ...);
+        std::sort(found.begin(), found.end(), [](Entity a, Entity b) { return a.RawId() < b.RawId(); });
+        found.erase(std::unique(found.begin(), found.end(), [](Entity a, Entity b) { return a.RawId() == b.RawId(); }), found.end());
+        return found;
+    }
+    // Entities by name, for what refers to one by name (a joint's `connected`, a camera's target):
+    // as Scene::FindByName, the one with the smallest id when several share it.
+    std::unordered_map<std::string, Entity> EntitiesByName() const;
     const Node& NodeOf(Entity entity);
     void Collect();
     JPH::BodyID Create(const Candidate& c, std::vector<ColliderGeometry> parts, bool sensor, const glm::vec3& position, const glm::quat& rotation);
@@ -457,7 +476,7 @@ struct PhysicsWorld::Impl
     // The soft body systems': after each step, where its particles are; and the mesh written `alpha`
     // of the way from the previous step's particles to the last's.
     void TrackSoftBody(PhysicsInternal::PhysicsSoftBody& drawn);
-    void ShowSoftBody(Entity entity, PhysicsInternal::PhysicsSoftBody& drawn, float alpha);
+    void ShowSoftBody(Entity entity, PhysicsInternal::PhysicsSoftBody& drawn, IMesh* mesh, float alpha);
     // Scrolls the normal maps of the water's meshes (the surface).
     void RippleWater();
     // After each step: the poses moving bodies, characters and particles reached, for interpolation.

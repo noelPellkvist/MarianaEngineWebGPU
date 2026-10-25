@@ -312,18 +312,15 @@ void PhysicsWorld::Impl::SyncRagdolls()
     for (auto& [id, record] : ragdolls)
         record.seen = false;
 
-    for (Entity root : Find({ &ragdollFinder }))
+    for (Entity root : Find<Ragdoll>())
     {
         const Ragdoll& settings = *root.TryGet<Ragdoll>();
-        uint64_t signature = 1469598103934665603ull;
-        auto mix = [&](const void* data, size_t size) {
-            for (size_t i = 0; i < size; ++i)
-                signature = (signature ^ static_cast<const unsigned char*>(data)[i]) * 1099511628211ull;
-        };
-        mix(&settings.mass, sizeof(float));
-        mix(&settings.friction, sizeof(float));
-        mix(&settings.jointLimitScale, sizeof(float));
-        mix(&settings.layer, sizeof(uint32_t));
+        Signature made;
+        made.Add(settings.mass);
+        made.Add(settings.friction);
+        made.Add(settings.jointLimitScale);
+        made.Add(settings.layer);
+        const uint64_t signature = made.value;
 
         RagdollRecord& record = ragdolls[root.RawId()];
         record.seen = true;

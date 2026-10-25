@@ -1,6 +1,6 @@
 // The physics components in scene files (SceneFile), registered with them by
 // PhysicsWorld::RegisterComponents. What drives them while the game runs (a vehicle's pedals, a
-// character's walking, a broken joint) isn't saved.
+// character's walking) isn't saved.
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Importers/SceneFile.hpp>

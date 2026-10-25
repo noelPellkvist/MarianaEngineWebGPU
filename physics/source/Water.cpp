@@ -164,6 +164,8 @@ void PhysicsWorld::Impl::RippleWater()
                 MaterialAsset::TextureTransform transform = material->GetTexture(MaterialTexture::Normal).transform;
                 if (transform.offset == offset)
                     continue;
+                if (std::none_of(rippled.begin(), rippled.end(), [&](const auto& r) { return r.first.Get().get() == material; }))
+                    rippled.emplace_back(handle, transform.offset);
                 transform.offset = offset;
                 material->SetTextureTransform(MaterialTexture::Normal, transform);
             }

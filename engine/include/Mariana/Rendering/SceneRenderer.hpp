@@ -88,7 +88,7 @@ private:
     TransformData transformData{};
     // WorldXform::version last uploaded per transform slot.
     std::vector<uint32_t> uploadedTransformVersions;
-    // Joint matrices of every skin this frame (SkinComponent::boneOffset points into it).
+    // Joint matrices of every skin this frame (SkinPose::boneOffset points into it).
     std::vector<BoneData> frameBones;
 
     void LoadSky();

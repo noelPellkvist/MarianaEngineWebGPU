@@ -2,7 +2,7 @@
 // Bounds and frustum helpers shared by SceneRenderer (skinning) and SceneView (culling).
 #include <Mariana/Rendering/SceneView.hpp>
 #include <Mariana/Graphics/Mesh.hpp>
-#include <Mariana/Animation/Skin.hpp>
+#include <Mariana/Rendering/Components.hpp>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -56,7 +56,7 @@ namespace SceneCulling
 
     // Whether the mesh, placed by `model`, is at least partly inside the frustum. Skinned meshes move
     // beyond their bind-pose bounds, so they use the posed bounds the skinning pass computed instead.
-    inline bool IsVisible(const Frustum& frustum, const IMesh& mesh, const float* model, const SkinComponent* skin)
+    inline bool IsVisible(const Frustum& frustum, const IMesh& mesh, const float* model, const SkinPose* skin)
     {
         if (skin)
             return skin->bounds.IsEmpty() || IsVisible(frustum, skin->bounds);

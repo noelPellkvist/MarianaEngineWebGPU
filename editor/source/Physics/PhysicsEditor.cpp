@@ -243,9 +243,9 @@ namespace
 
     // A joint: a cross at its anchor, its X axis (the hinge or slide axis), and a line to the entity
     // it holds on to.
-    void DrawJoint(const Painter& painter, const Scene& scene, const glm::mat4& world, const Joint& joint)
+    void DrawJoint(const Painter& painter, const Scene& scene, const glm::mat4& world, const Joint& joint, bool broken)
     {
-        const ImU32 color = joint.broken ? IM_COL32(150, 150, 150, 200) : IM_COL32(255, 90, 220, 230);
+        const ImU32 color = broken ? IM_COL32(150, 150, 150, 200) : IM_COL32(255, 90, 220, 230);
         const glm::vec3 anchor(world[3]);
         const glm::vec3 x = glm::normalize(glm::vec3(world[0])), y = glm::normalize(glm::vec3(world[1])), z = glm::normalize(glm::vec3(world[2]));
         const float s = 0.12f;
@@ -259,11 +259,7 @@ namespace
             painter.Line(anchor, joint.connectedAnchor, color);
         else if (!joint.connected.empty())
         {
-            Entity other;
-            scene.ForEachRoot([&](Entity root) {
-                if (!other.IsValid() && root.GetName() == joint.connected) other = root;
-                scene.ForEachDescendant(root, [&](Entity e) { if (!other.IsValid() && e.GetName() == joint.connected) other = e; });
-            });
+            const Entity other = scene.FindByName(joint.connected);
             if (const WorldXform* w = other.IsValid() ? other.TryGet<WorldXform>() : nullptr)
             {
                 glm::vec3 to(w->model[12], w->model[13], w->model[14]);
@@ -763,13 +759,9 @@ namespace PhysicsEditor
                         {
                             if (ImGui::Selectable("The world", j.connected.empty())) { j.connected.clear(); changed = true; }
                             std::vector<std::string> names;
-                            auto add = [&](Entity e) {
-                                if (e.RawId() != entity.RawId() && e.TryGet<RigidBody>())
+                            scene.Each<RigidBody>([&](Entity e, const RigidBody&) {
+                                if (e.RawId() != entity.RawId())
                                     names.push_back(e.GetName());
-                            };
-                            scene.ForEachRoot([&](Entity root) {
-                                add(root);
-                                scene.ForEachDescendant(root, add);
                             });
                             std::sort(names.begin(), names.end());
                             names.erase(std::unique(names.begin(), names.end()), names.end());
@@ -1139,16 +1131,32 @@ namespace PhysicsEditor
                 }
             }
             if (const Joint* joint = entity.TryGet<Joint>())
-                DrawJoint(painter, scene, glm::make_mat4(transform->model), *joint);
+            {
+                JointInfo info;
+                DrawJoint(painter, scene, glm::make_mat4(transform->model), *joint, world && world->GetJointInfo(entity, info) && info.broken);
+            }
             if (HasCollider(entity))
                 ForEachCollider(entity, glm::make_mat4(transform->model), [&](const ColliderGeometry& g) { DrawGeometry(painter, g); });
         };
         if (all)
         {
-            scene.ForEachRoot([&](Entity root) {
-                draw(root);
-                scene.ForEachDescendant(root, draw);
-            });
+            // Everything with something to draw (found by what it has, each once).
+            std::vector<Entity> found;
+            auto add = [&](Entity e, const auto&) { found.push_back(e); };
+            scene.Each<BoxCollider>(add);
+            scene.Each<SphereCollider>(add);
+            scene.Each<CapsuleCollider>(add);
+            scene.Each<CylinderCollider>(add);
+            scene.Each<MeshCollider>(add);
+            scene.Each<VehicleWheel>(add);
+            scene.Each<CharacterController>(add);
+            scene.Each<WaterVolume>(add);
+            scene.Each<Ragdoll>(add);
+            scene.Each<Joint>(add);
+            std::sort(found.begin(), found.end(), [](Entity a, Entity b) { return a.RawId() < b.RawId(); });
+            found.erase(std::unique(found.begin(), found.end(), [](Entity a, Entity b) { return a.RawId() == b.RawId(); }), found.end());
+            for (Entity e : found)
+                draw(e);
         }
         else if (selected.IsValid())
         {

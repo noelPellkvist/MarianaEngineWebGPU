@@ -375,8 +375,10 @@ namespace PhysicsScenarios
         });
         SoftBodyInfo info;
         const bool made = world.GetSoftBodyInfo(cloth, info);
-        const IMesh* drawn = cloth.Get<MeshComponent>()->mesh.Get().get();
-        const bool written = drawn && drawn != original && drawn->deformVersion > 0;
+        // It draws a copy (its MeshOverride); its own mesh stays as it was.
+        const MeshOverride* copy = cloth.TryGet<MeshOverride>();
+        const IMesh* drawn = copy ? copy->mesh.Get().get() : nullptr;
+        const bool written = drawn && drawn != original && drawn->deformVersion > 0 && cloth.Get<MeshComponent>()->mesh.Get().get() == original;
         return Finish(log, "cloth", Format("%.0f particles, %.0f pinned; hangs from y %.3f down to %.3f", static_cast<double>(info.particles), static_cast<double>(info.pinned), info.boundsMax.y, lowest) +
                       (written ? "" : ", mesh not written"),
                       made && written && info.particles == 121 && info.pinned == 2 && info.boundsMax.y < 3.03f && lowest > 1.9f && lowest < 2.05f);

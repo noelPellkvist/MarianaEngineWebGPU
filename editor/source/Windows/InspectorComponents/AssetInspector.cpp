@@ -19,19 +19,16 @@ namespace
 
     const char* const kTextureSlotNames[] = { "Base Color", "Normal", "Metallic Roughness", "Occlusion", "Emissive" };
 
-    // Every entity in `scene` that `matches`.
+    // Every entity in `scene` whose MeshComponent `matches`, in id order.
     template <typename Fn>
-    std::vector<Entity> FindEntities(const Scene& scene, Fn&& matches)
+    std::vector<Entity> FindMeshUsers(const Scene& scene, Fn&& matches)
     {
         std::vector<Entity> found;
-        auto visit = [&](Entity e) {
-            if (matches(e))
+        scene.Each<MeshComponent>([&](Entity e, const MeshComponent& mesh) {
+            if (matches(mesh))
                 found.push_back(e);
-        };
-        scene.ForEachRoot([&](Entity root) {
-            visit(root);
-            scene.ForEachDescendant(root, visit);
         });
+        std::sort(found.begin(), found.end(), [](Entity a, Entity b) { return a.RawId() < b.RawId(); });
         return found;
     }
 
@@ -154,9 +151,8 @@ namespace
             ImGui::Text("Bounds min: %.2f, %.2f, %.2f", mesh.boundsMin.x, mesh.boundsMin.y, mesh.boundsMin.z);
             ImGui::Text("Bounds max: %.2f, %.2f, %.2f", mesh.boundsMax.x, mesh.boundsMax.y, mesh.boundsMax.z);
         }
-        DrawEntityList("Used by", FindEntities(scene, [&](Entity e) {
-            const MeshComponent* component = e.TryGet<MeshComponent>();
-            return component && component->mesh.Get().get() == &mesh;
+        DrawEntityList("Used by", FindMeshUsers(scene, [&](const MeshComponent& component) {
+            return component.mesh.Get().get() == &mesh;
         }), selectEntity);
     }
 }
@@ -202,9 +198,8 @@ namespace InspectorComponents
                 ImGui::SetItemTooltip("A new material with the same settings (assign it in a Mesh Renderer's slot).");
                 DrawMaterialEditor(material, assets, openAsset, undo);
                 MaterialAsset* raw = material.Get().get();
-                DrawEntityList("Used by", FindEntities(scene, [&](Entity e) {
-                    const MeshComponent* mesh = e.TryGet<MeshComponent>();
-                    return mesh && std::any_of(mesh->materials.begin(), mesh->materials.end(),
+                DrawEntityList("Used by", FindMeshUsers(scene, [&](const MeshComponent& mesh) {
+                    return std::any_of(mesh.materials.begin(), mesh.materials.end(),
                         [&](const AssetHandle<MaterialAsset>& m) { return m.Get().get() == raw; });
                 }), selectEntity);
                 break;

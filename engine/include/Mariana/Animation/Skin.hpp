@@ -14,35 +14,12 @@ struct Skin
     std::vector<glm::mat4> inverseBind;
 };
 
-// On an entity whose mesh is skinned. Its vertices' boneIndices index into the skin's joints.
+// On an entity whose mesh is skinned. Its vertices' boneIndices index into the skin's joints. What
+// the renderer works out from it each frame is the entity's SkinPose (Rendering/Components.hpp).
 struct SkinComponent
 {
     AssetHandle<Skin> skin;
 
-    // Resolved on first use (same order as Skin::jointNodes), like an Animator's bones.
-    std::vector<Entity> joints;
-    // Where this frame's joint matrices start in the bone buffer, set by the skinning pass.
-    uint32_t boneOffset = ~0u;
-    // Sum of the joints' WorldXform versions, so shadows know when the pose changed.
-    uint32_t poseVersion = 0;
-    // World-space bounds of the posed mesh, from the mesh's jointBounds (empty = unknown, not culled).
-    Bounds bounds;
-
     SkinComponent() = default;
     explicit SkinComponent(AssetHandle<Skin> skin) : skin(std::move(skin)) {}
-    // Copies only the skin; resolved joints belong to the source's entities (prefab clones).
-    SkinComponent(const SkinComponent& other) : skin(other.skin) {}
-    SkinComponent& operator=(const SkinComponent& other)
-    {
-        if (this == &other)
-            return *this;
-        skin = other.skin;
-        joints.clear();
-        boneOffset = ~0u;
-        poseVersion = 0;
-        bounds = {};
-        return *this;
-    }
-    SkinComponent(SkinComponent&&) = default;
-    SkinComponent& operator=(SkinComponent&&) = default;
 };

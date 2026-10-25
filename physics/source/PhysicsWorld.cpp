@@ -68,21 +68,7 @@ namespace
         JPH::Factory::sInstance = nullptr;
     }
 
-    // FNV-1a over what a body is made from: when it changes, the body is made again.
-    struct Hasher
-    {
-        uint64_t value = 1469598103934665603ull;
-        void Bytes(const void* data, size_t size)
-        {
-            const auto* bytes = static_cast<const unsigned char*>(data);
-            for (size_t i = 0; i < size; ++i)
-                value = (value ^ bytes[i]) * 1099511628211ull;
-        }
-        template <typename T>
-        void Add(const T& v) { Bytes(&v, sizeof(T)); }
-    };
-
-    void HashGeometry(Hasher& h, const ColliderGeometry& g)
+    void HashGeometry(Signature& h, const ColliderGeometry& g)
     {
         h.Add(g.shape);
         h.Add(g.position);
@@ -98,7 +84,7 @@ namespace
         h.Add(g.collider->isTrigger);
     }
 
-    void HashBody(Hasher& h, const RigidBody& b)
+    void HashBody(Signature& h, const RigidBody& b)
     {
         h.Add(b.motion);
         h.Add(b.mass);
@@ -282,25 +268,9 @@ void PhysicsWorld::Impl::CreateSystem()
     Apply();
 }
 
-// The scene's side: cached queries for the entities each part of the world works from, and the
-// systems that follow the bodies after each step and write the scene from them.
+// The systems that follow the bodies after each step and write the scene from them.
 void PhysicsWorld::Impl::MakeSystems()
 {
-    rigidBodyFinder = MakeFinder<RigidBody>(scene, finding);
-    boxFinder = MakeFinder<BoxCollider>(scene, finding);
-    sphereFinder = MakeFinder<SphereCollider>(scene, finding);
-    capsuleFinder = MakeFinder<CapsuleCollider>(scene, finding);
-    cylinderFinder = MakeFinder<CylinderCollider>(scene, finding);
-    meshColliderFinder = MakeFinder<MeshCollider>(scene, finding);
-    waterFinder = MakeFinder<WaterVolume>(scene, finding);
-    vehicleFinder = MakeFinder<Vehicle>(scene, finding);
-    characterFinder = MakeFinder<CharacterController>(scene, finding);
-    jointFinder = MakeFinder<Joint>(scene, finding);
-    ragdollFinder = MakeFinder<Ragdoll>(scene, finding);
-    softBodyFinder = MakeFinder<SoftBody>(scene, finding);
-    playerControlFinder = MakeFinder<PlayerControl>(scene, finding);
-    followCameraFinder = MakeFinder<FollowCamera>(scene, finding);
-
     // After each step: where the body an entity follows is now (one asleep stays where it was).
     trackBodies = scene.CreateSystem<PhysicsBody>([this](Entity, PhysicsBody& shown, float) {
         if (shown.body == JPH::BodyID::cInvalidBodyID)
@@ -331,17 +301,18 @@ void PhysicsWorld::Impl::MakeSystems()
         shown.writtenVersion = trs.version;
     }, true);
     showWheels = scene.CreateSystem<PhysicsWheel, LocalTRS>([this](Entity e, PhysicsWheel& wheel, LocalTRS& trs, float) { ShowWheel(e, wheel, trs); });
-    showSoftBodies = scene.CreateSystem<PhysicsSoftBody>([this](Entity e, PhysicsSoftBody& drawn, float alpha) { ShowSoftBody(e, drawn, alpha); });
+    showSoftBodies = scene.CreateSystem<PhysicsSoftBody, MeshOverride>([this](Entity e, PhysicsSoftBody& drawn, MeshOverride& mesh, float alpha) { ShowSoftBody(e, drawn, mesh.mesh.Get().get(), alpha); });
 }
 
-std::vector<Entity> PhysicsWorld::Impl::Find(std::initializer_list<System*> finders)
+std::unordered_map<std::string, Entity> PhysicsWorld::Impl::EntitiesByName() const
 {
-    finding.clear();
-    for (System* finder : finders)
-        finder->Run();
-    std::sort(finding.begin(), finding.end(), [](Entity a, Entity b) { return a.RawId() < b.RawId(); });
-    finding.erase(std::unique(finding.begin(), finding.end(), [](Entity a, Entity b) { return a.RawId() == b.RawId(); }), finding.end());
-    return finding;
+    std::unordered_map<std::string, Entity> named;
+    scene.Each<NameComponent>([&](Entity e, const NameComponent& name) {
+        const auto [it, added] = named.try_emplace(name.name, e);
+        if (!added && e.RawId() < it->second.RawId())
+            it->second = e;
+    });
+    return named;
 }
 
 void PhysicsWorld::Impl::Show(float alpha)
@@ -377,6 +348,15 @@ void PhysicsWorld::Impl::RemoveAll()
     for (auto& [id, softBody] : softBodies)
         RemoveSoftBody(id, softBody);
     softBodies.clear();
+    for (auto& [material, offset] : rippled)
+    {
+        if (!material.Get())
+            continue;
+        MaterialAsset::TextureTransform transform = material.Get()->GetTexture(MaterialTexture::Normal).transform;
+        transform.offset = offset;
+        material.Get()->SetTextureTransform(MaterialTexture::Normal, transform);
+    }
+    rippled.clear();
     for (auto& [id, ragdoll] : ragdolls)
         RemoveRagdoll(ragdoll);
     ragdolls.clear();
@@ -439,7 +419,7 @@ void PhysicsWorld::Impl::Collect()
     waters.clear();
     nodes.clear();
     std::unordered_map<uint64_t, size_t> candidateOf;
-    for (Entity e : Find({ &rigidBodyFinder }))
+    for (Entity e : Find<RigidBody>())
     {
         const Node& node = NodeOf(e);
         if (node.excluded)
@@ -454,7 +434,7 @@ void PhysicsWorld::Impl::Collect()
     }
 
     std::vector<Entity> below;
-    for (Entity e : Find({ &boxFinder, &sphereFinder, &capsuleFinder, &cylinderFinder, &meshColliderFinder }))
+    for (Entity e : Find<BoxCollider, SphereCollider, CapsuleCollider, CylinderCollider, MeshCollider>())
     {
         const Node node = NodeOf(e);
         if (node.excluded)
@@ -496,7 +476,7 @@ void PhysicsWorld::Impl::Collect()
         });
     }
 
-    for (Entity e : Find({ &waterFinder }))
+    for (Entity e : Find<WaterVolume>())
         if (const Node& node = NodeOf(e); !node.excluded)
             AddWater(e, node.world, *e.TryGet<WaterVolume>());
 
@@ -598,7 +578,7 @@ void PhysicsWorld::Impl::Sync()
         if (c.solid.empty() && c.triggers.empty())
             continue;
 
-        Hasher hash;
+        Signature hash;
         hash.Add(c.hasBody);
         if (c.hasBody)
             HashBody(hash, c.body);

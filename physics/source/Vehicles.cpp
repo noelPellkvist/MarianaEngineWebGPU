@@ -33,20 +33,8 @@ namespace
         JPH::BodyID m_Vehicle;
     };
 
-    struct Hash
-    {
-        uint64_t value = 1469598103934665603ull;
-        template <typename T>
-        void Add(const T& v)
-        {
-            const auto* bytes = reinterpret_cast<const unsigned char*>(&v);
-            for (size_t i = 0; i < sizeof(T); ++i)
-                value = (value ^ bytes[i]) * 1099511628211ull;
-        }
-    };
-
     // A vehicle's settings, not what the driver does with it.
-    void HashVehicle(Hash& h, const Vehicle& v)
+    void HashVehicle(Signature& h, const Vehicle& v)
     {
         h.Add(v.type);
         h.Add(v.collision);
@@ -124,13 +112,6 @@ namespace
         c.mTransmission.mReverseGearRatios = { v.reverseRatio < 0.0f ? v.reverseRatio : -std::abs(v.reverseRatio) };
     }
 
-    glm::quat Rotation(const glm::mat4& m)
-    {
-        glm::mat3 axes(glm::normalize(glm::vec3(m[0])), glm::normalize(glm::vec3(m[1])), glm::normalize(glm::vec3(m[2])));
-        if (glm::determinant(axes) < 0.0f)
-            axes[0] = -axes[0];
-        return glm::normalize(glm::quat_cast(axes));
-    }
 }
 
 void PhysicsWorld::Impl::RemoveVehicle(VehicleRecord& record)
@@ -195,8 +176,7 @@ void PhysicsWorld::Impl::SyncVehicles()
                 WheelPlacement placement;
                 placement.entity = e;
                 placement.settings = *wheel;
-                placement.position = glm::vec3(m[3]);
-                placement.rotation = Rotation(m);
+                SplitPose(m, placement.position, placement.rotation);
                 wheels.push_back(placement);
                 return;
             }
@@ -205,7 +185,7 @@ void PhysicsWorld::Impl::SyncVehicles()
         chassis.ForEachChild([&](Entity child) { gather(child, toBody); });
         std::stable_sort(wheels.begin(), wheels.end(), [](const WheelPlacement& a, const WheelPlacement& b) { return a.entity.RawId() < b.entity.RawId(); });
 
-        Hash hash;
+        Signature hash;
         HashVehicle(hash, *vehicle);
         hash.Add(body->second.body.GetIndexAndSequenceNumber());
         for (const WheelPlacement& w : wheels)
@@ -398,7 +378,7 @@ void PhysicsWorld::Impl::SyncVehicles()
             if (Entity wheel = scene.FromId(record.wheels[i].entity); wheel.IsValid())
                 wheel.Add<PhysicsWheel>(PhysicsWheel{ chassis.RawId(), static_cast<uint32_t>(i) });
     };
-    for (Entity chassis : Find({ &vehicleFinder }))
+    for (Entity chassis : Find<Vehicle>())
         sync(chassis);
 
     for (auto it = vehicles.begin(); it != vehicles.end();)
@@ -536,7 +516,7 @@ void PhysicsWorld::UpdatePlayerControls(const IInput& input, float dt, const glm
     forward = glm::length(forward) > 1e-4f ? glm::normalize(forward) : glm::vec3(0.0f, 0.0f, 1.0f);
     const glm::vec3 right(forward.z, 0.0f, -forward.x);
 
-    for (Entity e : m_Impl->Find({ &m_Impl->playerControlFinder }))
+    for (Entity e : m_Impl->Find<PlayerControl>())
     {
         const PlayerControl* control = e.TryGet<PlayerControl>();
         if (!control || !control->enabled)

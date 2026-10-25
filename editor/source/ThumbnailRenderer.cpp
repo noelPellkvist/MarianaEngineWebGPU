@@ -155,7 +155,7 @@ ThumbnailRenderer::ThumbnailRenderer(IInput& input, uint32_t size)
     m_AnimationSystem = Animator::CreateSystem(m_Scene);
     // World bounds of everything drawn: posed skins by their joints, the rest by their mesh.
     m_BoundsSystem = m_Scene.CreateSystem<MeshComponent, WorldXform>([this](Entity entity, MeshComponent& mesh, WorldXform& world, float) {
-        if (const SkinComponent* skin = entity.TryGet<SkinComponent>(); skin && !skin->bounds.IsEmpty())
+        if (const SkinPose* skin = entity.TryGet<SkinPose>(); skin && !skin->bounds.IsEmpty())
         {
             m_Bounds.Add(skin->bounds.min);
             m_Bounds.Add(skin->bounds.max);

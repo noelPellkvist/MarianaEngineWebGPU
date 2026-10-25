@@ -117,7 +117,6 @@ class EditorApp : public Application
         void SaveSceneFromMenu(bool saveAs);
         void OfferDownload(const std::filesystem::path& file);
         void RememberScene(const std::filesystem::path& file);
-        size_t EntityCount() const;
         bool SceneModified() const;
         void DrawScenePopups();
         // A camera where the editor camera is, looking the same way.

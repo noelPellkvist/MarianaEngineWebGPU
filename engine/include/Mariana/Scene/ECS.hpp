@@ -9,6 +9,7 @@
 #include <new>
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <cmath>
 
@@ -299,6 +300,16 @@ public:
     template<typename... Components, typename Fn>
     System CreateSystem(Fn&& fn, bool cascade = false);
 
+    // Calls fn(entity, component) for every entity with a T, through a query the scene keeps
+    // per component type: how to find entities by what they have (walking the hierarchy is for
+    // what is about the hierarchy). fn mustn't add or remove components: collect, then change.
+    template<class T, class Fn>
+    void Each(Fn&& fn) const;
+    // How many entities the scene has (each has a LocalTRS).
+    std::size_t EntityCount() const;
+    // The entity with this name (the one with the smallest id when several have it), or none.
+    Entity FindByName(std::string_view name) const;
+
     Entity Parent(Entity e) const;
     Entity FromId(uint64_t id) const;
 
@@ -333,6 +344,7 @@ private:
     void _forEachComponentOpaque(uint64_t id,
                                  void(*cb)(void*, uint64_t, const char*, const void*, std::size_t, std::size_t, bool),
                                  void* ctx) const;
+    void _eachOpaque(uint32_t slot, const std::type_info& ti, void(*cb)(void*, uint64_t, void*, Scene*), void* ctx) const;
 
     System _create_system(const std::vector<const std::type_info*>& compTypes,
                       const std::vector<std::size_t>& sizes,
@@ -555,6 +567,16 @@ System Scene::CreateSystem(Fn&& fn, bool cascade) {
 
     // Call the factory: pass types (type_info*), sizes and aligns.
     return _create_system(types, sizes, aligns, cb, ctx, cascade);
+}
+
+template<class T, class Fn>
+inline void Scene::Each(Fn&& fn) const {
+    struct Ctx { Fn& fn; };
+    Ctx ctx{ fn };
+    _eachOpaque(ECS::detail::TypeSlot<T>(), typeid(T),
+        [](void* u, uint64_t id, void* component, Scene* self) {
+            static_cast<Ctx*>(u)->fn(Entity(self, id), *static_cast<T*>(component));
+        }, &ctx);
 }
 
 inline Entity Scene::Parent(Entity e) const {

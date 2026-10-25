@@ -376,13 +376,12 @@ void PlayerApp::OnUpdate(float deltaTime)
     // The camera chases the driven vehicle.
     if (config.follow)
     {
+        // The first (by id) with a PlayerControl, as a FollowCamera without a target picks.
         Entity driven;
-        std::function<void(Entity)> find = [&](Entity e) {
-            if (!driven.IsValid() && e.TryGet<PlayerControl>())
+        scene.Each<PlayerControl>([&](Entity e, const PlayerControl&) {
+            if (!driven.IsValid() || e.RawId() < driven.RawId())
                 driven = e;
-            e.ForEachChild(find);
-        };
-        scene.ForEachRoot([&](Entity root) { find(root); });
+        });
         if (const WorldXform* world = driven.IsValid() ? driven.TryGet<WorldXform>() : nullptr)
         {
             chase.Update(glm::make_mat4(world->model), config.chase, deltaTime);

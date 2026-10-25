@@ -310,11 +310,7 @@ Entity EditorApp::SpawnCharacterCourse()
 void EditorApp::AddChaseCamera(float distance, float height, float lookHeight)
 {
     bool following = false;
-    scene.ForEachRoot([&](Entity root) {
-        if (root.TryGet<FollowCamera>())
-            following = true;
-        scene.ForEachDescendant(root, [&](Entity e) { if (e.TryGet<FollowCamera>()) following = true; });
-    });
+    scene.Each<FollowCamera>([&](Entity, const FollowCamera&) { following = true; });
     if (following)
         return;
     Entity camera = SpawnCamera();
@@ -477,7 +473,7 @@ void EditorApp::NewScene()
     ClearScene();
     scenePath.clear();
     savedUndoVersion = undo.Version();
-    savedEntityCount = EntityCount();
+    savedEntityCount = scene.EntityCount();
 }
 
 bool EditorApp::OpenScene(const fs::path& file)
@@ -495,7 +491,7 @@ bool EditorApp::OpenScene(const fs::path& file)
     scene.Update(0.0f);
     scenePath = file;
     savedUndoVersion = undo.Version();
-    savedEntityCount = EntityCount();
+    savedEntityCount = scene.EntityCount();
     sceneStatus = warnings;
     RememberScene(file);
     return true;
@@ -512,7 +508,7 @@ bool EditorApp::SaveScene(const fs::path& file)
     }
     scenePath = file;
     savedUndoVersion = undo.Version();
-    savedEntityCount = EntityCount();
+    savedEntityCount = scene.EntityCount();
     sceneStatus.clear();
     RememberScene(file);
     Logger::Info("Saved " + file.string());
@@ -557,19 +553,9 @@ void EditorApp::RememberScene(const fs::path& file)
         recentScenes.resize(8);
 }
 
-size_t EditorApp::EntityCount() const
-{
-    size_t count = 0;
-    scene.ForEachRoot([&](Entity root) {
-        ++count;
-        scene.ForEachDescendant(root, [&](Entity) { ++count; });
-    });
-    return count;
-}
-
 bool EditorApp::SceneModified() const
 {
-    return undo.Version() != savedUndoVersion || EntityCount() != savedEntityCount;
+    return undo.Version() != savedUndoVersion || scene.EntityCount() != savedEntityCount;
 }
 
 void EditorApp::DrawScenePopups()
@@ -670,7 +656,7 @@ void EditorApp::BuildStartupScene()
     scene.Update(0.0f);
     DeselectEntity();
     savedUndoVersion = undo.Version();
-    savedEntityCount = EntityCount();
+    savedEntityCount = scene.EntityCount();
 }
 
 void EditorApp::OnUpdate(float deltaTime)

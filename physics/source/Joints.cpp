@@ -20,25 +20,8 @@ using namespace PhysicsInternal;
 
 namespace
 {
-    struct Hash
-    {
-        uint64_t value = 1469598103934665603ull;
-        template <typename T>
-        void Add(const T& v)
-        {
-            const auto* bytes = reinterpret_cast<const unsigned char*>(&v);
-            for (size_t i = 0; i < sizeof(T); ++i)
-                value = (value ^ bytes[i]) * 1099511628211ull;
-        }
-        void Add(const std::string& s)
-        {
-            for (char c : s)
-                Add(c);
-        }
-    };
-
     // What the joint is made from; its motor, friction and break limits are set as it runs.
-    void HashJoint(Hash& h, const Joint& j)
+    void HashJoint(Signature& h, const Joint& j)
     {
         h.Add(j.type);
         h.Add(j.connected);
@@ -86,7 +69,10 @@ void PhysicsWorld::Impl::DropJointsOf(JPH::BodyID body)
         if (it->second.body1 == body || (!it->second.body2.IsInvalid() && it->second.body2 == body))
         {
             RemoveJoint(it->second);
-            it = joints.erase(it);
+            if (it->second.broken)
+                ++it; // stays broken (until Reset), whatever happens to its bodies
+            else
+                it = joints.erase(it);
         }
         else
             ++it;
@@ -100,18 +86,11 @@ void PhysicsWorld::Impl::SyncJoints()
     for (auto& [id, record] : joints)
         record.seen = false;
 
-    const std::vector<Entity> withJoints = Find({ &jointFinder });
-    // Entities by name (the first of each, in hierarchy order) for `connected`: the whole scene, so
-    // only when a joint names what it holds on to.
+    const std::vector<Entity> withJoints = Find<Joint>();
+    // Entities by name for `connected`, only when a joint names what it holds on to.
     std::unordered_map<std::string, Entity> named;
     if (std::any_of(withJoints.begin(), withJoints.end(), [](Entity e) { const Joint* j = e.TryGet<Joint>(); return !j->toParent && !j->connected.empty(); }))
-    {
-        std::function<void(Entity)> gather = [&](Entity e) {
-            named.emplace(e.GetName(), e);
-            e.ForEachChild(gather);
-        };
-        scene.ForEachRoot([&](Entity root) { gather(root); });
-    }
+        named = EntitiesByName();
 
     // The body at or above an entity: the nearest one with a RigidBody, else its own static body.
     auto bodyOf = [&](Entity e, Entity& owner) {
@@ -132,8 +111,11 @@ void PhysicsWorld::Impl::SyncJoints()
     for (Entity e : withJoints)
     {
         const Joint& j = *e.TryGet<Joint>();
-        if (j.broken)
-            continue; // until Stop puts it back
+        if (const auto found = joints.find(e.RawId()); found != joints.end() && found->second.broken)
+        {
+            found->second.seen = true; // until Reset (Stop)
+            continue;
+        }
         Entity owner1, owner2;
         const JPH::BodyID body1 = bodyOf(e, owner1);
         if (body1.IsInvalid())
@@ -164,7 +146,7 @@ void PhysicsWorld::Impl::SyncJoints()
         for (Entity a = e; a.IsValid() && a.RawId() != owner1.RawId(); a = scene.Parent(a))
             if (const LocalTRS* t = a.TryGet<LocalTRS>())
                 relative = LocalMatrix(*t) * relative;
-        Hash hash;
+        Signature hash;
         HashJoint(hash, j);
         hash.Add(body1.GetIndexAndSequenceNumber());
         hash.Add(body2.IsInvalid() ? ~0u : body2.GetIndexAndSequenceNumber());
@@ -405,7 +387,7 @@ void PhysicsWorld::Impl::CheckJoints(float dt)
         record.torque = rotation * inverse;
         if ((j->breakForce > 0.0f && record.force > j->breakForce) || (j->breakTorque > 0.0f && record.torque > j->breakTorque))
         {
-            j->broken = true;
+            record.broken = true;
             brokenJoints.push_back(e);
             system->GetBodyInterface().ActivateConstraint(record.constraint);
             RemoveJoint(record);
@@ -419,8 +401,8 @@ bool PhysicsWorld::GetJointInfo(Entity entity, JointInfo& info) const
     if (!j)
         return false;
     info = JointInfo();
-    info.broken = j->broken;
     const auto found = m_Impl->joints.find(entity.RawId());
+    info.broken = found != m_Impl->joints.end() && found->second.broken;
     if (found == m_Impl->joints.end() || !found->second.constraint)
         return true;
     const Impl::JointRecord& record = found->second;

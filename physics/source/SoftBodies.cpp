@@ -121,7 +121,7 @@ void PhysicsWorld::Impl::SyncSoftBodies()
     for (auto& [id, record] : softBodies)
         record.seen = false;
 
-    for (Entity entity : Find({ &softBodyFinder }))
+    for (Entity entity : Find<SoftBody>())
     {
         if (!entity.TryGet<MeshComponent>())
             continue;
@@ -129,25 +129,19 @@ void PhysicsWorld::Impl::SyncSoftBodies()
         MeshComponent& meshComponent = *entity.Get<MeshComponent>();
         SoftBodyRecord& record = softBodies[entity.RawId()];
         record.seen = true;
-        // What it is made of: the entity's mesh, unless that is the copy it got from here.
-        const PhysicsSoftBody* drawn = entity.TryGet<PhysicsSoftBody>();
-        const bool ours = drawn && drawn->mesh.Get() && meshComponent.mesh.Get() == drawn->mesh.Get();
-        const AssetHandle<IMesh> source = ours ? record.original : meshComponent.mesh;
+        // What it is made of: the entity's mesh (it draws a copy, its MeshOverride).
+        const AssetHandle<IMesh> source = meshComponent.mesh;
 
         // Pressure and wind act as they are each step; anything else makes it again.
-        uint64_t signature = 1469598103934665603ull;
-        auto mix = [&](const void* data, size_t size) {
-            for (size_t i = 0; i < size; ++i)
-                signature = (signature ^ static_cast<const unsigned char*>(data)[i]) * 1099511628211ull;
-        };
-        const IMesh* sourceMesh = source.Get().get();
-        mix(&sourceMesh, sizeof(sourceMesh));
-        for (const float* f : { &settings.mass, &settings.stiffness, &settings.bendStiffness, &settings.friction, &settings.restitution,
-                                &settings.damping, &settings.gravityFactor, &settings.thickness })
-            mix(f, sizeof(float));
-        mix(&settings.iterations, sizeof(uint32_t));
-        mix(&settings.pin, sizeof(SoftBodyPin));
-        mix(&settings.layer, sizeof(uint32_t));
+        Signature made;
+        made.Add(source.Get().get());
+        for (float f : { settings.mass, settings.stiffness, settings.bendStiffness, settings.friction, settings.restitution,
+                         settings.damping, settings.gravityFactor, settings.thickness })
+            made.Add(f);
+        made.Add(settings.iterations);
+        made.Add(settings.pin);
+        made.Add(settings.layer);
+        const uint64_t signature = made.value;
         if (record.made && record.signature == signature)
             continue;
         RemoveSoftBody(entity.RawId(), record);
@@ -340,34 +334,29 @@ void PhysicsWorld::Impl::BuildSoftBody(Entity entity, const SoftBody& settings, 
         return;
     bodyEntities[record.body.GetIndexAndSequenceNumber()] = entity.RawId();
 
-    // The entity draws a copy of its own, written as it moves (its PhysicsSoftBody).
+    // The entity draws a copy of its own instead (its MeshOverride), written as it moves.
     record.faces = drawn.faces;
     drawn.body = record.body.GetIndexAndSequenceNumber();
     drawn.vertices = data.vertices;
     std::shared_ptr<IMesh> copy = UploadMesh(std::move(data), MeshUsage::Dynamic);
-    record.original = source;
-    drawn.mesh = assets->RegisterAsset<IMesh>(copy, AssetType::Mesh, entity.GetName() + std::string(" (soft body)"));
-    entity.Get<MeshComponent>()->mesh = drawn.mesh;
     drawn.previous = drawn.current = placed;
     drawn.awake = true;
     drawn.written = false;
     entity.Add<PhysicsSoftBody>(drawn);
+    entity.Add<MeshOverride>(MeshOverride{ assets->RegisterAsset<IMesh>(copy, AssetType::Mesh, entity.GetName() + std::string(" (soft body)")) });
 }
 
 void PhysicsWorld::Impl::RemoveSoftBody(uint64_t entityId, SoftBodyRecord& record)
 {
     RemoveBody(record.body);
-    // The entity gets back the mesh it had.
+    // The entity draws its own mesh again.
     if (Entity entity = scene.FromId(entityId); entity.IsValid())
     {
-        const PhysicsSoftBody* drawn = entity.TryGet<PhysicsSoftBody>();
-        if (MeshComponent* meshComponent = entity.Get<MeshComponent>())
-            if (drawn && drawn->mesh.Get() && meshComponent->mesh.Get() == drawn->mesh.Get())
-                meshComponent->mesh = record.original;
-        if (drawn)
+        if (entity.TryGet<PhysicsSoftBody>())
             entity.Remove<PhysicsSoftBody>();
+        if (entity.TryGet<MeshOverride>())
+            entity.Remove<MeshOverride>();
     }
-    record.original.Reset();
 }
 
 void PhysicsWorld::Impl::DriveSoftBodies(float dt)
@@ -464,9 +453,8 @@ void PhysicsWorld::Impl::TrackSoftBody(PhysicsSoftBody& drawn)
         drawn.written = false;
 }
 
-void PhysicsWorld::Impl::ShowSoftBody(Entity entity, PhysicsSoftBody& drawn, float alpha)
+void PhysicsWorld::Impl::ShowSoftBody(Entity entity, PhysicsSoftBody& drawn, IMesh* mesh, float alpha)
 {
-    IMesh* mesh = drawn.mesh.Get().get();
     if (!mesh || drawn.current.size() != drawn.previous.size() || (drawn.written && !drawn.awake))
         return;
     const glm::mat4 toLocal = glm::inverse(WorldMatrix(scene, entity));

@@ -134,11 +134,18 @@ struct Scene::Impl {
 
     // Cached query for entities without a parent, built on first use (freed with the world).
     ecs_query_t* root_query = nullptr;
+    // Scene::Each's queries, one per component, built on first use (freed with the world).
+    std::unordered_map<ecs_entity_t, ecs_query_t*> each_queries;
 
     Scene* owner = nullptr;
     uint32_t next_trs_id = 0;
 
     Impl(Scene* s) : ecs(), owner(s) {}
+    // Uncached queries aren't entities, so the world doesn't free them.
+    ~Impl() {
+        for (auto& [id, query] : each_queries)
+            if (query) ecs_query_fini(query);
+    }
     Impl() : ecs(), owner(nullptr) {}
 
     ecs_entity_t cachedSlot(uint32_t slot) const {
@@ -661,6 +668,42 @@ void Scene::_forEachRootOpaque(void(*cb)(void*, uint64_t, Scene*), void* ctx) co
             cb(ctx, (uint64_t)it.entities[i], const_cast<Scene*>(this));
         }
     }
+}
+
+void Scene::_eachOpaque(uint32_t slot, const std::type_info& ti, void(*cb)(void*, uint64_t, void*, Scene*), void* ctx) const {
+    const ecs_entity_t cid = _p->findComponent(slot, ti);
+    if (!cid) return; // the scene has never had one
+    ecs_world_t* w = _p->ecs.c_ptr();
+    ecs_query_t*& query = _p->each_queries[cid];
+    if (!query) {
+        // Uncached: one term goes straight to the tables that have it, and a cached query would be
+        // an entity of its own, taking ids (even freed ones Restore wants back) whenever made.
+        ecs_query_desc_t qd{};
+        qd.terms[0].id = cid;
+        qd.cache_kind = EcsQueryCacheNone;
+        query = ecs_query_init(w, &qd);
+    }
+    alignas(std::max_align_t) static unsigned char tag_dummy[sizeof(std::max_align_t)] = {};
+    ecs_iter_t it = ecs_query_iter(w, query);
+    while (ecs_query_next(&it)) {
+        const size_t size = (size_t)ecs_field_size(&it, 0);
+        char* base = size ? static_cast<char*>(ecs_field_w_size(&it, size, 0)) : reinterpret_cast<char*>(tag_dummy);
+        for (int i = 0; i < it.count; ++i)
+            cb(ctx, (uint64_t)it.entities[i], base + size * (size_t)i, const_cast<Scene*>(this));
+    }
+}
+
+std::size_t Scene::EntityCount() const {
+    const ecs_entity_t cid = _p->findComponent(ECS::detail::TypeSlot<LocalTRS>(), typeid(LocalTRS));
+    return cid ? (std::size_t)ecs_count_id(_p->ecs.c_ptr(), cid) : 0;
+}
+
+Entity Scene::FindByName(std::string_view name) const {
+    Entity found;
+    Each<NameComponent>([&](Entity e, const NameComponent& n) {
+        if (n.name == name && (!found.IsValid() || e.RawId() < found.RawId())) found = e;
+    });
+    return found;
 }
 
 void Scene::_forEachComponentOpaque(uint64_t id,

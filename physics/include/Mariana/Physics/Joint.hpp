@@ -23,8 +23,8 @@ enum class JointMotor : uint8_t { Off, Velocity, Position };
 // ragdolls whose bodies nest). The joint's entity places it: its position is the anchor and
 // its axes are the joint's (hinges turn about X, sliders move along X, cones and swing twists twist
 // about X, X then Y for the rest), so one body can have several joints on child entities. Made when
-// the simulation starts, from the poses then; broken (and `broken` set) by more force or torque than
-// `breakForce` / `breakTorque`. Stop puts it back.
+// the simulation starts, from the poses then; broken by more force or torque than `breakForce` /
+// `breakTorque` (JointInfo::broken), and it stays broken until the simulation is reset (Stop).
 struct Joint
 {
     JointType type = JointType::Hinge;
@@ -62,7 +62,6 @@ struct Joint
 
     float breakForce = 0.0f;     // N; 0 = it never breaks
     float breakTorque = 0.0f;    // N m
-    bool broken = false;
 };
 
 // What PhysicsWorld::GetJointInfo tells of a joint while the simulation runs.

@@ -227,11 +227,12 @@ void SceneView::CreateSystems()
     Scene& scene = renderer.scene;
 
     gatherDrawsSystem = scene.CreateSystem<MeshComponent, WorldXform>([this](Entity ent, MeshComponent& meshComp, WorldXform& form, float dt){
-        IMesh* mesh = meshComp.mesh.Get().get();
+        const MeshOverride* drawn = ent.TryGet<MeshOverride>();
+        IMesh* mesh = (drawn ? drawn->mesh : meshComp.mesh).Get().get();
         if (!mesh)
             return;
 
-        const SkinComponent* skin = ent.TryGet<SkinComponent>();
+        const SkinPose* skin = ent.TryGet<SkinPose>();
         const uint32_t boneOffset = skin ? skin->boneOffset : ~0u;
         if (!IsVisible(cameraFrustum, *mesh, form.model, skin))
             return;
@@ -261,13 +262,14 @@ void SceneView::CreateSystems()
     });
 
     gatherShadowCastersSystem = scene.CreateSystem<MeshComponent, WorldXform, ShadowCasterTag>([this](Entity ent, MeshComponent& meshComp, WorldXform& form, ShadowCasterTag& tag, float dt){
-        IMesh* mesh = meshComp.mesh.Get().get();
+        const MeshOverride* drawn = ent.TryGet<MeshOverride>();
+        IMesh* mesh = (drawn ? drawn->mesh : meshComp.mesh).Get().get();
         if (!mesh)
             return;
 
         // A skin's pose and a deforming mesh change the shadow too, so their versions are part of the
         // caster's version.
-        const SkinComponent* skin = ent.TryGet<SkinComponent>();
+        const SkinPose* skin = ent.TryGet<SkinPose>();
         const uint32_t version = (skin ? form.version + skin->poseVersion : form.version) + mesh->deformVersion;
         const uint32_t boneOffset = skin ? skin->boneOffset : ~0u;
 

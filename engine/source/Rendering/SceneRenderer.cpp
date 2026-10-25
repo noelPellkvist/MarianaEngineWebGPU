@@ -65,6 +65,8 @@ void SceneRenderer::RegisterComponents()
     ECS::RegisterTag<ShadowCasterTag>("ShadowCasterTag");
     ECS::RegisterComponent<MeshComponent>("MeshComponent");
     ECS::RegisterComponent<SkinComponent>("SkinComponent");
+    ECS::RegisterRuntimeComponent<SkinPose>("SkinPose");
+    ECS::RegisterRuntimeComponent<MeshOverride>("MeshOverride");
     ECS::RegisterComponent<CameraComponent>("CameraComponent");
 }
 
@@ -146,20 +148,20 @@ void SceneRenderer::CreateSystems()
         pipeline.QueueTransform(form.id, transformData);
     });
 
-    skinningSystem = scene.CreateSystem<SkinComponent, MeshComponent, WorldXform>([this](Entity ent, SkinComponent& skinComp, MeshComponent& meshComp, WorldXform& form, float dt){
+    skinningSystem = scene.CreateSystem<SkinComponent, SkinPose, MeshComponent, WorldXform>([this](Entity ent, SkinComponent& skinComp, SkinPose& pose, MeshComponent& meshComp, WorldXform& form, float dt){
         const std::shared_ptr<Skin>& skin = skinComp.skin.Get();
-        skinComp.boneOffset = ~0u;
-        skinComp.bounds = {};
+        pose.boneOffset = ~0u;
+        pose.bounds = {};
         if (!skin || frameBones.size() + skin->jointNodes.size() > StandardPBRPipeline::kMaxBones)
             return;
 
-        if (skinComp.joints.size() != skin->jointNodes.size())
-            ResolveJoints(scene, ent, *skin, skinComp.joints);
+        if (pose.joints.size() != skin->jointNodes.size())
+            ResolveJoints(scene, ent, *skin, pose.joints);
 
         // Relative to the mesh node, because the shader still applies the node's model matrix.
         const glm::mat4 worldToMesh = glm::inverse(glm::make_mat4(form.model));
-        skinComp.boneOffset = static_cast<uint32_t>(frameBones.size());
-        skinComp.poseVersion = 0;
+        pose.boneOffset = static_cast<uint32_t>(frameBones.size());
+        pose.poseVersion = 0;
 
         // Each joint's box, moved like the vertices it holds, grows the posed mesh's bounds.
         // Without joint bounds the bounds stay empty and the mesh is never culled.
@@ -167,22 +169,22 @@ void SceneRenderer::CreateSystems()
 
         for (size_t i = 0; i < skin->jointNodes.size(); ++i)
         {
-            const WorldXform* joint = skinComp.joints[i].IsValid() ? skinComp.joints[i].TryGet<WorldXform>() : nullptr;
+            const WorldXform* joint = pose.joints[i].IsValid() ? pose.joints[i].TryGet<WorldXform>() : nullptr;
             // Bind pose to world.
             const glm::mat4 jointSkin = (joint ? glm::make_mat4(joint->model) : glm::mat4(1.0f)) * skin->inverseBind[i];
             BoneData bone;
             bone.model = worldToMesh * jointSkin;
             frameBones.push_back(bone);
-            skinComp.poseVersion += joint ? joint->version : 0;
+            pose.poseVersion += joint ? joint->version : 0;
 
             if (mesh && i < mesh->jointBounds.size() && !mesh->jointBounds[i].IsEmpty())
             {
                 const Bounds box = SceneCulling::TransformBounds(jointSkin, mesh->jointBounds[i]);
-                skinComp.bounds.Add(box.min);
-                skinComp.bounds.Add(box.max);
+                pose.bounds.Add(box.min);
+                pose.bounds.Add(box.max);
             }
         }
-        skinComp.poseVersion += form.version;
+        pose.poseVersion += form.version;
     });
 }
 
@@ -192,7 +194,16 @@ void SceneRenderer::Update()
     pipeline.FlushTransforms();
     pipeline.UploadDirtyMaterials(assets);
 
-    // Joint matrices for every skin, in one write; draws find theirs through SkinComponent::boneOffset.
+    // Every skin gets its SkinPose (added outside the queries; one without a skin any more loses it).
+    std::vector<Entity> posed, unposed;
+    scene.Each<SkinComponent>([&](Entity e, const SkinComponent&) { if (!e.TryGet<SkinPose>()) posed.push_back(e); });
+    scene.Each<SkinPose>([&](Entity e, const SkinPose&) { if (!e.TryGet<SkinComponent>()) unposed.push_back(e); });
+    for (Entity e : posed)
+        e.Add<SkinPose>();
+    for (Entity e : unposed)
+        e.Remove<SkinPose>();
+
+    // Joint matrices for every skin, in one write; draws find theirs through SkinPose::boneOffset.
     frameBones.clear();
     skinningSystem.Run();
     if (!frameBones.empty())

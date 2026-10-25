@@ -14,22 +14,10 @@ using namespace PhysicsInternal;
 
 namespace
 {
-    struct Hash
-    {
-        uint64_t value = 1469598103934665603ull;
-        template <typename T>
-        void Add(const T& v)
-        {
-            const auto* bytes = reinterpret_cast<const unsigned char*>(&v);
-            for (size_t i = 0; i < sizeof(T); ++i)
-                value = (value ^ bytes[i]) * 1099511628211ull;
-        }
-    };
-
     // What the character is made from (not how it is steered).
-    uint64_t Signature(const CharacterController& c)
+    uint64_t CharacterSignature(const CharacterController& c)
     {
-        Hash h;
+        Signature h;
         for (float v : { c.radius, c.height, c.maxSlope, c.mass, c.strength })
             h.Add(v);
         h.Add(c.layer);
@@ -98,7 +86,7 @@ void PhysicsWorld::Impl::SyncCharacters()
     for (auto& [id, record] : characters)
         record.seen = false;
 
-    for (Entity e : Find({ &characterFinder }))
+    for (Entity e : Find<CharacterController>())
     {
         const CharacterController* c = e.TryGet<CharacterController>();
         const LocalTRS* trs = e.TryGet<LocalTRS>();
@@ -116,7 +104,7 @@ void PhysicsWorld::Impl::SyncCharacters()
 
         CharacterRecord& record = characters[e.RawId()];
         record.seen = true;
-        const uint64_t signature = Signature(*c);
+        const uint64_t signature = CharacterSignature(*c);
         PhysicsBody* shown = e.Get<PhysicsBody>();
         if (record.character && record.signature == signature && shown)
         {
