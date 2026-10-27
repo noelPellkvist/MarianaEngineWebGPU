@@ -19,6 +19,7 @@
 //     "pipeline": "/Pipelines/Default.pipeline",
 //     "scene": "/Scenes/Playground.scene",
 //     "camera": { "position": [0, 2, -5], "target": [0, 1, 0], "orbitSpeed": 0, "follow": false },
+//     "profile": false,
 //     "spawn": [ { "prefab": "/Models/Sponza/Sponza.gltf", "position": [0, 0, 0], "rotation": [0, 0, 0],
 //                  "scale": 1, "faceCamera": false, "physics": { "collider": "mesh" } },
 //                { "primitive": "sphere", "color": [1, 0.3, 0.2], "position": [0, 5, 0],
@@ -47,7 +48,8 @@
 // static (default), kinematic or dynamic; `collider` box, sphere, capsule or cylinder (one on the
 // root, fitted to the meshes), mesh or convex (a mesh collider on every mesh), or none; it defaults to
 // a primitive's own shape, else mesh for static bodies and convex for moving ones. `mass` (kg, 0 =
-// from density), `friction`, `bounciness` and `velocity` (m/s) are optional too.
+// from density), `friction`, `bounciness` and `velocity` (m/s) are optional too. With `profile` the
+// player logs every 5 s where the frame time went (CPU and GPU averages and the costliest scopes).
 struct PlayerConfig
 {
     struct Physics
@@ -89,6 +91,7 @@ struct PlayerConfig
     bool follow = false;
     float followDistance = 7.0f;
     float followHeight = 2.5f;
+    bool profile = false;
     std::vector<Spawn> spawns;
 
     static bool Load(const std::string& path, PlayerConfig& out, std::string& error);
@@ -139,7 +142,10 @@ private:
     // The scene's first camera entity, when it has one, is the view.
     SceneCamera sceneCamera;
 
+    double profileLogged = 0.0; // when the profile was last logged (Profiler::Now)
+
     void OnWindowResized(int width, int height);
+    void LogProfile();
     Entity FirstCamera() const;
     Entity SpawnPrimitive(const PlayerConfig::Spawn& spawn);
     void AddPhysics(Entity root, const PlayerConfig::Spawn& spawn);

@@ -3,6 +3,7 @@
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Foundation/GameClock.hpp>
 #include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 
 #include "Bindings.hpp"
@@ -42,6 +43,8 @@ namespace
         int callbacks[kCallbackCount];
         std::string error;
         bool reloaded = false; // new code since the last sync
+        // What the profiler calls each callback's calls ("VehicleDriver.Update"), named on first use.
+        mutable const char* scopes[kCallbackCount] = {};
 
         Module() { std::fill(std::begin(callbacks), std::end(callbacks), LUA_NOREF); }
         bool Loaded() const { return table != LUA_NOREF; }
@@ -228,6 +231,9 @@ struct ScriptWorld::Impl
         const Module* module = ModuleOf(instance);
         if (!module || instance.failed || instance.self == LUA_NOREF || module->callbacks[callback] == LUA_NOREF)
             return;
+        if (!module->scopes[callback])
+            module->scopes[callback] = Profiler::Intern(module->name + "." + kCallbackNames[callback]);
+        MARIANA_PROFILE(module->scopes[callback]);
         const int top = lua_gettop(L);
         lua_getref(L, module->callbacks[callback]);
         lua_getref(L, instance.self);
@@ -703,9 +709,11 @@ void ScriptWorld::SetTimeLimit(double seconds)
 
 void ScriptWorld::Update(float dt, const IInput* input)
 {
+    MARIANA_PROFILE("Scripts");
     Impl& w = *m_Impl;
     w.context.input = input;
     w.Sync();
+    Profiler::Count("Script instances", static_cast<double>(w.instances.size()));
     if (!w.L)
         return;
     // Every new script starts before any updates.
@@ -732,6 +740,7 @@ void ScriptWorld::Update(float dt, const IInput* input)
 
 void ScriptWorld::LateUpdate(float dt)
 {
+    MARIANA_PROFILE("Scripts late");
     Impl& w = *m_Impl;
     if (!w.L)
         return;
@@ -765,6 +774,7 @@ void ScriptWorld::ReloadChanged()
     const auto now = std::chrono::steady_clock::now();
     if (now - w.lastReloadCheck < std::chrono::milliseconds(500))
         return;
+    MARIANA_PROFILE("Script reload");
     w.lastReloadCheck = now;
     w.assets.ForEach<ScriptAsset>([](AssetID, ScriptAsset& script) {
         if (script.ReloadIfChanged() && !script.error.empty())

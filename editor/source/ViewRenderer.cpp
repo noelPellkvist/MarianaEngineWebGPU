@@ -1,4 +1,5 @@
 #include <Editor/ViewRenderer.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 #include <Mariana/Rendering/ICamera.hpp>
 
 ViewRenderer::ViewRenderer(SceneRenderer& sceneRenderer, bool entityIds)
@@ -6,6 +7,8 @@ ViewRenderer::ViewRenderer(SceneRenderer& sceneRenderer, bool entityIds)
       m_Effects(m_Renderer.graph, m_View.CameraBuffer())
 {
     // UNORM like the screen: the final effect writes sRGB-encoded colors, which ImGui shows as they are.
+    // The scene view picks (entity ids); the game view doesn't.
+    m_Renderer.graph.SetName(entityIds ? "Scene" : "Game");
     m_Renderer.graph.SetBackbufferFormat(TextureFormat::RGBA8Unorm);
     m_Renderer.graph.SetOutputSize(16, 16);
     m_View.writeEntityIds = entityIds;
@@ -30,6 +33,7 @@ void ViewRenderer::Render(ICamera& camera)
 {
     if (m_Size.x == 0)
         return;
+    MARIANA_PROFILE(m_View.writeEntityIds ? "Scene view" : "Game view");
     m_View.Prepare(camera);
     m_Effects.Update();
     m_Renderer.RenderToTexture(m_Target);

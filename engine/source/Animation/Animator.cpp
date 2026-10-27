@@ -1,5 +1,6 @@
 #include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -453,10 +454,12 @@ void Animator::Update(Entity root, float dt)
     else
         AdvanceClips(delta);
 
+    Profiler::Count("Animators", 1.0);
     // Paused or held at the end: the pose is already written (unless something else moved the bones).
     if (!StateChanged(useGraph) && !m_Refresh)
         return;
     m_Refresh = false;
+    Profiler::Count("Animators posed", 1.0);
 
     if (useGraph)
         EvaluateNode(m_BoundGraph->output, m_Pose, 0);

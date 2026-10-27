@@ -1,5 +1,6 @@
 #include <Mariana/Rendering/RenderGraph.hpp>
 #include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -136,6 +137,9 @@ void RenderGraph::GetSize(const std::string& name, uint32_t& width, uint32_t& he
 void RenderGraph::Compile()
 {
     m_Dirty = false;
+    // Labels follow the graph's name (made again by Execute).
+    for (const std::unique_ptr<Pass>& pass : m_Passes)
+        pass->scope = nullptr;
     const size_t passCount = m_Passes.size();
 
     // Who writes each name, in insertion order. Resolve targets count as written.
@@ -304,6 +308,12 @@ void RenderGraph::Compile()
         c.callback();
 }
 
+void RenderGraph::SetName(std::string name)
+{
+    m_Name = std::move(name);
+    m_Dirty = true;
+}
+
 void RenderGraph::Execute(void* encoder, void* backbuffer)
 {
     if (m_Dirty)
@@ -314,7 +324,13 @@ void RenderGraph::Execute(void* encoder, void* backbuffer)
         // A disabled pass keeps what it rendered last time (e.g. an unchanged shadow map).
         if (!pass->renderpass->IsEnabled())
             continue;
-        pass->renderpass->Start(encoder, backbuffer);
+        if (!pass->scope)
+        {
+            pass->label = m_Name.empty() ? pass->desc.name : m_Name + " " + pass->desc.name;
+            pass->scope = Profiler::Intern("Encode " + pass->label);
+        }
+        MARIANA_PROFILE(pass->scope);
+        pass->renderpass->Start(encoder, backbuffer, &pass->label);
     }
 }
 

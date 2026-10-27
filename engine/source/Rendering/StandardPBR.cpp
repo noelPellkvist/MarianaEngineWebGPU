@@ -1,4 +1,5 @@
 #include <Mariana/Rendering/StandardPBR.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 #include <algorithm>
 #include <cstring>
 
@@ -68,6 +69,7 @@ void StandardPBRPipeline::UploadDirtyMaterials(AssetManager2& assets)
 
         materialsBuffer.Write(material.properties, material.GetGpuSlot());
         material.ClearDirty();
+        Profiler::Count("Materials uploaded", 1.0);
     });
 }
 
@@ -89,6 +91,7 @@ void StandardPBRPipeline::FlushTransforms()
 {
     if (dirtyTransforms.empty())
         return;
+    Profiler::Count("Transforms uploaded", static_cast<double>(dirtyTransforms.size()));
 
     // One write per run of nearby slots: re-sending a few unchanged slots inside a small gap is
     // cheaper than starting another write.

@@ -1,0 +1,41 @@
+// MarianaEngineTest: the engine's scenarios (the profiler; animation: root motion, events, IK) with
+// known answers. A console program: no window, no GPU. Exits 1 when one fails.
+#include "ProfilerScenarios.hpp"
+
+#include <Mariana/Animation/Animator.hpp>
+
+#include <cstdio>
+#include <cstdlib>
+#include <vector>
+
+#ifdef _WIN32
+#include <crtdbg.h>
+#endif
+
+int main()
+{
+#ifdef _WIN32
+    // A failed check prints and exits instead of opening a dialog (it runs unattended).
+    for (int type : { _CRT_WARN, _CRT_ERROR, _CRT_ASSERT })
+    {
+        _CrtSetReportMode(type, _CRTDBG_MODE_FILE);
+        _CrtSetReportFile(type, _CRTDBG_FILE_STDERR);
+    }
+    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+#endif
+    Profiler::SetMainThread();
+    Animator::RegisterComponents();
+    std::printf("MarianaEngineTest\n");
+
+    const EngineScenarios::Log log = [](const std::string& line) {
+        std::printf("%s\n", line.c_str());
+        std::fflush(stdout);
+    };
+    std::vector<EngineScenarios::Result> results = { EngineScenarios::ProfilerScopes(log), EngineScenarios::ProfilerFrames(log) };
+
+    size_t failed = 0;
+    for (const EngineScenarios::Result& r : results)
+        failed += r.passed ? 0 : 1;
+    std::printf("%zu scenarios, %zu failed\n", results.size(), failed);
+    return failed == 0 ? 0 : 1;
+}

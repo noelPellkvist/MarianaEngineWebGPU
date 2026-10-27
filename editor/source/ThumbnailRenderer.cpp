@@ -130,6 +130,7 @@ ThumbnailRenderer::ThumbnailRenderer(IInput& input, uint32_t size)
     MaterialFile::RegisterLoader(m_Assets);
 
 
+    m_Renderer.graph.SetName("Thumbnail");
     m_Renderer.graph.SetBackbufferFormat(TextureFormat::RGBA8Unorm);
     m_Renderer.graph.SetOutputSize(size, size);
     m_SceneRenderer.Init();

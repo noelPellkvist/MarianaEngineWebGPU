@@ -1,6 +1,7 @@
 #include "WorldImpl.hpp"
 
 #include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/JobSystemSingleThreaded.h>
@@ -870,9 +871,15 @@ void PhysicsWorld::Impl::TrackPoses()
 
 void PhysicsWorld::Impl::Step(float dt)
 {
+    MARIANA_PROFILE("Physics");
     events.clear();
     brokenJoints.clear();
-    Sync();
+    {
+        MARIANA_PROFILE("Physics sync");
+        Sync();
+    }
+    Profiler::Count("Bodies", static_cast<double>(system->GetNumBodies()));
+    Profiler::Count("Active bodies", static_cast<double>(system->GetNumActiveBodies(JPH::EBodyType::RigidBody)));
     if (dt <= 0.0f)
         return;
 
@@ -887,16 +894,23 @@ void PhysicsWorld::Impl::Step(float dt)
             contactLines.clear();
             BeginStepDrawing(&contactLines, maxContactLines);
         }
-        MoveKinematics(step);
-        ApplyPending(steps == 0);
-        DriveVehicles();
-        MoveCharacters(step);
-        DriveJoints();
-        ApplyBuoyancy(step);
-        DriveRagdolls(step);
-        DriveSoftBodies(step);
-        system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
+        {
+            MARIANA_PROFILE("Physics drive");
+            MoveKinematics(step);
+            ApplyPending(steps == 0);
+            DriveVehicles();
+            MoveCharacters(step);
+            DriveJoints();
+            ApplyBuoyancy(step);
+            DriveRagdolls(step);
+            DriveSoftBodies(step);
+        }
+        {
+            MARIANA_PROFILE("Physics step (Jolt)");
+            system->Update(step, std::max(settings.collisionSteps, 1), temp.get(), jobs.get());
+        }
         waterTime += step;
+        MARIANA_PROFILE("Physics contacts");
         TrackPoses();
         const size_t eventsBefore = events.size();
         ProcessContacts();
@@ -916,6 +930,7 @@ void PhysicsWorld::Impl::Step(float dt)
         RippleWater();
     }
     // Frames between steps show the bodies moving on too.
+    MARIANA_PROFILE("Physics show");
     Show(settings.interpolation ? std::clamp(accumulator / step, 0.0f, 1.0f) : 1.0f);
     if (steps > 0)
         SpendJumps();

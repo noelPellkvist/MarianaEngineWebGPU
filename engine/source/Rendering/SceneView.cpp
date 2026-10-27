@@ -1,4 +1,5 @@
 #include <Mariana/Rendering/SceneView.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Rendering/ICamera.hpp>
 #include <Mariana/Animation/Skin.hpp>
@@ -325,6 +326,7 @@ void SceneView::CreateSystems()
 
 void SceneView::Prepare(ICamera& camera)
 {
+    MARIANA_PROFILE("Prepare view");
     ApplySettings();
     // Uploaded here rather than earlier in the frame: the camera may move after the game updates.
     cameraInfo = camera.GetCameraInfo();
@@ -551,6 +553,19 @@ void SceneView::BuildDrawLists()
         }
     }
     shadowsDirty = false;
+
+    // What this view draws, for the profiler (every view adds to the frame's counts).
+    double triangles = 0.0, cascades = 0.0;
+    for (const DrawBatch& batch : mainBatches)
+        triangles += double(batch.indexCount / 3) * batch.instanceCount;
+    for (const DrawBatch& batch : blendedBatches)
+        triangles += double(batch.indexCount / 3);
+    for (uint32_t c = 0; c < kShadowCascades; ++c)
+        cascades += shadowPasses[c]->IsEnabled() ? 1.0 : 0.0;
+    Profiler::Count("Draws", double(mainBatches.size() + blendedBatches.size()));
+    Profiler::Count("Instances", double(frameDraws.size()));
+    Profiler::Count("Triangles", triangles);
+    Profiler::Count("Shadow cascades drawn", cascades);
 
     if (!frameDraws.empty())
         buffers.drawBuffer.Write(frameDraws);

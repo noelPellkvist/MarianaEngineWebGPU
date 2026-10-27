@@ -4,6 +4,7 @@
 #include <Mariana/Foundation/FileReader.hpp>
 #include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 #include <Mariana/Importers/GLTFLoader.hpp>
 #include <Mariana/Importers/MaterialFile.hpp>
 #include <Mariana/Importers/AnimationGraphFile.hpp>
@@ -24,7 +25,9 @@
 
 #include <json.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
 #include <functional>
 #include <glm/gtc/matrix_transform.hpp>
@@ -58,6 +61,7 @@ bool PlayerConfig::Load(const std::string& path, PlayerConfig& out, std::string&
         }
         out.pipeline = file.value("pipeline", out.pipeline);
         out.scene = file.value("scene", out.scene);
+        out.profile = file.value("profile", out.profile);
         if (const auto camera = file.find("camera"); camera != file.end() && camera->is_object())
         {
             out.cameraPosition = ReadVec3(*camera, "position", out.cameraPosition);
@@ -154,6 +158,7 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
     cam = std::make_unique<PlayerCamera>(input, config.cameraPosition, config.cameraTarget, config.orbitSpeed);
     cam->SetViewportSize(m_Window.GetWidth(), m_Window.GetHeight());
 
+    renderer.graph.SetName("Player");
     renderer.graph.SetBackbufferFormat(m_Window.GetWindowFormat());
     renderer.graph.SetOutputSize(m_Window.GetWidth(), m_Window.GetHeight());
     sceneRenderer.Init();
@@ -385,9 +390,62 @@ void PlayerApp::OnStart()
 void PlayerApp::OnUpdate(float deltaTime)
 {
     scripts->Update(gameClock.DeltaTime(), &input);
-    animationSystem.Run(gameClock.DeltaTime());
+    {
+        MARIANA_PROFILE("Animation");
+        animationSystem.Run(gameClock.DeltaTime());
+    }
     physics->Step(gameClock.DeltaTime());
     scripts->LateUpdate(gameClock.DeltaTime());
+    if (config.profile)
+        LogProfile();
+}
+
+void PlayerApp::LogProfile()
+{
+    constexpr double kEvery = 5000.0;
+    if (profileLogged == 0.0)
+        profileLogged = Profiler::Now();
+    if (Profiler::Now() - profileLogged < kEvery)
+        return;
+    profileLogged = Profiler::Now();
+
+    // The frames since the last log.
+    std::vector<const Profiler::Frame*> frames;
+    double cpu = 0.0, gpu = 0.0;
+    int gpuFrames = 0;
+    for (const Profiler::Frame& frame : Profiler::Frames())
+    {
+        if (frame.start < profileLogged - kEvery)
+            continue;
+        frames.push_back(&frame);
+        cpu += frame.cpuMs;
+        if (frame.gpuMs >= 0.0)
+        {
+            gpu += frame.gpuMs;
+            ++gpuFrames;
+        }
+    }
+    if (frames.empty())
+        return;
+
+    char line[160];
+    std::snprintf(line, sizeof(line), "Profile: %zu frames, CPU %.2f ms a frame, GPU ", frames.size(), cpu / frames.size());
+    std::string text = line;
+    if (gpuFrames)
+    {
+        std::snprintf(line, sizeof(line), "%.2f ms", gpu / gpuFrames);
+        text += line;
+    }
+    else
+        text += "not timed";
+    std::vector<Profiler::ScopeStats> scopes = Profiler::Summarize(frames, true);
+    std::sort(scopes.begin(), scopes.end(), [](const Profiler::ScopeStats& a, const Profiler::ScopeStats& b) { return a.selfMs > b.selfMs; });
+    for (size_t i = 0; i < scopes.size() && i < 8; ++i)
+    {
+        std::snprintf(line, sizeof(line), "\n  %-32s %7.3f ms (self), %6.1f calls", scopes[i].name.c_str(), scopes[i].selfMs, scopes[i].calls);
+        text += line;
+    }
+    Logger::Info(text);
 }
 
 Entity PlayerApp::FirstCamera() const
@@ -402,7 +460,10 @@ Entity PlayerApp::FirstCamera() const
 
 void PlayerApp::OnRender()
 {
-    scene.Update(0.0f);
+    {
+        MARIANA_PROFILE("Transforms");
+        scene.Update(0.0f);
+    }
     sceneRenderer.Update();
     // Through the scene's camera when it has one (with the pipeline's exposure).
     const Entity camera = FirstCamera();

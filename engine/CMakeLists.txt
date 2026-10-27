@@ -21,6 +21,14 @@ target_link_libraries(MarianaEngine
   PRIVATE flecs::flecs_static
 )
 
+# MarianaEngineTest: a console program that runs tests/*Scenarios.hpp (the profiler, animation) and
+# prints what they measured. No window, no GPU.
+if(NOT EMSCRIPTEN)
+  add_executable(MarianaEngineTest "${CMAKE_CURRENT_SOURCE_DIR}/tests/EngineTest.cpp")
+  target_link_libraries(MarianaEngineTest PRIVATE MarianaEngine)
+  target_include_directories(MarianaEngineTest PRIVATE "${PROJECT_SOURCE_DIR}/external/Loaders")
+endif()
+
 if(EMSCRIPTEN)
   target_compile_definitions(MarianaEngine PRIVATE FLECS_NO_THREADS)
   # Apps must compile with the same exception model as the engine, and link with it too (without it

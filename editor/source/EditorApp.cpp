@@ -7,6 +7,7 @@
 #include <Mariana/Importers/AnimationGraphFile.hpp>
 #include <Mariana/Importers/SceneFile.hpp>
 #include <Mariana/Foundation/FileSystem.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
 #endif
@@ -29,6 +30,7 @@
 #include "ImGuizmo.h"
 
 #include <Editor/Windows/Stats.hpp>
+#include <Editor/Windows/ProfilerWindow.hpp>
 #include <Editor/Physics/PhysicsEditor.hpp>
 #include <Editor/Scripting/ScriptEditor.hpp>
 #include <Editor/Windows/ScriptEditorWindow.hpp>
@@ -43,6 +45,9 @@
 #include <Editor/Windows/LightingWindow.hpp>
 #include <Editor/Windows/ViewportWindow.hpp>
 
+#include <chrono>
+#include <ctime>
+#include <fstream>
 #include <sstream>
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -388,7 +393,19 @@ void EditorApp::OnStart()
     scriptEditor->onSaved = [this](const fs::path& file) { OfferDownload(file); };
     EditorWindows["Script Editor"] = std::move(scriptEditor);
 
-    EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
+    // Traces go to the project's cache folder (and, on the web, to the browser as a download).
+    EditorWindows["Profiler"] = std::make_unique<ProfilerWindow>(gui, [this](const std::string& trace) {
+        const auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        char name[64];
+        std::strftime(name, sizeof(name), "profile-%Y%m%d-%H%M%S.json", std::localtime(&now));
+        const fs::path file = fs::path(MARIANA_PROJECT_DIR) / ".mariana" / "profiles" / name;
+        std::error_code ec;
+        fs::create_directories(file.parent_path(), ec);
+        std::ofstream(file, std::ios::binary) << trace;
+        Logger::Info("Saved a trace of the profiler's frames to " + file.string());
+        OfferDownload(file);
+    });
+    EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui, [this]() { EditorWindows["Profiler"]->SetOpen(true); });
     thumbnails = std::make_unique<ThumbnailCache>(MARIANA_PROJECT_DIR, input);
     auto graphEditor = std::make_unique<AnimationGraphWindow>(gui, assets, undo, scene, MARIANA_PROJECT_DIR);
     graphWindow = graphEditor.get();
@@ -722,7 +739,10 @@ void EditorApp::BuildStartupScene()
 
 void EditorApp::OnUpdate(float deltaTime)
 {
-    thumbnails->Update();
+    {
+        MARIANA_PROFILE("Thumbnails");
+        thumbnails->Update();
+    }
 
     // The views take the sizes their windows had last frame, before this frame's UI shows them.
     if (sceneView->Resize(sceneWindow->PixelSize()))
@@ -788,7 +808,10 @@ void EditorApp::OnUpdate(float deltaTime)
     const bool gameAdvances = gameClock.IsPlaying() && (!gameClock.IsPaused() || gameClock.DeltaTime() > 0.0f);
     if (gameAdvances)
         scripts->Update(gameClock.DeltaTime(), gameHasKeys ? &input : nullptr);
-    animationSystem.Run(gameClock.DeltaTime());
+    {
+        MARIANA_PROFILE("Animation");
+        animationSystem.Run(gameClock.DeltaTime());
+    }
     if (gameClock.IsPlaying())
     {
         physics->Step(gameClock.DeltaTime());
@@ -836,7 +859,10 @@ void EditorApp::OnGUI()
     for (auto& [name, window] : EditorWindows)
     {
         if (window.get() != sceneWindow && window.get() != gameWindow)
+        {
+            MARIANA_PROFILE_NAME(name + " window");
             window->Draw();
+        }
     }
     gameWindow->Draw();
     sceneWindow->Draw();
@@ -1171,6 +1197,7 @@ void EditorApp::DrawTopMenu()
             if (ImGui::MenuItem("Hierarchy")) { EditorWindows["Hierarchy"]->SetOpen(!EditorWindows["Hierarchy"]->IsOpen()); }
             if (ImGui::MenuItem("Inspector")) { EditorWindows["Inspector"]->SetOpen(!EditorWindows["Inspector"]->IsOpen()); }
             if (ImGui::MenuItem("Stats")) { EditorWindows["Stats"]->SetOpen(!EditorWindows["Stats"]->IsOpen()); }
+            if (ImGui::MenuItem("Profiler")) { EditorWindows["Profiler"]->SetOpen(!EditorWindows["Profiler"]->IsOpen()); }
             if (ImGui::MenuItem("Loaded Assets")) { EditorWindows["Loaded Assets"]->SetOpen(!EditorWindows["Loaded Assets"]->IsOpen()); }
             if (ImGui::MenuItem("Render Pipeline")) { EditorWindows["Render Pipeline"]->SetOpen(!EditorWindows["Render Pipeline"]->IsOpen()); }
             if (ImGui::MenuItem("Lighting")) { EditorWindows["Lighting"]->SetOpen(!EditorWindows["Lighting"]->IsOpen()); }
@@ -1323,7 +1350,11 @@ bool EditorApp::DrawGizmo(glm::mat4& transform, const glm::mat4& view, const glm
 
 void EditorApp::OnRender()
 {
-    scene.Update(0.0f);
+    {
+        MARIANA_PROFILE("Transforms");
+        scene.Update(0.0f);
+    }
+    Profiler::Count("Entities", static_cast<double>(scene.EntityCount()));
 
     // Only the views whose windows show are drawn; the scene's data is uploaded once for both.
     const Entity gameCameraEntity = sceneCameras.empty() ? Entity{} : sceneCameras.front();

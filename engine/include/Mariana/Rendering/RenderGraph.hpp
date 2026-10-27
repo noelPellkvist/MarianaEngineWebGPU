@@ -62,6 +62,10 @@ public:
     uint32_t OutputWidth() const { return m_Width; }
     uint32_t OutputHeight() const { return m_Height; }
 
+    // What the profiler calls this graph's passes ("Scene Forward", ...).
+    void SetName(std::string name);
+    const std::string& Name() const { return m_Name; }
+
     // Orders and culls the passes and (re)creates textures. Execute calls it when anything changed.
     void Compile();
     // Records every compiled, enabled pass; `backbuffer` is the swapchain view (wgpu::TextureView*).
@@ -98,6 +102,8 @@ private:
         GraphPassDesc desc;
         std::unique_ptr<Renderpass> renderpass;
         Owner owner = nullptr;
+        std::string label;           // the graph's name and the pass's (set by Compile)
+        const char* scope = nullptr; // "Encode <label>", the CPU side
     };
     struct Callback
     {
@@ -113,6 +119,7 @@ private:
     uint32_t m_Height = 1;
     TextureFormat m_BackbufferFormat = TextureFormat::BGRA8Unorm;
     bool m_Dirty = true;
+    std::string m_Name;
 
     bool IsBackbuffer(const std::string& name) const { return name == kBackbuffer; }
     void SizeOf(const Resource& resource, uint32_t& width, uint32_t& height) const;

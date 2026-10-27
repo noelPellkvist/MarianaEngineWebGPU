@@ -1,4 +1,5 @@
 #include <Mariana/Foundation/TaskQueue.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 
 #include <utility>
 
@@ -16,7 +17,10 @@ TaskQueue::TaskQueue()
             m_Tasks.pop_front();
             ++m_Running;
             lock.unlock();
-            task();
+            {
+                MARIANA_PROFILE("Background task");
+                task();
+            }
             lock.lock();
             --m_Running;
         }
@@ -65,6 +69,7 @@ void TaskQueue::Pump(std::chrono::milliseconds budget)
             task = std::move(m_Tasks.front());
             m_Tasks.pop_front();
         }
+        MARIANA_PROFILE("Background task");
         task();
     } while (std::chrono::steady_clock::now() - start < budget);
 #else

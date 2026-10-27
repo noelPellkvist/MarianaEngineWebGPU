@@ -97,8 +97,9 @@ class Renderpass
         void CreateDepthStencilAttachment();
         void BindShaderGroups();
 
-        // Records the pass. `backbuffer` (a wgpu::TextureView*) stands in for nullptr color targets.
-        void Start(void* encoder, void* backbuffer);
+        // Records the pass. `backbuffer` (a wgpu::TextureView*) stands in for nullptr color targets;
+        // `label` names it for the GPU timer (no label: not timed).
+        void Start(void* encoder, void* backbuffer, const std::string* label = nullptr);
 
         bool m_External = false;
         std::vector<Texture*> m_ColorTargets;

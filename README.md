@@ -64,6 +64,7 @@ _If it runs in your browser and on your PC with the same codebase, that’s not 
 
 **Editor** (Dear ImGui)
 - Scene and game views, hierarchy, inspector, asset browser with rendered thumbnails, material editor, undo/redo, play/pause/step, scene files
+- A profiler: each frame's CPU scopes (scripts, animation, physics, rendering, UI) on a timeline, GPU time per render pass (timestamp queries), counters, and traces for Perfetto
 
 **Player**
 - Runs a project without the editor from its `Player.json`; its web build packages only what the project uses

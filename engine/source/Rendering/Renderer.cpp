@@ -1,6 +1,8 @@
 #include <Mariana/Rendering/Renderer.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include "Graphics/Init.hpp"
+#include "Graphics/GpuTimer.hpp"
+#include <Mariana/Foundation/Profiler.hpp>
 #include <Mariana/Graphics/Material.hpp>
 #include <Mariana/Graphics/Mesh.hpp>
 #include <Mariana/Graphics/Shader.hpp>
@@ -30,7 +32,12 @@ static void RecordOverlay(wgpu::TextureView& view, wgpu::CommandEncoder& encoder
   wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = 1,
                                         .colorAttachments = &attachment,
                                         .depthStencilAttachment = nullptr};
+  static const std::string kLabel = "UI";
+  wgpu::PassTimestampWrites timestamps;
+  if (GpuTimer::Pass(kLabel, timestamps))
+    renderpassDesc.timestampWrites = &timestamps;
 
+  MARIANA_PROFILE("Encode UI");
   auto pass = encoder.BeginRenderPass(&renderpassDesc);
   overlay(static_cast<void*>(&pass));
   pass.End();

@@ -1,5 +1,6 @@
 #include <Mariana/Graphics/Renderpass.hpp>
 #include "Graphics/Init.hpp"
+#include "Graphics/GpuTimer.hpp"
 #include <webgpu/webgpu_cpp.h>
 #include <Mariana/Rendering/Renderer.hpp>
 #include <Mariana/Graphics/Material.hpp>
@@ -193,7 +194,7 @@ void Renderpass::SetLoadOps(std::vector<bool> loadColor, bool loadDepth)
     m_LoadDepth = loadDepth;
 }
 
-void Renderpass::Start(void* encoder, void* backbuffer)
+void Renderpass::Start(void* encoder, void* backbuffer, const std::string* label)
 {
     auto viewOf = [](Texture* texture) { return *static_cast<wgpu::TextureView*>(texture->GetTextureView()); };
 
@@ -229,6 +230,9 @@ void Renderpass::Start(void* encoder, void* backbuffer)
     wgpu::RenderPassDescriptor renderpassDesc{.colorAttachmentCount = attachments.size(),
                                           .colorAttachments = attachments.size() == 0 ? nullptr : attachments.data(),
                                           .depthStencilAttachment = HasDepthTexture() ? &depthAttachment : nullptr};
+    wgpu::PassTimestampWrites timestamps;
+    if (label && GpuTimer::Pass(*label, timestamps))
+        renderpassDesc.timestampWrites = &timestamps;
     wgpu::CommandEncoder R_encoder = *(static_cast<wgpu::CommandEncoder*>(encoder));
     _impl->pass = R_encoder.BeginRenderPass(&renderpassDesc);
 

@@ -1,5 +1,7 @@
 #include <Mariana/Application.hpp>
 #include "Graphics/Init.hpp"
+#include "Graphics/GpuTimer.hpp"
+#include <Mariana/Foundation/Profiler.hpp>
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
 #endif
@@ -8,6 +10,7 @@
 Application::Application(const WindowSettings& window)
     : m_Running(false), m_Window(window.width, window.height, window.title, window.iconPath), input(m_Window.GetWindow())
 {
+    Profiler::SetMainThread();
     Init();
     // Configure the surface now so derived apps can build pipelines for the window's format.
     m_Window.GetSurface();
@@ -27,14 +30,24 @@ void Application::Start()
     m_Running = true;
     #if defined(__EMSCRIPTEN__)
         emscripten_set_main_loop_arg([](void* arg) {
+                Profiler::BeginFrame();
                 static_cast<Application*>(arg)->MainLoop();
+                GpuTimer::EndFrame(Profiler::FrameIndex());
+                Profiler::EndFrame();
             }, this, 0, true);
     #else
     while (!m_Window.ShouldClose() && m_Running)
     {
+        Profiler::BeginFrame();
         MainLoop();
-        surface.Present();
-        instance.ProcessEvents();
+        {
+            // Waits for the display (vsync), so this is time spent waiting rather than working.
+            MARIANA_PROFILE("Present");
+            surface.Present();
+            instance.ProcessEvents();
+        }
+        GpuTimer::EndFrame(Profiler::FrameIndex());
+        Profiler::EndFrame();
     }
     #endif
     Logger::Info("Application Shutting down...");
@@ -57,18 +70,24 @@ void Application::MainLoop()
     m_Window.FollowCanvas();
     gameClock.Tick(dt);
 
-    //first thing that happens in the loop is we get the time at the start of the frame
-    OnUpdate(dt);
-    if (cam)
     {
-        cam->OnUpdate(dt);
-        cam->UpdateBuffer();
+        MARIANA_PROFILE("Update");
+        OnUpdate(dt);
+        if (cam)
+        {
+            cam->OnUpdate(dt);
+            cam->UpdateBuffer();
+        }
     }
-
-    OnGUI();
-
-    //After everything is updated we render
-    OnRender();
+    {
+        MARIANA_PROFILE("GUI");
+        OnGUI();
+    }
+    {
+        // After everything is updated we render.
+        MARIANA_PROFILE("Render");
+        OnRender();
+    }
 
     input.Update();
     

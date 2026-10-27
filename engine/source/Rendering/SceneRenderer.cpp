@@ -1,4 +1,5 @@
 #include <Mariana/Rendering/SceneRenderer.hpp>
+#include <Mariana/Foundation/Profiler.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Animation/Skin.hpp>
 #include <Mariana/Animation/Skeleton.hpp>
@@ -190,6 +191,7 @@ void SceneRenderer::CreateSystems()
 
 void SceneRenderer::Update()
 {
+    MARIANA_PROFILE("Scene data");
     writeTransformBufferSystem.Run();
     pipeline.FlushTransforms();
     pipeline.UploadDirtyMaterials(assets);
