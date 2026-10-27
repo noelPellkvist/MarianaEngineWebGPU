@@ -89,7 +89,7 @@ namespace ScriptingInternal
         kDelta, kTime, kFrame,
         // Animator
         kSetFloat, kSetBool, kSetTrigger, kResetTrigger, kGetFloat, kGetBool, kPlay, kCrossFade,
-        kCrossFadeState,
+        kCrossFadeState, kGetRootVelocity,
         kAtomCount
     };
     int16_t AtomOf(const char* name, size_t length);

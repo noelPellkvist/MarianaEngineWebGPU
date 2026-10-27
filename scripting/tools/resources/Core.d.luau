@@ -43,6 +43,8 @@ declare extern type AnimatorMethods extends Component with
     function Play(self, clip: string | number, loop: boolean?): ()
     function CrossFade(self, clip: string | number, seconds: number?, loop: boolean?): ()
     function CrossFadeState(self, state: string, seconds: number?): boolean
+    -- Root motion of the last update: the walk (m/s, the model's own axes) and the turn (deg/s).
+    function GetRootVelocity(self): (vector, number)
 end
 
 -- @components

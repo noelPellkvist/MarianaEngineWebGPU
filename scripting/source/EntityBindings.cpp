@@ -374,6 +374,15 @@ namespace ScriptingInternal
             animator.CrossFade(ClipOf(L, animator, 2), static_cast<float>(luaL_optnumber(L, 3, 0.25)), luaL_optboolean(L, 4, true) != 0);
             return 0;
         }
+        int AnimGetRootVelocity(lua_State* L)
+        {
+            const Animator& animator = CheckAnimator(L);
+            const glm::vec3 velocity = animator.RootVelocity();
+            lua_pushvector(L, velocity.x, velocity.y, velocity.z);
+            lua_pushnumber(L, glm::degrees(animator.RootTurnRate()));
+            return 2;
+        }
+
         int AnimCrossFadeState(lua_State* L)
         {
             lua_pushboolean(L, CheckAnimator(L).CrossFadeState(luaL_checkstring(L, 2), static_cast<float>(luaL_optnumber(L, 3, 0.25))));
@@ -393,6 +402,7 @@ namespace ScriptingInternal
             case kPlay: return AnimPlay;
             case kCrossFade: return AnimCrossFade;
             case kCrossFadeState: return AnimCrossFadeState;
+            case kGetRootVelocity: return AnimGetRootVelocity;
             default: return nullptr;
             }
         }

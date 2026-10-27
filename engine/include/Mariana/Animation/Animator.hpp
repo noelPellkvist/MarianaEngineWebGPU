@@ -6,8 +6,20 @@
 #include <Mariana/Animation/Skeleton.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
+#include <glm/glm.hpp>
+
+// Where an Animator's root motion goes when something else moves its entity: the physics world
+// puts one on the Animator of a character, and the Animator then adds each update's motion here
+// instead of moving the entity; the character walks it and takes it (zeroes it). A runtime component.
+struct RootMotion
+{
+    glm::vec3 translation{ 0.0f }; // in the entity's own space (the model's), since it was last taken
+    float yaw = 0.0f;              // radians about +Y
+    float seconds = 0.0f;          // the game time it took
+};
 
 // Animates a model: goes on its root (the glTF loader's wrapper entity) and moves the bones below
 // it, the entities whose AnimationTargetEntity is a bone of `skeleton`. With a `graph`, the graph
@@ -23,6 +35,14 @@ struct Animator
     AssetHandle<AnimationGraph> graph;
     float speed = 1.0f;
     bool playing = true;
+    // Root motion: the root bone's walk (horizontal movement) and turn (yaw) are taken out of the
+    // pose and move the entity instead (or a physics character, through RootMotion), so a walk
+    // clip walks the model rather than sliding its hips away from it. Its height stays in the pose.
+    bool rootMotion = false;
+    // The bone it comes from; empty = the first bone named like hips or pelvis that a clip moves or
+    // turns, else the first one a clip moves. The update that binds the clips doesn't move the
+    // entity (a physics character takes the motion from the next one on).
+    std::string rootBone;
 
     Animator() = default;
     // Copies the settings, parameters and what plays; the bones it found belong to the source's
@@ -122,6 +142,11 @@ struct Animator
 
     // The last pose written, by skeleton bone.
     const Pose& GetPose() const { return m_Pose; }
+    // Root motion of the last update: the speed (m/s in the model's space, before its scale) and
+    // the turn (radians per second about +Y). The bone it comes from, -1 = none.
+    glm::vec3 RootVelocity() const { return m_RootVelocity; }
+    float RootTurnRate() const { return m_RootTurnRate; }
+    int RootBone() const { return m_RootBone; }
     // Writes the whole pose to the bones at the next update even if nothing changed (after
     // something else moved them, a ragdoll say).
     void Refresh() { m_Refresh = true; }
@@ -150,10 +175,19 @@ private:
     void SetStateTime(int node, int state, float normalizedTime);
     void Weights2D(int node);
     bool ConditionsHold(const AnimationTransition& transition) const;
-    void Weigh(int node, float weight);
+    // `motion`: the share of the root motion (none from a layer's or an additive's second input).
+    void Weigh(int node, float weight, float motion);
     float WeightOf(const AnimationWeight& weight) const;
     void Segment(const AnimationNode& node, int& a, int& b, float& t) const;
     void SampleInto(int clip, float time, Pose& pose) const;
+    // Root motion: the bone and what it is measured against; a clip's root at a time (in model
+    // space, its yaw from the rest pose); taking it out of a pose; adding a clip's move to the
+    // update's; moving the entity (or filling its RootMotion).
+    void ResolveRootBone();
+    bool RootAt(int clip, float time, glm::vec3& position, float& yaw) const;
+    void StripRoot(int clip, Pose& pose) const;
+    void AddRootMotion(int clip, float from, float to, int wraps, float weight);
+    void ApplyRootMotion(Entity root, float dt);
     void EvaluateClips();
     void EvaluateNode(int node, Pose& out, size_t depth);
     Pose& Scratch(size_t depth);
@@ -175,6 +209,8 @@ private:
     std::vector<uint8_t> m_Channels;     // per bone, which of T/R/S some clip animates
     size_t m_BoundBones = 0;
     std::vector<NodeState> m_Nodes;
+    std::vector<float> m_MotionWeights; // per node, its share of the root motion
+    std::vector<float> m_OldTimes;      // per node, its time before this update advanced it
     std::vector<int> m_SyncGroupOf;      // per node, -1 = none
     std::vector<SyncGroup> m_SyncGroups;
     std::vector<std::vector<float>> m_Masks; // per Layer node
@@ -197,6 +233,20 @@ private:
     std::vector<float> m_Applied; // the same for the pose written last
     bool m_Bound = false;
     bool m_GraphValid = false;
+    // Root motion, found by Bind: the bone, the rest transform of the bones above it (model space)
+    // and its own rest pose in model space; per clip, its track for the bone (-1 = none).
+    int m_RootBone = -1;
+    std::string m_BoundRootBone;
+    glm::mat4 m_RootParent{ 1.0f };
+    glm::mat4 m_RootParentInverse{ 1.0f };
+    glm::quat m_RootParentRotation{ 1.0f, 0.0f, 0.0f, 0.0f };
+    glm::vec3 m_RootRestPosition{ 0.0f };
+    glm::quat m_RootRestRotation{ 1.0f, 0.0f, 0.0f, 0.0f };
+    std::vector<int> m_RootTracks;
+    glm::vec3 m_RootDelta{ 0.0f }; // this update's, in the model's space
+    float m_RootYaw = 0.0f;
+    glm::vec3 m_RootVelocity{ 0.0f };
+    float m_RootTurnRate = 0.0f;
     uint32_t m_BoundRevision = 0;
     std::string m_GraphError;
 };

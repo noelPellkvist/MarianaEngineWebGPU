@@ -3,7 +3,11 @@
 #include <Mariana/Foundation/Profiler.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <glm/gtc/constants.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace
 {
@@ -38,10 +42,38 @@ namespace
         return std::clamp(time, 0.0f, duration);
     }
 
+    // The turn about +Y in a rotation (its twist), in radians.
+    float YawOf(const glm::quat& q)
+    {
+        return 2.0f * std::atan2(q.y, q.w);
+    }
+
+    float WrapAngle(float angle)
+    {
+        return std::remainder(angle, glm::two_pi<float>());
+    }
+
+    glm::mat4 Local(const BoneTransform& t)
+    {
+        return glm::translate(glm::mat4(1.0f), t.translation) * glm::mat4_cast(t.rotation) * glm::scale(glm::mat4(1.0f), t.scale);
+    }
+
+    // How many times a looping clip went past its end (or back past its start) moving from -> to.
+    int Wraps(float from, float to, float step, bool loop)
+    {
+        if (!loop || step == 0.0f)
+            return 0;
+        if (step > 0.0f && to < from)
+            return 1;
+        if (step < 0.0f && to > from)
+            return -1;
+        return 0;
+    }
+
     // A fade stack (clips cross-faded, or a state machine's states): the newest, last, fades in
     // over the rest; the ones it interrupted stay where they got to.
     template <typename Entry>
-    void FadeIn(std::vector<Entry>& stack, float delta)
+    void FadeWeights(std::vector<Entry>& stack, float delta)
     {
         Entry& newest = stack.back();
         if (newest.fade < 1.0f)
@@ -54,8 +86,20 @@ namespace
             stack[i].weight = remaining * fade;
             remaining *= 1.0f - fade;
         }
-        // Entries under one that has fully faded in no longer show.
+    }
+
+    // Entries under one that has fully faded in no longer show.
+    template <typename Entry>
+    void DropFaded(std::vector<Entry>& stack)
+    {
         stack.erase(std::remove_if(stack.begin(), stack.end() - 1, [](const Entry& e) { return e.weight <= 0.0f; }), stack.end() - 1);
+    }
+
+    template <typename Entry>
+    void FadeIn(std::vector<Entry>& stack, float delta)
+    {
+        FadeWeights(stack, delta);
+        DropFaded(stack);
     }
 }
 
@@ -63,6 +107,7 @@ void Animator::RegisterComponents()
 {
     ECS::RegisterComponent<AnimationTargetEntity>("AnimationTargetEntity");
     ECS::RegisterComponent<Animator>("Animator");
+    ECS::RegisterRuntimeComponent<RootMotion>("RootMotion");
 }
 
 System Animator::CreateSystem(Scene& scene)
@@ -78,6 +123,8 @@ Animator::Animator(const Animator& other)
       graph(other.graph),
       speed(other.speed),
       playing(other.playing),
+      rootMotion(other.rootMotion),
+      rootBone(other.rootBone),
       m_Playing(other.m_Playing),
       m_ParameterGraph(other.m_ParameterGraph),
       m_ParameterRevision(other.m_ParameterRevision),
@@ -259,6 +306,8 @@ bool Animator::NeedsBind() const
 {
     if (!m_Bound || m_BoundSkeleton != skeleton.Get().get() || m_BoundGraph != graph.Get().get() || static_cast<int>(m_BoundClips.size()) != ClipCount())
         return true;
+    if (rootBone != m_BoundRootBone)
+        return true;
     if (graph.Get() && graph.Get()->Revision() != m_BoundRevision)
         return true;
     for (int i = 0; i < ClipCount(); ++i)
@@ -295,6 +344,8 @@ void Animator::Bind(Entity root)
                               | (track.scale.Empty() ? 0 : kScale);
         }
     }
+
+    ResolveRootBone();
 
     // The bones' entities, found once here instead of every frame.
     m_Bones.assign(bones.BoneCount(), Entity{});
@@ -425,7 +476,157 @@ void Animator::SampleInto(int clip, float time, Pose& pose) const
 {
     pose.SetToRest(*m_BoundSkeleton);
     if (clip >= 0 && clip < static_cast<int>(m_BoundClips.size()) && m_BoundClips[clip])
+    {
         SampleClip(*m_BoundClips[clip], m_Bindings[clip], time, pose);
+        if (rootMotion)
+            StripRoot(clip, pose);
+    }
+}
+
+void Animator::ResolveRootBone()
+{
+    const Skeleton& bones = *m_BoundSkeleton;
+    m_BoundRootBone = rootBone;
+    m_RootBone = -1;
+    if (!rootBone.empty())
+        m_RootBone = bones.FindBone(rootBone);
+    else
+    {
+        // The hips (or pelvis) when a clip moves or turns them, else the first bone a clip moves.
+        for (size_t b = 0; b < bones.BoneCount() && m_RootBone < 0; ++b)
+        {
+            if (!m_Channels[b])
+                continue;
+            std::string name(Skeleton::BaseName(bones.GetBone(b).name));
+            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (name.find("hips") != std::string::npos || name.find("pelvis") != std::string::npos)
+                m_RootBone = static_cast<int>(b);
+        }
+        for (size_t b = 0; b < bones.BoneCount() && m_RootBone < 0; ++b)
+            if (m_Channels[b] & kTranslation)
+                m_RootBone = static_cast<int>(b);
+    }
+
+    m_RootTracks.assign(m_BoundClips.size(), -1);
+    m_RootParent = glm::mat4(1.0f);
+    if (m_RootBone < 0)
+        return;
+    // The bones above it as they rest (an Armature node's scale and turn, say).
+    std::vector<int> chain;
+    for (int b = bones.GetBone(m_RootBone).parent; b >= 0; b = bones.GetBone(b).parent)
+        chain.push_back(b);
+    for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+        m_RootParent = m_RootParent * Local(bones.GetBone(*it).rest);
+    m_RootParentInverse = glm::inverse(m_RootParent);
+    const glm::mat3 axes(m_RootParent);
+    m_RootParentRotation = glm::normalize(glm::quat_cast(glm::mat3(glm::normalize(axes[0]), glm::normalize(axes[1]), glm::normalize(axes[2]))));
+    const BoneTransform& rest = bones.GetBone(m_RootBone).rest;
+    m_RootRestPosition = glm::vec3(m_RootParent * glm::vec4(rest.translation, 1.0f));
+    m_RootRestRotation = m_RootParentRotation * rest.rotation;
+    for (size_t clip = 0; clip < m_BoundClips.size(); ++clip)
+    {
+        if (!m_BoundClips[clip])
+            continue;
+        const std::vector<int>& tracks = m_Bindings[clip].bones;
+        for (size_t t = 0; t < tracks.size(); ++t)
+            if (tracks[t] == m_RootBone)
+                m_RootTracks[clip] = static_cast<int>(t);
+    }
+}
+
+bool Animator::RootAt(int clip, float time, glm::vec3& position, float& yaw) const
+{
+    if (m_RootBone < 0 || clip < 0 || clip >= static_cast<int>(m_RootTracks.size()) || m_RootTracks[clip] < 0)
+        return false;
+    const AnimationTrack& track = m_BoundClips[clip]->tracks[m_RootTracks[clip]];
+    const BoneTransform& rest = m_BoundSkeleton->GetBone(m_RootBone).rest;
+    const glm::vec3 local = track.translation.Empty() ? rest.translation : glm::vec3(track.translation.Sample(time, false));
+    glm::quat rotation = rest.rotation;
+    if (!track.rotation.Empty())
+    {
+        const glm::vec4 q = track.rotation.Sample(time, true);
+        rotation = glm::quat(q.w, q.x, q.y, q.z);
+    }
+    position = glm::vec3(m_RootParent * glm::vec4(local, 1.0f));
+    yaw = YawOf(m_RootParentRotation * rotation * glm::inverse(m_RootRestRotation));
+    return true;
+}
+
+void Animator::StripRoot(int clip, Pose& pose) const
+{
+    if (m_RootBone < 0 || clip >= static_cast<int>(m_RootTracks.size()) || m_RootTracks[clip] < 0)
+        return;
+    // Where the clip has the root, in the model's space: back over its rest spot on the ground...
+    glm::vec3 position = glm::vec3(m_RootParent * glm::vec4(pose.translations[m_RootBone], 1.0f));
+    position.x = m_RootRestPosition.x;
+    position.z = m_RootRestPosition.z;
+    pose.translations[m_RootBone] = glm::vec3(m_RootParentInverse * glm::vec4(position, 1.0f));
+    // ...and turned back to face the way it rests.
+    const glm::quat model = m_RootParentRotation * pose.rotations[m_RootBone];
+    const float yaw = YawOf(model * glm::inverse(m_RootRestRotation));
+    const glm::quat untwist = glm::angleAxis(-yaw, glm::vec3(0.0f, 1.0f, 0.0f));
+    pose.rotations[m_RootBone] = glm::normalize(glm::inverse(m_RootParentRotation) * untwist * model);
+}
+
+void Animator::AddRootMotion(int clip, float from, float to, int wraps, float weight)
+{
+    glm::vec3 a, b;
+    float yawA, yawB;
+    if (weight <= 0.0f || !RootAt(clip, from, a, yawA) || !RootAt(clip, to, b, yawB))
+        return;
+    glm::vec3 move = b - a;
+    float turn = WrapAngle(yawB - yawA);
+    if (wraps != 0)
+    {
+        // Each loop adds what one whole play of the clip moves.
+        glm::vec3 start, end;
+        float yawStart, yawEnd;
+        RootAt(clip, 0.0f, start, yawStart);
+        RootAt(clip, m_BoundClips[clip]->GetDuration(), end, yawEnd);
+        move += static_cast<float>(wraps) * (end - start);
+        turn += static_cast<float>(wraps) * WrapAngle(yawEnd - yawStart);
+    }
+    // The clip's move in the entity's own frame: the clip had turned by yawA when it made it.
+    move.y = 0.0f;
+    m_RootDelta += weight * (glm::angleAxis(-yawA, glm::vec3(0.0f, 1.0f, 0.0f)) * move);
+    m_RootYaw += weight * turn;
+}
+
+void Animator::ApplyRootMotion(Entity root, float dt)
+{
+    const glm::vec3 move = m_RootDelta;
+    const float turn = m_RootYaw;
+    m_RootDelta = glm::vec3(0.0f);
+    m_RootYaw = 0.0f;
+    m_RootVelocity = dt > 0.0f ? move / dt : glm::vec3(0.0f);
+    m_RootTurnRate = dt > 0.0f ? turn / dt : 0.0f;
+    if (!rootMotion || dt <= 0.0f)
+        return;
+
+    // Something else moves the entity (a physics character): it gets the motion.
+    if (RootMotion* sink = root.Get<RootMotion>())
+    {
+        sink->translation += move;
+        sink->yaw += turn;
+        sink->seconds += dt;
+        return;
+    }
+    if (move == glm::vec3(0.0f) && turn == 0.0f)
+        return;
+    LocalTRS* trs = root.Get<LocalTRS>();
+    if (!trs)
+        return;
+    const glm::quat rotation(trs->rot_quat[3], trs->rot_quat[0], trs->rot_quat[1], trs->rot_quat[2]);
+    const glm::vec3 step = rotation * (glm::vec3(trs->scl[0], trs->scl[1], trs->scl[2]) * move);
+    trs->pos[0] += step.x;
+    trs->pos[1] += step.y;
+    trs->pos[2] += step.z;
+    const glm::quat turned = glm::normalize(rotation * glm::angleAxis(turn, glm::vec3(0.0f, 1.0f, 0.0f)));
+    trs->rot_quat[0] = turned.x;
+    trs->rot_quat[1] = turned.y;
+    trs->rot_quat[2] = turned.z;
+    trs->rot_quat[3] = turned.w;
+    ++trs->version;
 }
 
 Pose& Animator::Scratch(size_t depth)
@@ -441,7 +642,10 @@ void Animator::Update(Entity root, float dt)
     if (!graph.Get() && m_Playing.empty())
         return;
 
-    if (NeedsBind())
+    // Just bound (the first update, or after a change): the clips start, but whatever moves the
+    // entity (root motion) waits an update, so a physics character can take it from the start.
+    const bool justBound = NeedsBind();
+    if (justBound)
         Bind(root);
     EnsureParameters();
     const bool useGraph = m_BoundGraph && m_GraphValid;
@@ -453,6 +657,7 @@ void Animator::Update(Entity root, float dt)
         AdvanceGraph(delta);
     else
         AdvanceClips(delta);
+    ApplyRootMotion(root, playing && !justBound ? dt : 0.0f);
 
     Profiler::Count("Animators", 1.0);
     // Paused or held at the end: the pose is already written (unless something else moved the bones).
@@ -470,13 +675,23 @@ void Animator::Update(Entity root, float dt)
 
 void Animator::AdvanceClips(float delta)
 {
-    for (ClipState& state : m_Playing)
+    m_OldTimes.resize(m_Playing.size());
+    for (size_t i = 0; i < m_Playing.size(); ++i)
     {
+        ClipState& state = m_Playing[i];
+        m_OldTimes[i] = state.time;
         const AnimationClip* clip = state.clip < static_cast<int>(m_BoundClips.size()) ? m_BoundClips[state.clip] : nullptr;
         state.time = Advance(state.time, delta, clip ? clip->GetDuration() : 0.0f, state.loop);
     }
 
-    FadeIn(m_Playing, delta);
+    FadeWeights(m_Playing, delta);
+    if (rootMotion && m_RootBone >= 0 && delta != 0.0f)
+        for (size_t i = 0; i < m_Playing.size(); ++i)
+        {
+            const ClipState& state = m_Playing[i];
+            AddRootMotion(state.clip, m_OldTimes[i], state.time, Wraps(m_OldTimes[i], state.time, delta, state.loop), state.weight);
+        }
+    DropFaded(m_Playing);
 }
 
 void Animator::EvaluateClips()
@@ -521,11 +736,12 @@ void Animator::Segment(const AnimationNode& node, int& a, int& b, float& t) cons
     b = node.inputs[k + 1];
 }
 
-void Animator::Weigh(int index, float weight)
+void Animator::Weigh(int index, float weight, float motion)
 {
     if (weight <= 0.0f)
         return;
     m_Nodes[index].weight += weight;
+    m_MotionWeights[index] += motion;
 
     const AnimationNode& node = m_BoundGraph->nodes[index];
     switch (node.type)
@@ -535,8 +751,8 @@ void Animator::Weigh(int index, float weight)
     case AnimationNodeType::Blend:
     {
         const float x = WeightOf(node.weight);
-        Weigh(node.inputs[0], weight * (1.0f - x));
-        Weigh(node.inputs[1], weight * x);
+        Weigh(node.inputs[0], weight * (1.0f - x), motion * (1.0f - x));
+        Weigh(node.inputs[1], weight * x, motion * x);
         break;
     }
     case AnimationNodeType::Blend1D:
@@ -544,24 +760,25 @@ void Animator::Weigh(int index, float weight)
         int a, b;
         float t;
         Segment(node, a, b, t);
-        Weigh(a, weight * (1.0f - t));
+        Weigh(a, weight * (1.0f - t), motion * (1.0f - t));
         if (b != a)
-            Weigh(b, weight * t);
+            Weigh(b, weight * t, motion * t);
         break;
     }
     case AnimationNodeType::Additive:
     case AnimationNodeType::Layer:
-        Weigh(node.inputs[0], weight);
-        Weigh(node.inputs[1], weight * WeightOf(node.weight));
+        // A layer (a wave on top of a walk) doesn't walk.
+        Weigh(node.inputs[0], weight, motion);
+        Weigh(node.inputs[1], weight * WeightOf(node.weight), 0.0f);
         break;
     case AnimationNodeType::Blend2D:
         Weights2D(index);
         for (size_t i = 0; i < node.inputs.size(); ++i)
-            Weigh(node.inputs[i], weight * m_BlendWeights[index][i]);
+            Weigh(node.inputs[i], weight * m_BlendWeights[index][i], motion * m_BlendWeights[index][i]);
         break;
     case AnimationNodeType::StateMachine:
         for (const ActiveState& active : m_Machines[index].active)
-            Weigh(node.inputs[active.state], weight * active.weight);
+            Weigh(node.inputs[active.state], weight * active.weight, motion * active.weight);
         break;
     }
 }
@@ -590,7 +807,12 @@ void Animator::AdvanceGraph(float delta)
 
     for (NodeState& state : m_Nodes)
         state.weight = 0.0f;
-    Weigh(definition.output, 1.0f);
+    m_MotionWeights.assign(m_Nodes.size(), 0.0f);
+    Weigh(definition.output, 1.0f, 1.0f);
+    // Where the clips were before this update (entering a state already put its clips at 0).
+    m_OldTimes.resize(m_Nodes.size());
+    for (size_t i = 0; i < m_Nodes.size(); ++i)
+        m_OldTimes[i] = m_Nodes[i].time;
 
     auto duration = [&](int clip) {
         return clip >= 0 && clip < static_cast<int>(m_BoundClips.size()) && m_BoundClips[clip] ? m_BoundClips[clip]->GetDuration() : 0.0f;
@@ -630,6 +852,19 @@ void Animator::AdvanceGraph(float delta)
         group.phase = Advance(group.phase, delta * rate, 1.0f, loop);
         for (int member : group.members)
             m_Nodes[member].time = group.phase * duration(m_Nodes[member].clip);
+    }
+
+    // The root's move: each clip's, by its share of the motion.
+    if (rootMotion && m_RootBone >= 0 && delta != 0.0f)
+    {
+        for (size_t i = 0; i < definition.nodes.size(); ++i)
+        {
+            const AnimationNode& node = definition.nodes[i];
+            if (node.type != AnimationNodeType::Clip || m_MotionWeights[i] <= 0.0f)
+                continue;
+            const float step = m_SyncGroupOf[i] >= 0 ? delta : delta * node.speed;
+            AddRootMotion(m_Nodes[i].clip, m_OldTimes[i], m_Nodes[i].time, Wraps(m_OldTimes[i], m_Nodes[i].time, step, node.loop), m_MotionWeights[i]);
+        }
     }
 
     // How far each state got, for exit times: its clips' normalized rate, weighted like they are.
@@ -981,6 +1216,8 @@ bool Animator::StateChanged(bool useGraph)
             m_State.push_back(state.fade);
         }
     }
+    // Turning root motion on or off changes the pose.
+    m_State.push_back(rootMotion ? 1.0f : 0.0f);
 
     if (m_State == m_Applied)
         return false;

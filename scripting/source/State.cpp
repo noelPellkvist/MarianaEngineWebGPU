@@ -231,7 +231,7 @@ namespace ScriptingInternal
             "x", "y", "z", "w", "Inverse", "ToEuler",
             "delta", "time", "frame",
             "SetFloat", "SetBool", "SetTrigger", "ResetTrigger", "GetFloat", "GetBool", "Play", "CrossFade",
-            "CrossFadeState",
+            "CrossFadeState", "GetRootVelocity",
         };
 
         int16_t UserAtom(lua_State*, const char* s, size_t length)

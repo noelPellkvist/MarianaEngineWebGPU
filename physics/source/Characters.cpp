@@ -1,5 +1,7 @@
 #include "WorldImpl.hpp"
 
+#include <Mariana/Animation/Animator.hpp>
+
 #include <Mariana/Foundation/Logger.hpp>
 
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
@@ -70,6 +72,10 @@ void PhysicsWorld::Impl::RemoveCharacter(uint64_t entity, CharacterRecord& recor
 {
     if (Entity e = scene.FromId(entity); e.IsValid() && e.TryGet<PhysicsBody>())
         e.Remove<PhysicsBody>();
+    // Its Animator moves its own entity again.
+    if (Entity animator = scene.FromId(record.animator); animator.IsValid() && animator.TryGet<RootMotion>())
+        animator.Remove<RootMotion>();
+    record.animator = 0;
     if (!record.character)
         return;
     characterCollision->Remove(record.character);
@@ -176,6 +182,48 @@ void PhysicsWorld::Impl::SyncCharacters()
         RemoveCharacter(it->first, it->second);
         it = characters.erase(it);
     }
+
+    // Root motion: an Animator with it on (on the character or below it) walks the character, so
+    // it hands its motion over through a RootMotion (added and removed after looking).
+    std::vector<Entity> sinks, released;
+    for (auto& [id, record] : characters)
+    {
+        if (!record.character)
+            continue;
+        const Entity animator = RootMotionAnimator(scene.FromId(id));
+        const uint64_t animatorId = animator.IsValid() ? animator.RawId() : 0;
+        if (record.animator != 0 && record.animator != animatorId)
+            released.push_back(scene.FromId(record.animator));
+        record.animator = animatorId;
+        if (animator.IsValid() && !animator.TryGet<RootMotion>())
+            sinks.push_back(animator);
+    }
+    for (Entity e : released)
+        if (e.IsValid() && e.TryGet<RootMotion>())
+            e.Remove<RootMotion>();
+    for (Entity e : sinks)
+        e.Add<RootMotion>();
+}
+
+Entity PhysicsWorld::Impl::RootMotionAnimator(Entity character) const
+{
+    Entity found;
+    auto visit = [&](auto& self, Entity e) -> void {
+        if (found.IsValid())
+            return;
+        if (const Animator* animator = e.TryGet<Animator>(); animator && animator->rootMotion)
+        {
+            found = e;
+            return;
+        }
+        e.ForEachChild([&](Entity child) {
+            if (!child.TryGet<CharacterController>())
+                self(self, child);
+        });
+    };
+    if (character.IsValid())
+        visit(visit, character);
+    return found;
 }
 
 // Before each step: the characters move (Jolt's ExtendedUpdate: move, walk up stairs, stick to the
@@ -205,7 +253,26 @@ void PhysicsWorld::Impl::MoveCharacters(float dt)
         move.y = 0.0f;
         if (glm::length(move) > 1.0f)
             move = glm::normalize(move);
-        const JPH::Vec3 wanted = ToJolt(move * c->speed * (c->run ? c->runFactor : 1.0f) * (1.0f - 0.5f * submerged));
+        JPH::Vec3 wanted = ToJolt(move * c->speed * (c->run ? c->runFactor : 1.0f) * (1.0f - 0.5f * submerged));
+
+        // With root motion the animation walks it and turns it: its motion over the frame, as a
+        // velocity turned from the model's space into the world's (the model faces as the
+        // character does), in place of `move`.
+        const Entity animator = record.animator ? scene.FromId(record.animator) : Entity{};
+        const RootMotion* rootMotion = animator.IsValid() ? animator.TryGet<RootMotion>() : nullptr;
+        float turnRate = 0.0f;
+        if (rootMotion)
+        {
+            glm::vec3 velocity(0.0f);
+            if (rootMotion->seconds > 0.0f)
+            {
+                const glm::mat4 model = glm::inverse(WorldMatrix(scene, e)) * WorldMatrix(scene, animator);
+                velocity = glm::mat3(glm::mat4_cast(Yaw(record.yaw))) * glm::mat3(model) * rootMotion->translation / rootMotion->seconds;
+                velocity.y = 0.0f;
+                turnRate = rootMotion->yaw / rootMotion->seconds;
+            }
+            wanted = ToJolt(velocity * (1.0f - 0.5f * submerged));
+        }
 
         character.UpdateGroundVelocity();
         const JPH::Vec3 current = character.GetLinearVelocity();
@@ -238,7 +305,12 @@ void PhysicsWorld::Impl::MoveCharacters(float dt)
         }
         character.SetLinearVelocity(velocity);
 
-        if (c->turnToMove && glm::length(move) > 0.1f)
+        if (rootMotion)
+        {
+            record.yaw += turnRate * dt;
+            character.SetRotation(ToJolt(Yaw(record.yaw)));
+        }
+        else if (c->turnToMove && glm::length(move) > 0.1f)
         {
             const float target = std::atan2(move.x, move.z);
             float delta = std::remainder(target - record.yaw, glm::two_pi<float>());
@@ -282,6 +354,10 @@ void PhysicsWorld::Impl::SpendJumps()
         Entity e = scene.FromId(id);
         if (CharacterController* c = record.character && e.IsValid() ? e.Get<CharacterController>() : nullptr)
             c->jump = false;
+        // The steps walked the root motion the Animator handed over.
+        Entity animator = record.animator ? scene.FromId(record.animator) : Entity{};
+        if (RootMotion* rootMotion = animator.IsValid() ? animator.Get<RootMotion>() : nullptr)
+            *rootMotion = RootMotion{};
     }
 }
 

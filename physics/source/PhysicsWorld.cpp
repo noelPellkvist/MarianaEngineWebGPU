@@ -2,6 +2,7 @@
 
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Foundation/Profiler.hpp>
+#include <Mariana/Animation/Animator.hpp>
 
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/JobSystemSingleThreaded.h>
@@ -958,6 +959,8 @@ PhysicsWorld::Impl::Pending* PhysicsWorld::Impl::PendingFor(Entity entity)
 
 void PhysicsWorld::RegisterComponents()
 {
+    // The engine's that physics reads: Animator (ragdolls, root motion) and RootMotion.
+    Animator::RegisterComponents();
     ECS::RegisterComponent<RigidBody>("RigidBody");
     ECS::RegisterComponent<BoxCollider>("BoxCollider");
     ECS::RegisterComponent<SphereCollider>("SphereCollider");

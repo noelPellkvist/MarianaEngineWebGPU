@@ -111,6 +111,8 @@ namespace
             a.Asset("graph", animator.graph);
             a.Field("speed", animator.speed);
             a.Field("playing", animator.playing);
+            a.Field("rootMotion", animator.rootMotion);
+            a.Field("rootBone", animator.rootBone);
             // What plays (without a graph).
             int clip = animator.CurrentClip();
             bool loop = animator.Loop();

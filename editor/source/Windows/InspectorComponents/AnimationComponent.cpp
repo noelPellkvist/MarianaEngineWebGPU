@@ -85,6 +85,38 @@ namespace
             ImGui::SetTooltip("Drop an .animgraph file from the Assets window here");
     }
 
+    // Root motion: on/off, the bone it comes from (automatic, or one of the skeleton's), and what it
+    // does as the game runs.
+    void DrawRootMotion(Animator& animator)
+    {
+        ImGui::Checkbox("Root Motion", &animator.rootMotion);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("The root bone's walk and turn move the entity (or its physics character)\ninstead of the hips leaving it behind");
+        if (!animator.rootMotion)
+            return;
+        const Skeleton* skeleton = animator.skeleton.Get().get();
+        const int bound = animator.RootBone();
+        const std::string found = skeleton && bound >= 0 ? std::string(Skeleton::BaseName(skeleton->GetBone(bound).name)) : std::string("none found");
+        const std::string automatic = "Automatic (" + found + ")";
+        ImGui::SetNextItemWidth(-ImGui::GetFontSize() * 6.0f);
+        if (ImGui::BeginCombo("Root Bone", animator.rootBone.empty() ? automatic.c_str() : animator.rootBone.c_str()))
+        {
+            if (ImGui::Selectable(automatic.c_str(), animator.rootBone.empty()))
+                animator.rootBone.clear();
+            for (size_t b = 0; skeleton && b < skeleton->BoneCount(); ++b)
+            {
+                ImGui::PushID(static_cast<int>(b));
+                const std::string& name = skeleton->GetBone(b).name;
+                if (ImGui::Selectable(name.c_str(), animator.rootBone == name))
+                    animator.rootBone = name;
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        const glm::vec3 velocity = animator.RootVelocity();
+        ImGui::TextDisabled("Moving %.2f m/s, turning %.0f deg/s", glm::length(glm::vec2(velocity.x, velocity.z)), glm::degrees(animator.RootTurnRate()));
+    }
+
     std::string ClipName(const Animator& animator, int clip)
     {
         const NamedClip* named = animator.GetClip(clip);
@@ -363,6 +395,7 @@ namespace InspectorComponents
                 animator.SetLoop(loop);
         }
         ImGui::DragFloat("Speed", &animator.speed, 0.01f, -10.0f, 10.0f, "%.2f");
+        DrawRootMotion(animator);
 
         if (!graph)
         {

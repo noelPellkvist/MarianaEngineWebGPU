@@ -4,6 +4,7 @@
 // No window or GPU: colliders, and for soft bodies meshes that only exist on the CPU (without a GPU
 // UploadMesh makes no buffers). Every scenario has a scene and a world of its own and steps exactly
 // 1/60 s at a time.
+#include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Geometry/Primitives.hpp>
 #include <Mariana/Physics/Character.hpp>
@@ -21,6 +22,8 @@
 
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/quaternion.hpp>
+
+#include "TestRig.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -266,6 +269,45 @@ namespace PhysicsScenarios
         Run(scene, world, 360, [&](int step) { walker.Get<CharacterController>()->move = glm::vec3(0.0f, 0.0f, step < 105 ? 1.0f : 0.0f); });
         const glm::vec3 p = Position(walker);
         return Finish(log, "stairs", Format("at y %.3f, z %.2f", p.y, p.z), std::abs(p.y - 2.0f) < 0.05f && p.z > 5.5f && p.z < 9.0f);
+    }
+
+    // A character whose model walks by root motion (a 1 m/s walk clip) goes where the animation
+    // takes it, its model staying on it, and stops at a wall the clip would walk through.
+    inline Result RootMotionCharacter(const Log& log)
+    {
+        using namespace detail;
+        AssetManager2 assets; // outlives the scene, whose components hold handles
+        Scene scene;
+        scene.UpdateComponentRegistry();
+        PhysicsWorld world(scene, Settings());
+        Box(scene, "Ground", glm::vec3(0.0f, -0.5f, 0.0f), glm::vec3(40.0f, 1.0f, 40.0f), MotionType::Static, 0.0f);
+        Box(scene, "Wall", glm::vec3(0.0f, 1.0f, 3.5f), glm::vec3(4.0f, 2.0f, 0.2f), MotionType::Static, 0.0f);
+        Entity walker = Make(scene, "Character", glm::vec3(0.0f));
+        walker.Add<CharacterController>(CharacterController{});
+        Entity model = Make(scene, "Model", glm::vec3(0.0f), walker);
+        const TestRig::Rig rig = TestRig::Make(scene, assets, model, TestRig::Walker(), "test://walker");
+        Animator animator;
+        animator.skeleton = rig.skeleton;
+        animator.rootMotion = true;
+        animator.clips = { TestRig::WalkClip(assets, "Walk", 1.0f) };
+        model.Add<Animator>(animator);
+        model.Get<Animator>()->Play(0);
+        System animation = Animator::CreateSystem(scene);
+
+        float after2 = 0.0f;
+        Run(scene, world, 360, [&](int step) {
+            if (step == 120)
+                after2 = Position(walker).z;
+            animation.Run(kStep);
+        });
+        const glm::vec3 end = Position(walker);
+        const glm::vec3 drift = Position(model);
+        const float radius = CharacterController{}.radius;
+        // The first update binds the clip and doesn't walk: 119 of the 120 frames do.
+        const bool passed = std::abs(after2 - 119.0f / 60.0f) < 0.01f && std::abs(end.z - (3.4f - radius)) < 0.05f && std::abs(end.x) < 0.01f &&
+                            glm::length(drift) < 1e-5f;
+        return Finish(log, "root motion character", Format("walked %.3f m in 2 s (119/60 = %.3f), stopped at z %.3f by a wall at 3.4, its model %.6f m off it", after2, 119.0 / 60.0, end.z, glm::length(drift)),
+                      passed);
     }
 
     // Water 4 m deep: a 0.5 m cube of 500 kg/m^3 floats half under (its center at the surface), one
@@ -522,7 +564,7 @@ namespace PhysicsScenarios
     inline std::vector<Result> RunAll(const Log& log)
     {
         std::vector<Result> results;
-        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &Water, &RagdollFall, &Cloth, &Balloon, &SoftPresets, &CarIntoJelly, &NestedBodies })
+        for (auto scenario : { &Stack, &Ball, &Pendulum, &Car, &Stairs, &RootMotionCharacter, &Water, &RagdollFall, &Cloth, &Balloon, &SoftPresets, &CarIntoJelly, &NestedBodies })
             results.push_back(scenario(log));
         return results;
     }

@@ -270,6 +270,7 @@ struct PhysicsWorld::Impl
         JPH::Ref<JPH::CharacterVirtual> character;
         JPH::BodyID innerBody;
         uint64_t signature = 0;
+        uint64_t animator = 0; // the Animator walking it (root motion, on it or below it); 0 = none
         float yaw = 0.0f;
         bool seen = false;
         bool tracked = false; // stepped since it was made or put somewhere
@@ -443,8 +444,11 @@ struct PhysicsWorld::Impl
     void MoveCharacters(float dt);
     // After each step: where each character is now, into its entity's PhysicsBody.
     void TrackCharacters();
-    // After the steps of a Step call: the jumps asked for are spent.
+    // After the steps of a Step call: the jumps asked for are spent, and the root motion walked.
     void SpendJumps();
+    // The Animator with root motion on a character's entity or below it (not inside another
+    // character), or an invalid entity.
+    Entity RootMotionAnimator(Entity character) const;
     void SyncJoints();
     void RemoveJoint(JointRecord& record);
     // Takes away the joints holding a body (before the body goes).

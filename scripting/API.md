@@ -108,8 +108,7 @@ Entities are the same value while a script holds on to them, so they work as tab
 Every component a scene file saves can be reached by its name, with the fields it is saved with
 (enums by name): `RigidBody`, `BoxCollider`, `SphereCollider`, `CapsuleCollider`,
 `CylinderCollider`, `MeshCollider`, `Joint`, `Vehicle`, `VehicleWheel`, `CharacterController`,
-`PlayerControl`, `FollowCamera`, `WaterVolume`, `Ragdoll`, `SoftBody`, `CameraComponent`,
-`Animator`, `LocalTRS`, ... A vehicle's driver (`throttle`, `steering`, `brake`, `handBrake`) and a
+`WaterVolume`, `Ragdoll`, `SoftBody`, `CameraComponent`, `Animator`, `LocalTRS`, ... A vehicle's driver (`throttle`, `steering`, `brake`, `handBrake`) and a
 character's walk (`move`, `run`, `jump`) are there too, although files don't keep them.
 
 ```lua
@@ -121,8 +120,10 @@ if self.entity:Has("Ragdoll") then self.entity:Get("Ragdoll").mode = "Limp" end
 
 A field that doesn't exist is an error (`pcall` it to try). The Animator also has methods:
 `SetFloat(name, v)`, `SetBool`, `SetTrigger`, `ResetTrigger`, `GetFloat`, `GetBool`,
-`Play(clip, loop?)`, `CrossFade(clip, seconds?, loop?)` (clips by name or index) and
-`CrossFadeState(state, seconds?)`.
+`Play(clip, loop?)`, `CrossFade(clip, seconds?, loop?)` (clips by name or index),
+`CrossFadeState(state, seconds?)` and `GetRootVelocity()` (with `rootMotion = true` the clips' walk
+and turn move the entity, or the character it is on, instead of the hips: this returns the walk in
+m/s along the model's own axes and the turn in degrees per second).
 
 ## scene
 
