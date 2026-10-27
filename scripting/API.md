@@ -45,6 +45,7 @@ return Spin
 | `OnContactBegin(other, contact)` | A body of this entity began touching `other`; `contact` = `{ point, normal, speed }`, the normal pointing from this entity to `other` |
 | `OnContactEnd(other)` | They stopped touching |
 | `OnTriggerEnter(other)` / `OnTriggerExit(other)` | A trigger collider and a body met / parted (both sides get it) |
+| `OnAnimationEvent(name, clip)` | The entity's Animator passed an event of one of its clips (`"Footstep"` at 0.4 s of `"Walk"`), after physics and before `LateUpdate`. Events are set on the clips in the inspector's Animator section (or the graph's clips in the Animation Graph window); a clip fires its events when it makes up at least a quarter of the pose, and an event name once per frame |
 | `OnDestroy()` | The entity was destroyed, the script removed, or the game stopped |
 
 Scripts on an entity run in their order, entities in id order. A script that raises an error is

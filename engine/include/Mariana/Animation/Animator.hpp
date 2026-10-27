@@ -86,6 +86,7 @@ struct Animator
         float fade = 1.0f;
         float fadeDuration = 0.0f;
         float weight = 1.0f;
+        bool fresh = true; // not advanced yet: events at its start fire on its first update
     };
     const std::vector<ClipState>& Playing() const { return m_Playing; }
 
@@ -140,6 +141,19 @@ struct Animator
     // Why its graph isn't used (it doesn't validate), or empty.
     const std::string& GraphError() const { return m_GraphError; }
 
+    // The events the last update passed: a clip's event fires when its time is crossed going the way
+    // the clip plays (loops wrap; one at 0 fires when the clip starts), from clips making up at
+    // least kEventWeight of the pose; a name fires once per update (a walk and a run in step don't
+    // both step). In the order they were found; cleared by the next update.
+    struct FiredEvent
+    {
+        std::string name;
+        std::string clip;
+        float weight = 0.0f;
+    };
+    static constexpr float kEventWeight = 0.25f;
+    const std::vector<FiredEvent>& Events() const { return m_Events; }
+
     // The last pose written, by skeleton bone.
     const Pose& GetPose() const { return m_Pose; }
     // Root motion of the last update: the speed (m/s in the model's space, before its scale) and
@@ -187,6 +201,8 @@ private:
     bool RootAt(int clip, float time, glm::vec3& position, float& yaw) const;
     void StripRoot(int clip, Pose& pose) const;
     void AddRootMotion(int clip, float from, float to, int wraps, float weight);
+    // The events of clip `clip` crossed going from -> to (`step` the way it played).
+    void FireEvents(int clip, float from, float to, float step, bool loop, bool fresh, float weight);
     void ApplyRootMotion(Entity root, float dt);
     void EvaluateClips();
     void EvaluateNode(int node, Pose& out, size_t depth);
@@ -211,6 +227,8 @@ private:
     std::vector<NodeState> m_Nodes;
     std::vector<float> m_MotionWeights; // per node, its share of the root motion
     std::vector<float> m_OldTimes;      // per node, its time before this update advanced it
+    std::vector<uint8_t> m_FreshNodes;  // per node, a clip node that (re)started and hasn't advanced
+    std::vector<FiredEvent> m_Events;
     std::vector<int> m_SyncGroupOf;      // per node, -1 = none
     std::vector<SyncGroup> m_SyncGroups;
     std::vector<std::vector<float>> m_Masks; // per Layer node

@@ -4,8 +4,10 @@
 #include <Mariana/Animation/AnimationGraph.hpp>
 
 #include <functional>
+#include <vector>
 
 class AssetManager2;
+class UndoStack;
 
 namespace InspectorComponents
 {
@@ -20,5 +22,10 @@ namespace InspectorComponents
 
 namespace InspectorComponents
 {
-    void DrawAnimationComponent(Entity& entity, AssetManager2& assets, const AnimatorActions& actions);
+    // The Animator section; its clips' events are edited as undo steps.
+    void DrawAnimationComponent(Entity& entity, AssetManager2& assets, UndoStack& undo, const AnimatorActions& actions);
+
+    // A clip's events: a strip as long as the clip with a mark per event and the time now, then a row
+    // per event (name, time, remove) and "Add at <now>". True when it changed them.
+    bool DrawClipEvents(std::vector<AnimationEvent>& events, float duration, float now);
 }

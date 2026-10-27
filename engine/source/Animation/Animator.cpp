@@ -398,6 +398,7 @@ void Animator::BindGraph(const AnimationGraph& definition)
     if (m_BoundGraph != &definition || m_Nodes.size() != count)
     {
         m_Nodes.assign(count, NodeState{});
+        m_FreshNodes.assign(count, 1);
         m_SyncGroups.clear();
         m_Machines.assign(count, MachineState{});
     }
@@ -592,6 +593,30 @@ void Animator::AddRootMotion(int clip, float from, float to, int wraps, float we
     m_RootYaw += weight * turn;
 }
 
+void Animator::FireEvents(int clip, float from, float to, float step, bool loop, bool fresh, float weight)
+{
+    const NamedClip* named = GetClip(clip);
+    if (weight < kEventWeight || step == 0.0f || !named || named->events.empty() || clip >= static_cast<int>(m_BoundClips.size()) || !m_BoundClips[clip])
+        return;
+    const float duration = m_BoundClips[clip]->GetDuration();
+    const int wraps = Wraps(from, to, step, loop);
+    const auto crossed = [&](float t) {
+        if (step > 0.0f)
+            return wraps == 0 ? (fresh ? t >= from : t > from) && t <= to : (t > from && t <= duration) || (t >= 0.0f && t <= to);
+        return wraps == 0 ? (fresh ? t <= from : t < from) && t >= to : (t < from && t >= 0.0f) || (t <= duration && t >= to);
+    };
+    for (const AnimationEvent& event : named->events)
+    {
+        if (!crossed(event.time))
+            continue;
+        auto same = std::find_if(m_Events.begin(), m_Events.end(), [&](const FiredEvent& e) { return e.name == event.name; });
+        if (same == m_Events.end())
+            m_Events.push_back({ event.name, named->name, weight });
+        else if (weight > same->weight)
+            *same = { event.name, named->name, weight };
+    }
+}
+
 void Animator::ApplyRootMotion(Entity root, float dt)
 {
     const glm::vec3 move = m_RootDelta;
@@ -637,6 +662,7 @@ Pose& Animator::Scratch(size_t depth)
 
 void Animator::Update(Entity root, float dt)
 {
+    m_Events.clear();
     if (!skeleton.Get())
         return;
     if (!graph.Get() && m_Playing.empty())
@@ -690,6 +716,13 @@ void Animator::AdvanceClips(float delta)
         {
             const ClipState& state = m_Playing[i];
             AddRootMotion(state.clip, m_OldTimes[i], state.time, Wraps(m_OldTimes[i], state.time, delta, state.loop), state.weight);
+        }
+    if (delta != 0.0f)
+        for (size_t i = 0; i < m_Playing.size(); ++i)
+        {
+            ClipState& state = m_Playing[i];
+            FireEvents(state.clip, m_OldTimes[i], state.time, delta, state.loop, state.fresh, state.weight);
+            state.fresh = false;
         }
     DropFaded(m_Playing);
 }
@@ -854,6 +887,21 @@ void Animator::AdvanceGraph(float delta)
             m_Nodes[member].time = group.phase * duration(m_Nodes[member].clip);
     }
 
+    // Events: each clip node's, by its share of the pose.
+    if (delta != 0.0f)
+    {
+        m_FreshNodes.resize(m_Nodes.size(), 1);
+        for (size_t i = 0; i < definition.nodes.size(); ++i)
+        {
+            const AnimationNode& node = definition.nodes[i];
+            if (node.type != AnimationNodeType::Clip || m_Nodes[i].weight <= 0.0f)
+                continue;
+            const float step = m_SyncGroupOf[i] >= 0 ? delta : delta * node.speed;
+            FireEvents(m_Nodes[i].clip, m_OldTimes[i], m_Nodes[i].time, step, node.loop, m_FreshNodes[i] != 0, m_Nodes[i].weight);
+            m_FreshNodes[i] = 0;
+        }
+    }
+
     // The root's move: each clip's, by its share of the motion.
     if (rootMotion && m_RootBone >= 0 && delta != 0.0f)
     {
@@ -968,6 +1016,8 @@ void Animator::EnterState(int index, int state)
         if (type == AnimationNodeType::Clip)
         {
             m_Nodes[n].time = 0.0f;
+            if (static_cast<size_t>(n) < m_FreshNodes.size())
+                m_FreshNodes[n] = 1; // its events at 0 fire as it starts
             if (m_SyncGroupOf[n] >= 0)
                 m_SyncGroups[m_SyncGroupOf[n]].phase = 0.0f;
         }

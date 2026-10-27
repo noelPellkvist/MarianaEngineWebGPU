@@ -1,5 +1,6 @@
 #include <Mariana/Scripting/ScriptWorld.hpp>
 
+#include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Foundation/GameClock.hpp>
 #include <Mariana/Foundation/Logger.hpp>
@@ -24,11 +25,13 @@ namespace
     {
         kStart, kUpdate, kLateUpdate, kOnDestroy,
         kOnContactBegin, kOnContactEnd, kOnTriggerEnter, kOnTriggerExit,
+        kOnAnimationEvent,
         kCallbackCount
     };
     const char* const kCallbackNames[kCallbackCount] = {
         "Start", "Update", "LateUpdate", "OnDestroy",
         "OnContactBegin", "OnContactEnd", "OnTriggerEnter", "OnTriggerExit",
+        "OnAnimationEvent",
     };
 
     // A script file loaded into the state: the table it returned, the metatable its instances share
@@ -745,6 +748,25 @@ void ScriptWorld::LateUpdate(float dt)
     if (!w.L)
         return;
     w.DispatchContacts();
+    // The events the entities' Animators passed this frame (instances are in entity id order).
+    for (size_t i = 0; i < w.instances.size(); ++i)
+    {
+        const Entity e = w.scene.FromId(w.instances[i].entity);
+        const Animator* animator = e.IsValid() ? e.TryGet<Animator>() : nullptr;
+        if (!animator || animator->Events().empty())
+            continue;
+        const std::vector<Animator::FiredEvent> events = animator->Events();
+        for (const Animator::FiredEvent& event : events)
+        {
+            Instance& instance = w.instances[i];
+            if (instance.enabled && instance.started)
+                w.Call(instance, kOnAnimationEvent, [&event](lua_State* L) {
+                    lua_pushstring(L, event.name.c_str());
+                    lua_pushstring(L, event.clip.c_str());
+                    return 2;
+                });
+        }
+    }
     for (size_t i = 0; i < w.instances.size(); ++i)
     {
         Instance& instance = w.instances[i];

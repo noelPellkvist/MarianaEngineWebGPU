@@ -107,6 +107,11 @@ namespace
             a.List("clips", animator.clips, [](SceneArchive& e, NamedClip& clip) {
                 e.Field("name", clip.name);
                 e.Asset("clip", clip.clip);
+                if (e.IsLoading() || !clip.events.empty())
+                    e.List("events", clip.events, [](SceneArchive& ev, AnimationEvent& event) {
+                        ev.Field("time", event.time);
+                        ev.Field("name", event.name);
+                    });
             });
             a.Asset("graph", animator.graph);
             a.Field("speed", animator.speed);

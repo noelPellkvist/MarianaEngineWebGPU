@@ -3,6 +3,7 @@
 // build, so both are checked on the same numbers. No window or GPU: scripts given as source or the
 // Sandbox project's (its folder must be a FileSystem root), scenes made in code, physics on
 // colliders, keys simulated. Scripts report what they saw in their entity's name.
+#include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Foundation/GameClock.hpp>
 #include <Mariana/Physics/Components.hpp>
@@ -13,6 +14,8 @@
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Scripting/ScriptWorld.hpp>
+
+#include "../../engine/tests/TestRig.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -46,12 +49,14 @@ namespace ScriptScenarios
             IInput input{ nullptr };
             PhysicsWorld physics;
             ScriptWorld scripts;
+            System animation; // queries the scene: made after it, so destroyed first
 
             World() : physics(scene, Settings()), scripts(scene, assets, clock)
             {
                 scene.UpdateComponentRegistry();
                 ScriptAsset::RegisterLoader(assets);
                 scripts.SetPhysics(&physics);
+                animation = Animator::CreateSystem(scene);
                 clock.Play();
             }
 
@@ -68,6 +73,7 @@ namespace ScriptScenarios
                 {
                     clock.Tick(kStep);
                     scripts.Update(kStep, &input);
+                    animation.Run(kStep);
                     physics.Step(kStep);
                     scripts.LateUpdate(kStep);
                     scene.Update(kStep);
@@ -579,9 +585,40 @@ return Driver
         return Finish(log, "describe", names + (info.error.empty() ? "" : " | " + info.error), passed);
     }
 
+    // A script on a model hears its Animator's events: the name and the clip, each time the clip
+    // passes them (after the frame's physics, before LateUpdate).
+    inline Result AnimationEvents(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        Entity model = w.Make("Dancer");
+        const TestRig::Rig rig = TestRig::Make(w.scene, w.assets, model, TestRig::Walker(), "test://dancer");
+        Animator animator;
+        animator.skeleton = rig.skeleton;
+        NamedClip clip = TestRig::WalkClip(w.assets, "Walk", 1.0f);
+        clip.events = { { 0.5f, "Clap" } };
+        animator.clips = { clip };
+        model.Add<Animator>(animator);
+        model.Get<Animator>()->Play(0);
+        Attach(model, w.Source("Listener.luau", R"(
+local L = {}
+function L:Start()
+    self.heard = {}
+end
+function L:OnAnimationEvent(name, clip)
+    table.insert(self.heard, name .. "@" .. clip .. "@" .. string.format("%.1f", time.time))
+    self.entity.name = table.concat(self.heard, " ")
+end
+return L
+)"));
+        w.Frames(140); // 2.33 s: claps at 0.5 and 1.5
+        const std::string heard = model.GetName();
+        return Finish(log, "animation events", heard, heard == "Clap@Walk@0.5 Clap@Walk@1.5");
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         return { Lifecycle(log), Components(log), Physics(log), Spawning(log), Talking(log), Reload(log), Errors(log), Driving(log),
-                 StandardVehicle(log), StandardCharacter(log), Describe(log) };
+                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log) };
     }
 }

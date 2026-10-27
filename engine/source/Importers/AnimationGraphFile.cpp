@@ -404,7 +404,11 @@ namespace AnimationGraphFile
                     Logger::Warning(file.string() + ": clip " + name + " isn't in " + source.string());
                     continue;
                 }
-                graph->clips.push_back({ name.empty() ? found->name : name, found->clip });
+                NamedClip clip{ name.empty() ? found->name : name, found->clip, {} };
+                if (const auto events = c.find("events"); events != c.end() && events->is_array())
+                    for (const Json& e : *events)
+                        clip.events.push_back({ Number(e, "time", 0.0f), Text(e, "name") });
+                graph->clips.push_back(std::move(clip));
             }
         }
 
@@ -467,7 +471,15 @@ namespace AnimationGraphFile
             std::filesystem::path relative = std::filesystem::relative(source, file.parent_path(), ec);
             if (ec || relative.empty())
                 relative = source;
-            clips.push_back({ { "name", clip.name }, { "file", relative.generic_string() }, { "animation", index } });
+            Json entry = { { "name", clip.name }, { "file", relative.generic_string() }, { "animation", index } };
+            if (!clip.events.empty())
+            {
+                Json events = Json::array();
+                for (const AnimationEvent& event : clip.events)
+                    events.push_back({ { "time", event.time }, { "name", event.name } });
+                entry["events"] = events;
+            }
+            clips.push_back(entry);
         }
         if (!clips.empty())
             json["clips"] = clips;

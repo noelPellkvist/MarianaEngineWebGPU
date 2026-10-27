@@ -1,5 +1,6 @@
 #include <Editor/Windows/InspectorComponents/AnimationComponent.hpp>
 
+#include <Editor/UndoStack.hpp>
 #include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Importers/GLTFLoader.hpp>
 #include <imgui.h>
@@ -115,6 +116,63 @@ namespace
         }
         const glm::vec3 velocity = animator.RootVelocity();
         ImGui::TextDisabled("Moving %.2f m/s, turning %.0f deg/s", glm::length(glm::vec2(velocity.x, velocity.z)), glm::degrees(animator.RootTurnRate()));
+    }
+
+    // Where clip `clip` is now: the time of what plays it (the current clip, or a graph node playing
+    // it), else 0.
+    float ClipTime(const Animator& animator, int clip)
+    {
+        for (const Animator::ClipState& state : animator.Playing())
+            if (state.clip == clip)
+                return state.time;
+        for (const Animator::NodeState& node : animator.Nodes())
+            if (node.clip == clip && node.weight > 0.0f)
+                return node.time;
+        return 0.0f;
+    }
+
+    // The events of the Animator's own clips; each edit (a drag, typing) is one undo step.
+    void DrawEvents(Entity entity, Animator& animator, UndoStack& undo)
+    {
+        struct Pending
+        {
+            uint64_t entity = 0;
+            int clip = -1;
+            std::vector<AnimationEvent> before;
+            bool open = false;
+        };
+        static Pending pending;
+
+        for (int i = 0; i < static_cast<int>(animator.clips.size()); ++i)
+        {
+            NamedClip& named = animator.clips[i];
+            const AnimationClip* clip = named.clip.Get().get();
+            ImGui::PushID(i);
+            const std::string label = named.name + " (" + std::to_string(named.events.size()) + ")";
+            if (ImGui::TreeNodeEx("##events", ImGuiTreeNodeFlags_SpanAvailWidth, "%s", label.c_str()))
+            {
+                const std::vector<AnimationEvent> before = named.events;
+                if (InspectorComponents::DrawClipEvents(named.events, clip ? clip->GetDuration() : 0.0f, ClipTime(animator, i)) &&
+                    !(pending.open && pending.entity == entity.RawId() && pending.clip == i))
+                    pending = { entity.RawId(), i, before, true };
+                ImGui::TreePop();
+            }
+            if (pending.open && pending.entity == entity.RawId() && pending.clip == i && !ImGui::IsAnyItemActive())
+            {
+                pending.open = false;
+                const std::vector<AnimationEvent> old = pending.before, now = named.events;
+                const std::string name = named.name;
+                auto set = [entity, i, name](const std::vector<AnimationEvent>& events) mutable {
+                    if (Animator* a = entity.IsValid() ? entity.Get<Animator>() : nullptr)
+                        if (i < static_cast<int>(a->clips.size()) && a->clips[i].name == name)
+                            a->clips[i].events = events;
+                };
+                undo.Push("Edit events of " + name, [set, old]() mutable { set(old); }, [set, now]() mutable { set(now); });
+            }
+            ImGui::PopID();
+        }
+        if (animator.ClipCount() > static_cast<int>(animator.clips.size()))
+            ImGui::TextDisabled("The graph's own clips have their events in the graph (Animation Graph window).");
     }
 
     std::string ClipName(const Animator& animator, int clip)
@@ -361,7 +419,73 @@ namespace
 
 namespace InspectorComponents
 {
-    void DrawAnimationComponent(Entity& entity, AssetManager2& assets, const AnimatorActions& actions)
+    bool DrawClipEvents(std::vector<AnimationEvent>& events, float duration, float now)
+    {
+        bool changed = false;
+        // The strip: the clip's length, a mark per event (its name on hover), the time now.
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        const float width = std::max(ImGui::GetContentRegionAvail().x, 40.0f);
+        const float height = ImGui::GetFrameHeight();
+        ImGui::InvisibleButton("##strip", ImVec2(width, height));
+        const bool hovered = ImGui::IsItemHovered();
+        draw->AddRectFilled(origin, ImVec2(origin.x + width, origin.y + height), IM_COL32(30, 30, 36, 255), 3.0f);
+        const auto xOf = [&](float t) { return origin.x + (duration > 0.0f ? std::clamp(t / duration, 0.0f, 1.0f) : 0.0f) * width; };
+        const AnimationEvent* under = nullptr;
+        for (const AnimationEvent& event : events)
+        {
+            const float x = xOf(event.time);
+            draw->AddTriangleFilled(ImVec2(x - 4.0f, origin.y + 2.0f), ImVec2(x + 4.0f, origin.y + 2.0f), ImVec2(x, origin.y + 9.0f), IM_COL32(255, 170, 60, 255));
+            draw->AddLine(ImVec2(x, origin.y + 2.0f), ImVec2(x, origin.y + height - 2.0f), IM_COL32(255, 170, 60, 200));
+            if (hovered && std::abs(ImGui::GetMousePos().x - x) < 5.0f)
+                under = &event;
+        }
+        const float nowX = xOf(now);
+        draw->AddLine(ImVec2(nowX, origin.y), ImVec2(nowX, origin.y + height), IM_COL32(120, 200, 255, 255), 2.0f);
+        if (under)
+            ImGui::SetTooltip("%s at %.3f s", under->name.c_str(), under->time);
+        else if (hovered)
+            ImGui::SetTooltip("%.3f s long; now at %.3f s", duration, now);
+
+        int removed = -1;
+        for (int i = 0; i < static_cast<int>(events.size()); ++i)
+        {
+            ImGui::PushID(i);
+            char name[64] = {};
+            std::strncpy(name, events[i].name.c_str(), sizeof(name) - 1);
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
+            if (ImGui::InputText("##name", name, sizeof(name)))
+            {
+                events[i].name = name;
+                changed = true;
+            }
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() * 1.5f);
+            changed |= ImGui::DragFloat("##time", &events[i].time, 0.005f, 0.0f, std::max(duration, 0.0f), "%.3f s", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("x"))
+                removed = i;
+            ImGui::PopID();
+        }
+        if (removed >= 0)
+        {
+            events.erase(events.begin() + removed);
+            changed = true;
+        }
+        char add[48];
+        std::snprintf(add, sizeof(add), "Add at %.3f s", now);
+        if (ImGui::SmallButton(add))
+        {
+            events.push_back({ std::clamp(now, 0.0f, std::max(duration, 0.0f)), "Event" });
+            std::stable_sort(events.begin(), events.end(), [](const AnimationEvent& a, const AnimationEvent& b) { return a.time < b.time; });
+            changed = true;
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Scripts on the entity hear it in OnAnimationEvent(self, name, clip)");
+        return changed;
+    }
+
+    void DrawAnimationComponent(Entity& entity, AssetManager2& assets, UndoStack& undo, const AnimatorActions& actions)
     {
         if (!entity.Has<Animator>())
             return;
@@ -408,6 +532,8 @@ namespace InspectorComponents
 
         ImGui::SeparatorText("Clips");
         DrawClips(animator, assets, graph != nullptr);
+        ImGui::SeparatorText("Events");
+        DrawEvents(entity, animator, undo);
 
         if (graph)
         {

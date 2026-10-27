@@ -15,6 +15,10 @@ namespace
         options.optimizationLevel = 1; // keeps line numbers and names for errors
         options.debugLevel = 1;
         options.vectorCtor = "vec3";   // vec3(x, y, z) builds a vector in place
+        // Luau resolves paths like `time.time` once, when a script loads, and keeps the value (an
+        // "import"); `time` changes every frame, so it is read each time instead.
+        static const char* const kMutableGlobals[] = { "time", nullptr };
+        options.mutableGlobals = kMutableGlobals;
         return options;
     }
 

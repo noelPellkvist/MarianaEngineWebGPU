@@ -10,11 +10,21 @@
 
 class Skeleton;
 
-// A clip under the name graphs refer to it by (what an Animator and a graph hold).
+// A moment of a clip game code hears of ("Footstep" at 0.4 s): Animator::Events, and a script's
+// OnAnimationEvent on the Animator's entity.
+struct AnimationEvent
+{
+    float time = 0.0f; // seconds into the clip
+    std::string name;
+};
+
+// A clip under the name graphs refer to it by (what an Animator and a graph hold), with its events
+// (kept where the clip is named: a scene's Animator, an .animgraph file).
 struct NamedClip
 {
     std::string name;
     AssetHandle<AnimationClip> clip;
+    std::vector<AnimationEvent> events;
 };
 
 enum class AnimationParameterType { Float, Bool, Trigger };

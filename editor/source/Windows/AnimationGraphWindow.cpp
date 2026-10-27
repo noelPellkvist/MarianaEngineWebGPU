@@ -1,6 +1,7 @@
 #include <Editor/Windows/AnimationGraphWindow.hpp>
 
 #include <Editor/UndoStack.hpp>
+#include <Editor/Windows/InspectorComponents/AnimationComponent.hpp>
 #include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Importers/AnimationGraphFile.hpp>
@@ -579,6 +580,19 @@ void AnimationGraphWindow::DrawClips()
         ImGui::SameLine();
         if (ImGui::SmallButton("x"))
             removed = i;
+        // Its events, edited on a copy so the step starts from what was there.
+        if (ImGui::TreeNodeEx("##events", ImGuiTreeNodeFlags_SpanAvailWidth, "Events (%zu)", graph.clips[i].events.size()))
+        {
+            std::vector<AnimationEvent> events = graph.clips[i].events;
+            const AnimationClip* clip = graph.clips[i].clip.Get().get();
+            if (InspectorComponents::DrawClipEvents(events, clip ? clip->GetDuration() : 0.0f, 0.0f))
+            {
+                Begin("Edit events");
+                G().clips[i].events = events;
+                Changed();
+            }
+            ImGui::TreePop();
+        }
         ImGui::PopID();
     }
     if (removed >= 0)

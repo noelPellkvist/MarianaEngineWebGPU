@@ -12,6 +12,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
+#include <string>
 
 namespace EngineScenarios
 {
@@ -113,6 +115,52 @@ namespace EngineScenarios
         const float more = YawDegreesOf(w.root);
         const bool passed = std::abs(yaw - 90.0f) < 0.05f && std::abs(hipsYaw) < 0.05f && std::abs(std::remainder(more - 180.0f, 360.0f)) < 0.1f;
         return Finish(log, "root motion turn", Format("turned %.3f deg in 1 s (the hips %.3f), %.3f after 2 s", yaw, hipsYaw, more), passed);
+    }
+
+    // Events fire once each time the clip passes them (loops wrap; one at 0 fires as the clip starts),
+    // a name once per update (two clips in step with the same event step once), and only from clips
+    // making up at least a quarter of the pose.
+    inline Result AnimationEventsFire(const Log& log)
+    {
+        using namespace detail;
+        std::map<std::string, int> heard;
+        const auto listen = [&](Walker& w, int frames) {
+            for (int i = 0; i < frames; ++i)
+            {
+                w.animation.Run(kStep);
+                for (const Animator::FiredEvent& e : w.Get().Events())
+                    ++heard[e.name + "@" + e.clip];
+            }
+        };
+
+        Walker a;
+        NamedClip walk = TestRig::WalkClip(a.assets, "Walk", 1.0f);
+        walk.events = { { 0.0f, "Start" }, { 0.25f, "Left" }, { 0.75f, "Right" }, { 1.0f, "End" } };
+        a.Get().clips = { walk };
+        a.Get().Play(0);
+        listen(a, 150); // 2.5 s
+        const bool loops = heard["Start@Walk"] == 3 && heard["Left@Walk"] == 3 && heard["Right@Walk"] == 2 && heard["End@Walk"] == 2;
+        const std::string first = Format("over 2.5 s Start %.0f, Left %.0f, Right %.0f, End %.0f", heard["Start@Walk"], heard["Left@Walk"], heard["Right@Walk"], heard["End@Walk"]);
+
+        heard.clear();
+        Walker b;
+        NamedClip slow = TestRig::WalkClip(b.assets, "Walk", 1.0f), fast = TestRig::WalkClip(b.assets, "Run", 3.0f);
+        slow.events = { { 0.5f, "Step" }, { 0.2f, "WalkOnly" } };
+        fast.events = { { 0.5f, "Step" } };
+        b.Get().clips = { slow, fast };
+        AnimationGraph::Builder builder;
+        builder.Float("speed", 0.5f);
+        builder.Output(builder.Blend1D("speed", { { builder.Clip("Walk", { 1.0f, true, "move" }), 0.0f }, { builder.Clip("Run", { 1.0f, true, "move" }), 1.0f } }));
+        b.Get().graph = b.assets.RegisterAsset<AnimationGraph>(builder.Build(), AssetType::AnimationGraph, "Moves", "test://graph/moves");
+        listen(b, 120);
+        const int steps = heard["Step@Walk"] + heard["Step@Run"], walkOnly = heard["WalkOnly@Walk"];
+        heard.clear();
+        b.Get().SetFloat("speed", 0.9f); // the walk at 10%: too little to fire
+        listen(b, 120);
+        const int fastSteps = heard["Step@Run"] + heard["Step@Walk"], quiet = heard["WalkOnly@Walk"];
+        const bool passed = loops && steps == 2 && walkOnly == 2 && fastSteps == 2 && quiet == 0;
+        return Finish(log, "animation events", first + Format("; blended half and half: Step %.0f, WalkOnly %.0f in 2 s; the walk at 10%%: Step %.0f, WalkOnly %.0f", steps, walkOnly, fastSteps, quiet),
+                      passed);
     }
 
     // A Blend1D half way between a 1 and a 3 m/s walk walks at 2; a layer moving the hips sideways on

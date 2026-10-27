@@ -23,7 +23,7 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "TestRig.hpp"
+#include "../../engine/tests/TestRig.hpp"
 
 #include <algorithm>
 #include <cmath>

@@ -22,6 +22,4 @@ target_link_libraries(MarianaPhysics
 if(NOT EMSCRIPTEN)
   add_executable(MarianaPhysicsTest "${CMAKE_CURRENT_SOURCE_DIR}/tests/SmokeTest.cpp")
   target_link_libraries(MarianaPhysicsTest PRIVATE MarianaPhysics)
-  # Models built in code (engine/tests/TestRig.hpp), for root motion.
-  target_include_directories(MarianaPhysicsTest PRIVATE "${PROJECT_SOURCE_DIR}/engine/tests")
 endif()
