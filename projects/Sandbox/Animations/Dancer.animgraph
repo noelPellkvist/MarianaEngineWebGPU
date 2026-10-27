@@ -1,0 +1,12 @@
+{
+  "parameters": [
+    { "name": "lookTarget", "type": "vector", "default": [0, 0, 0] },
+    { "name": "lookWeight", "type": "float", "default": 0 }
+  ],
+  "nodes": [
+    { "name": "Dance", "type": "clip", "clip": "Armature|mixamo.com|Layer0", "position": [-240, 0] },
+    { "name": "Watch", "type": "lookAt", "position": [0, 0], "inputs": ["Dance"], "bone": "Head", "target": "lookTarget",
+      "chain": 3, "angleLimit": 70, "weight": "lookWeight" }
+  ],
+  "output": "Watch"
+}

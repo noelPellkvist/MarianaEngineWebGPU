@@ -22,8 +22,8 @@ namespace
         return std::round(static_cast<double>(value) * 1e6) / 1e6;
     }
 
-    const char* const kTypeNames[] = { "clip", "blend", "blend1d", "blend2d", "additive", "layer", "stateMachine" };
-    const char* const kParameterTypes[] = { "float", "bool", "trigger" };
+    const char* const kTypeNames[] = { "clip", "blend", "blend1d", "blend2d", "additive", "layer", "stateMachine", "twoBoneIK", "lookAt" };
+    const char* const kParameterTypes[] = { "float", "bool", "trigger", "vector" };
     const char* const kConditionModes[] = { "if", "ifNot", "greater", "less", "equals", "notEquals" };
 
     template <size_t N>
@@ -167,6 +167,20 @@ namespace
             json["weight"] = writer.Weight(node.weight);
             break;
         }
+        case AnimationNodeType::TwoBoneIK:
+        case AnimationNodeType::LookAt:
+            json["inputs"] = inputs();
+            json["bone"] = node.bone;
+            json["target"] = writer.Parameter(node.parameter);
+            if (node.type == AnimationNodeType::TwoBoneIK && node.parameterY >= 0)
+                json["pole"] = writer.Parameter(node.parameterY);
+            if (node.type == AnimationNodeType::LookAt)
+            {
+                json["chain"] = node.chainLength;
+                json["angleLimit"] = Clean(node.angleLimit);
+            }
+            json["weight"] = writer.Weight(node.weight);
+            break;
         case AnimationNodeType::StateMachine:
         {
             auto stateName = [&](int state) { return state >= 0 && state < static_cast<int>(node.states.size()) ? Json(node.states[state]) : Json(nullptr); };
@@ -297,6 +311,16 @@ namespace
                     node.mask.entries.push_back({ Text(entry, "bone"), Number(entry, "weight", 1.0f) });
             node.weight = ReadWeight(graph, json);
             break;
+        case AnimationNodeType::TwoBoneIK:
+        case AnimationNodeType::LookAt:
+            readInputs();
+            node.bone = Text(json, "bone");
+            node.parameter = json.contains("target") ? ReadParameter(graph, json["target"]) : -1;
+            node.parameterY = json.contains("pole") ? ReadParameter(graph, json["pole"]) : -1;
+            node.chainLength = static_cast<int>(Number(json, "chain", 1.0f));
+            node.angleLimit = Number(json, "angleLimit", 80.0f);
+            node.weight = ReadWeight(graph, json);
+            break;
         case AnimationNodeType::StateMachine:
         {
             if (const auto it = json.find("states"); it != json.end() && it->is_array())
@@ -381,7 +405,12 @@ namespace AnimationGraphFile
                 const int type = IndexOf(kParameterTypes, Text(p, "type"));
                 parameter.type = type < 0 ? AnimationParameterType::Float : static_cast<AnimationParameterType>(type);
                 if (const auto d = p.find("default"); d != p.end())
-                    parameter.defaultValue = d->is_boolean() ? (d->get<bool>() ? 1.0f : 0.0f) : d->is_number() ? d->get<float>() : 0.0f;
+                {
+                    if (d->is_array() && d->size() == 3 && (*d)[0].is_number() && (*d)[1].is_number() && (*d)[2].is_number())
+                        parameter.defaultVector = glm::vec3((*d)[0].get<float>(), (*d)[1].get<float>(), (*d)[2].get<float>());
+                    else
+                        parameter.defaultValue = d->is_boolean() ? (d->get<bool>() ? 1.0f : 0.0f) : d->is_number() ? d->get<float>() : 0.0f;
+                }
                 graph->parameters.push_back(std::move(parameter));
             }
         }
@@ -453,6 +482,8 @@ namespace AnimationGraphFile
                 p["default"] = Clean(parameter.defaultValue);
             else if (parameter.type == AnimationParameterType::Bool)
                 p["default"] = parameter.defaultValue != 0.0f;
+            else if (parameter.type == AnimationParameterType::Vector)
+                p["default"] = Json::array({ Clean(parameter.defaultVector.x), Clean(parameter.defaultVector.y), Clean(parameter.defaultVector.z) });
             parameters.push_back(p);
         }
         json["parameters"] = parameters;

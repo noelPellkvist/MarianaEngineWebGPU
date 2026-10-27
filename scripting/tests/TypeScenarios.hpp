@@ -87,7 +87,7 @@ return L
         std::string problems;
         int checked = 0;
         for (const char* script : { "/Scripts/VehicleDriver.luau", "/Scripts/CharacterDriver.luau", "/Scripts/ChaseCamera.luau",
-                                    "/Scripts/Respawn.luau", "/Scripts/LaunchPad.luau", "/Scripts/Hover.luau" })
+                                    "/Scripts/Respawn.luau", "/Scripts/LaunchPad.luau", "/Scripts/Hover.luau", "/Scripts/WatchCar.luau" })
         {
             const std::string source = ReadResource(script);
             if (source.empty())
@@ -101,7 +101,7 @@ return L
                 problems += std::string(" | ") + script + Lines(diagnostics);
         }
         return Finish(log, "sandbox scripts", std::to_string(checked) + " checked" + (problems.empty() ? ", no problems" : problems),
-                      checked == 6 && problems.empty());
+                      checked == 7 && problems.empty());
     }
 
     // A script with mistakes gets a problem on each line that has one, and only there.

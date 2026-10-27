@@ -128,6 +128,9 @@ bool AnimationGraph::Validate(std::string& error) const
     auto floatParameter = [&](int parameter) {
         return parameter >= 0 && parameter < static_cast<int>(parameters.size()) && parameters[parameter].type == AnimationParameterType::Float;
     };
+    auto vectorParameter = [&](int parameter) {
+        return parameter >= 0 && parameter < static_cast<int>(parameters.size()) && parameters[parameter].type == AnimationParameterType::Vector;
+    };
 
     if (output < 0 || output >= count)
     {
@@ -227,10 +230,39 @@ bool AnimationGraph::Validate(std::string& error) const
                         error = which + " tests a parameter that doesn't exist";
                         return false;
                     }
+                    if (vectorParameter(condition.parameter))
+                    {
+                        error = which + " tests a vector parameter";
+                        return false;
+                    }
                 }
             }
             break;
         }
+        case AnimationNodeType::TwoBoneIK:
+        case AnimationNodeType::LookAt:
+            inputs = 1;
+            if (node.bone.empty())
+            {
+                error = describe(i) + " names no bone";
+                return false;
+            }
+            if (!vectorParameter(node.parameter))
+            {
+                error = describe(i) + " needs a vector parameter for its target";
+                return false;
+            }
+            if (node.type == AnimationNodeType::TwoBoneIK && node.parameterY >= 0 && !vectorParameter(node.parameterY))
+            {
+                error = describe(i) + " has a pole that isn't a vector parameter";
+                return false;
+            }
+            if (node.weight.parameter >= 0 && !floatParameter(node.weight.parameter))
+            {
+                error = describe(i) + " has a weight parameter that isn't a float";
+                return false;
+            }
+            break;
         default:
             if (node.weight.parameter >= 0 && !floatParameter(node.weight.parameter))
             {
@@ -286,6 +318,14 @@ int AnimationGraph::Builder::Bool(std::string name, bool value)
 int AnimationGraph::Builder::Trigger(std::string name)
 {
     m_Graph.parameters.push_back({ std::move(name), AnimationParameterType::Trigger, 0.0f });
+    return static_cast<int>(m_Graph.parameters.size()) - 1;
+}
+
+int AnimationGraph::Builder::Vector(std::string name, glm::vec3 value)
+{
+    AnimationParameter parameter{ std::move(name), AnimationParameterType::Vector, 0.0f };
+    parameter.defaultVector = value;
+    m_Graph.parameters.push_back(std::move(parameter));
     return static_cast<int>(m_Graph.parameters.size()) - 1;
 }
 
@@ -380,6 +420,33 @@ int AnimationGraph::Builder::Layer(int base, int layer, BoneMask mask, Animation
     node.mask = std::move(mask);
     node.weight = weight;
     node.layerMode = mode;
+    return Add(std::move(node));
+}
+
+int AnimationGraph::Builder::TwoBoneIK(int input, std::string bone, std::string_view target, std::string_view pole, AnimationWeight weight)
+{
+    AnimationNode node;
+    node.type = AnimationNodeType::TwoBoneIK;
+    node.name = "Two Bone IK";
+    node.inputs = { input };
+    node.bone = std::move(bone);
+    node.parameter = Parameter(target).parameter;
+    node.parameterY = pole.empty() ? -1 : Parameter(pole).parameter;
+    node.weight = weight;
+    return Add(std::move(node));
+}
+
+int AnimationGraph::Builder::LookAt(int input, std::string bone, std::string_view target, int chainLength, float angleLimit, AnimationWeight weight)
+{
+    AnimationNode node;
+    node.type = AnimationNodeType::LookAt;
+    node.name = "Look At";
+    node.inputs = { input };
+    node.bone = std::move(bone);
+    node.parameter = Parameter(target).parameter;
+    node.chainLength = chainLength;
+    node.angleLimit = angleLimit;
+    node.weight = weight;
     return Add(std::move(node));
 }
 

@@ -23,6 +23,8 @@ namespace
         case AnimationNodeType::Additive: return "Additive";
         case AnimationNodeType::Layer:    return "Layer";
         case AnimationNodeType::StateMachine: return "State Machine";
+        case AnimationNodeType::TwoBoneIK: return "Two Bone IK";
+        case AnimationNodeType::LookAt: return "Look At";
         }
         return "?";
     }
@@ -357,6 +359,13 @@ namespace
                 ImGui::SameLine();
                 ImGui::TextDisabled("%s", value != 0.0f ? "set" : "trigger");
                 break;
+            case AnimationParameterType::Vector:
+            {
+                glm::vec3 vector = animator.GetVectorParameter(i);
+                if (ImGui::DragFloat3(parameter.name.c_str(), &vector.x, 0.05f))
+                    animator.SetVectorParameter(i, vector);
+                break;
+            }
             }
             ImGui::PopID();
         }

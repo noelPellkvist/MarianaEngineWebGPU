@@ -99,6 +99,11 @@ struct Animator
     bool GetBool(std::string_view name) const;
     float GetParameter(int index) const;
     void SetParameter(int index, float value);
+    // Vector parameters (IK targets: world positions).
+    void SetVector(std::string_view name, const glm::vec3& value);
+    glm::vec3 GetVector(std::string_view name) const;
+    glm::vec3 GetVectorParameter(int index) const;
+    void SetVectorParameter(int index, const glm::vec3& value);
 
     // Per graph node, as of the last update: its share of the pose, and for clips the clip
     // (index into `clips`, -1 = not found) and its time.
@@ -191,6 +196,12 @@ private:
     bool ConditionsHold(const AnimationTransition& transition) const;
     // `motion`: the share of the root motion (none from a layer's or an additive's second input).
     void Weigh(int node, float weight, float motion);
+    // IK, in the model's space (the Animator's entity's): a bone's transform and turn in a pose, and
+    // the two solvers.
+    glm::mat4 ModelMatrix(const Pose& pose, int bone) const;
+    glm::quat ModelRotation(const Pose& pose, int bone) const;
+    void SolveTwoBoneIK(int node, Pose& pose) const;
+    void SolveLookAt(int node, Pose& pose) const;
     float WeightOf(const AnimationWeight& weight) const;
     void Segment(const AnimationNode& node, int& a, int& b, float& t) const;
     void SampleInto(int clip, float time, Pose& pose) const;
@@ -215,6 +226,7 @@ private:
     mutable uint32_t m_ParameterRevision = 0;
     mutable std::vector<std::string> m_ParameterNames;
     mutable std::vector<float> m_Parameters;
+    mutable std::vector<glm::vec3> m_Vectors; // per parameter; what Vector ones hold
 
     // Found by Bind for the current skeleton, clips and graph (not copied).
     const Skeleton* m_BoundSkeleton = nullptr;
@@ -236,6 +248,16 @@ private:
     std::vector<MachineState> m_Machines;    // per state machine node
     std::vector<std::vector<std::vector<int>>> m_StateNodes; // per state machine node, per state: the nodes below it
     std::vector<std::vector<float>> m_BlendWeights; // per Blend2D node, a weight per input
+    // Per IK node: the bones it moves (TwoBoneIK: upper, middle, end; LookAt: from the top of the
+    // chain down to the bone that looks) and, for LookAt, that bone's forward in its own space.
+    struct IKChain
+    {
+        std::vector<int> bones;
+        glm::vec3 forward{ 0.0f, 0.0f, 1.0f };
+    };
+    std::vector<IKChain> m_IK;
+    bool m_HasIK = false;
+    glm::mat4 m_ModelFromWorld{ 1.0f }; // world targets into the model's space, this update
     struct PendingState
     {
         std::string state;

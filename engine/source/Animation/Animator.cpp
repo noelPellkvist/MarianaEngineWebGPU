@@ -1,6 +1,7 @@
 #include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Foundation/Profiler.hpp>
+#include <Mariana/Scene/Transform.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -130,6 +131,7 @@ Animator::Animator(const Animator& other)
       m_ParameterRevision(other.m_ParameterRevision),
       m_ParameterNames(other.m_ParameterNames),
       m_Parameters(other.m_Parameters),
+      m_Vectors(other.m_Vectors),
       m_PendingStates(other.m_PendingStates)
 {
 }
@@ -231,23 +233,34 @@ void Animator::EnsureParameters() const
 
     // A graph edited in place keeps the values of the parameters it still has (by name).
     std::vector<float> values;
+    std::vector<glm::vec3> vectors;
     std::vector<std::string> names;
     if (definition)
     {
         for (const AnimationParameter& parameter : definition->parameters)
         {
             float value = parameter.defaultValue;
+            glm::vec3 vector = parameter.defaultVector;
             if (definition == m_ParameterGraph)
+            {
                 for (size_t i = 0; i < m_ParameterNames.size() && i < m_Parameters.size(); ++i)
-                    if (m_ParameterNames[i] == parameter.name)
-                        value = m_Parameters[i];
+                {
+                    if (m_ParameterNames[i] != parameter.name)
+                        continue;
+                    value = m_Parameters[i];
+                    if (i < m_Vectors.size())
+                        vector = m_Vectors[i];
+                }
+            }
             values.push_back(value);
+            vectors.push_back(vector);
             names.push_back(parameter.name);
         }
     }
     m_ParameterGraph = definition;
     m_ParameterRevision = definition ? definition->Revision() : 0;
     m_Parameters = std::move(values);
+    m_Vectors = std::move(vectors);
     m_ParameterNames = std::move(names);
 }
 
@@ -294,6 +307,31 @@ void Animator::SetParameter(int index, float value)
     EnsureParameters();
     if (index >= 0 && index < static_cast<int>(m_Parameters.size()))
         m_Parameters[index] = value;
+}
+
+void Animator::SetVector(std::string_view name, const glm::vec3& value)
+{
+    EnsureParameters();
+    SetVectorParameter(m_ParameterGraph ? m_ParameterGraph->FindParameter(name) : -1, value);
+}
+
+glm::vec3 Animator::GetVector(std::string_view name) const
+{
+    EnsureParameters();
+    return GetVectorParameter(m_ParameterGraph ? m_ParameterGraph->FindParameter(name) : -1);
+}
+
+glm::vec3 Animator::GetVectorParameter(int index) const
+{
+    EnsureParameters();
+    return index >= 0 && index < static_cast<int>(m_Vectors.size()) ? m_Vectors[index] : glm::vec3(0.0f);
+}
+
+void Animator::SetVectorParameter(int index, const glm::vec3& value)
+{
+    EnsureParameters();
+    if (index >= 0 && index < static_cast<int>(m_Vectors.size()))
+        m_Vectors[index] = value;
 }
 
 size_t Animator::BoundTracks() const
@@ -415,6 +453,8 @@ void Animator::BindGraph(const AnimationGraph& definition)
     for (SyncGroup& group : m_SyncGroups)
         group.members.clear();
     m_SyncGroupOf.assign(count, -1);
+    m_IK.assign(count, {});
+    m_HasIK = false;
     m_Masks.assign(count, {});
     m_References.assign(count, {});
     m_BlendWeights.assign(count, {});
@@ -439,6 +479,32 @@ void Animator::BindGraph(const AnimationGraph& definition)
         }
         if (node.type == AnimationNodeType::Layer)
             m_Masks[i] = node.mask.Resolve(*m_BoundSkeleton);
+        if (node.type == AnimationNodeType::TwoBoneIK || node.type == AnimationNodeType::LookAt)
+        {
+            // The bones it moves, top first: a limb's upper, middle and end bone, or a look's chain.
+            const Skeleton& bones = *m_BoundSkeleton;
+            const int end = bones.FindBone(node.bone);
+            const int length = node.type == AnimationNodeType::TwoBoneIK ? 3 : std::max(node.chainLength, 1);
+            std::vector<int> chain;
+            for (int b = end; b >= 0 && static_cast<int>(chain.size()) < length; b = bones.GetBone(b).parent)
+                chain.insert(chain.begin(), b);
+            if (end < 0 || (node.type == AnimationNodeType::TwoBoneIK && chain.size() < 3))
+                Logger::Warning("Animator: the graph's node " + node.name + " moves " + node.bone + ", which the skeleton doesn't have" +
+                                (end >= 0 ? " two bones above" : ""));
+            else
+            {
+                m_IK[i].bones = std::move(chain);
+                // Where the bone faces: the model's +Z, as it rests.
+                glm::quat rest(1.0f, 0.0f, 0.0f, 0.0f);
+                for (int b = end; b >= 0; b = bones.GetBone(b).parent)
+                    rest = bones.GetBone(b).rest.rotation * rest;
+                m_IK[i].forward = glm::normalize(glm::inverse(glm::normalize(rest)) * glm::vec3(0.0f, 0.0f, 1.0f));
+                m_HasIK = true;
+                // The bones it turns are written like the ones clips animate.
+                for (int b : m_IK[i].bones)
+                    m_Channels[b] |= kRotation;
+            }
+        }
         if (node.type == AnimationNodeType::Blend2D)
             m_BlendWeights[i].assign(node.inputs.size(), 0.0f);
 
@@ -593,6 +659,157 @@ void Animator::AddRootMotion(int clip, float from, float to, int wraps, float we
     m_RootYaw += weight * turn;
 }
 
+glm::mat4 Animator::ModelMatrix(const Pose& pose, int bone) const
+{
+    glm::mat4 m(1.0f);
+    for (int b = bone; b >= 0; b = m_BoundSkeleton->GetBone(b).parent)
+        m = Local(BoneTransform{ pose.translations[b], pose.rotations[b], pose.scales[b] }) * m;
+    return m;
+}
+
+glm::quat Animator::ModelRotation(const Pose& pose, int bone) const
+{
+    glm::quat q(1.0f, 0.0f, 0.0f, 0.0f);
+    for (int b = bone; b >= 0; b = m_BoundSkeleton->GetBone(b).parent)
+        q = pose.rotations[b] * q;
+    return glm::normalize(q);
+}
+
+namespace
+{
+    // The turn taking direction `from` onto `to` (both unit length), the shortest way.
+    glm::quat Between(const glm::vec3& from, const glm::vec3& to)
+    {
+        const float d = glm::clamp(glm::dot(from, to), -1.0f, 1.0f);
+        if (d > 0.999999f)
+            return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        glm::vec3 axis = glm::cross(from, to);
+        if (glm::length(axis) < 1e-6f)
+        {
+            axis = glm::cross(from, glm::vec3(1.0f, 0.0f, 0.0f));
+            if (glm::length(axis) < 1e-6f)
+                axis = glm::cross(from, glm::vec3(0.0f, 1.0f, 0.0f));
+        }
+        return glm::angleAxis(std::acos(d), glm::normalize(axis));
+    }
+
+    // Turns bone `bone` by `turn` given in the model's space (about its own joint), keeping its parent.
+    void TurnInModel(Pose& pose, int bone, const glm::quat& parentModel, const glm::quat& turn)
+    {
+        const glm::quat model = parentModel * pose.rotations[bone];
+        pose.rotations[bone] = glm::normalize(glm::inverse(parentModel) * (turn * model));
+    }
+}
+
+void Animator::SolveTwoBoneIK(int index, Pose& pose) const
+{
+    const IKChain& chain = m_IK[index];
+    const AnimationNode& node = m_BoundGraph->nodes[index];
+    const float weight = WeightOf(node.weight);
+    if (chain.bones.size() != 3 || weight <= 0.0f)
+        return;
+    const int upper = chain.bones[0], middle = chain.bones[1], end = chain.bones[2];
+    const glm::quat upperBefore = pose.rotations[upper], middleBefore = pose.rotations[middle];
+    const int above = m_BoundSkeleton->GetBone(upper).parent;
+    const glm::quat aboveModel = above >= 0 ? ModelRotation(pose, above) : glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    const glm::vec3 target = glm::vec3(m_ModelFromWorld * glm::vec4(GetVectorParameter(node.parameter), 1.0f));
+
+    glm::vec3 a = glm::vec3(ModelMatrix(pose, upper)[3]);
+    glm::vec3 b = glm::vec3(ModelMatrix(pose, middle)[3]);
+    glm::vec3 c = glm::vec3(ModelMatrix(pose, end)[3]);
+    const float upperLength = glm::length(b - a), lowerLength = glm::length(c - b);
+    if (upperLength < 1e-6f || lowerLength < 1e-6f)
+        return;
+    // As far as the limb reaches (and no nearer than it folds).
+    const float reach = glm::clamp(glm::length(target - a), std::abs(upperLength - lowerLength) + 1e-4f, (upperLength + lowerLength) * 0.9999f);
+    const bool hasPole = node.parameterY >= 0;
+    const glm::vec3 pole = hasPole ? glm::vec3(m_ModelFromWorld * glm::vec4(GetVectorParameter(node.parameterY), 1.0f)) : glm::vec3(0.0f);
+
+    // The middle joint first, about the normal of the plane the limb bends in (the pose's; a
+    // straight limb takes the pole's, else any): open or close it to the angle that makes the reach.
+    glm::vec3 bend = glm::cross(b - a, c - b);
+    if (glm::length(bend) < 1e-6f && hasPole)
+        bend = glm::cross(target - a, pole - a);
+    if (glm::length(bend) < 1e-6f)
+        bend = glm::cross(c - a, glm::vec3(0.0f, 0.0f, 1.0f));
+    if (glm::length(bend) < 1e-6f)
+        bend = glm::cross(c - a, glm::vec3(1.0f, 0.0f, 0.0f));
+    const glm::vec3 axis = glm::normalize(bend);
+    const auto angle = [](const glm::vec3& u, const glm::vec3& v) { return std::acos(glm::clamp(glm::dot(glm::normalize(u), glm::normalize(v)), -1.0f, 1.0f)); };
+    const float middleNow = angle(a - b, c - b);
+    const float middleWanted = std::acos(glm::clamp((upperLength * upperLength + lowerLength * lowerLength - reach * reach) / (2.0f * upperLength * lowerLength), -1.0f, 1.0f));
+    // Which way about the axis opens it: try one, else the other.
+    glm::quat open = glm::angleAxis(middleWanted - middleNow, axis);
+    if (std::abs(angle(a - b, open * (c - b)) - middleWanted) > 1e-3f)
+        open = glm::angleAxis(middleNow - middleWanted, axis);
+    TurnInModel(pose, middle, ModelRotation(pose, upper), open);
+
+    // Then the upper joint: swing the limb's end onto the target...
+    c = glm::vec3(ModelMatrix(pose, end)[3]);
+    glm::quat swing = Between(glm::normalize(c - a), glm::normalize(target - a));
+    // ...and about the reach, so the middle joint goes the pole's way.
+    if (hasPole)
+    {
+        const glm::vec3 along = glm::normalize(target - a);
+        glm::vec3 middleDir = swing * (b - a);
+        middleDir -= along * glm::dot(middleDir, along);
+        glm::vec3 poleDir = pole - a;
+        poleDir -= along * glm::dot(poleDir, along);
+        if (glm::length(middleDir) > 1e-6f && glm::length(poleDir) > 1e-6f)
+            swing = Between(glm::normalize(middleDir), glm::normalize(poleDir)) * swing;
+    }
+    TurnInModel(pose, upper, aboveModel, swing);
+
+    if (weight < 1.0f)
+    {
+        pose.rotations[upper] = glm::slerp(upperBefore, pose.rotations[upper], weight);
+        pose.rotations[middle] = glm::slerp(middleBefore, pose.rotations[middle], weight);
+    }
+}
+
+void Animator::SolveLookAt(int index, Pose& pose) const
+{
+    const IKChain& chain = m_IK[index];
+    const AnimationNode& node = m_BoundGraph->nodes[index];
+    const float weight = WeightOf(node.weight);
+    if (chain.bones.empty() || weight <= 0.0f)
+        return;
+    const int head = chain.bones.back();
+    std::vector<glm::quat> before;
+    for (int bone : chain.bones)
+        before.push_back(pose.rotations[bone]);
+    const glm::vec3 target = glm::vec3(m_ModelFromWorld * glm::vec4(GetVectorParameter(node.parameter), 1.0f));
+
+    // Where it should look from where its eye is: toward the target, at most the angle limit away
+    // from where the pose has it facing.
+    const glm::vec3 facing = glm::normalize(ModelRotation(pose, head) * chain.forward);
+    const float limit = glm::radians(std::clamp(node.angleLimit, 0.0f, 180.0f));
+    const auto wanted = [&]() {
+        const glm::vec3 eye = glm::vec3(ModelMatrix(pose, head)[3]);
+        if (glm::length(target - eye) < 1e-4f)
+            return facing;
+        const glm::vec3 to = glm::normalize(target - eye);
+        const float apart = std::acos(glm::clamp(glm::dot(facing, to), -1.0f, 1.0f));
+        return apart <= limit ? to : glm::normalize(glm::slerp(glm::quat(1.0f, 0.0f, 0.0f, 0.0f), Between(facing, to), limit / apart) * facing);
+    };
+
+    // Each bone of the chain, from the top, turns its share of what is left; the last one finishes.
+    const size_t count = chain.bones.size();
+    for (size_t k = 0; k < count; ++k)
+    {
+        const int bone = chain.bones[k];
+        const glm::vec3 now = glm::normalize(ModelRotation(pose, head) * chain.forward);
+        const glm::quat left = Between(now, wanted());
+        const glm::quat share = glm::slerp(glm::quat(1.0f, 0.0f, 0.0f, 0.0f), left, 1.0f / static_cast<float>(count - k));
+        const int parent = m_BoundSkeleton->GetBone(bone).parent;
+        TurnInModel(pose, bone, parent >= 0 ? ModelRotation(pose, parent) : glm::quat(1.0f, 0.0f, 0.0f, 0.0f), share);
+    }
+
+    if (weight < 1.0f)
+        for (size_t k = 0; k < count; ++k)
+            pose.rotations[chain.bones[k]] = glm::slerp(before[k], pose.rotations[chain.bones[k]], weight);
+}
+
 void Animator::FireEvents(int clip, float from, float to, float step, bool loop, bool fresh, float weight)
 {
     const NamedClip* named = GetClip(clip);
@@ -686,6 +903,9 @@ void Animator::Update(Entity root, float dt)
     ApplyRootMotion(root, playing && !justBound ? dt : 0.0f);
 
     Profiler::Count("Animators", 1.0);
+    // IK targets are world positions: where the entity is now takes them into the model's space.
+    if (useGraph && m_HasIK && root.GetScene())
+        m_ModelFromWorld = glm::inverse(WorldMatrix(*root.GetScene(), root));
     // Paused or held at the end: the pose is already written (unless something else moved the bones).
     if (!StateChanged(useGraph) && !m_Refresh)
         return;
@@ -812,6 +1032,10 @@ void Animator::Weigh(int index, float weight, float motion)
     case AnimationNodeType::StateMachine:
         for (const ActiveState& active : m_Machines[index].active)
             Weigh(node.inputs[active.state], weight * active.weight, motion * active.weight);
+        break;
+    case AnimationNodeType::TwoBoneIK:
+    case AnimationNodeType::LookAt:
+        Weigh(node.inputs[0], weight, motion);
         break;
     }
 }
@@ -1220,6 +1444,16 @@ void Animator::EvaluateNode(int index, Pose& out, size_t depth)
         return;
     }
 
+    case AnimationNodeType::TwoBoneIK:
+        EvaluateNode(node.inputs[0], out, depth);
+        SolveTwoBoneIK(index, out);
+        return;
+
+    case AnimationNodeType::LookAt:
+        EvaluateNode(node.inputs[0], out, depth);
+        SolveLookAt(index, out);
+        return;
+
     case AnimationNodeType::StateMachine:
     {
         const std::vector<ActiveState>& active = m_Machines[index].active;
@@ -1246,6 +1480,13 @@ bool Animator::StateChanged(bool useGraph)
     if (useGraph)
     {
         m_State.insert(m_State.end(), m_Parameters.begin(), m_Parameters.end());
+        if (m_HasIK)
+        {
+            for (const glm::vec3& v : m_Vectors)
+                m_State.insert(m_State.end(), { v.x, v.y, v.z });
+            const float* m = &m_ModelFromWorld[0][0];
+            m_State.insert(m_State.end(), m, m + 16);
+        }
         for (const NodeState& node : m_Nodes)
             m_State.push_back(node.time);
         for (const MachineState& machine : m_Machines)

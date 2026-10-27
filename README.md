@@ -46,6 +46,7 @@ _If it runs in your browser and on your PC with the same codebase, that’s not 
 
 **Animation**
 - Clips, cross-fades, 1D/2D blend spaces, additive layers, bone masks and state machines, saved as `.animgraph` files and edited in a node graph editor
+- Root motion (the clip walks the model, or its physics character), animation events that call Lua scripts, and IK nodes: two-bone (hands, feet) and look-at (head and spine)
 
 **Physics** (Jolt Physics, native and web)
 - Rigid bodies with box, sphere, capsule, cylinder, mesh and convex colliders; triggers, raycasts, shape casts, contact events, layers

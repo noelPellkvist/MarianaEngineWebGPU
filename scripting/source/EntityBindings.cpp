@@ -362,6 +362,8 @@ namespace ScriptingInternal
         int AnimResetTrigger(lua_State* L) { CheckAnimator(L).ResetTrigger(luaL_checkstring(L, 2)); return 0; }
         int AnimGetFloat(lua_State* L) { lua_pushnumber(L, CheckAnimator(L).GetFloat(luaL_checkstring(L, 2))); return 1; }
         int AnimGetBool(lua_State* L) { lua_pushboolean(L, CheckAnimator(L).GetBool(luaL_checkstring(L, 2))); return 1; }
+        int AnimSetVector(lua_State* L) { CheckAnimator(L).SetVector(luaL_checkstring(L, 2), CheckVector(L, 3)); return 0; }
+        int AnimGetVector(lua_State* L) { PushVector(L, CheckAnimator(L).GetVector(luaL_checkstring(L, 2))); return 1; }
         int AnimPlay(lua_State* L)
         {
             Animator& animator = CheckAnimator(L);
@@ -403,6 +405,8 @@ namespace ScriptingInternal
             case kCrossFade: return AnimCrossFade;
             case kCrossFadeState: return AnimCrossFadeState;
             case kGetRootVelocity: return AnimGetRootVelocity;
+            case kSetVector: return AnimSetVector;
+            case kGetVector: return AnimGetVector;
             default: return nullptr;
             }
         }

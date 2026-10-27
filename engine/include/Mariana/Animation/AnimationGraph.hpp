@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 #include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 
 class Skeleton;
 
@@ -27,14 +28,17 @@ struct NamedClip
     std::vector<AnimationEvent> events;
 };
 
-enum class AnimationParameterType { Float, Bool, Trigger };
+// Vector: a point in the world (an IK target), set with Animator::SetVector.
+enum class AnimationParameterType { Float, Bool, Trigger, Vector };
 
-// A value the game sets on an Animator (Animator::SetFloat/SetBool/SetTrigger) that the graph reads.
+// A value the game sets on an Animator (Animator::SetFloat/SetBool/SetTrigger/SetVector) that the
+// graph reads.
 struct AnimationParameter
 {
     std::string name;
     AnimationParameterType type = AnimationParameterType::Float;
     float defaultValue = 0.0f; // bools and triggers: 0 or 1
+    glm::vec3 defaultVector{ 0.0f };
 };
 
 // How much of a node's second input there is: a constant, or a float parameter's value. Either is
@@ -61,7 +65,7 @@ struct BoneMask
     std::vector<float> Resolve(const Skeleton& skeleton) const;
 };
 
-enum class AnimationNodeType { Clip, Blend, Blend1D, Blend2D, Additive, Layer, StateMachine };
+enum class AnimationNodeType { Clip, Blend, Blend1D, Blend2D, Additive, Layer, StateMachine, TwoBoneIK, LookAt };
 enum class LayerMode { Override, Additive };
 // What an additive input is relative to: its clip's first frame (only for a Clip input), or the
 // skeleton's rest pose.
@@ -124,6 +128,17 @@ struct AnimationNode
     BoneMask mask;
     // Additive, and Layer in Additive mode.
     AdditiveReference reference = AdditiveReference::FirstFrame;
+
+    // TwoBoneIK (one input): `bone` (a hand, a foot) reaches for the Vector parameter `parameter`, a
+    // world position, by bending its parent and grandparent (an elbow, a knee); the optional Vector
+    // `parameterY` is a point the middle joint points toward (else it keeps the pose's bend). Out of
+    // reach, the limb points straight at it. `weight` blends it in.
+    // LookAt (one input): `bone` (a head) turns toward `parameter`, with `chainLength` bones up from it
+    // (neck, spine) sharing the turn, at most `angleLimit` degrees from where the pose has it facing
+    // (its forward is the model's +Z as the bone rests). `weight` blends it in.
+    std::string bone;
+    int chainLength = 1;
+    float angleLimit = 80.0f;
 
     // StateMachine: a state per input, named by `states`, starting in `entryState`. Transitions are
     // tried in order each update; the first whose conditions hold starts. Entering a state plays its
@@ -203,6 +218,7 @@ public:
     int Float(std::string name, float value = 0.0f);
     int Bool(std::string name, bool value = false);
     int Trigger(std::string name);
+    int Vector(std::string name, glm::vec3 value = glm::vec3(0.0f));
     // A weight read from a parameter added before.
     AnimationWeight Parameter(std::string_view name) const;
 
@@ -219,6 +235,9 @@ public:
     int Blend2D(std::string_view x, std::string_view y, std::vector<std::pair<int, glm::vec2>> inputs);
     int Additive(int base, int additive, AnimationWeight weight = {}, AdditiveReference reference = AdditiveReference::FirstFrame);
     int Layer(int base, int layer, BoneMask mask, AnimationWeight weight = {}, LayerMode mode = LayerMode::Override);
+    // IK on `input`'s pose; targets (and the pole) are Vector parameters added before.
+    int TwoBoneIK(int input, std::string bone, std::string_view target, std::string_view pole = {}, AnimationWeight weight = {});
+    int LookAt(int input, std::string bone, std::string_view target, int chainLength = 1, float angleLimit = 80.0f, AnimationWeight weight = {});
     // States as (name, node).
     int StateMachine(std::vector<std::pair<std::string, int>> states, int entryState = 0);
     // A transition of `machine` between states named `from` ("" = any state) and `to`; tweak the

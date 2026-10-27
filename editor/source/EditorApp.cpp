@@ -681,7 +681,8 @@ void EditorApp::BuildStartupScene()
 {
     // What the Sandbox's Playground.scene was saved from: the vehicle playground with the concept car
     // (or the primitive car when the project doesn't have it) and a chase camera for the Game view,
-    // three dancers in the car's way (thrown when it hits them), a pool to its right with jellies on
+    // three dancers in the car's way (thrown when it hits them; their heads turn to watch it come:
+    // Dancer.animgraph's Look At, aimed by WatchCar.luau), a pool to its right with jellies on
     // the way there, a flag on its left, and scripts: R puts the car back at the start
     // (Respawn.luau) and a launch pad ahead on the left throws what drives onto it into the air
     // (LaunchPad.luau) under a hovering marker (Hover.luau).
@@ -698,12 +699,18 @@ void EditorApp::BuildStartupScene()
     ScriptWorld::AddScript(car, assets, "/Scripts/VehicleDriver.luau", driver);
     AddChaseCamera(7.0f, 2.5f, 1.0f);
     const glm::quat facingCar = glm::angleAxis(glm::pi<float>(), glm::vec3(0.0f, 1.0f, 0.0f));
+    const AssetHandle<AnimationGraph> dance = assets.Load<AnimationGraph>(FileSystem::Resolve("/Animations/Dancer.animgraph").string());
     for (const glm::vec3& at : { glm::vec3(0.0f, 0.0f, 14.0f), glm::vec3(-0.9f, 0.0f, 16.0f), glm::vec3(0.9f, 0.0f, 16.0f) })
         if (Entity dancer = CharacterPresets::SpawnRagdoll(scene, assets, at, facingCar); dancer.IsValid())
         {
             Ragdoll* ragdoll = dancer.Get<Ragdoll>();
             ragdoll->knockback = 1.6f;
             ragdoll->knockbackLift = 0.6f;
+            if (dance.Get())
+            {
+                dancer.Get<Animator>()->graph = dance;
+                ScriptWorld::AddScript(dancer, assets, "/Scripts/WatchCar.luau");
+            }
         }
     WaterPresets::SpawnPool(scene, assets, glm::vec3(15.0f, 0.0f, 4.0f));
     SoftBodyPresets::SpawnJelly(scene, assets, glm::vec3(3.5f, 0.0f, 6.0f));

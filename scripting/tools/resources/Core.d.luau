@@ -40,6 +40,9 @@ declare extern type AnimatorMethods extends Component with
     function ResetTrigger(self, parameter: string): ()
     function GetFloat(self, parameter: string): number
     function GetBool(self, parameter: string): boolean
+    -- Vector parameters: world positions (IK targets).
+    function SetVector(self, parameter: string, value: vector): ()
+    function GetVector(self, parameter: string): vector
     function Play(self, clip: string | number, loop: boolean?): ()
     function CrossFade(self, clip: string | number, seconds: number?, loop: boolean?): ()
     function CrossFadeState(self, state: string, seconds: number?): boolean

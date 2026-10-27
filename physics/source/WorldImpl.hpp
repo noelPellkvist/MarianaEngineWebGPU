@@ -2,6 +2,7 @@
 // Private to MarianaPhysics: what a PhysicsWorld holds (PhysicsWorld.cpp runs it, each feature's
 // file its part; Queries.cpp and DebugDraw.cpp read it).
 #include <Mariana/Physics/PhysicsWorld.hpp>
+#include <Mariana/Scene/Transform.hpp>
 #include <Mariana/Physics/ColliderGeometry.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
 #include <Mariana/Physics/Character.hpp>
@@ -122,10 +123,8 @@ namespace PhysicsInternal
         return (static_cast<uint64_t>(x) << 32) | y;
     }
 
-    glm::mat4 LocalMatrix(const LocalTRS& t);
-    // The entity's world transform from the LocalTRS chain (WorldXform may not be updated yet for
-    // entities made this frame).
-    glm::mat4 WorldMatrix(const Scene& scene, Entity entity);
+    // (An entity's world transform comes from the LocalTRS chain: WorldMatrix, Mariana/Scene/Transform.hpp;
+    // WorldXform may not be updated yet for entities made this frame.)
     // Translation and rotation of a transform, without its scale.
     void SplitPose(const glm::mat4& m, glm::vec3& position, glm::quat& rotation);
     // Puts the entity at a world position and rotation (in its parent's space, its scale kept);

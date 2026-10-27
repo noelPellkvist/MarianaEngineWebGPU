@@ -121,6 +121,8 @@ if self.entity:Has("Ragdoll") then self.entity:Get("Ragdoll").mode = "Limp" end
 
 A field that doesn't exist is an error (`pcall` it to try). The Animator also has methods:
 `SetFloat(name, v)`, `SetBool`, `SetTrigger`, `ResetTrigger`, `GetFloat`, `GetBool`,
+`SetVector(name, position)` and `GetVector(name)` (a graph's Vector parameters: world positions its
+Two Bone IK and Look At nodes reach for or look at),
 `Play(clip, loop?)`, `CrossFade(clip, seconds?, loop?)` (clips by name or index),
 `CrossFadeState(state, seconds?)` and `GetRootVelocity()` (with `rootMotion = true` the clips' walk
 and turn move the entity, or the character it is on, instead of the hips: this returns the walk in

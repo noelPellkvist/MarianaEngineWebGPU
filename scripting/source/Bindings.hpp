@@ -2,6 +2,7 @@
 // What the Luau bindings share (private to MarianaScripting): the state's context, the userdata
 // types and the conversions between Luau values and engine types.
 #include <Mariana/Scene/ECS.hpp>
+#include <Mariana/Scene/Transform.hpp>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -71,8 +72,8 @@ namespace ScriptingInternal
     Entity CheckEntity(lua_State* L, int index); // a valid entity, or an error
     Entity ToEntity(lua_State* L, int index);    // whatever the value names (maybe invalid)
 
-    // Transforms through the LocalTRS chain (current even before Scene::Update has run).
-    glm::mat4 WorldMatrix(const Scene& scene, Entity entity);
+    // Transforms through the LocalTRS chain (current even before Scene::Update has run; the matrix is
+    // the engine's WorldMatrix, Mariana/Scene/Transform.hpp).
     glm::quat WorldRotation(const Scene& scene, Entity entity);
 
     // Names the bindings look up by number (Luau gives strings these atoms as they are made, so
@@ -89,7 +90,7 @@ namespace ScriptingInternal
         kDelta, kTime, kFrame,
         // Animator
         kSetFloat, kSetBool, kSetTrigger, kResetTrigger, kGetFloat, kGetBool, kPlay, kCrossFade,
-        kCrossFadeState, kGetRootVelocity,
+        kCrossFadeState, kGetRootVelocity, kSetVector, kGetVector,
         kAtomCount
     };
     int16_t AtomOf(const char* name, size_t length);

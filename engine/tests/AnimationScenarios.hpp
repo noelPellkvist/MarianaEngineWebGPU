@@ -7,6 +7,7 @@
 
 #include <Mariana/Animation/AnimationGraph.hpp>
 #include <Mariana/Animation/Animator.hpp>
+#include <Mariana/Scene/Transform.hpp>
 
 #include <glm/gtc/quaternion.hpp>
 
@@ -160,6 +161,118 @@ namespace EngineScenarios
         const int fastSteps = heard["Step@Run"] + heard["Step@Walk"], quiet = heard["WalkOnly@Walk"];
         const bool passed = loops && steps == 2 && walkOnly == 2 && fastSteps == 2 && quiet == 0;
         return Finish(log, "animation events", first + Format("; blended half and half: Step %.0f, WalkOnly %.0f in 2 s; the walk at 10%%: Step %.0f, WalkOnly %.0f", steps, walkOnly, fastSteps, quiet),
+                      passed);
+    }
+
+    // A model with an Animator whose graph holds a still clip and puts IK on it.
+    struct Puppet
+    {
+        AssetManager2 assets; // outlives the scene, whose components hold handles
+        Scene scene;
+        Entity root;
+        TestRig::Rig rig;
+        System animation;
+
+        Puppet(const std::vector<TestRig::BoneSpec>& bones, const std::shared_ptr<AnimationGraph>& graph)
+        {
+            scene.UpdateComponentRegistry();
+            root = scene.Instantiate("Puppet");
+            rig = TestRig::Make(scene, assets, root, bones, "test://puppet");
+            Animator animator;
+            animator.skeleton = rig.skeleton;
+            const glm::vec3 at = bones[0].translation;
+            animator.clips = { TestRig::Clip(assets, "Hold", { TestRig::Track(bones[0].name, { 0.0f, 1.0f }, { at, at }) }) };
+            animator.graph = assets.RegisterAsset<AnimationGraph>(graph, AssetType::AnimationGraph, "IK", "test://graph/ik");
+            root.Add<Animator>(animator);
+            animation = Animator::CreateSystem(scene);
+        }
+
+        Animator& Get() { return *root.Get<Animator>(); }
+        glm::vec3 At(int bone) const { return glm::vec3(WorldMatrix(scene, rig.bones[bone])[3]); }
+        glm::vec3 Facing(int bone) const { return glm::normalize(glm::mat3(WorldMatrix(scene, rig.bones[bone])) * glm::vec3(0.0f, 0.0f, 1.0f)); }
+        void Run(int frames = 2)
+        {
+            for (int i = 0; i < frames; ++i)
+                animation.Run(detail::kStep);
+        }
+    };
+
+    inline float DegreesBetween(const glm::vec3& a, const glm::vec3& b)
+    {
+        return glm::degrees(std::acos(glm::clamp(glm::dot(glm::normalize(a), glm::normalize(b)), -1.0f, 1.0f)));
+    }
+
+    // A 0.3 + 0.3 m arm, straight along +X from a shoulder at (0, 1, 0), reaches with Two Bone IK.
+    inline Result TwoBoneIKReach(const Log& log)
+    {
+        using namespace detail;
+        const std::vector<TestRig::BoneSpec> arm = { { "Shoulder", -1, glm::vec3(0.0f, 1.0f, 0.0f) }, { "Arm", 0 },
+                                                     { "ForeArm", 1, glm::vec3(0.3f, 0.0f, 0.0f) }, { "Hand", 2, glm::vec3(0.3f, 0.0f, 0.0f) } };
+        AnimationGraph::Builder b;
+        b.Vector("target");
+        b.Vector("pole", glm::vec3(0.0f, 1.0f, -1.0f));
+        b.Float("ik", 1.0f);
+        b.Output(b.TwoBoneIK(b.Clip("Hold"), "Hand", "target", "pole", b.Parameter("ik")));
+        Puppet p(arm, b.Build());
+        const glm::vec3 shoulder(0.0f, 1.0f, 0.0f);
+
+        // In reach (0.4 m away): the hand on the target, the elbow 0.3 m from both and on the pole's side.
+        const glm::vec3 target = shoulder + glm::vec3(0.2f, 0.0f, 0.34641f);
+        p.Get().SetVector("target", target);
+        p.Run();
+        const glm::vec3 hand = p.At(3), elbow = p.At(2);
+        const float miss = glm::length(hand - target);
+        const glm::vec3 along = glm::normalize(target - shoulder);
+        glm::vec3 elbowSide = elbow - shoulder, poleSide = glm::vec3(0.0f, 1.0f, -1.0f) - shoulder;
+        elbowSide -= along * glm::dot(elbowSide, along);
+        poleSide -= along * glm::dot(poleSide, along);
+        const bool reached = miss < 1e-4f && std::abs(glm::length(elbow - shoulder) - 0.3f) < 1e-4f && std::abs(glm::length(hand - elbow) - 0.3f) < 1e-4f &&
+                             glm::dot(elbowSide, poleSide) > 0.0f;
+
+        // Half the weight turns the upper arm half as far.
+        const glm::vec3 upperFull = glm::normalize(elbow - shoulder);
+        p.Get().SetFloat("ik", 0.5f);
+        p.Run();
+        const float half = DegreesBetween(glm::vec3(1.0f, 0.0f, 0.0f), p.At(2) - shoulder), full = DegreesBetween(glm::vec3(1.0f, 0.0f, 0.0f), upperFull);
+
+        // Out of reach (1 m away): straight at it.
+        p.Get().SetFloat("ik", 1.0f);
+        p.Get().SetVector("target", shoulder + glm::vec3(0.0f, 0.0f, 1.0f));
+        p.Run();
+        const glm::vec3 straight = p.At(3) - shoulder;
+        const float off = DegreesBetween(straight, glm::vec3(0.0f, 0.0f, 1.0f));
+        const bool passed = reached && std::abs(half - 0.5f * full) < 0.5f && off < 0.05f && std::abs(glm::length(straight) - 0.6f) < 1e-3f;
+        return Finish(log, "two bone IK", Format("the hand %.5f m off the target, the elbow %.4f / %.4f m from shoulder and hand; at half weight the arm turned %.2f of %.2f deg; ",
+                                                 miss, glm::length(elbow - shoulder), glm::length(hand - elbow), half, full) +
+                          Format("out of reach it points %.3f deg off, %.4f m long", off, glm::length(straight)),
+                      passed);
+    }
+
+    // A head on a neck and spine turns to a target with Look At: exactly with the chain sharing it,
+    // and no further than its limit.
+    inline Result LookAtTurn(const Log& log)
+    {
+        using namespace detail;
+        const std::vector<TestRig::BoneSpec> body = { { "Spine", -1, glm::vec3(0.0f, 1.0f, 0.0f) }, { "Neck", 0, glm::vec3(0.0f, 0.3f, 0.0f) },
+                                                      { "Head", 1, glm::vec3(0.0f, 0.2f, 0.0f) } };
+        AnimationGraph::Builder b;
+        b.Vector("look");
+        b.Output(b.LookAt(b.Clip("Hold"), "Head", "look", 3, 80.0f));
+        Puppet p(body, b.Build());
+
+        // 45 degrees to the side: the head faces it, the spine taking about a third of the turn.
+        const glm::vec3 target(2.0f, 1.5f, 2.0f);
+        p.Get().SetVector("look", target);
+        p.Run();
+        const float facing = DegreesBetween(p.Facing(2), target - p.At(2));
+        const float spine = DegreesBetween(p.Facing(0), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        // Behind it: no more than 80 degrees.
+        p.Get().SetVector("look", glm::vec3(-0.5f, 1.5f, -2.0f));
+        p.Run();
+        const float limited = DegreesBetween(p.Facing(2), glm::vec3(0.0f, 0.0f, 1.0f));
+        const bool passed = facing < 0.5f && spine > 10.0f && spine < 20.0f && std::abs(limited - 80.0f) < 0.5f;
+        return Finish(log, "look at", Format("faces the target %.3f deg off (the spine turned %.1f deg of about 45); one behind it: turned %.2f deg (limit 80)", facing, spine, limited),
                       passed);
     }
 

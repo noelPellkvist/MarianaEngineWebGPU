@@ -13,6 +13,7 @@
 #include <Mariana/Platform/IInput.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Scene/ECS.hpp>
+#include <Mariana/Scene/Transform.hpp>
 #include <Mariana/Scripting/ScriptWorld.hpp>
 
 #include "../../engine/tests/TestRig.hpp"
@@ -616,9 +617,74 @@ return L
         return Finish(log, "animation events", heard, heard == "Clap@Walk@0.5 Clap@Walk@1.5");
     }
 
+    // A script aims a model's head with its graph's Look At: animator:SetVector each frame.
+    inline Result LookAtFromLua(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        Entity model = w.Make("Watcher");
+        const TestRig::Rig rig = TestRig::Make(w.scene, w.assets, model,
+            { { "Spine", -1, glm::vec3(0.0f, 1.0f, 0.0f) }, { "Neck", 0, glm::vec3(0.0f, 0.3f, 0.0f) }, { "Head", 1, glm::vec3(0.0f, 0.2f, 0.0f) } }, "test://watcher");
+        AnimationGraph::Builder b;
+        b.Vector("look");
+        b.Output(b.LookAt(b.Clip("Hold"), "Head", "look", 2, 90.0f));
+        Animator animator;
+        animator.skeleton = rig.skeleton;
+        animator.clips = { TestRig::Clip(w.assets, "Hold", { TestRig::Track("Spine", { 0.0f, 1.0f }, { glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f) }) }) };
+        animator.graph = w.assets.RegisterAsset<AnimationGraph>(b.Build(), AssetType::AnimationGraph, "Look", "test://graph/look");
+        model.Add<Animator>(animator);
+        w.Make("Ball", glm::vec3(3.0f, 1.5f, 0.0f)); // to its right, at head height
+        Attach(model, w.Source("Watch.luau", R"(--!strict
+local W = {} :: Script
+function W.Update(self: Script, dt: number)
+    local ball = scene.Find("Ball")
+    local animator = self.entity:Get("Animator")
+    if ball and animator then
+        animator:SetVector("look", ball.worldPosition)
+    end
+end
+return W
+)"));
+        w.Frames(3);
+        const glm::vec3 facing = glm::normalize(glm::mat3(WorldMatrix(w.scene, rig.bones[2])) * glm::vec3(0.0f, 0.0f, 1.0f));
+        const float off = glm::degrees(std::acos(glm::clamp(glm::dot(facing, glm::vec3(1.0f, 0.0f, 0.0f)), -1.0f, 1.0f)));
+        return Finish(log, "look at from Lua", Format("the head faces the ball %.3f deg off", off), off < 0.5f);
+    }
+
+    // The Sandbox's WatchCar.luau: a dancer near the driven car aims its graph's Look At at it and
+    // eases the look's weight in.
+    inline Result WatchCar(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        Entity car = w.Make("Car", glm::vec3(3.0f, 0.0f, 0.0f));
+        ScriptWorld::AddScript(car, w.assets, "/Scripts/VehicleDriver.luau");
+        Entity model = w.Make("Dancer", glm::vec3(0.0f, 0.0f, 5.0f));
+        const TestRig::Rig rig = TestRig::Make(w.scene, w.assets, model,
+            { { "Spine", -1, glm::vec3(0.0f, 1.0f, 0.0f) }, { "Neck", 0, glm::vec3(0.0f, 0.3f, 0.0f) }, { "Head", 1, glm::vec3(0.0f, 0.2f, 0.0f) } }, "test://dancer");
+        AnimationGraph::Builder b;
+        b.Vector("lookTarget");
+        b.Float("lookWeight");
+        b.Output(b.LookAt(b.Clip("Hold"), "Head", "lookTarget", 3, 70.0f, b.Parameter("lookWeight")));
+        Animator animator;
+        animator.skeleton = rig.skeleton;
+        animator.clips = { TestRig::Clip(w.assets, "Hold", { TestRig::Track("Spine", { 0.0f, 1.0f }, { glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f) }) }) };
+        animator.graph = w.assets.RegisterAsset<AnimationGraph>(b.Build(), AssetType::AnimationGraph, "Dancer", "test://graph/dancer");
+        model.Add<Animator>(animator);
+        if (!ScriptWorld::AddScript(model, w.assets, "/Scripts/WatchCar.luau"))
+            return Finish(log, "watch car", "no /Scripts/WatchCar.luau", false);
+        w.Frames(120);
+        const Animator& a = *model.TryGet<Animator>();
+        const glm::vec3 target = a.GetVector("lookTarget");
+        const float weight = a.GetFloat("lookWeight");
+        const std::string error = w.scripts.GetError(model, 0);
+        return Finish(log, "watch car", Format("looks at (%.2f, %.2f, %.2f) with weight %.3f", target.x, target.y, target.z, weight) + (error.empty() ? "" : " | " + error),
+                      std::abs(target.x - 3.0f) < 1e-3f && std::abs(target.y - 1.0f) < 1e-3f && weight > 0.99f && error.empty());
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         return { Lifecycle(log), Components(log), Physics(log), Spawning(log), Talking(log), Reload(log), Errors(log), Driving(log),
-                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log) };
+                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log), LookAtFromLua(log), WatchCar(log) };
     }
 }

@@ -24,9 +24,10 @@ namespace
     constexpr float kPinHit = 9.0f; // pixels
     const glm::vec2 kStateSize(150.0f, 46.0f);
 
-    const char* const kTypeNames[] = { "Clip", "Blend", "Blend 1D", "Blend 2D", "Additive", "Layer", "State Machine" };
+    const char* const kTypeNames[] = { "Clip", "Blend", "Blend 1D", "Blend 2D", "Additive", "Layer", "State Machine", "Two Bone IK", "Look At" };
+    constexpr int kTypeCount = static_cast<int>(sizeof(kTypeNames) / sizeof(kTypeNames[0]));
     const char* const kModeNames[] = { "is true", "is false", ">", "<", "==", "!=" };
-    const char* const kParameterTypes[] = { "Float", "Bool", "Trigger" };
+    const char* const kParameterTypes[] = { "Float", "Bool", "Trigger", "Vector" };
 
     const char* TypeName(AnimationNodeType type)
     {
@@ -44,6 +45,8 @@ namespace
         case AnimationNodeType::Additive:     return IM_COL32(72, 128, 84, 255);
         case AnimationNodeType::Layer:        return IM_COL32(104, 82, 156, 255);
         case AnimationNodeType::StateMachine: return IM_COL32(150, 62, 88, 255);
+        case AnimationNodeType::TwoBoneIK:    return IM_COL32(44, 132, 140, 255);
+        case AnimationNodeType::LookAt:       return IM_COL32(52, 140, 118, 255);
         }
         return IM_COL32(90, 90, 90, 255);
     }
@@ -86,6 +89,10 @@ namespace
                    (node.mask.entries.empty() ? std::string(", all bones") : ", from " + node.mask.entries[0].bone);
         case AnimationNodeType::StateMachine:
             return Format("%zu states", node.states.size());
+        case AnimationNodeType::TwoBoneIK:
+            return (node.bone.empty() ? std::string("(no bone)") : node.bone) + " to " + ParameterName(graph, node.parameter);
+        case AnimationNodeType::LookAt:
+            return (node.bone.empty() ? std::string("(no bone)") : node.bone) + " at " + ParameterName(graph, node.parameter);
         }
         return {};
     }
@@ -100,6 +107,8 @@ namespace
         case AnimationNodeType::Additive:     return k == 0 ? "Base" : "Additive";
         case AnimationNodeType::Layer:        return k == 0 ? "Base" : "Layer";
         case AnimationNodeType::StateMachine: return k < node.states.size() ? node.states[k] : "?";
+        case AnimationNodeType::TwoBoneIK:
+        case AnimationNodeType::LookAt:       return "Pose";
         default:                              return {};
         }
     }
@@ -489,8 +498,12 @@ void AnimationGraphWindow::DrawParameters()
             ImGui::TableNextColumn();
             ImGui::SetNextItemWidth(-FLT_MIN);
             int type = static_cast<int>(parameter.type);
-            if (ImGui::Combo("##type", &type, kParameterTypes, 3))
-                Apply("Change parameter type", [&](AnimationGraph& g) { g.parameters[i].type = static_cast<AnimationParameterType>(type); g.parameters[i].defaultValue = 0.0f; });
+            if (ImGui::Combo("##type", &type, kParameterTypes, 4))
+                Apply("Change parameter type", [&](AnimationGraph& g) {
+                    g.parameters[i].type = static_cast<AnimationParameterType>(type);
+                    g.parameters[i].defaultValue = 0.0f;
+                    g.parameters[i].defaultVector = glm::vec3(0.0f);
+                });
 
             ImGui::TableNextColumn();
             ImGui::SetNextItemWidth(-FLT_MIN);
@@ -510,13 +523,29 @@ void AnimationGraphWindow::DrawParameters()
                 if (ImGui::Checkbox("##default", &value))
                     Apply("Edit parameter default", [&](AnimationGraph& g) { g.parameters[i].defaultValue = value ? 1.0f : 0.0f; });
             }
+            else if (parameter.type == AnimationParameterType::Vector)
+            {
+                glm::vec3 value = parameter.defaultVector;
+                if (ImGui::DragFloat3("##default", &value.x, 0.05f))
+                {
+                    Begin("Edit parameter default");
+                    parameter.defaultVector = value;
+                    Changed();
+                }
+            }
 
             if (live)
             {
                 ImGui::TableNextColumn();
                 ImGui::SetNextItemWidth(-FLT_MIN);
                 float value = live->GetParameter(i);
-                if (parameter.type == AnimationParameterType::Float)
+                if (parameter.type == AnimationParameterType::Vector)
+                {
+                    glm::vec3 vector = live->GetVectorParameter(i);
+                    if (ImGui::DragFloat3("##live", &vector.x, 0.05f))
+                        live->SetVectorParameter(i, vector);
+                }
+                else if (parameter.type == AnimationParameterType::Float)
                 {
                     if (ImGui::DragFloat("##live", &value, 0.01f))
                         live->SetParameter(i, value);
@@ -554,6 +583,10 @@ void AnimationGraphWindow::DrawParameters()
     add("+ Bool", AnimationParameterType::Bool, "flag");
     ImGui::SameLine();
     add("+ Trigger", AnimationParameterType::Trigger, "trigger");
+    ImGui::SameLine();
+    add("+ Vector", AnimationParameterType::Vector, "target");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("A world position (an IK target), set from scripts with SetVector");
     if (!live)
         ImGui::TextDisabled("Select an entity whose Animator uses this graph to set them live.");
 }
@@ -738,6 +771,95 @@ void AnimationGraphWindow::DrawNodeProperties(int index)
         for (size_t k = 0; k < node.inputs.size(); ++k)
             ImGui::TextDisabled("%s: %s", InputLabel(node, k).c_str(), connectedName(node.inputs[k]).c_str());
         break;
+    case AnimationNodeType::TwoBoneIK:
+    case AnimationNodeType::LookAt:
+    {
+        const bool limb = node.type == AnimationNodeType::TwoBoneIK;
+        // The bone: from the previewed model's skeleton, or typed.
+        const Animator* live = PreviewAnimator();
+        const Skeleton* skeleton = live ? live->skeleton.Get().get() : nullptr;
+        if (skeleton && ImGui::BeginCombo("Bone", node.bone.empty() ? "(none)" : node.bone.c_str()))
+        {
+            for (size_t b = 0; b < skeleton->BoneCount(); ++b)
+            {
+                ImGui::PushID(static_cast<int>(b));
+                const std::string bone(Skeleton::BaseName(skeleton->GetBone(b).name));
+                if (ImGui::Selectable(bone.c_str(), bone == node.bone))
+                    Apply("Set IK bone", [&](AnimationGraph& g) { g.nodes[index].bone = bone; });
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        std::string bone = node.bone;
+        if (InputString(skeleton ? "Bone name" : "Bone", bone))
+        {
+            Begin("Set IK bone");
+            node.bone = bone;
+            Changed();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip(limb ? "The end of the limb (a hand, a foot): its parent and grandparent bend" : "The bone that looks (a head)");
+        auto vectorCombo = [&](const char* label, int& parameter, bool allowNone) {
+            bool changed = false;
+            if (ImGui::BeginCombo(label, ParameterName(graph, parameter).c_str()))
+            {
+                if (allowNone && ImGui::Selectable("(none)", parameter < 0))
+                {
+                    parameter = -1;
+                    changed = true;
+                }
+                for (int i = 0; i < static_cast<int>(graph.parameters.size()); ++i)
+                {
+                    if (graph.parameters[i].type != AnimationParameterType::Vector)
+                        continue;
+                    ImGui::PushID(i);
+                    if (ImGui::Selectable(graph.parameters[i].name.c_str(), parameter == i))
+                    {
+                        parameter = i;
+                        changed = true;
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::EndCombo();
+            }
+            return changed;
+        };
+        int target = node.parameter;
+        if (vectorCombo("Target", target, false))
+            Apply("Set IK target", [&](AnimationGraph& g) { g.nodes[index].parameter = target; });
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("A Vector parameter: a world position (animator:SetVector from a script)");
+        if (limb)
+        {
+            int pole = node.parameterY;
+            if (vectorCombo("Pole", pole, true))
+                Apply("Set IK pole", [&](AnimationGraph& g) { g.nodes[index].parameterY = pole; });
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Where the elbow or knee points (none: as the pose bends it)");
+        }
+        else
+        {
+            int chain = node.chainLength;
+            if (ImGui::SliderInt("Chain", &chain, 1, 6))
+            {
+                Begin("Edit look chain");
+                node.chainLength = chain;
+                Changed();
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Bones up from it sharing the turn (head, neck, spine...)");
+            float limit = node.angleLimit;
+            if (ImGui::SliderFloat("Angle limit", &limit, 0.0f, 180.0f, "%.0f deg"))
+            {
+                Begin("Edit look limit");
+                node.angleLimit = limit;
+                Changed();
+            }
+        }
+        weightEditor("Weight");
+        ImGui::TextDisabled("Pose: %s", connectedName(node.inputs.empty() ? -1 : node.inputs[0]).c_str());
+        break;
+    }
     case AnimationNodeType::Additive:
     {
         weightEditor("Weight");
@@ -1149,14 +1271,24 @@ int AnimationGraphWindow::NewNode(AnimationNodeType type, glm::vec2 at)
         break;
     case AnimationNodeType::StateMachine:
         break;
+    case AnimationNodeType::TwoBoneIK:
+    case AnimationNodeType::LookAt:
+        node.inputs = { -1 };
+        node.bone = type == AnimationNodeType::LookAt ? "Head" : "RightHand";
+        for (int i = 0; i < static_cast<int>(G().parameters.size()) && node.parameter < 0; ++i)
+            if (G().parameters[i].type == AnimationParameterType::Vector)
+                node.parameter = i;
+        break;
     }
     return G().AddNode(std::move(node));
 }
 
 void AnimationGraphWindow::AddNodeMenu(glm::vec2 at)
 {
-    for (int t = 0; t < 7; ++t)
+    for (int t = 0; t < kTypeCount; ++t)
     {
+        if (t == static_cast<int>(AnimationNodeType::TwoBoneIK))
+            ImGui::Separator();
         if (ImGui::MenuItem(kTypeNames[t]))
         {
             int added = -1;

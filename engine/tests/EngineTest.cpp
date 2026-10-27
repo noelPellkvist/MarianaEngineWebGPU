@@ -34,7 +34,8 @@ int main()
     };
     std::vector<EngineScenarios::Result> results = { EngineScenarios::ProfilerScopes(log), EngineScenarios::ProfilerFrames(log),
                                                      EngineScenarios::RootMotionWalk(log), EngineScenarios::RootMotionTurn(log),
-                                                     EngineScenarios::RootMotionBlend(log), EngineScenarios::AnimationEventsFire(log) };
+                                                     EngineScenarios::RootMotionBlend(log), EngineScenarios::AnimationEventsFire(log),
+                                                     EngineScenarios::TwoBoneIKReach(log), EngineScenarios::LookAtTurn(log) };
 
     size_t failed = 0;
     for (const EngineScenarios::Result& r : results)

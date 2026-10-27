@@ -198,19 +198,6 @@ namespace ScriptingInternal
 
     // ---- Transforms -----------------------------------------------------------------------------
 
-    glm::mat4 WorldMatrix(const Scene& scene, Entity entity)
-    {
-        glm::mat4 local(1.0f);
-        if (const LocalTRS* t = entity.TryGet<LocalTRS>())
-        {
-            const glm::quat r(t->rot_quat[3], t->rot_quat[0], t->rot_quat[1], t->rot_quat[2]);
-            local = glm::translate(glm::mat4(1.0f), glm::vec3(t->pos[0], t->pos[1], t->pos[2])) * glm::mat4_cast(r) *
-                    glm::scale(glm::mat4(1.0f), glm::vec3(t->scl[0], t->scl[1], t->scl[2]));
-        }
-        const Entity parent = scene.Parent(entity);
-        return parent.IsValid() ? WorldMatrix(scene, parent) * local : local;
-    }
-
     glm::quat WorldRotation(const Scene& scene, Entity entity)
     {
         glm::quat rotation(1.0f, 0.0f, 0.0f, 0.0f);
@@ -231,7 +218,7 @@ namespace ScriptingInternal
             "x", "y", "z", "w", "Inverse", "ToEuler",
             "delta", "time", "frame",
             "SetFloat", "SetBool", "SetTrigger", "ResetTrigger", "GetFloat", "GetBool", "Play", "CrossFade",
-            "CrossFadeState", "GetRootVelocity",
+            "CrossFadeState", "GetRootVelocity", "SetVector", "GetVector",
         };
 
         int16_t UserAtom(lua_State*, const char* s, size_t length)

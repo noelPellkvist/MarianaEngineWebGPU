@@ -235,6 +235,7 @@ public:
     template<class T> void      RemoveTag();
 
     uint64_t RawId() const { return _id; }
+    Scene* GetScene() const { return _scene; }
 
     template<class Fn>
     void ForEachChild(Fn&& fn);
