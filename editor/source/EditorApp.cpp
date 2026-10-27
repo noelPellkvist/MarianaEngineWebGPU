@@ -31,6 +31,8 @@
 #include <Editor/Windows/Stats.hpp>
 #include <Editor/Physics/PhysicsEditor.hpp>
 #include <Editor/Scripting/ScriptEditor.hpp>
+#include <Mariana/ScriptTools/ScriptChecker.hpp>
+#include <Mariana/ScriptTools/ScriptTypes.hpp>
 #include <Editor/Windows/AnimationGraphWindow.hpp>
 #include <Editor/Windows/AssetsExplorer.hpp>
 #include <Editor/Windows/HierarchyWindow.hpp>
@@ -372,6 +374,14 @@ void EditorApp::OnStart()
     EditorWindows["Physics"] = std::move(physicsEditor);
     scripts = std::make_unique<ScriptWorld>(scene, assets, gameClock);
     scripts->SetPhysics(physics.get());
+    // Checking scripts against the API's types (every component is registered by now), and the same
+    // types written out for VS Code.
+    scriptChecker = std::make_unique<ScriptChecker>(ScriptTypes::Definitions());
+    if (!scriptChecker->DefinitionErrors().empty())
+        Logger::Error("The script API's types don't load: " + scriptChecker->DefinitionErrors());
+#ifndef __EMSCRIPTEN__
+    ScriptEditor::WriteProjectTypes(MARIANA_PROJECT_DIR);
+#endif
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
     thumbnails = std::make_unique<ThumbnailCache>(MARIANA_PROJECT_DIR, input);
@@ -414,7 +424,7 @@ void EditorApp::OnStart()
         SelectEntity(entity.RawId());
     });
     PhysicsEditor::RegisterInspector(*inspector, undo, *physics, assets, scene);
-    ScriptEditor::RegisterInspector(*inspector, undo, *scripts, assets, MARIANA_PROJECT_DIR);
+    ScriptEditor::RegisterInspector(*inspector, undo, *scripts, *scriptChecker, assets, MARIANA_PROJECT_DIR);
     inspector->AddComponentOption({ "Rendering", "Camera",
         [](Entity e) { return !e.TryGet<CameraComponent>(); },
         [](Entity e) { e.Add<CameraComponent>(CameraComponent{}); } });

@@ -173,6 +173,19 @@ SceneArchive::SceneArchive(FieldVisitor& visitor, bool loading, AssetManager2& a
 {
 }
 
+void SceneArchive::NamedField(const char* name, std::string& text, std::initializer_list<const char*> names)
+{
+    if (m_Visitor)
+    {
+        FieldVisitor::Value value{ FieldVisitor::Value::Type::String, &text };
+        value.names = names.begin();
+        value.nameCount = static_cast<int>(names.size());
+        m_Visitor->Visit(name, value);
+        return;
+    }
+    Field(name, text);
+}
+
 bool SceneArchive::Has(const char* name) const
 {
     return J(m_Json).contains(name);
@@ -473,6 +486,13 @@ namespace SceneFile
     {
         EnsureEngineComponents();
         return FindSerializer(name);
+    }
+
+    void ForEachComponent(const std::function<void(const detail::Serializer&)>& fn)
+    {
+        EnsureEngineComponents();
+        for (const Serializer& s : Registry())
+            fn(s);
     }
 
     namespace detail

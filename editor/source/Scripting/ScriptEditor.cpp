@@ -6,6 +6,8 @@
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/Logger.hpp>
+#include <Mariana/ScriptTools/ScriptChecker.hpp>
+#include <Mariana/ScriptTools/ScriptTypes.hpp>
 #include <Mariana/Scripting/ScriptWorld.hpp>
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -16,6 +18,7 @@
 #include <cctype>
 #include <chrono>
 #include <fstream>
+#include <unordered_map>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -60,6 +63,28 @@ namespace
             return asset->file.filename().string();
         const AssetMetadata* meta = script.GetMetadata();
         return meta ? meta->name : std::string("(missing script)");
+    }
+
+    // What the type checker says about a script, checked again when its source changes.
+    const std::vector<ScriptDiagnostic>& TypeProblems(ScriptChecker& checker, const AssetHandle<ScriptAsset>& script)
+    {
+        struct Checked
+        {
+            uint32_t version = 0;
+            std::vector<ScriptDiagnostic> problems;
+        };
+        static std::unordered_map<AssetID, Checked> checked;
+        static const std::vector<ScriptDiagnostic> none;
+        const std::shared_ptr<ScriptAsset>& asset = script.Get();
+        if (!asset || !asset->error.empty())
+            return none; // it doesn't compile: that error is shown instead
+        Checked& entry = checked[script.GetID()];
+        if (entry.version != asset->Version())
+        {
+            entry.version = asset->Version();
+            entry.problems = checker.Check(ScriptName(script), asset->source);
+        }
+        return entry.problems;
     }
 
     ScriptValue* FindValue(std::vector<ScriptValue>& values, const ScriptValue& property)
@@ -170,9 +195,10 @@ namespace
 
 namespace ScriptEditor
 {
-    void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, ScriptWorld& scripts, AssetManager2& assets, fs::path projectDir)
+    void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, ScriptWorld& scripts, ScriptChecker& checker, AssetManager2& assets,
+                           fs::path projectDir)
     {
-        inspector.SetComponentDrawer("Scripts", [&inspector, &undo, &scripts, &assets, projectDir](Entity& entity) {
+        inspector.SetComponentDrawer("Scripts", [&inspector, &undo, &scripts, &checker, &assets, projectDir](Entity& entity) {
             ImGui::PushID("Scripts");
             if (Section<Scripts>(inspector, undo, entity, "Scripts"))
             {
@@ -209,6 +235,20 @@ namespace ScriptEditor
                         {
                             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.45f, 0.4f, 1.0f));
                             ImGui::TextWrapped("%s", error.c_str());
+                            ImGui::PopStyleColor();
+                        }
+                        // What the type checker found (the script still runs).
+                        if (const std::vector<ScriptDiagnostic>& problems = TypeProblems(checker, slot.script); !problems.empty())
+                        {
+                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.75f, 0.3f, 1.0f));
+                            ImGui::Text("%zu type %s", problems.size(), problems.size() == 1 ? "problem" : "problems");
+                            for (size_t p = 0; p < problems.size() && p < 3; ++p)
+                            {
+                                std::string message = problems[p].message;
+                                if (message.size() > 160)
+                                    message = message.substr(0, 157) + "...";
+                                ImGui::TextWrapped("line %d: %s", problems[p].line + 1, message.c_str());
+                            }
                             ImGui::PopStyleColor();
                         }
 
@@ -284,17 +324,38 @@ namespace ScriptEditor
             Logger::Error("Could not write " + file.string());
             return {};
         }
-        out << "-- " << module << ": runs on every entity that has it (scripting/API.md lists what scripts can do).\n"
-            << "local " << module << " = {}\n\n"
+        out << "--!strict\n"
+            << "-- " << module << ": runs on every entity that has it (scripting/API.md lists what scripts can do).\n"
+            << "local " << module << " = {} :: Script\n\n"
             << "-- Values the inspector edits per entity (numbers, booleans, strings, vectors), with their defaults.\n"
             << module << ".properties = {\n"
             << "    speed = 1,\n"
             << "}\n\n"
-            << "function " << module << ":Start()\n"
+            << "function " << module << ".Start(self: Script)\n"
             << "end\n\n"
-            << "function " << module << ":Update(dt: number)\n"
+            << "function " << module << ".Update(self: Script, dt: number)\n"
             << "end\n\n"
             << "return " << module << "\n";
         return file;
+    }
+
+    void WriteProjectTypes(const fs::path& projectDir)
+    {
+        std::string error;
+        if (!ScriptTypes::Write(projectDir / ".mariana" / "types" / "Mariana.d.luau", error))
+        {
+            Logger::Warning(error);
+            return;
+        }
+        const fs::path settings = projectDir / ".vscode" / "settings.json";
+        std::error_code ec;
+        if (fs::exists(settings, ec))
+            return;
+        fs::create_directories(settings.parent_path(), ec);
+        std::ofstream out(settings, std::ios::binary);
+        out << "{\n"
+            << "    \"luau-lsp.platform.type\": \"standard\",\n"
+            << "    \"luau-lsp.types.definitionFiles\": [\".mariana/types/Mariana.d.luau\"]\n"
+            << "}\n";
     }
 }

@@ -1,6 +1,7 @@
 // MarianaScriptingTest: runs the script scenarios (Scenarios.hpp) natively and prints what each saw.
 // A console program: no window, no GPU. Exits 1 when one fails.
 #include "Scenarios.hpp"
+#include "TypeScenarios.hpp"
 
 #include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Rendering/SceneRenderer.hpp>
@@ -27,12 +28,16 @@ int main()
     ScriptWorld::RegisterComponents();
     SceneRenderer::RegisterComponents(); // CameraComponent
     FileSystem::AddRoot(ScriptWorld::ResourceRoot());
+    FileSystem::AddRoot(MARIANA_SANDBOX_DIR); // its scripts are checked too
     std::printf("MarianaScriptingTest\n");
 
-    const std::vector<ScriptScenarios::Result> results = ScriptScenarios::RunAll([](const std::string& line) {
+    const auto log = [](const std::string& line) {
         std::printf("%s\n", line.c_str());
         std::fflush(stdout);
-    });
+    };
+    std::vector<ScriptScenarios::Result> results = ScriptScenarios::RunAll(log);
+    for (ScriptScenarios::Result& r : ScriptScenarios::RunTypes(log))
+        results.push_back(std::move(r));
 
     size_t failed = 0;
     for (const ScriptScenarios::Result& r : results)

@@ -1,0 +1,4 @@
+{
+    "luau-lsp.platform.type": "standard",
+    "luau-lsp.types.definitionFiles": [".mariana/types/Mariana.d.luau"]
+}

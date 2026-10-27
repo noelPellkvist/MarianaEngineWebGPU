@@ -5,17 +5,23 @@
 
 class AssetManager2;
 class InspectorWindow;
+class ScriptChecker;
 class ScriptWorld;
 class UndoStack;
 
 // The editor's side of MarianaScripting (the library itself has no UI).
 namespace ScriptEditor
 {
-    // The inspector's Scripts section (each script with its properties, its errors, and adding
-    // scripts by drop, from the project's files or as a new file) and its Add Component entry.
-    // Edits are undoable; made while playing, they reach the running scripts.
-    void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, ScriptWorld& scripts, AssetManager2& assets,
+    // The inspector's Scripts section (each script with its properties, its errors and what the type
+    // checker found, and adding scripts by drop, from the project's files or as a new file) and its
+    // Add Component entry. Edits are undoable; made while playing, they reach the running scripts.
+    void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, ScriptWorld& scripts, ScriptChecker& checker, AssetManager2& assets,
                            std::filesystem::path projectDir);
+
+    // The project's types for VS Code: the API's definitions in <project>/.mariana/types/ (rewritten
+    // when they change) and, when the project has none, .vscode/settings.json pointing the Luau
+    // Language Server at them.
+    void WriteProjectTypes(const std::filesystem::path& projectDir);
 
     // A new script from the template in `folder`, named `name` (made a valid identifier; a number
     // is added when the file exists). Returns the file, or an empty path when it couldn't be written.

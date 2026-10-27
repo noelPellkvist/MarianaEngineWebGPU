@@ -1,3 +1,4 @@
+--!strict
 -- CharacterDriver: walks the entity's CharacterController with the keyboard, relative to the view:
 -- W A S D / arrows walk (forward is where the scene's first camera looks, else +Z), Shift runs,
 -- Space jumps.
@@ -16,7 +17,7 @@ end
 
 -- Where the scene's first camera (by id) looks, level.
 local function viewForward(): vector
-    local camera = nil
+    local camera: Entity? = nil
     scene.Each("CameraComponent", function(e)
         if not camera then
             camera = e
@@ -27,7 +28,7 @@ local function viewForward(): vector
     return if vector.magnitude(forward) > 1e-4 then vector.normalize(forward) else vec3(0, 0, 1)
 end
 
-function CharacterDriver:Update(dt: number)
+function CharacterDriver.Update(self: Script, dt: number)
     local character = self.entity:Get("CharacterController")
     if not character then
         return

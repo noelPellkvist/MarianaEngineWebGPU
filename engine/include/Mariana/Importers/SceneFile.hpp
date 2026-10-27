@@ -28,6 +28,9 @@ public:
         Type type;
         void* data;
         int count = 0; // Floats: how many
+        // An enum given by name (a String): the names it can have.
+        const char* const* names = nullptr;
+        int nameCount = 0;
     };
     virtual ~FieldVisitor() = default;
     virtual void Visit(const char* name, const Value& value) = 0;
@@ -75,7 +78,7 @@ public:
         if (!m_Loading)
         {
             std::string text = raw >= 0 && raw < static_cast<int>(names.size()) ? names.begin()[raw] : std::to_string(raw);
-            Field(name, text);
+            NamedField(name, text, names);
             return;
         }
         if (IsNumber(name))
@@ -86,7 +89,7 @@ public:
             return;
         }
         std::string text;
-        Field(name, text);
+        NamedField(name, text, names);
         for (size_t i = 0; i < names.size(); ++i)
             if (text == names.begin()[i])
                 value = static_cast<E>(i);
@@ -123,6 +126,8 @@ public:
 private:
     template <typename T>
     AssetHandle<T> Load(const std::string& reference);
+    // A string field that is one of `names` (an enum); a visitor is told the names.
+    void NamedField(const char* name, std::string& text, std::initializer_list<const char*> names);
     bool Has(const char* name) const;
     bool IsNumber(const char* name) const;
     // Saving: how an asset is written (empty when it can't be). Loading: the file a whole-file
@@ -187,6 +192,8 @@ namespace SceneFile
     // The serializer of a component by its ECS name (nullptr if it has none): how code reaches
     // components by name (scripting). Every app registers its components before it looks one up.
     const detail::Serializer* FindComponent(std::string_view name);
+    // Every component (and tag) scene files know, in registration order.
+    void ForEachComponent(const std::function<void(const detail::Serializer&)>& fn);
 }
 
 template <typename T>

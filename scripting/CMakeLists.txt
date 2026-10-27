@@ -30,9 +30,14 @@ else()
   target_compile_definitions(MarianaScripting PRIVATE MARIANA_LUAU_CODEGEN=1)
 endif()
 
+# Checking and completing scripts (the editor's): a library of its own on Luau's type checker.
+add_subdirectory(tools)
+
 # MarianaScriptingTest: a console program that runs scripts against a scene made in code and checks
-# what they did. No window, no GPU.
+# what they did, and the scripts' types (the shipped scripts, the Sandbox's included). No window, no
+# GPU.
 if(NOT EMSCRIPTEN)
   add_executable(MarianaScriptingTest "${CMAKE_CURRENT_SOURCE_DIR}/tests/ScriptTest.cpp")
-  target_link_libraries(MarianaScriptingTest PRIVATE MarianaScripting)
+  target_link_libraries(MarianaScriptingTest PRIVATE MarianaScriptTools)
+  target_compile_definitions(MarianaScriptingTest PRIVATE MARIANA_SANDBOX_DIR="${PROJECT_SOURCE_DIR}/projects/Sandbox")
 endif()

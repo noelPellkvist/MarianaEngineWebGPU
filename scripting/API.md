@@ -14,24 +14,28 @@ entity (numbers, booleans, strings and vectors), with their defaults; they are p
 before `Start`.
 
 ```lua
-local Spin = {}
+--!strict
+local Spin = {} :: Script
 
 Spin.properties = {
     speed = 90,              -- degrees per second
     axis = vec3(0, 1, 0),
 }
 
-function Spin:Start()
+function Spin.Start(self: Script)
     self.turned = 0
 end
 
-function Spin:Update(dt: number)
+function Spin.Update(self: Script, dt: number)
     self.entity:Rotate(self.axis, self.speed * dt)
     self.turned += self.speed * dt
 end
 
 return Spin
 ```
+
+`:: Script` and `self: Script` give the type checker `self.entity` (see Types below);
+`function Spin:Update(dt)` runs the same, but what it does with `self` isn't checked.
 
 | Function | When |
 |---|---|
@@ -51,6 +55,21 @@ reloads it: running instances keep their `self` and take the new functions.
 Globals are read-only (each script has globals of its own); the standard libraries are Luau's
 (`math`, `string`, `table`, `vector`, `bit32`, `buffer`, `coroutine`, `utf8`, `os.clock` and
 friends), plus `print` and `warn` (to the log, with the script and line).
+
+## Types, errors and autocomplete
+
+Scripts are checked against the API's types by Luau's type checker: what it finds shows in the
+inspector next to the script (and it doesn't stop the script from running). A script is checked
+loosely unless its first line is `--!strict`; the scripts that come with the engine are strict.
+The types are `Script`, `Entity`, `quat`, `Contact`, `RaycastHit`, `QueryOptions`, `BodyInfo`,
+`VehicleInfo`, `CharacterInfo` and one per component (`RigidBody`, `Vehicle`, ...), so
+`entity:Get("RigidBody")` is a `RigidBody?` and a misspelt component, field or enum value is an
+error.
+
+In VS Code: install the "Luau Language Server" extension and open the project's folder. The editor
+writes the types to `.mariana/types/Mariana.d.luau` (again whenever the components change) and, when
+the project has none, a `.vscode/settings.json` pointing the extension at them; you get the same
+errors and autocomplete there.
 
 ## Values
 

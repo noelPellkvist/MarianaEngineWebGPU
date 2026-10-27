@@ -1,3 +1,4 @@
+--!strict
 -- VehicleDriver: drives the entity's Vehicle from the keyboard. W / Up is the throttle, S / Down
 -- brakes until the vehicle has (nearly) stopped and then backs up, A D / Left Right steer, Space is
 -- the hand brake.
@@ -20,7 +21,7 @@ local function axis(plus: string, plusToo: string, minus: string, minusToo: stri
     return value
 end
 
-function VehicleDriver:Update(dt: number)
+function VehicleDriver.Update(self: Script, dt: number)
     local vehicle = self.entity:Get("Vehicle")
     if not vehicle then
         return

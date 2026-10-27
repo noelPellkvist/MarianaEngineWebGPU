@@ -1,3 +1,4 @@
+--!strict
 -- ChaseCamera: keeps its entity (a camera) behind and above a target, following it smoothly: the
 -- entity named `target`, or else the first one (by id) driven by a VehicleDriver or CharacterDriver.
 local ChaseCamera = {} :: Script
@@ -14,7 +15,7 @@ local function findTarget(name: string): Entity?
     if name ~= "" then
         return scene.Find(name)
     end
-    local found = nil
+    local found: Entity? = nil
     scene.Each("Scripts", function(e)
         if not found and (e:GetScript("VehicleDriver") or e:GetScript("CharacterDriver")) then
             found = e
@@ -23,7 +24,7 @@ local function findTarget(name: string): Entity?
     return found
 end
 
-function ChaseCamera:LateUpdate(dt: number)
+function ChaseCamera.LateUpdate(self: Script, dt: number)
     if not (self.followed and self.followed:IsValid()) then
         self.followed = findTarget(self.target)
     end

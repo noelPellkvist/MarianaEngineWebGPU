@@ -21,6 +21,7 @@
 class InspectorWindow;
 class AnimationGraphWindow;
 class PhysicsWindow;
+class ScriptChecker;
 class ThumbnailCache;
 class ViewportWindow;
 
@@ -56,6 +57,7 @@ class EditorApp : public Application
         // The scene's simulation: bodies only exist while playing (Play and Stop reset it).
         std::unique_ptr<PhysicsWorld> physics;
         std::unique_ptr<ScriptWorld> scripts;
+        std::unique_ptr<ScriptChecker> scriptChecker;
         PhysicsWindow* physicsWindow = nullptr;
         std::vector<DebugLine> debugLines; // PhysicsWorld::DebugDraw's, kept to reuse the memory
         // The two views of sceneRenderer, drawn only while their windows show. The game view is made
