@@ -7,7 +7,7 @@ target_include_directories(MarianaPlayer PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
   "${PROJECT_SOURCE_DIR}/external/Loaders"
 )
-target_link_libraries(MarianaPlayer PRIVATE MarianaEngine MarianaPhysics)
+target_link_libraries(MarianaPlayer PRIVATE MarianaEngine MarianaPhysics MarianaScripting)
 
 # The project it runs (the sample one for now).
 set(MARIANA_PLAYER_PROJECT "${PROJECT_SOURCE_DIR}/projects/Sandbox")

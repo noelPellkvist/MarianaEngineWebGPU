@@ -529,9 +529,9 @@ uint64_t Scene::_getAliveId(uint64_t id) const {
     ecs_world_t* w = _p->ecs.c_ptr();
     ecs_entity_t e = (ecs_entity_t)id;
     if (!ecs_is_alive(w, e)) {
-        e = ecs_get_alive(w, e);
+        e = ecs_get_alive(w, e); // 0 when nothing lives at that index
     }
-    return ecs_is_alive(w, e) ? (uint64_t)e : 0;
+    return e && ecs_is_alive(w, e) ? (uint64_t)e : 0;
 }
 void Scene::_setName(uint64_t id, const char* name) {
     if (!_isAlive(id)) return;

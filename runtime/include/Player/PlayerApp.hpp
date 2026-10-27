@@ -6,6 +6,7 @@
 #include <Mariana/Rendering/Effect.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Physics/Controllers.hpp>
+#include <Mariana/Scripting/ScriptWorld.hpp>
 
 #include <memory>
 #include <string>
@@ -104,8 +105,8 @@ private:
 
 class PhysicsWorld;
 
-// Runs a project without the editor: the scene, its animation and physics and the render pipeline,
-// no UI.
+// Runs a project without the editor: the scene, its scripts, animation and physics and the render
+// pipeline, no UI.
 class PlayerApp : public Application
 {
 public:
@@ -127,6 +128,8 @@ private:
     EffectStack effects;
     // The scene's simulation (with the project's /Physics.json, if it has one), always running.
     std::unique_ptr<PhysicsWorld> physics;
+    // The scene's scripts, running from the start.
+    std::unique_ptr<ScriptWorld> scripts;
     // Systems query `scene`, so they are declared after it to be destroyed first.
     System animationSystem;
 

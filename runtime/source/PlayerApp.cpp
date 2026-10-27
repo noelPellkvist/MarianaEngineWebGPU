@@ -147,6 +147,7 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
     Animator::RegisterComponents();
     SceneRenderer::RegisterComponents();
     PhysicsWorld::RegisterComponents();
+    ScriptWorld::RegisterComponents();
     scene.UpdateComponentRegistry();
 
     cam = std::make_unique<PlayerCamera>(input, config.cameraPosition, config.cameraTarget, config.orbitSpeed);
@@ -160,6 +161,7 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
     GLTF::GLTFLoader::RegisterLoader(assets);
     MaterialFile::RegisterLoader(assets);
     AnimationGraphFile::RegisterLoader(assets);
+    ScriptAsset::RegisterLoader(assets);
 
     RenderPipelineDesc pipeline;
     std::string error;
@@ -175,6 +177,8 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
         if (std::string physicsError; !physicsSettings.Load(physicsFile, physicsError))
             Logger::Warning(physicsError);
     physics = std::make_unique<PhysicsWorld>(scene, physicsSettings);
+    scripts = std::make_unique<ScriptWorld>(scene, assets, gameClock);
+    scripts->SetPhysics(physics.get());
 
     m_Window.RegisterResizeCallback([this](int w, int h) { OnWindowResized(w, h); });
 }
@@ -368,10 +372,12 @@ void PlayerApp::OnStart()
 
 void PlayerApp::OnUpdate(float deltaTime)
 {
+    scripts->Update(gameClock.DeltaTime(), &input);
     animationSystem.Run(gameClock.DeltaTime());
     physics->UpdatePlayerControls(input, gameClock.DeltaTime(), glm::vec3(cam->GetCameraInfo().invView[2]));
     physics->Step(gameClock.DeltaTime());
     physics->UpdateFollowCameras(gameClock.DeltaTime());
+    scripts->LateUpdate(gameClock.DeltaTime());
 
     // The camera chases the driven vehicle.
     if (config.follow)

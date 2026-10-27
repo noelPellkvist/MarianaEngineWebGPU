@@ -1,6 +1,6 @@
 // The physics components in scene files (SceneFile), registered with them by
 // PhysicsWorld::RegisterComponents. What drives them while the game runs (a vehicle's pedals, a
-// character's walking) isn't saved.
+// character's walking) isn't saved: those fields are transient, there for code (scripts) only.
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Importers/SceneFile.hpp>
@@ -80,6 +80,11 @@ namespace PhysicsInternal
             a.Field("antiRollStiffness", v.antiRollStiffness);
             a.Field("maxPitchRollAngle", v.maxPitchRollAngle);
             a.Field("maxLeanAngle", v.maxLeanAngle);
+            // The driver's inputs (code drives with them; files don't keep them).
+            a.Transient("throttle", v.throttle);
+            a.Transient("steering", v.steering);
+            a.Transient("brake", v.brake);
+            a.Transient("handBrake", v.handBrake);
         });
         SceneFile::RegisterComponent<VehicleWheel>("VehicleWheel", [](SceneArchive& a, VehicleWheel& w) {
             a.Field("radius", w.radius);
@@ -122,6 +127,9 @@ namespace PhysicsInternal
             a.Field("turnToMove", c.turnToMove);
             a.Field("turnSpeed", c.turnSpeed);
             a.Field("layer", c.layer);
+            a.Transient("move", c.move);
+            a.Transient("run", c.run);
+            a.Transient("jump", c.jump);
         });
         SceneFile::RegisterComponent<WaterVolume>("WaterVolume", [](SceneArchive& a, WaterVolume& w) {
             a.Field("size", w.size);

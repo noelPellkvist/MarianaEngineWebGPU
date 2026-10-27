@@ -54,6 +54,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JoltPhysics)
 
+# Luau (used by MarianaScripting only): the VM and the compiler, without its command line tools and
+# tests. Native code generation natively (the web runs the interpreter).
+set(LUAU_BUILD_CLI OFF CACHE BOOL "" FORCE)
+set(LUAU_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+  Luau
+  GIT_REPOSITORY https://github.com/luau-lang/luau.git
+  GIT_TAG 0.744
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(Luau)
+# Only what MarianaScripting links gets built (not the type checker and the rest).
+set_property(DIRECTORY "${luau_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL ON)
+
 # glm
 add_subdirectory(external/glm)
 
@@ -98,9 +113,10 @@ set(MARIANA_ENGINE_RESOURCES "${PROJECT_SOURCE_DIR}/engine/resources")
 
 include(cmake/MarianaWeb.cmake)
 
-# The engine library, the physics library on it, then the apps built on them. The engine never
-# depends on an app (or on physics).
+# The engine library, the physics and scripting libraries on it, then the apps built on them. The
+# engine never depends on an app (or on physics or scripting).
 add_subdirectory(engine)
 add_subdirectory(physics)
+add_subdirectory(scripting)
 add_subdirectory(editor)
 add_subdirectory(runtime)

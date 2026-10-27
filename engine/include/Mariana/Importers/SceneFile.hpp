@@ -10,17 +10,39 @@
 #include <functional>
 #include <initializer_list>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
 class MaterialAsset;
 
+// Where a SceneArchive made for code rather than a file sends the fields (scripting reads and writes
+// components by field name through it): Visit gets each field the component's function names, with
+// its type and where its value is; reading takes the value, writing puts one there.
+class FieldVisitor
+{
+public:
+    struct Value
+    {
+        enum class Type : uint8_t { Float, Int, UInt, Bool, String, Floats, Quat, FloatList, StringList };
+        Type type;
+        void* data;
+        int count = 0; // Floats: how many
+    };
+    virtual ~FieldVisitor() = default;
+    virtual void Visit(const char* name, const Value& value) = 0;
+    // Writing: whether the value given for `name` is a number (an enum given by its number).
+    virtual bool IsNumber(const char*) const { return false; }
+};
+
 // Reads or writes one component's fields in a scene file. The same function does both (it is given
 // the component and calls Field for each member), so a component is described once. Names are the
-// JSON keys; a field missing from the file keeps the value the component has.
+// JSON keys; a field missing from the file keeps the value the component has. Made over a
+// FieldVisitor, the same function reads or writes fields for code (assets and lists are left out).
 class SceneArchive
 {
 public:
+    // Writing into the component (a file being loaded, code setting a field).
     bool IsLoading() const { return m_Loading; }
 
     void Field(const char* name, float& value);
@@ -70,6 +92,14 @@ public:
                 value = static_cast<E>(i);
     }
 
+    // A field code reads and writes but files don't keep (a vehicle's pedals, a character's walk).
+    template <typename T>
+    void Transient(const char* name, T& value)
+    {
+        if (m_Visitor)
+            Field(name, value);
+    }
+
     // An asset: by its file's resource path ("/Models/Tree.glb", "/Models/Tree.glb#mesh/0" for what
     // a file holds) or a builtin's key; a material made in memory is written into the scene file.
     // Loading loads what it names.
@@ -87,6 +117,8 @@ public:
     // Made by SceneFile.
     struct Context;
     SceneArchive(Context& context, void* json, bool loading, AssetManager2& assets);
+    // Over a visitor: reading the component's fields (loading = false) or writing them.
+    SceneArchive(FieldVisitor& visitor, bool loading, AssetManager2& assets);
 
 private:
     template <typename T>
@@ -102,8 +134,9 @@ private:
     int BeginList(const char* name, size_t count);
     SceneArchive Element(const char* name, int index);
 
-    Context* m_Context;
-    void* m_Json; // the JSON object read or written
+    Context* m_Context = nullptr;
+    void* m_Json = nullptr; // the JSON object read or written
+    FieldVisitor* m_Visitor = nullptr;
     bool m_Loading;
     AssetManager2* m_Assets;
 };
@@ -144,16 +177,24 @@ namespace SceneFile
             bool tag = false;
             std::function<bool(Entity)> has;
             std::function<void(Entity, SceneArchive&)> save;
-            std::function<void(Entity, SceneArchive&)> load;
+            std::function<void(Entity, SceneArchive&)> load; // adds the component if it isn't there
+            std::function<void(Entity)> remove;
+            std::function<void(const Scene&, const std::function<void(Entity)>&)> each; // none for tags
         };
         void Register(Serializer serializer);
     }
+
+    // The serializer of a component by its ECS name (nullptr if it has none): how code reaches
+    // components by name (scripting). Every app registers its components before it looks one up.
+    const detail::Serializer* FindComponent(std::string_view name);
 }
 
 template <typename T>
 void SceneArchive::Asset(const char* name, AssetHandle<T>& handle)
 {
     constexpr bool material = std::is_same_v<T, MaterialAsset>;
+    if (m_Visitor)
+        return;
     if (!m_Loading)
     {
         std::string reference = handle.IsValid() ? Reference(handle.GetID(), material) : std::string();
@@ -171,6 +212,8 @@ template <typename T>
 void SceneArchive::Assets(const char* name, std::vector<AssetHandle<T>>& handles)
 {
     constexpr bool material = std::is_same_v<T, MaterialAsset>;
+    if (m_Visitor)
+        return;
     std::vector<std::string> references;
     if (!m_Loading)
     {
@@ -206,6 +249,8 @@ AssetHandle<T> SceneArchive::Load(const std::string& reference)
 template <typename T, typename Fn>
 void SceneArchive::List(const char* name, std::vector<T>& elements, Fn&& item)
 {
+    if (m_Visitor)
+        return;
     const int count = BeginList(name, elements.size());
     if (count < 0)
         return;
@@ -233,6 +278,10 @@ void SceneFile::RegisterComponent(const char* name, Visit<T> visit)
                 value = *existing;
             visit(archive, value);
             e.Add<T>(value);
+        },
+        [](Entity e) { e.Remove<T>(); },
+        [](const Scene& scene, const std::function<void(Entity)>& fn) {
+            scene.Each<T>([&](Entity e, const T&) { fn(e); });
         } });
 }
 
@@ -242,5 +291,7 @@ void SceneFile::RegisterTag(const char* name)
     detail::Register({ name, true,
         [](Entity e) { return e.HasTag<T>(); },
         [](Entity, SceneArchive&) {},
-        [](Entity e, SceneArchive&) { e.AddTag<T>(); } });
+        [](Entity e, SceneArchive&) { e.AddTag<T>(); },
+        [](Entity e) { e.RemoveTag<T>(); },
+        nullptr });
 }

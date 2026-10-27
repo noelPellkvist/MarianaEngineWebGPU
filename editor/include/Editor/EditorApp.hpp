@@ -10,6 +10,7 @@
 #include <Mariana/Rendering/SceneCamera.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
+#include <Mariana/Scripting/ScriptWorld.hpp>
 
 #include <filesystem>
 #include <memory>
@@ -54,6 +55,7 @@ class EditorApp : public Application
         SceneRenderer sceneRenderer;
         // The scene's simulation: bodies only exist while playing (Play and Stop reset it).
         std::unique_ptr<PhysicsWorld> physics;
+        std::unique_ptr<ScriptWorld> scripts;
         PhysicsWindow* physicsWindow = nullptr;
         std::vector<DebugLine> debugLines; // PhysicsWorld::DebugDraw's, kept to reuse the memory
         // The two views of sceneRenderer, drawn only while their windows show. The game view is made

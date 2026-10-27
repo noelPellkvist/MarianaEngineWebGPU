@@ -58,7 +58,7 @@ namespace
         return name == "NameComponent" || ECS::IsRuntimeComponent(name.c_str());
     }
 
-    const Serializer* FindSerializer(const std::string& name)
+    const Serializer* FindSerializer(std::string_view name)
     {
         for (const Serializer& s : Registry())
             if (s.name == name)
@@ -118,7 +118,9 @@ namespace
             a.Field("clip", clip);
             a.Field("loop", loop);
             a.Field("time", time);
-            if (a.IsLoading() && clip >= 0 && clip < animator.ClipCount())
+            // Only a change replays it (code setting another field leaves it playing as it is).
+            const bool changed = clip != animator.CurrentClip() || loop != animator.Loop() || time != animator.Time();
+            if (a.IsLoading() && changed && clip >= 0 && clip < animator.ClipCount())
             {
                 animator.Play(clip, loop);
                 animator.SetTime(time);
@@ -166,6 +168,11 @@ SceneArchive::SceneArchive(Context& context, void* json, bool loading, AssetMana
 {
 }
 
+SceneArchive::SceneArchive(FieldVisitor& visitor, bool loading, AssetManager2& assets)
+    : m_Visitor(&visitor), m_Loading(loading), m_Assets(&assets)
+{
+}
+
 bool SceneArchive::Has(const char* name) const
 {
     return J(m_Json).contains(name);
@@ -173,6 +180,8 @@ bool SceneArchive::Has(const char* name) const
 
 bool SceneArchive::IsNumber(const char* name) const
 {
+    if (m_Visitor)
+        return m_Visitor->IsNumber(name);
     const Json& json = J(m_Json);
     const auto it = json.find(name);
     return it != json.end() && it->is_number();
@@ -180,6 +189,11 @@ bool SceneArchive::IsNumber(const char* name) const
 
 void SceneArchive::Field(const char* name, float& value)
 {
+    if (m_Visitor)
+    {
+        m_Visitor->Visit(name, { FieldVisitor::Value::Type::Float, &value });
+        return;
+    }
     Json& json = J(m_Json);
     if (!m_Loading)
         json[name] = MaterialJson::Clean(value);
@@ -189,6 +203,11 @@ void SceneArchive::Field(const char* name, float& value)
 
 void SceneArchive::Field(const char* name, int& value)
 {
+    if (m_Visitor)
+    {
+        m_Visitor->Visit(name, { FieldVisitor::Value::Type::Int, &value });
+        return;
+    }
     Json& json = J(m_Json);
     if (!m_Loading)
         json[name] = value;
@@ -198,6 +217,11 @@ void SceneArchive::Field(const char* name, int& value)
 
 void SceneArchive::Field(const char* name, uint32_t& value)
 {
+    if (m_Visitor)
+    {
+        m_Visitor->Visit(name, { FieldVisitor::Value::Type::UInt, &value });
+        return;
+    }
     Json& json = J(m_Json);
     if (!m_Loading)
         json[name] = value;
@@ -214,6 +238,11 @@ void SceneArchive::Field(const char* name, uint8_t& value)
 
 void SceneArchive::Field(const char* name, bool& value)
 {
+    if (m_Visitor)
+    {
+        m_Visitor->Visit(name, { FieldVisitor::Value::Type::Bool, &value });
+        return;
+    }
     Json& json = J(m_Json);
     if (!m_Loading)
         json[name] = value;
@@ -223,6 +252,11 @@ void SceneArchive::Field(const char* name, bool& value)
 
 void SceneArchive::Field(const char* name, std::string& value)
 {
+    if (m_Visitor)
+    {
+        m_Visitor->Visit(name, { FieldVisitor::Value::Type::String, &value });
+        return;
+    }
     Json& json = J(m_Json);
     if (!m_Loading)
         json[name] = value;
@@ -232,6 +266,11 @@ void SceneArchive::Field(const char* name, std::string& value)
 
 void SceneArchive::Field(const char* name, float* values, int count)
 {
+    if (m_Visitor)
+    {
+        m_Visitor->Visit(name, { FieldVisitor::Value::Type::Floats, values, count });
+        return;
+    }
     Json& json = J(m_Json);
     if (!m_Loading)
     {
@@ -252,6 +291,11 @@ void SceneArchive::Field(const char* name, glm::vec4& value) { Field(name, &valu
 
 void SceneArchive::Field(const char* name, glm::quat& value)
 {
+    if (m_Visitor)
+    {
+        m_Visitor->Visit(name, { FieldVisitor::Value::Type::Quat, &value });
+        return;
+    }
     float xyzw[4] = { value.x, value.y, value.z, value.w };
     Field(name, xyzw, 4);
     value = glm::quat(xyzw[3], xyzw[0], xyzw[1], xyzw[2]);
@@ -259,6 +303,11 @@ void SceneArchive::Field(const char* name, glm::quat& value)
 
 void SceneArchive::Field(const char* name, std::vector<float>& values)
 {
+    if (m_Visitor)
+    {
+        m_Visitor->Visit(name, { FieldVisitor::Value::Type::FloatList, &values });
+        return;
+    }
     Json& json = J(m_Json);
     if (!m_Loading)
     {
@@ -276,6 +325,11 @@ void SceneArchive::Field(const char* name, std::vector<float>& values)
 
 void SceneArchive::Field(const char* name, std::vector<std::string>& values)
 {
+    if (m_Visitor)
+    {
+        m_Visitor->Visit(name, { FieldVisitor::Value::Type::StringList, &values });
+        return;
+    }
     Json& json = J(m_Json);
     if (!m_Loading)
     {
@@ -415,6 +469,12 @@ AssetID SceneArchive::Resolve(const std::string& reference)
 
 namespace SceneFile
 {
+    const detail::Serializer* FindComponent(std::string_view name)
+    {
+        EnsureEngineComponents();
+        return FindSerializer(name);
+    }
+
     namespace detail
     {
         void Register(Serializer serializer)

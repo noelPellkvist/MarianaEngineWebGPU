@@ -56,13 +56,17 @@ _If it runs in your browser and on your PC with the same codebase, that’s not 
 - Ragdolls from animated skeletons: powered ragdolls keep dancing until something hits them
 - Soft bodies: cloth, flags in the wind, jelly and balloons
 
+**Scripting** (Luau, native and web)
+- Game code in Luau: scripts on entities with Start/Update/contact callbacks, any saved component by name, input, game time and the physics API ([scripting/API.md](scripting/API.md))
+- Properties edited per entity in the inspector, live reload while playing, errors shown where they happen; native code generation on desktop
+
 **Editor** (Dear ImGui)
 - Scene and game views, hierarchy, inspector, asset browser with rendered thumbnails, material editor, undo/redo, play/pause/step, scene files
 
 **Player**
 - Runs a project without the editor from its `Player.json`; its web build packages only what the project uses
 
-**Try it:** the Sandbox project opens in a playground scene with a car, a pool, jellies, a flag and three dancers in the car's way. Press Play (Ctrl+P) in the editor, or open the player, and drive with W A S D (Space is the hand brake).
+**Try it:** the Sandbox project opens in a playground scene with a car, a pool, jellies, a flag and three dancers in the car's way. Press Play (Ctrl+P) in the editor, or open the player, and drive with W A S D (Space is the hand brake, R puts the car back at the start); the orange pad on the left throws the car into the air. Both are scripts in `projects/Sandbox/Scripts/`.
 
 ---
 
@@ -178,7 +182,7 @@ Contributions are welcome! Please:
 
 - **Google Dawn** — WebGPU implementation powering both native and web backends
 - **WebGPU** — modern graphics API for the Web and native
-- **Jolt Physics**, **flecs**, **Dear ImGui**, **ImGuizmo**, **tinygltf**, **glm**, **stb_image** and **nlohmann/json**
+- **Jolt Physics**, **Luau**, **flecs**, **Dear ImGui**, **ImGuizmo**, **tinygltf**, **glm**, **stb_image** and **nlohmann/json**
 - **Car Concept** (`projects/Sandbox/Models/CarConcept/`) — © 2024 Darmstadt Graphics Group GmbH, created by Eric Chadwick, based on a public domain model by Unity Fan; from the Khronos glTF Sample Assets, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (Khronos logos and trademarks excluded)
 - Everyone who likes triangles and frame times under 16ms
 

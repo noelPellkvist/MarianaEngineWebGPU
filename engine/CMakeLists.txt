@@ -23,8 +23,10 @@ target_link_libraries(MarianaEngine
 
 if(EMSCRIPTEN)
   target_compile_definitions(MarianaEngine PRIVATE FLECS_NO_THREADS)
-  # Apps must compile with the same exception model as the engine.
+  # Apps must compile with the same exception model as the engine, and link with it too (without it
+  # at link time Emscripten turns catching off, and the first exception caught terminates).
   target_compile_options(MarianaEngine PUBLIC "SHELL:-fexceptions")
+  target_link_options(MarianaEngine PUBLIC "SHELL:-fexceptions")
   target_link_libraries(MarianaEngine PUBLIC emdawnwebgpu_cpp webgpu_glfw)
 else()
   target_link_libraries(MarianaEngine PUBLIC webgpu_dawn webgpu_glfw glfw)

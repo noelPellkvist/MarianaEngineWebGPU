@@ -31,6 +31,7 @@
 
 #include <Editor/Windows/Stats.hpp>
 #include <Editor/Physics/PhysicsEditor.hpp>
+#include <Editor/Scripting/ScriptEditor.hpp>
 #include <Editor/Windows/AnimationGraphWindow.hpp>
 #include <Editor/Windows/AssetsExplorer.hpp>
 #include <Editor/Windows/HierarchyWindow.hpp>
@@ -104,6 +105,7 @@ gameCamera(input)
     Animator::RegisterComponents();
     SceneRenderer::RegisterComponents();
     PhysicsWorld::RegisterComponents();
+    ScriptWorld::RegisterComponents();
 
     scene.UpdateComponentRegistry();
 
@@ -116,6 +118,7 @@ gameCamera(input)
     GLTF::GLTFLoader::RegisterLoader(assets);
     MaterialFile::RegisterLoader(assets);
     AnimationGraphFile::RegisterLoader(assets);
+    ScriptAsset::RegisterLoader(assets);
 
     // The effects, their settings, the exposure and the shadow settings come from a pipeline file.
     // The game view copies the scene view's.
@@ -364,6 +367,8 @@ void EditorApp::OnStart()
     auto physicsEditor = std::make_unique<PhysicsWindow>(gui, *physics, physicsFile);
     physicsWindow = physicsEditor.get();
     EditorWindows["Physics"] = std::move(physicsEditor);
+    scripts = std::make_unique<ScriptWorld>(scene, assets, gameClock);
+    scripts->SetPhysics(physics.get());
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
     thumbnails = std::make_unique<ThumbnailCache>(MARIANA_PROJECT_DIR, input);
@@ -380,9 +385,14 @@ void EditorApp::OnStart()
                 graphWindow->Open(graph);
         if (extension == ".scene")
             OpenScene(file);
+        if (extension == ".luau" || extension == ".lua")
+            ScriptEditor::OpenWithSystem(file);
     };
     assetsExplorer->createActions.push_back({ "Animation Graph", [this](const fs::path& folder) {
         graphWindow->CreateGraph(folder / "New Animation Graph.animgraph", nullptr);
+    } });
+    assetsExplorer->createActions.push_back({ "Script", [](const fs::path& folder) {
+        ScriptEditor::CreateScript(folder, "NewScript");
     } });
     EditorWindows["Assets"] = std::move(assetsExplorer);
     auto inspector = std::make_unique<InspectorWindow>(gui, assets, scene, undo);
@@ -401,6 +411,7 @@ void EditorApp::OnStart()
         SelectEntity(entity.RawId());
     });
     PhysicsEditor::RegisterInspector(*inspector, undo, *physics, assets, scene);
+    ScriptEditor::RegisterInspector(*inspector, undo, *scripts, assets, MARIANA_PROJECT_DIR);
     inspector->AddComponentOption({ "Rendering", "Camera",
         [](Entity e) { return !e.TryGet<CameraComponent>(); },
         [](Entity e) { e.Add<CameraComponent>(CameraComponent{}); } });
@@ -460,6 +471,7 @@ void EditorApp::ClearScene()
     scene.Clear();
     sceneRenderer.InvalidateTransforms();
     physics->Reset();
+    scripts->Reset();
     undo.Clear();
     selectedEntityID = static_cast<uint64_t>(-1);
     selectedEntity = Entity{};
@@ -634,7 +646,9 @@ void EditorApp::BuildStartupScene()
     // What the Sandbox's Playground.scene was saved from: the vehicle playground with the concept car
     // (or the primitive car when the project doesn't have it) and a chase camera for the Game view,
     // three dancers in the car's way (thrown when it hits them), a pool to its right with jellies on
-    // the way there, and a flag on its left.
+    // the way there, a flag on its left, and scripts: R puts the car back at the start
+    // (Respawn.luau) and a launch pad ahead on the left throws what drives onto it into the air
+    // (LaunchPad.luau) under a hovering marker (Hover.luau).
     VehiclePresets::SpawnPlayground(scene, assets, glm::vec3(0.0f));
     scene.Update(0.0f);
     Entity car = VehiclePresets::SpawnCar(scene, assets, "/Models/CarConcept/CarConcept.gltf", glm::vec3(0.0f));
@@ -653,6 +667,36 @@ void EditorApp::BuildStartupScene()
     SoftBodyPresets::SpawnJelly(scene, assets, glm::vec3(3.5f, 0.0f, 6.0f));
     SoftBodyPresets::SpawnJelly(scene, assets, glm::vec3(5.0f, 0.0f, 4.5f));
     SoftBodyPresets::SpawnFlag(scene, assets, glm::vec3(-5.0f, 0.0f, 8.0f), facingCar);
+
+    auto addScript = [&](Entity entity, const char* resource) {
+        AssetHandle<ScriptAsset> script = assets.Load<ScriptAsset>(FileSystem::Resolve(resource));
+        if (!script.Get())
+            return;
+        if (!entity.Has<Scripts>())
+            entity.Add<Scripts>(Scripts{});
+        entity.Get<Scripts>()->scripts.push_back(ScriptSlot{ script, true, {} });
+    };
+    addScript(car, "/Scripts/Respawn.luau");
+    Entity pad = scene.Instantiate("Launch Pad");
+    pad.SetPosition(-10.0f, 0.0f, 20.0f);
+    BoxCollider zone;
+    zone.size = glm::vec3(3.0f, 1.5f, 3.0f);
+    zone.center = glm::vec3(0.0f, 0.75f, 0.0f);
+    zone.isTrigger = true;
+    pad.Add<BoxCollider>(zone);
+    addScript(pad, "/Scripts/LaunchPad.luau");
+    Entity plate = BuiltinAssets::InstantiatePrimitive(scene, assets, BuiltinMesh::Cube, "Plate", glm::vec3(0.95f, 0.5f, 0.1f));
+    plate.SetParent(pad);
+    plate.SetPosition(0.0f, 0.01f, 0.0f);
+    plate.SetScale(3.0f, 0.02f, 3.0f);
+    Entity marker = BuiltinAssets::InstantiatePrimitive(scene, assets, BuiltinMesh::Cube, "Marker", glm::vec3(1.0f, 0.75f, 0.2f));
+    marker.SetParent(pad);
+    marker.SetPosition(0.0f, 3.0f, 0.0f);
+    marker.SetScaleUniform(0.5f);
+    const glm::quat tilt = glm::quat(glm::radians(glm::vec3(45.0f, 0.0f, 35.0f)));
+    marker.SetRotationQuat(tilt.x, tilt.y, tilt.z, tilt.w);
+    addScript(marker, "/Scripts/Hover.luau");
+
     scene.Update(0.0f);
     DeselectEntity();
     savedUndoVersion = undo.Version();
@@ -716,13 +760,21 @@ void EditorApp::OnUpdate(float deltaTime)
             SelectEntity(pickedID);
     }
 
-    // Game time: animations and physics only move while the game plays. Transforms changed here are
-    // propagated once, in OnRender.
+    // Script files edited elsewhere take effect at once (also while playing).
+    scripts->ReloadChanged();
+
+    // Game time: scripts, animations and physics only move while the game plays (scripts on the
+    // frames it moves: not while paused, but on a Step). Transforms changed here are propagated
+    // once, in OnRender. The keys drive the game unless something else has them (typing, flying the
+    // editor camera).
+    const bool gameHasKeys = !ImGui::GetIO().WantTextInput && !input.IsMouseButtonDown(MouseButton::Right);
+    const bool gameAdvances = gameClock.IsPlaying() && (!gameClock.IsPaused() || gameClock.DeltaTime() > 0.0f);
+    if (gameAdvances)
+        scripts->Update(gameClock.DeltaTime(), gameHasKeys ? &input : nullptr);
     animationSystem.Run(gameClock.DeltaTime());
     if (gameClock.IsPlaying())
     {
-        // The keys drive the game unless something else has them (typing, flying the editor camera).
-        if (!ImGui::GetIO().WantTextInput && !input.IsMouseButtonDown(MouseButton::Right))
+        if (gameHasKeys)
         {
             // Characters walk relative to the game camera (last frame's first one), else the editor's.
             glm::vec3 viewForward = glm::vec3(cam->GetCameraInfo().invView[2]);
@@ -736,6 +788,8 @@ void EditorApp::OnUpdate(float deltaTime)
         if (gameClock.IsPaused())
             physics->ShowLatest();
         physics->UpdateFollowCameras(gameClock.DeltaTime());
+        if (gameAdvances)
+            scripts->LateUpdate(gameClock.DeltaTime());
     }
 
     sceneCameras.clear();
@@ -1185,13 +1239,16 @@ void EditorApp::TogglePlay()
     if (gameClock.IsPlaying())
     {
         gameClock.Stop();
+        // The scripts end (OnDestroy) in the scene as it was played, before it is put back.
+        scripts->Reset();
         RestoreScene();
         physics->Reset();
     }
     else
     {
-        // Bodies are made from the scene as it is now.
+        // Bodies and scripts are made from the scene as it is now.
         physics->Reset();
+        scripts->Reset();
         playSnapshot = scene.Snapshot();
         playUndo = undo;
         restoreOnStop = true;
