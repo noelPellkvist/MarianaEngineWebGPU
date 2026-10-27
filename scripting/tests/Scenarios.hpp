@@ -1,15 +1,20 @@
 #pragma once
 // Script scenarios with known answers, run by the native test (MarianaScriptingTest) and by the web
-// build, so both are checked on the same numbers. No window or GPU: scripts given as source, scenes
-// made in code, physics on colliders. Scripts report what they saw in their entity's name.
+// build, so both are checked on the same numbers. No window or GPU: scripts given as source or the
+// ones that come with the library (ScriptWorld::ResourceRoot must be a FileSystem root), scenes made
+// in code, physics on colliders, keys simulated. Scripts report what they saw in their entity's name.
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Foundation/GameClock.hpp>
 #include <Mariana/Physics/Components.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
+#include <Mariana/Physics/Character.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
+#include <Mariana/Platform/IInput.hpp>
+#include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Scripting/ScriptWorld.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <functional>
@@ -32,18 +37,20 @@ namespace ScriptScenarios
     {
         constexpr float kStep = 1.0f / 60.0f;
 
-        // A scene, its scripts, physics and clock, stepped a frame at a time as the apps do.
+        // A scene, its scripts, physics, clock and keys, stepped a frame at a time as the apps do.
         struct World
         {
             AssetManager2 assets;
             Scene scene;
             GameClock clock;
+            IInput input{ nullptr };
             PhysicsWorld physics;
             ScriptWorld scripts;
 
             World() : physics(scene, Settings()), scripts(scene, assets, clock)
             {
                 scene.UpdateComponentRegistry();
+                ScriptAsset::RegisterLoader(assets);
                 scripts.SetPhysics(&physics);
                 clock.Play();
             }
@@ -60,10 +67,11 @@ namespace ScriptScenarios
                 for (int i = 0; i < count; ++i)
                 {
                     clock.Tick(kStep);
-                    scripts.Update(kStep, nullptr);
+                    scripts.Update(kStep, &input);
                     physics.Step(kStep);
                     scripts.LateUpdate(kStep);
                     scene.Update(kStep);
+                    input.Update();
                 }
             }
 
@@ -119,6 +127,44 @@ namespace ScriptScenarios
             char text[256];
             std::snprintf(text, sizeof(text), format, a, b, c, d);
             return text;
+        }
+
+        // The primitive car of the physics test's "car" scenario (its colliders), on a 400 m ground.
+        inline Entity PrimitiveCar(World& w)
+        {
+            Entity ground = w.Make("Ground", glm::vec3(0.0f, -0.5f, 0.0f));
+            BoxCollider groundBox;
+            groundBox.size = glm::vec3(400.0f, 1.0f, 400.0f);
+            ground.Add<BoxCollider>(groundBox);
+            Entity car = w.Make("Car", glm::vec3(0.0f, 1.0f, -150.0f));
+            RigidBody body;
+            body.mass = 1500.0f;
+            body.centerOfMass = glm::vec3(0.0f, -0.35f, 0.0f);
+            car.Add<RigidBody>(body);
+            Vehicle vehicle;
+            vehicle.drive = VehicleDrive::Rear;
+            car.Add<Vehicle>(vehicle);
+            Entity chassis = w.Make("Body", glm::vec3(0.0f), car);
+            chassis.SetScale(1.8f, 0.5f, 4.2f);
+            chassis.Add<BoxCollider>(BoxCollider{});
+            Entity cabin = w.Make("Cabin", glm::vec3(0.0f, 0.47f, -0.3f), car);
+            cabin.SetScale(1.5f, 0.45f, 2.0f);
+            cabin.Add<BoxCollider>(BoxCollider{});
+            VehicleWheel front;
+            front.radius = 0.38f;
+            front.width = 0.26f;
+            front.suspensionMin = 0.1f;
+            front.suspensionMax = 0.3f;
+            front.maxSteerAngle = 30.0f;
+            VehicleWheel rear = front;
+            rear.maxSteerAngle = 0.0f;
+            rear.maxHandBrakeTorque = 4000.0f;
+            const float x = 0.97f, y = -0.4f, z = 1.35f;
+            w.Make("Wheel FL", glm::vec3(-x, y, z), car).Add<VehicleWheel>(front);
+            w.Make("Wheel FR", glm::vec3(x, y, z), car).Add<VehicleWheel>(front);
+            w.Make("Wheel RL", glm::vec3(-x, y, -z), car).Add<VehicleWheel>(rear);
+            w.Make("Wheel RR", glm::vec3(x, y, -z), car).Add<VehicleWheel>(rear);
+            return car;
         }
 
         inline Result Finish(const Log& log, const char* name, std::string detail, bool passed)
@@ -406,38 +452,7 @@ return F
     {
         using namespace detail;
         World w;
-        Entity ground = w.Make("Ground", glm::vec3(0.0f, -0.5f, 0.0f));
-        BoxCollider groundBox;
-        groundBox.size = glm::vec3(400.0f, 1.0f, 400.0f);
-        ground.Add<BoxCollider>(groundBox);
-        Entity car = w.Make("Car", glm::vec3(0.0f, 1.0f, -150.0f));
-        RigidBody body;
-        body.mass = 1500.0f;
-        body.centerOfMass = glm::vec3(0.0f, -0.35f, 0.0f);
-        car.Add<RigidBody>(body);
-        Vehicle vehicle;
-        vehicle.drive = VehicleDrive::Rear;
-        car.Add<Vehicle>(vehicle);
-        Entity chassis = w.Make("Body", glm::vec3(0.0f), car);
-        chassis.SetScale(1.8f, 0.5f, 4.2f);
-        chassis.Add<BoxCollider>(BoxCollider{});
-        Entity cabin = w.Make("Cabin", glm::vec3(0.0f, 0.47f, -0.3f), car);
-        cabin.SetScale(1.5f, 0.45f, 2.0f);
-        cabin.Add<BoxCollider>(BoxCollider{});
-        VehicleWheel front;
-        front.radius = 0.38f;
-        front.width = 0.26f;
-        front.suspensionMin = 0.1f;
-        front.suspensionMax = 0.3f;
-        front.maxSteerAngle = 30.0f;
-        VehicleWheel rear = front;
-        rear.maxSteerAngle = 0.0f;
-        rear.maxHandBrakeTorque = 4000.0f;
-        const float x = 0.97f, y = -0.4f, z = 1.35f;
-        w.Make("Wheel FL", glm::vec3(-x, y, z), car).Add<VehicleWheel>(front);
-        w.Make("Wheel FR", glm::vec3(x, y, z), car).Add<VehicleWheel>(front);
-        w.Make("Wheel RL", glm::vec3(-x, y, -z), car).Add<VehicleWheel>(rear);
-        w.Make("Wheel RR", glm::vec3(x, y, -z), car).Add<VehicleWheel>(rear);
+        Entity car = PrimitiveCar(w);
         Attach(car, w.Source("Driver.luau", R"(
 local Driver = {}
 function Driver:Start() self.frames = 0 end
@@ -458,6 +473,98 @@ return Driver
         return Finish(log, "driving", std::string(car.GetName()) + Format(" (%.3f)", kmh), kmh > 65.0f && kmh < 85.0f && info.gear >= 2);
     }
 
+    // The scripts that come with the library: VehicleDriver with W held drives the primitive car as
+    // the physics test does (the same 73.8 km/h); then S brakes it to a stop and backs it up, and
+    // D steers right; ChaseCamera follows it (further behind the faster it goes: it catches up at
+    // `stiffness` per second).
+    inline Result StandardVehicle(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        Entity car = PrimitiveCar(w);
+        if (!ScriptWorld::AddScript(car, w.assets, "/Scripts/VehicleDriver.luau"))
+            return Finish(log, "vehicle driver", "no /Scripts/VehicleDriver.luau", false);
+        Entity camera = w.Make("Camera", glm::vec3(0.0f, 3.0f, -160.0f));
+        camera.Add<CameraComponent>(CameraComponent{});
+        ScriptWorld::AddScript(camera, w.assets, "/Scripts/ChaseCamera.luau");
+        w.Frames(60);
+        w.input.SimulateKey(Key::W, true);
+        w.Frames(300);
+        VehicleInfo info;
+        w.physics.GetVehicleInfo(car, info);
+        const float kmh = info.speed * 3.6f;
+        const glm::vec3 carAt = Position(car), cameraAt = Position(camera);
+        const float behind = carAt.z - cameraAt.z;
+        w.input.SimulateKey(Key::W, false);
+        w.input.SimulateKey(Key::S, true);
+        float braking = 1.0f;
+        for (int i = 0; i < 600 && info.speed > -1.0f; ++i)
+        {
+            w.Frames(1);
+            w.physics.GetVehicleInfo(car, info);
+            if (info.speed > 0.6f)
+                braking = std::min(braking, car.TryGet<Vehicle>()->brake);
+        }
+        const float reversing = info.speed;
+        w.input.SimulateKey(Key::S, false);
+        w.input.SimulateKey(Key::D, true);
+        w.Frames(30);
+        const float steering = car.TryGet<Vehicle>()->steering;
+        const bool passed = kmh > 65.0f && kmh < 85.0f && behind > 6.0f && behind < 14.0f && braking == 1.0f && reversing < -0.9f && steering > 0.9f;
+        return Finish(log, "vehicle driver",
+                      Format("%.3f km/h (W), camera %.2f m behind, braked then backing at %.2f m/s (S), steering %.2f (D)", kmh, behind, reversing, steering),
+                      passed);
+    }
+
+    // CharacterDriver walks a character where the scene's camera looks (W), runs, jumps (Space); the
+    // ChaseCamera turns to follow it.
+    inline Result StandardCharacter(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        Entity ground = w.Make("Ground", glm::vec3(0.0f, -0.5f, 0.0f));
+        BoxCollider groundBox;
+        groundBox.size = glm::vec3(100.0f, 1.0f, 100.0f);
+        ground.Add<BoxCollider>(groundBox);
+        Entity character = w.Make("Character");
+        character.Add<CharacterController>(CharacterController{});
+        if (!ScriptWorld::AddScript(character, w.assets, "/Scripts/CharacterDriver.luau"))
+            return Finish(log, "character driver", "no /Scripts/CharacterDriver.luau", false);
+        // The camera looks along +X, so W walks that way.
+        Entity camera = w.Make("Camera", glm::vec3(-5.0f, 2.0f, 0.0f));
+        const glm::quat alongX = glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        camera.SetRotationQuat(alongX.x, alongX.y, alongX.z, alongX.w);
+        camera.Add<CameraComponent>(CameraComponent{});
+        w.Frames(30);
+        w.input.SimulateKey(Key::W, true);
+        w.Frames(60);
+        const glm::vec3 walked = Position(character);
+        w.input.SimulateKey(Key::LEFT_SHIFT, true);
+        w.Frames(60);
+        const float ran = Position(character).x - walked.x;
+        w.input.SimulateKey(Key::W, false);
+        w.input.SimulateKey(Key::LEFT_SHIFT, false);
+        w.Frames(30);
+        w.input.SimulateKey(Key::SPACE, true);
+        float top = 0.0f;
+        for (int i = 0; i < 90; ++i)
+        {
+            w.Frames(1);
+            if (i == 0)
+                w.input.SimulateKey(Key::SPACE, false);
+            top = std::max(top, Position(character).y);
+        }
+        // Now a chase camera behind it.
+        ScriptWorld::AddScript(camera, w.assets, "/Scripts/ChaseCamera.luau");
+        w.Frames(60);
+        const glm::vec3 c = Position(camera), p = Position(character);
+        const bool passed = walked.x > 3.0f && std::abs(walked.z) < 0.05f && ran > 6.5f && top > 1.0f && c.x < p.x - 5.0f && c.y > p.y + 2.0f;
+        return Finish(log, "character driver",
+                      Format("walked to x %.2f (z %.3f), ran %.2f m in 1 s, jumped to %.2f m;", walked.x, walked.z, ran, top) +
+                          Format(" camera %.2f m behind and %.2f up", p.x - c.x, c.y - p.y),
+                      passed);
+    }
+
     // What a script declares, read without running the game.
     inline Result Describe(const Log& log)
     {
@@ -474,6 +581,7 @@ return Driver
 
     inline std::vector<Result> RunAll(const Log& log)
     {
-        return { Lifecycle(log), Components(log), Physics(log), Spawning(log), Talking(log), Reload(log), Errors(log), Driving(log), Describe(log) };
+        return { Lifecycle(log), Components(log), Physics(log), Spawning(log), Talking(log), Reload(log), Errors(log), Driving(log),
+                 StandardVehicle(log), StandardCharacter(log), Describe(log) };
     }
 }

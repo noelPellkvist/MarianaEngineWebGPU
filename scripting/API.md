@@ -150,6 +150,22 @@ In the editor keys read as up while a text field has them or the right mouse but
 
 `options` = `{ ignore = entity, triggers = true, layers = mask }`.
 
+## Scripts that come with the engine
+
+Game controls are scripts too: the engine gives vehicles, characters and cameras, and these decide
+how the keys drive them. They live in `scripting/resources/Scripts/` and are found as
+`/Scripts/<name>.luau`; a project replaces one by putting its own file at the same path (or copies
+one under another name to start from).
+
+| Script | Goes on | What it does |
+|---|---|---|
+| `VehicleDriver.luau` | an entity with a `Vehicle` | W / Up throttle, S / Down brakes until it has (nearly) stopped and then backs up, A D / Left Right steer, Space the hand brake. `steerSpeed`, `steerFade` (less lock the faster it goes). |
+| `CharacterDriver.luau` | an entity with a `CharacterController` | W A S D / arrows walk relative to the scene's first camera, Shift runs, Space jumps. |
+| `ChaseCamera.luau` | a camera entity | Follows `target` (a name; empty = the first entity with a VehicleDriver or CharacterDriver) from `distance` behind and `height` above, catching up at `stiffness` per second. |
+
+The editor's Create > Vehicle and Create > Physics > Character put the drivers on what they make and
+add a chase camera; the player gives its presets the same.
+
 ## Examples
 
 `projects/Sandbox/Scripts/` has `Respawn.luau` (R puts the car back at the start), `LaunchPad.luau`

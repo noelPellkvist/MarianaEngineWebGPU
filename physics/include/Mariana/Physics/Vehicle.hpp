@@ -47,7 +47,7 @@ struct Vehicle
     float maxPitchRollAngle = 60.0f;   // degrees it may tip before it is held up
     float maxLeanAngle = 45.0f;        // motorcycles: degrees it leans into turns
 
-    // The driver (set by code, or by PlayerControl): throttle -1..1 (negative backs up),
+    // The driver (set by code: scripts): throttle -1..1 (negative backs up),
     // steering -1..1 (positive turns right), brake and hand brake 0..1.
     float throttle = 0.0f;
     float steering = 0.0f;

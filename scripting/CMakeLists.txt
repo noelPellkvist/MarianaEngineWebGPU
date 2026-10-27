@@ -16,6 +16,9 @@ target_link_libraries(MarianaScripting
   PRIVATE Luau.VM Luau.Compiler
 )
 
+# The scripts that come with the library (ScriptWorld::ResourceRoot); web apps preload the folder.
+target_compile_definitions(MarianaScripting PRIVATE MARIANA_SCRIPTING_RESOURCES="${MARIANA_SCRIPTING_RESOURCES}")
+
 if(EMSCRIPTEN)
   # Luau raises its errors as C++ exceptions, so it must catch them the way the engine does.
   foreach(luau_target Luau.Ast Luau.Bytecode Luau.Compiler Luau.VM)

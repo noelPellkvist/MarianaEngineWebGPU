@@ -3,9 +3,11 @@
   "dependencies": [
     "/Models/CarConcept/CarConcept.gltf",
     "/Models/Rumba.glb",
+    "/Scripts/ChaseCamera.luau",
     "/Scripts/Hover.luau",
     "/Scripts/LaunchPad.luau",
-    "/Scripts/Respawn.luau"
+    "/Scripts/Respawn.luau",
+    "/Scripts/VehicleDriver.luau"
   ],
   "materials": [
     {
@@ -4692,42 +4694,6 @@
     },
     {
       "id": 54,
-      "name": "Chase Camera",
-      "components": {
-        "LocalTRS": {
-          "position": [
-            -5.5,
-            3.2,
-            -8.0
-          ],
-          "rotation": [
-            0.101201,
-            0.228507,
-            -0.02389,
-            0.967973
-          ],
-          "scale": [
-            1.0,
-            1.0,
-            1.0
-          ]
-        },
-        "CameraComponent": {
-          "fov": 60.0,
-          "near": 0.1,
-          "far": 500.0
-        },
-        "FollowCamera": {
-          "target": "",
-          "distance": 7.0,
-          "height": 2.5,
-          "lookHeight": 1.0,
-          "stiffness": 5.0
-        }
-      }
-    },
-    {
-      "id": 55,
       "name": "Rumba",
       "components": {
         "LocalTRS": {
@@ -4777,9 +4743,9 @@
       }
     },
     {
-      "id": 56,
+      "id": 55,
       "name": "Armature",
-      "parent": 55,
+      "parent": 54,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4805,9 +4771,9 @@
       }
     },
     {
-      "id": 57,
+      "id": 56,
       "name": "mixamorig:Hips",
-      "parent": 56,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4833,9 +4799,9 @@
       }
     },
     {
-      "id": 58,
+      "id": 57,
       "name": "mixamorig:Spine",
-      "parent": 57,
+      "parent": 56,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4861,9 +4827,9 @@
       }
     },
     {
-      "id": 59,
+      "id": 58,
       "name": "mixamorig:Spine1",
-      "parent": 58,
+      "parent": 57,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4889,9 +4855,9 @@
       }
     },
     {
-      "id": 60,
+      "id": 59,
       "name": "mixamorig:Spine2",
-      "parent": 59,
+      "parent": 58,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4917,9 +4883,9 @@
       }
     },
     {
-      "id": 61,
+      "id": 60,
       "name": "mixamorig:Neck",
-      "parent": 60,
+      "parent": 59,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4945,9 +4911,9 @@
       }
     },
     {
-      "id": 62,
+      "id": 61,
       "name": "mixamorig:Head",
-      "parent": 61,
+      "parent": 60,
       "components": {
         "LocalTRS": {
           "position": [
@@ -4973,9 +4939,9 @@
       }
     },
     {
-      "id": 63,
+      "id": 62,
       "name": "mixamorig:HeadTop_End",
-      "parent": 62,
+      "parent": 61,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5001,9 +4967,9 @@
       }
     },
     {
-      "id": 64,
+      "id": 63,
       "name": "mixamorig:LeftShoulder",
-      "parent": 60,
+      "parent": 59,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5029,9 +4995,9 @@
       }
     },
     {
-      "id": 65,
+      "id": 64,
       "name": "mixamorig:LeftArm",
-      "parent": 64,
+      "parent": 63,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5057,9 +5023,9 @@
       }
     },
     {
-      "id": 66,
+      "id": 65,
       "name": "mixamorig:LeftForeArm",
-      "parent": 65,
+      "parent": 64,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5085,9 +5051,9 @@
       }
     },
     {
-      "id": 67,
+      "id": 66,
       "name": "mixamorig:LeftHand",
-      "parent": 66,
+      "parent": 65,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5113,9 +5079,9 @@
       }
     },
     {
-      "id": 68,
+      "id": 67,
       "name": "mixamorig:LeftHandThumb1",
-      "parent": 67,
+      "parent": 66,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5141,9 +5107,9 @@
       }
     },
     {
-      "id": 69,
+      "id": 68,
       "name": "mixamorig:LeftHandThumb2",
-      "parent": 68,
+      "parent": 67,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5169,9 +5135,9 @@
       }
     },
     {
-      "id": 70,
+      "id": 69,
       "name": "mixamorig:LeftHandThumb3",
-      "parent": 69,
+      "parent": 68,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5197,9 +5163,9 @@
       }
     },
     {
-      "id": 71,
+      "id": 70,
       "name": "mixamorig:LeftHandThumb4",
-      "parent": 70,
+      "parent": 69,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5225,9 +5191,9 @@
       }
     },
     {
-      "id": 72,
+      "id": 71,
       "name": "mixamorig:LeftHandIndex1",
-      "parent": 67,
+      "parent": 66,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5253,9 +5219,9 @@
       }
     },
     {
-      "id": 73,
+      "id": 72,
       "name": "mixamorig:LeftHandIndex2",
-      "parent": 72,
+      "parent": 71,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5281,9 +5247,9 @@
       }
     },
     {
-      "id": 74,
+      "id": 73,
       "name": "mixamorig:LeftHandIndex3",
-      "parent": 73,
+      "parent": 72,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5309,9 +5275,9 @@
       }
     },
     {
-      "id": 75,
+      "id": 74,
       "name": "mixamorig:LeftHandIndex4",
-      "parent": 74,
+      "parent": 73,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5337,9 +5303,9 @@
       }
     },
     {
-      "id": 76,
+      "id": 75,
       "name": "mixamorig:LeftHandMiddle1",
-      "parent": 67,
+      "parent": 66,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5365,9 +5331,9 @@
       }
     },
     {
-      "id": 77,
+      "id": 76,
       "name": "mixamorig:LeftHandMiddle2",
-      "parent": 76,
+      "parent": 75,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5393,9 +5359,9 @@
       }
     },
     {
-      "id": 78,
+      "id": 77,
       "name": "mixamorig:LeftHandMiddle3",
-      "parent": 77,
+      "parent": 76,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5421,9 +5387,9 @@
       }
     },
     {
-      "id": 79,
+      "id": 78,
       "name": "mixamorig:LeftHandMiddle4",
-      "parent": 78,
+      "parent": 77,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5449,9 +5415,9 @@
       }
     },
     {
-      "id": 80,
+      "id": 79,
       "name": "mixamorig:LeftHandRing1",
-      "parent": 67,
+      "parent": 66,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5477,9 +5443,9 @@
       }
     },
     {
-      "id": 81,
+      "id": 80,
       "name": "mixamorig:LeftHandRing2",
-      "parent": 80,
+      "parent": 79,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5505,9 +5471,9 @@
       }
     },
     {
-      "id": 82,
+      "id": 81,
       "name": "mixamorig:LeftHandRing3",
-      "parent": 81,
+      "parent": 80,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5533,9 +5499,9 @@
       }
     },
     {
-      "id": 83,
+      "id": 82,
       "name": "mixamorig:LeftHandRing4",
-      "parent": 82,
+      "parent": 81,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5561,9 +5527,9 @@
       }
     },
     {
-      "id": 84,
+      "id": 83,
       "name": "mixamorig:LeftHandPinky1",
-      "parent": 67,
+      "parent": 66,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5589,9 +5555,9 @@
       }
     },
     {
-      "id": 85,
+      "id": 84,
       "name": "mixamorig:LeftHandPinky2",
-      "parent": 84,
+      "parent": 83,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5617,9 +5583,9 @@
       }
     },
     {
-      "id": 86,
+      "id": 85,
       "name": "mixamorig:LeftHandPinky3",
-      "parent": 85,
+      "parent": 84,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5645,9 +5611,9 @@
       }
     },
     {
-      "id": 87,
+      "id": 86,
       "name": "mixamorig:LeftHandPinky4",
-      "parent": 86,
+      "parent": 85,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5673,9 +5639,9 @@
       }
     },
     {
-      "id": 88,
+      "id": 87,
       "name": "mixamorig:RightShoulder",
-      "parent": 60,
+      "parent": 59,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5701,9 +5667,9 @@
       }
     },
     {
-      "id": 89,
+      "id": 88,
       "name": "mixamorig:RightArm",
-      "parent": 88,
+      "parent": 87,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5729,9 +5695,9 @@
       }
     },
     {
-      "id": 90,
+      "id": 89,
       "name": "mixamorig:RightForeArm",
-      "parent": 89,
+      "parent": 88,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5757,9 +5723,9 @@
       }
     },
     {
-      "id": 91,
+      "id": 90,
       "name": "mixamorig:RightHand",
-      "parent": 90,
+      "parent": 89,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5785,9 +5751,9 @@
       }
     },
     {
-      "id": 92,
+      "id": 91,
       "name": "mixamorig:RightHandThumb1",
-      "parent": 91,
+      "parent": 90,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5813,9 +5779,9 @@
       }
     },
     {
-      "id": 93,
+      "id": 92,
       "name": "mixamorig:RightHandThumb2",
-      "parent": 92,
+      "parent": 91,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5841,9 +5807,9 @@
       }
     },
     {
-      "id": 94,
+      "id": 93,
       "name": "mixamorig:RightHandThumb3",
-      "parent": 93,
+      "parent": 92,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5869,9 +5835,9 @@
       }
     },
     {
-      "id": 95,
+      "id": 94,
       "name": "mixamorig:RightHandThumb4",
-      "parent": 94,
+      "parent": 93,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5897,9 +5863,9 @@
       }
     },
     {
-      "id": 96,
+      "id": 95,
       "name": "mixamorig:RightHandIndex1",
-      "parent": 91,
+      "parent": 90,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5925,9 +5891,9 @@
       }
     },
     {
-      "id": 97,
+      "id": 96,
       "name": "mixamorig:RightHandIndex2",
-      "parent": 96,
+      "parent": 95,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5953,9 +5919,9 @@
       }
     },
     {
-      "id": 98,
+      "id": 97,
       "name": "mixamorig:RightHandIndex3",
-      "parent": 97,
+      "parent": 96,
       "components": {
         "LocalTRS": {
           "position": [
@@ -5981,9 +5947,9 @@
       }
     },
     {
-      "id": 99,
+      "id": 98,
       "name": "mixamorig:RightHandIndex4",
-      "parent": 98,
+      "parent": 97,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6009,9 +5975,9 @@
       }
     },
     {
-      "id": 100,
+      "id": 99,
       "name": "mixamorig:RightHandMiddle1",
-      "parent": 91,
+      "parent": 90,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6037,9 +6003,9 @@
       }
     },
     {
-      "id": 101,
+      "id": 100,
       "name": "mixamorig:RightHandMiddle2",
-      "parent": 100,
+      "parent": 99,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6065,9 +6031,9 @@
       }
     },
     {
-      "id": 102,
+      "id": 101,
       "name": "mixamorig:RightHandMiddle3",
-      "parent": 101,
+      "parent": 100,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6093,9 +6059,9 @@
       }
     },
     {
-      "id": 103,
+      "id": 102,
       "name": "mixamorig:RightHandMiddle4",
-      "parent": 102,
+      "parent": 101,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6121,9 +6087,9 @@
       }
     },
     {
-      "id": 104,
+      "id": 103,
       "name": "mixamorig:RightHandRing1",
-      "parent": 91,
+      "parent": 90,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6149,9 +6115,9 @@
       }
     },
     {
-      "id": 105,
+      "id": 104,
       "name": "mixamorig:RightHandRing2",
-      "parent": 104,
+      "parent": 103,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6177,9 +6143,9 @@
       }
     },
     {
-      "id": 106,
+      "id": 105,
       "name": "mixamorig:RightHandRing3",
-      "parent": 105,
+      "parent": 104,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6205,9 +6171,9 @@
       }
     },
     {
-      "id": 107,
+      "id": 106,
       "name": "mixamorig:RightHandRing4",
-      "parent": 106,
+      "parent": 105,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6233,9 +6199,9 @@
       }
     },
     {
-      "id": 108,
+      "id": 107,
       "name": "mixamorig:RightHandPinky1",
-      "parent": 91,
+      "parent": 90,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6261,9 +6227,9 @@
       }
     },
     {
-      "id": 109,
+      "id": 108,
       "name": "mixamorig:RightHandPinky2",
-      "parent": 108,
+      "parent": 107,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6289,9 +6255,9 @@
       }
     },
     {
-      "id": 110,
+      "id": 109,
       "name": "mixamorig:RightHandPinky3",
-      "parent": 109,
+      "parent": 108,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6317,9 +6283,9 @@
       }
     },
     {
-      "id": 111,
+      "id": 110,
       "name": "mixamorig:RightHandPinky4",
-      "parent": 110,
+      "parent": 109,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6345,9 +6311,9 @@
       }
     },
     {
-      "id": 112,
+      "id": 111,
       "name": "mixamorig:LeftUpLeg",
-      "parent": 57,
+      "parent": 56,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6373,9 +6339,9 @@
       }
     },
     {
-      "id": 113,
+      "id": 112,
       "name": "mixamorig:LeftLeg",
-      "parent": 112,
+      "parent": 111,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6401,9 +6367,9 @@
       }
     },
     {
-      "id": 114,
+      "id": 113,
       "name": "mixamorig:LeftFoot",
-      "parent": 113,
+      "parent": 112,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6429,9 +6395,9 @@
       }
     },
     {
-      "id": 115,
+      "id": 114,
       "name": "mixamorig:LeftToeBase",
-      "parent": 114,
+      "parent": 113,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6457,9 +6423,9 @@
       }
     },
     {
-      "id": 116,
+      "id": 115,
       "name": "mixamorig:LeftToe_End",
-      "parent": 115,
+      "parent": 114,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6485,9 +6451,9 @@
       }
     },
     {
-      "id": 117,
+      "id": 116,
       "name": "mixamorig:RightUpLeg",
-      "parent": 57,
+      "parent": 56,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6513,9 +6479,9 @@
       }
     },
     {
-      "id": 118,
+      "id": 117,
       "name": "mixamorig:RightLeg",
-      "parent": 117,
+      "parent": 116,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6541,9 +6507,9 @@
       }
     },
     {
-      "id": 119,
+      "id": 118,
       "name": "mixamorig:RightFoot",
-      "parent": 118,
+      "parent": 117,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6569,9 +6535,9 @@
       }
     },
     {
-      "id": 120,
+      "id": 119,
       "name": "mixamorig:RightToeBase",
-      "parent": 119,
+      "parent": 118,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6597,9 +6563,9 @@
       }
     },
     {
-      "id": 121,
+      "id": 120,
       "name": "mixamorig:RightToe_End",
-      "parent": 120,
+      "parent": 119,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6625,9 +6591,9 @@
       }
     },
     {
-      "id": 122,
+      "id": 121,
       "name": "Alpha_Joints",
-      "parent": 56,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6665,9 +6631,9 @@
       ]
     },
     {
-      "id": 123,
+      "id": 122,
       "name": "Alpha_Surface",
-      "parent": 56,
+      "parent": 55,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6705,7 +6671,7 @@
       ]
     },
     {
-      "id": 124,
+      "id": 123,
       "name": "Rumba",
       "components": {
         "LocalTRS": {
@@ -6755,9 +6721,9 @@
       }
     },
     {
-      "id": 125,
+      "id": 124,
       "name": "Armature",
-      "parent": 124,
+      "parent": 123,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6783,9 +6749,9 @@
       }
     },
     {
-      "id": 126,
+      "id": 125,
       "name": "mixamorig:Hips",
-      "parent": 125,
+      "parent": 124,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6811,9 +6777,9 @@
       }
     },
     {
-      "id": 127,
+      "id": 126,
       "name": "mixamorig:Spine",
-      "parent": 126,
+      "parent": 125,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6839,9 +6805,9 @@
       }
     },
     {
-      "id": 128,
+      "id": 127,
       "name": "mixamorig:Spine1",
-      "parent": 127,
+      "parent": 126,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6867,9 +6833,9 @@
       }
     },
     {
-      "id": 129,
+      "id": 128,
       "name": "mixamorig:Spine2",
-      "parent": 128,
+      "parent": 127,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6895,9 +6861,9 @@
       }
     },
     {
-      "id": 130,
+      "id": 129,
       "name": "mixamorig:Neck",
-      "parent": 129,
+      "parent": 128,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6923,9 +6889,9 @@
       }
     },
     {
-      "id": 131,
+      "id": 130,
       "name": "mixamorig:Head",
-      "parent": 130,
+      "parent": 129,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6951,9 +6917,9 @@
       }
     },
     {
-      "id": 132,
+      "id": 131,
       "name": "mixamorig:HeadTop_End",
-      "parent": 131,
+      "parent": 130,
       "components": {
         "LocalTRS": {
           "position": [
@@ -6979,9 +6945,9 @@
       }
     },
     {
-      "id": 133,
+      "id": 132,
       "name": "mixamorig:LeftShoulder",
-      "parent": 129,
+      "parent": 128,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7007,9 +6973,9 @@
       }
     },
     {
-      "id": 134,
+      "id": 133,
       "name": "mixamorig:LeftArm",
-      "parent": 133,
+      "parent": 132,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7035,9 +7001,9 @@
       }
     },
     {
-      "id": 135,
+      "id": 134,
       "name": "mixamorig:LeftForeArm",
-      "parent": 134,
+      "parent": 133,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7063,9 +7029,9 @@
       }
     },
     {
-      "id": 136,
+      "id": 135,
       "name": "mixamorig:LeftHand",
-      "parent": 135,
+      "parent": 134,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7091,9 +7057,9 @@
       }
     },
     {
-      "id": 137,
+      "id": 136,
       "name": "mixamorig:LeftHandThumb1",
-      "parent": 136,
+      "parent": 135,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7119,9 +7085,9 @@
       }
     },
     {
-      "id": 138,
+      "id": 137,
       "name": "mixamorig:LeftHandThumb2",
-      "parent": 137,
+      "parent": 136,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7147,9 +7113,9 @@
       }
     },
     {
-      "id": 139,
+      "id": 138,
       "name": "mixamorig:LeftHandThumb3",
-      "parent": 138,
+      "parent": 137,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7175,9 +7141,9 @@
       }
     },
     {
-      "id": 140,
+      "id": 139,
       "name": "mixamorig:LeftHandThumb4",
-      "parent": 139,
+      "parent": 138,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7203,9 +7169,9 @@
       }
     },
     {
-      "id": 141,
+      "id": 140,
       "name": "mixamorig:LeftHandIndex1",
-      "parent": 136,
+      "parent": 135,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7231,9 +7197,9 @@
       }
     },
     {
-      "id": 142,
+      "id": 141,
       "name": "mixamorig:LeftHandIndex2",
-      "parent": 141,
+      "parent": 140,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7259,9 +7225,9 @@
       }
     },
     {
-      "id": 143,
+      "id": 142,
       "name": "mixamorig:LeftHandIndex3",
-      "parent": 142,
+      "parent": 141,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7287,9 +7253,9 @@
       }
     },
     {
-      "id": 144,
+      "id": 143,
       "name": "mixamorig:LeftHandIndex4",
-      "parent": 143,
+      "parent": 142,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7315,9 +7281,9 @@
       }
     },
     {
-      "id": 145,
+      "id": 144,
       "name": "mixamorig:LeftHandMiddle1",
-      "parent": 136,
+      "parent": 135,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7343,9 +7309,9 @@
       }
     },
     {
-      "id": 146,
+      "id": 145,
       "name": "mixamorig:LeftHandMiddle2",
-      "parent": 145,
+      "parent": 144,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7371,9 +7337,9 @@
       }
     },
     {
-      "id": 147,
+      "id": 146,
       "name": "mixamorig:LeftHandMiddle3",
-      "parent": 146,
+      "parent": 145,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7399,9 +7365,9 @@
       }
     },
     {
-      "id": 148,
+      "id": 147,
       "name": "mixamorig:LeftHandMiddle4",
-      "parent": 147,
+      "parent": 146,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7427,9 +7393,9 @@
       }
     },
     {
-      "id": 149,
+      "id": 148,
       "name": "mixamorig:LeftHandRing1",
-      "parent": 136,
+      "parent": 135,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7455,9 +7421,9 @@
       }
     },
     {
-      "id": 150,
+      "id": 149,
       "name": "mixamorig:LeftHandRing2",
-      "parent": 149,
+      "parent": 148,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7483,9 +7449,9 @@
       }
     },
     {
-      "id": 151,
+      "id": 150,
       "name": "mixamorig:LeftHandRing3",
-      "parent": 150,
+      "parent": 149,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7511,9 +7477,9 @@
       }
     },
     {
-      "id": 152,
+      "id": 151,
       "name": "mixamorig:LeftHandRing4",
-      "parent": 151,
+      "parent": 150,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7539,9 +7505,9 @@
       }
     },
     {
-      "id": 153,
+      "id": 152,
       "name": "mixamorig:LeftHandPinky1",
-      "parent": 136,
+      "parent": 135,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7567,9 +7533,9 @@
       }
     },
     {
-      "id": 154,
+      "id": 153,
       "name": "mixamorig:LeftHandPinky2",
-      "parent": 153,
+      "parent": 152,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7595,9 +7561,9 @@
       }
     },
     {
-      "id": 155,
+      "id": 154,
       "name": "mixamorig:LeftHandPinky3",
-      "parent": 154,
+      "parent": 153,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7623,9 +7589,9 @@
       }
     },
     {
-      "id": 156,
+      "id": 155,
       "name": "mixamorig:LeftHandPinky4",
-      "parent": 155,
+      "parent": 154,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7651,9 +7617,9 @@
       }
     },
     {
-      "id": 157,
+      "id": 156,
       "name": "mixamorig:RightShoulder",
-      "parent": 129,
+      "parent": 128,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7679,9 +7645,9 @@
       }
     },
     {
-      "id": 158,
+      "id": 157,
       "name": "mixamorig:RightArm",
-      "parent": 157,
+      "parent": 156,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7707,9 +7673,9 @@
       }
     },
     {
-      "id": 159,
+      "id": 158,
       "name": "mixamorig:RightForeArm",
-      "parent": 158,
+      "parent": 157,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7735,9 +7701,9 @@
       }
     },
     {
-      "id": 160,
+      "id": 159,
       "name": "mixamorig:RightHand",
-      "parent": 159,
+      "parent": 158,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7763,9 +7729,9 @@
       }
     },
     {
-      "id": 161,
+      "id": 160,
       "name": "mixamorig:RightHandThumb1",
-      "parent": 160,
+      "parent": 159,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7791,9 +7757,9 @@
       }
     },
     {
-      "id": 162,
+      "id": 161,
       "name": "mixamorig:RightHandThumb2",
-      "parent": 161,
+      "parent": 160,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7819,9 +7785,9 @@
       }
     },
     {
-      "id": 163,
+      "id": 162,
       "name": "mixamorig:RightHandThumb3",
-      "parent": 162,
+      "parent": 161,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7847,9 +7813,9 @@
       }
     },
     {
-      "id": 164,
+      "id": 163,
       "name": "mixamorig:RightHandThumb4",
-      "parent": 163,
+      "parent": 162,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7875,9 +7841,9 @@
       }
     },
     {
-      "id": 165,
+      "id": 164,
       "name": "mixamorig:RightHandIndex1",
-      "parent": 160,
+      "parent": 159,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7903,9 +7869,9 @@
       }
     },
     {
-      "id": 166,
+      "id": 165,
       "name": "mixamorig:RightHandIndex2",
-      "parent": 165,
+      "parent": 164,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7931,9 +7897,9 @@
       }
     },
     {
-      "id": 167,
+      "id": 166,
       "name": "mixamorig:RightHandIndex3",
-      "parent": 166,
+      "parent": 165,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7959,9 +7925,9 @@
       }
     },
     {
-      "id": 168,
+      "id": 167,
       "name": "mixamorig:RightHandIndex4",
-      "parent": 167,
+      "parent": 166,
       "components": {
         "LocalTRS": {
           "position": [
@@ -7987,9 +7953,9 @@
       }
     },
     {
-      "id": 169,
+      "id": 168,
       "name": "mixamorig:RightHandMiddle1",
-      "parent": 160,
+      "parent": 159,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8015,9 +7981,9 @@
       }
     },
     {
-      "id": 170,
+      "id": 169,
       "name": "mixamorig:RightHandMiddle2",
-      "parent": 169,
+      "parent": 168,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8043,9 +8009,9 @@
       }
     },
     {
-      "id": 171,
+      "id": 170,
       "name": "mixamorig:RightHandMiddle3",
-      "parent": 170,
+      "parent": 169,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8071,9 +8037,9 @@
       }
     },
     {
-      "id": 172,
+      "id": 171,
       "name": "mixamorig:RightHandMiddle4",
-      "parent": 171,
+      "parent": 170,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8099,9 +8065,9 @@
       }
     },
     {
-      "id": 173,
+      "id": 172,
       "name": "mixamorig:RightHandRing1",
-      "parent": 160,
+      "parent": 159,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8127,9 +8093,9 @@
       }
     },
     {
-      "id": 174,
+      "id": 173,
       "name": "mixamorig:RightHandRing2",
-      "parent": 173,
+      "parent": 172,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8155,9 +8121,9 @@
       }
     },
     {
-      "id": 175,
+      "id": 174,
       "name": "mixamorig:RightHandRing3",
-      "parent": 174,
+      "parent": 173,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8183,9 +8149,9 @@
       }
     },
     {
-      "id": 176,
+      "id": 175,
       "name": "mixamorig:RightHandRing4",
-      "parent": 175,
+      "parent": 174,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8211,9 +8177,9 @@
       }
     },
     {
-      "id": 177,
+      "id": 176,
       "name": "mixamorig:RightHandPinky1",
-      "parent": 160,
+      "parent": 159,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8239,9 +8205,9 @@
       }
     },
     {
-      "id": 178,
+      "id": 177,
       "name": "mixamorig:RightHandPinky2",
-      "parent": 177,
+      "parent": 176,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8267,9 +8233,9 @@
       }
     },
     {
-      "id": 179,
+      "id": 178,
       "name": "mixamorig:RightHandPinky3",
-      "parent": 178,
+      "parent": 177,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8295,9 +8261,9 @@
       }
     },
     {
-      "id": 180,
+      "id": 179,
       "name": "mixamorig:RightHandPinky4",
-      "parent": 179,
+      "parent": 178,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8323,9 +8289,9 @@
       }
     },
     {
-      "id": 181,
+      "id": 180,
       "name": "mixamorig:LeftUpLeg",
-      "parent": 126,
+      "parent": 125,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8351,9 +8317,9 @@
       }
     },
     {
-      "id": 182,
+      "id": 181,
       "name": "mixamorig:LeftLeg",
-      "parent": 181,
+      "parent": 180,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8379,9 +8345,9 @@
       }
     },
     {
-      "id": 183,
+      "id": 182,
       "name": "mixamorig:LeftFoot",
-      "parent": 182,
+      "parent": 181,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8407,9 +8373,9 @@
       }
     },
     {
-      "id": 184,
+      "id": 183,
       "name": "mixamorig:LeftToeBase",
-      "parent": 183,
+      "parent": 182,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8435,9 +8401,9 @@
       }
     },
     {
-      "id": 185,
+      "id": 184,
       "name": "mixamorig:LeftToe_End",
-      "parent": 184,
+      "parent": 183,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8463,9 +8429,9 @@
       }
     },
     {
-      "id": 186,
+      "id": 185,
       "name": "mixamorig:RightUpLeg",
-      "parent": 126,
+      "parent": 125,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8491,9 +8457,9 @@
       }
     },
     {
-      "id": 187,
+      "id": 186,
       "name": "mixamorig:RightLeg",
-      "parent": 186,
+      "parent": 185,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8519,9 +8485,9 @@
       }
     },
     {
-      "id": 188,
+      "id": 187,
       "name": "mixamorig:RightFoot",
-      "parent": 187,
+      "parent": 186,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8547,9 +8513,9 @@
       }
     },
     {
-      "id": 189,
+      "id": 188,
       "name": "mixamorig:RightToeBase",
-      "parent": 188,
+      "parent": 187,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8575,9 +8541,9 @@
       }
     },
     {
-      "id": 190,
+      "id": 189,
       "name": "mixamorig:RightToe_End",
-      "parent": 189,
+      "parent": 188,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8603,9 +8569,9 @@
       }
     },
     {
-      "id": 191,
+      "id": 190,
       "name": "Alpha_Joints",
-      "parent": 125,
+      "parent": 124,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8643,9 +8609,9 @@
       ]
     },
     {
-      "id": 192,
+      "id": 191,
       "name": "Alpha_Surface",
-      "parent": 125,
+      "parent": 124,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8683,7 +8649,7 @@
       ]
     },
     {
-      "id": 193,
+      "id": 192,
       "name": "Rumba",
       "components": {
         "LocalTRS": {
@@ -8733,9 +8699,9 @@
       }
     },
     {
-      "id": 194,
+      "id": 193,
       "name": "Armature",
-      "parent": 193,
+      "parent": 192,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8761,9 +8727,9 @@
       }
     },
     {
-      "id": 195,
+      "id": 194,
       "name": "mixamorig:Hips",
-      "parent": 194,
+      "parent": 193,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8789,9 +8755,9 @@
       }
     },
     {
-      "id": 196,
+      "id": 195,
       "name": "mixamorig:Spine",
-      "parent": 195,
+      "parent": 194,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8817,9 +8783,9 @@
       }
     },
     {
-      "id": 197,
+      "id": 196,
       "name": "mixamorig:Spine1",
-      "parent": 196,
+      "parent": 195,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8845,9 +8811,9 @@
       }
     },
     {
-      "id": 198,
+      "id": 197,
       "name": "mixamorig:Spine2",
-      "parent": 197,
+      "parent": 196,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8873,9 +8839,9 @@
       }
     },
     {
-      "id": 199,
+      "id": 198,
       "name": "mixamorig:Neck",
-      "parent": 198,
+      "parent": 197,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8901,9 +8867,9 @@
       }
     },
     {
-      "id": 200,
+      "id": 199,
       "name": "mixamorig:Head",
-      "parent": 199,
+      "parent": 198,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8929,9 +8895,9 @@
       }
     },
     {
-      "id": 201,
+      "id": 200,
       "name": "mixamorig:HeadTop_End",
-      "parent": 200,
+      "parent": 199,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8957,9 +8923,9 @@
       }
     },
     {
-      "id": 202,
+      "id": 201,
       "name": "mixamorig:LeftShoulder",
-      "parent": 198,
+      "parent": 197,
       "components": {
         "LocalTRS": {
           "position": [
@@ -8985,9 +8951,9 @@
       }
     },
     {
-      "id": 203,
+      "id": 202,
       "name": "mixamorig:LeftArm",
-      "parent": 202,
+      "parent": 201,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9013,9 +8979,9 @@
       }
     },
     {
-      "id": 204,
+      "id": 203,
       "name": "mixamorig:LeftForeArm",
-      "parent": 203,
+      "parent": 202,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9041,9 +9007,9 @@
       }
     },
     {
-      "id": 205,
+      "id": 204,
       "name": "mixamorig:LeftHand",
-      "parent": 204,
+      "parent": 203,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9069,9 +9035,9 @@
       }
     },
     {
-      "id": 206,
+      "id": 205,
       "name": "mixamorig:LeftHandThumb1",
-      "parent": 205,
+      "parent": 204,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9097,9 +9063,9 @@
       }
     },
     {
-      "id": 207,
+      "id": 206,
       "name": "mixamorig:LeftHandThumb2",
-      "parent": 206,
+      "parent": 205,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9125,9 +9091,9 @@
       }
     },
     {
-      "id": 208,
+      "id": 207,
       "name": "mixamorig:LeftHandThumb3",
-      "parent": 207,
+      "parent": 206,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9153,9 +9119,9 @@
       }
     },
     {
-      "id": 209,
+      "id": 208,
       "name": "mixamorig:LeftHandThumb4",
-      "parent": 208,
+      "parent": 207,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9181,9 +9147,9 @@
       }
     },
     {
-      "id": 210,
+      "id": 209,
       "name": "mixamorig:LeftHandIndex1",
-      "parent": 205,
+      "parent": 204,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9209,9 +9175,9 @@
       }
     },
     {
-      "id": 211,
+      "id": 210,
       "name": "mixamorig:LeftHandIndex2",
-      "parent": 210,
+      "parent": 209,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9237,9 +9203,9 @@
       }
     },
     {
-      "id": 212,
+      "id": 211,
       "name": "mixamorig:LeftHandIndex3",
-      "parent": 211,
+      "parent": 210,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9265,9 +9231,9 @@
       }
     },
     {
-      "id": 213,
+      "id": 212,
       "name": "mixamorig:LeftHandIndex4",
-      "parent": 212,
+      "parent": 211,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9293,9 +9259,9 @@
       }
     },
     {
-      "id": 214,
+      "id": 213,
       "name": "mixamorig:LeftHandMiddle1",
-      "parent": 205,
+      "parent": 204,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9321,9 +9287,9 @@
       }
     },
     {
-      "id": 215,
+      "id": 214,
       "name": "mixamorig:LeftHandMiddle2",
-      "parent": 214,
+      "parent": 213,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9349,9 +9315,9 @@
       }
     },
     {
-      "id": 216,
+      "id": 215,
       "name": "mixamorig:LeftHandMiddle3",
-      "parent": 215,
+      "parent": 214,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9377,9 +9343,9 @@
       }
     },
     {
-      "id": 217,
+      "id": 216,
       "name": "mixamorig:LeftHandMiddle4",
-      "parent": 216,
+      "parent": 215,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9405,9 +9371,9 @@
       }
     },
     {
-      "id": 218,
+      "id": 217,
       "name": "mixamorig:LeftHandRing1",
-      "parent": 205,
+      "parent": 204,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9433,9 +9399,9 @@
       }
     },
     {
-      "id": 219,
+      "id": 218,
       "name": "mixamorig:LeftHandRing2",
-      "parent": 218,
+      "parent": 217,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9461,9 +9427,9 @@
       }
     },
     {
-      "id": 220,
+      "id": 219,
       "name": "mixamorig:LeftHandRing3",
-      "parent": 219,
+      "parent": 218,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9489,9 +9455,9 @@
       }
     },
     {
-      "id": 221,
+      "id": 220,
       "name": "mixamorig:LeftHandRing4",
-      "parent": 220,
+      "parent": 219,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9517,9 +9483,9 @@
       }
     },
     {
-      "id": 222,
+      "id": 221,
       "name": "mixamorig:LeftHandPinky1",
-      "parent": 205,
+      "parent": 204,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9545,9 +9511,9 @@
       }
     },
     {
-      "id": 223,
+      "id": 222,
       "name": "mixamorig:LeftHandPinky2",
-      "parent": 222,
+      "parent": 221,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9573,9 +9539,9 @@
       }
     },
     {
-      "id": 224,
+      "id": 223,
       "name": "mixamorig:LeftHandPinky3",
-      "parent": 223,
+      "parent": 222,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9601,9 +9567,9 @@
       }
     },
     {
-      "id": 225,
+      "id": 224,
       "name": "mixamorig:LeftHandPinky4",
-      "parent": 224,
+      "parent": 223,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9629,9 +9595,9 @@
       }
     },
     {
-      "id": 226,
+      "id": 225,
       "name": "mixamorig:RightShoulder",
-      "parent": 198,
+      "parent": 197,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9657,9 +9623,9 @@
       }
     },
     {
-      "id": 227,
+      "id": 226,
       "name": "mixamorig:RightArm",
-      "parent": 226,
+      "parent": 225,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9685,9 +9651,9 @@
       }
     },
     {
-      "id": 228,
+      "id": 227,
       "name": "mixamorig:RightForeArm",
-      "parent": 227,
+      "parent": 226,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9713,9 +9679,9 @@
       }
     },
     {
-      "id": 229,
+      "id": 228,
       "name": "mixamorig:RightHand",
-      "parent": 228,
+      "parent": 227,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9741,9 +9707,9 @@
       }
     },
     {
-      "id": 230,
+      "id": 229,
       "name": "mixamorig:RightHandThumb1",
-      "parent": 229,
+      "parent": 228,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9769,9 +9735,9 @@
       }
     },
     {
-      "id": 231,
+      "id": 230,
       "name": "mixamorig:RightHandThumb2",
-      "parent": 230,
+      "parent": 229,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9797,9 +9763,9 @@
       }
     },
     {
-      "id": 232,
+      "id": 231,
       "name": "mixamorig:RightHandThumb3",
-      "parent": 231,
+      "parent": 230,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9825,9 +9791,9 @@
       }
     },
     {
-      "id": 233,
+      "id": 232,
       "name": "mixamorig:RightHandThumb4",
-      "parent": 232,
+      "parent": 231,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9853,9 +9819,9 @@
       }
     },
     {
-      "id": 234,
+      "id": 233,
       "name": "mixamorig:RightHandIndex1",
-      "parent": 229,
+      "parent": 228,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9881,9 +9847,9 @@
       }
     },
     {
-      "id": 235,
+      "id": 234,
       "name": "mixamorig:RightHandIndex2",
-      "parent": 234,
+      "parent": 233,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9909,9 +9875,9 @@
       }
     },
     {
-      "id": 236,
+      "id": 235,
       "name": "mixamorig:RightHandIndex3",
-      "parent": 235,
+      "parent": 234,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9937,9 +9903,9 @@
       }
     },
     {
-      "id": 237,
+      "id": 236,
       "name": "mixamorig:RightHandIndex4",
-      "parent": 236,
+      "parent": 235,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9965,9 +9931,9 @@
       }
     },
     {
-      "id": 238,
+      "id": 237,
       "name": "mixamorig:RightHandMiddle1",
-      "parent": 229,
+      "parent": 228,
       "components": {
         "LocalTRS": {
           "position": [
@@ -9993,9 +9959,9 @@
       }
     },
     {
-      "id": 239,
+      "id": 238,
       "name": "mixamorig:RightHandMiddle2",
-      "parent": 238,
+      "parent": 237,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10021,9 +9987,9 @@
       }
     },
     {
-      "id": 240,
+      "id": 239,
       "name": "mixamorig:RightHandMiddle3",
-      "parent": 239,
+      "parent": 238,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10049,9 +10015,9 @@
       }
     },
     {
-      "id": 241,
+      "id": 240,
       "name": "mixamorig:RightHandMiddle4",
-      "parent": 240,
+      "parent": 239,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10077,9 +10043,9 @@
       }
     },
     {
-      "id": 242,
+      "id": 241,
       "name": "mixamorig:RightHandRing1",
-      "parent": 229,
+      "parent": 228,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10105,9 +10071,9 @@
       }
     },
     {
-      "id": 243,
+      "id": 242,
       "name": "mixamorig:RightHandRing2",
-      "parent": 242,
+      "parent": 241,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10133,9 +10099,9 @@
       }
     },
     {
-      "id": 244,
+      "id": 243,
       "name": "mixamorig:RightHandRing3",
-      "parent": 243,
+      "parent": 242,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10161,9 +10127,9 @@
       }
     },
     {
-      "id": 245,
+      "id": 244,
       "name": "mixamorig:RightHandRing4",
-      "parent": 244,
+      "parent": 243,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10189,9 +10155,9 @@
       }
     },
     {
-      "id": 246,
+      "id": 245,
       "name": "mixamorig:RightHandPinky1",
-      "parent": 229,
+      "parent": 228,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10217,9 +10183,9 @@
       }
     },
     {
-      "id": 247,
+      "id": 246,
       "name": "mixamorig:RightHandPinky2",
-      "parent": 246,
+      "parent": 245,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10245,9 +10211,9 @@
       }
     },
     {
-      "id": 248,
+      "id": 247,
       "name": "mixamorig:RightHandPinky3",
-      "parent": 247,
+      "parent": 246,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10273,9 +10239,9 @@
       }
     },
     {
-      "id": 249,
+      "id": 248,
       "name": "mixamorig:RightHandPinky4",
-      "parent": 248,
+      "parent": 247,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10301,9 +10267,9 @@
       }
     },
     {
-      "id": 250,
+      "id": 249,
       "name": "mixamorig:LeftUpLeg",
-      "parent": 195,
+      "parent": 194,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10329,9 +10295,9 @@
       }
     },
     {
-      "id": 251,
+      "id": 250,
       "name": "mixamorig:LeftLeg",
-      "parent": 250,
+      "parent": 249,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10357,9 +10323,9 @@
       }
     },
     {
-      "id": 252,
+      "id": 251,
       "name": "mixamorig:LeftFoot",
-      "parent": 251,
+      "parent": 250,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10385,9 +10351,9 @@
       }
     },
     {
-      "id": 253,
+      "id": 252,
       "name": "mixamorig:LeftToeBase",
-      "parent": 252,
+      "parent": 251,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10413,9 +10379,9 @@
       }
     },
     {
-      "id": 254,
+      "id": 253,
       "name": "mixamorig:LeftToe_End",
-      "parent": 253,
+      "parent": 252,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10441,9 +10407,9 @@
       }
     },
     {
-      "id": 255,
+      "id": 254,
       "name": "mixamorig:RightUpLeg",
-      "parent": 195,
+      "parent": 194,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10469,9 +10435,9 @@
       }
     },
     {
-      "id": 256,
+      "id": 255,
       "name": "mixamorig:RightLeg",
-      "parent": 255,
+      "parent": 254,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10497,9 +10463,9 @@
       }
     },
     {
-      "id": 257,
+      "id": 256,
       "name": "mixamorig:RightFoot",
-      "parent": 256,
+      "parent": 255,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10525,9 +10491,9 @@
       }
     },
     {
-      "id": 258,
+      "id": 257,
       "name": "mixamorig:RightToeBase",
-      "parent": 257,
+      "parent": 256,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10553,9 +10519,9 @@
       }
     },
     {
-      "id": 259,
+      "id": 258,
       "name": "mixamorig:RightToe_End",
-      "parent": 258,
+      "parent": 257,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10581,9 +10547,9 @@
       }
     },
     {
-      "id": 260,
+      "id": 259,
       "name": "Alpha_Joints",
-      "parent": 194,
+      "parent": 193,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10621,9 +10587,9 @@
       ]
     },
     {
-      "id": 261,
+      "id": 260,
       "name": "Alpha_Surface",
-      "parent": 194,
+      "parent": 193,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10661,7 +10627,7 @@
       ]
     },
     {
-      "id": 262,
+      "id": 261,
       "name": "Jelly",
       "components": {
         "LocalTRS": {
@@ -10714,7 +10680,7 @@
       ]
     },
     {
-      "id": 263,
+      "id": 262,
       "name": "Jelly",
       "components": {
         "LocalTRS": {
@@ -10767,7 +10733,7 @@
       ]
     },
     {
-      "id": 264,
+      "id": 263,
       "name": "CarConcept",
       "components": {
         "LocalTRS": {
@@ -10842,13 +10808,19 @@
           "maxPitchRollAngle": 60.0,
           "maxLeanAngle": 45.0
         },
-        "PlayerControl": {
-          "enabled": true,
-          "steerSpeed": 3.0,
-          "steerFade": 25.0
-        },
         "Scripts": {
           "scripts": [
+            {
+              "script": "/Scripts/VehicleDriver.luau",
+              "enabled": true,
+              "values": [
+                {
+                  "name": "steerFade",
+                  "type": "Number",
+                  "value": 25.0
+                }
+              ]
+            },
             {
               "script": "/Scripts/Respawn.luau",
               "enabled": true,
@@ -10859,9 +10831,9 @@
       }
     },
     {
-      "id": 265,
+      "id": 264,
       "name": "BodyUnderside",
-      "parent": 264,
+      "parent": 263,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10915,9 +10887,9 @@
       ]
     },
     {
-      "id": 266,
+      "id": 265,
       "name": "BodyWindshield",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10952,9 +10924,9 @@
       ]
     },
     {
-      "id": 267,
+      "id": 266,
       "name": "BodyWindshieldGasket",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -10989,9 +10961,9 @@
       ]
     },
     {
-      "id": 268,
+      "id": 267,
       "name": "BodyWindshieldWipers",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11026,9 +10998,9 @@
       ]
     },
     {
-      "id": 269,
+      "id": 268,
       "name": "BodyWindshieldWipersBase",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11063,9 +11035,9 @@
       ]
     },
     {
-      "id": 270,
+      "id": 269,
       "name": "Engine",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11100,9 +11072,9 @@
       ]
     },
     {
-      "id": 271,
+      "id": 270,
       "name": "InteriorCage",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11137,9 +11109,9 @@
       ]
     },
     {
-      "id": 272,
+      "id": 271,
       "name": "InteriorDashMid",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11174,9 +11146,9 @@
       ]
     },
     {
-      "id": 273,
+      "id": 272,
       "name": "InteriorDashSides",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11211,9 +11183,9 @@
       ]
     },
     {
-      "id": 274,
+      "id": 273,
       "name": "Axles",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11248,9 +11220,9 @@
       ]
     },
     {
-      "id": 275,
+      "id": 274,
       "name": "InteriorFloormats",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11285,9 +11257,9 @@
       ]
     },
     {
-      "id": 276,
+      "id": 275,
       "name": "InteriorMid",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11323,9 +11295,9 @@
       ]
     },
     {
-      "id": 277,
+      "id": 276,
       "name": "InteriorPedalAccel",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11360,9 +11332,9 @@
       ]
     },
     {
-      "id": 278,
+      "id": 277,
       "name": "InteriorPedalAccelArm",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11397,9 +11369,9 @@
       ]
     },
     {
-      "id": 279,
+      "id": 278,
       "name": "InteriorPedalBrake",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11434,9 +11406,9 @@
       ]
     },
     {
-      "id": 280,
+      "id": 279,
       "name": "InteriorPedalBrakeArm",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11471,9 +11443,9 @@
       ]
     },
     {
-      "id": 281,
+      "id": 280,
       "name": "InteriorPillar",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11508,9 +11480,9 @@
       ]
     },
     {
-      "id": 282,
+      "id": 281,
       "name": "InteriorSeatsColor1",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11545,9 +11517,9 @@
       ]
     },
     {
-      "id": 283,
+      "id": 282,
       "name": "InteriorSeatsColor2",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11582,9 +11554,9 @@
       ]
     },
     {
-      "id": 284,
+      "id": 283,
       "name": "InteriorSeatsFrame1",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11619,9 +11591,9 @@
       ]
     },
     {
-      "id": 285,
+      "id": 284,
       "name": "InteriorSeatsFrame2",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11656,9 +11628,9 @@
       ]
     },
     {
-      "id": 286,
+      "id": 285,
       "name": "InteriorSteeringBase",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11693,9 +11665,9 @@
       ]
     },
     {
-      "id": 287,
+      "id": 286,
       "name": "InteriorSteeringCylinder",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11730,9 +11702,9 @@
       ]
     },
     {
-      "id": 288,
+      "id": 287,
       "name": "InteriorSteeringEmblem",
-      "parent": 287,
+      "parent": 286,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11767,9 +11739,9 @@
       ]
     },
     {
-      "id": 289,
+      "id": 288,
       "name": "InteriorSteeringWheel04",
-      "parent": 287,
+      "parent": 286,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11804,9 +11776,9 @@
       ]
     },
     {
-      "id": 290,
+      "id": 289,
       "name": "InteriorSteeringWheel01",
-      "parent": 287,
+      "parent": 286,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11841,9 +11813,9 @@
       ]
     },
     {
-      "id": 291,
+      "id": 290,
       "name": "InteriorSteeringWheel02",
-      "parent": 287,
+      "parent": 286,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11878,9 +11850,9 @@
       ]
     },
     {
-      "id": 292,
+      "id": 291,
       "name": "InteriorSteeringWheel03",
-      "parent": 287,
+      "parent": 286,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11915,9 +11887,9 @@
       ]
     },
     {
-      "id": 293,
+      "id": 292,
       "name": "InteriorSteeringDash",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11952,9 +11924,9 @@
       ]
     },
     {
-      "id": 294,
+      "id": 293,
       "name": "InteriorSteeringDashColumn",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -11989,9 +11961,9 @@
       ]
     },
     {
-      "id": 295,
+      "id": 294,
       "name": "InteriorSteeringHandleL",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12026,9 +11998,9 @@
       ]
     },
     {
-      "id": 296,
+      "id": 295,
       "name": "InteriorSteeringHandleR",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12063,9 +12035,9 @@
       ]
     },
     {
-      "id": 297,
+      "id": 296,
       "name": "License Plate",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12100,9 +12072,9 @@
       ]
     },
     {
-      "id": 298,
+      "id": 297,
       "name": "BodyRoofPanel",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12137,9 +12109,9 @@
       ]
     },
     {
-      "id": 299,
+      "id": 298,
       "name": "BodyRearPanelsColor1",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12174,9 +12146,9 @@
       ]
     },
     {
-      "id": 300,
+      "id": 299,
       "name": "InteriorRearHatch",
-      "parent": 299,
+      "parent": 298,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12211,9 +12183,9 @@
       ]
     },
     {
-      "id": 301,
+      "id": 300,
       "name": "InteriorRearPanels",
-      "parent": 299,
+      "parent": 298,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12249,9 +12221,9 @@
       ]
     },
     {
-      "id": 302,
+      "id": 301,
       "name": "BodyWindowsRearSides",
-      "parent": 299,
+      "parent": 298,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12286,9 +12258,9 @@
       ]
     },
     {
-      "id": 303,
+      "id": 302,
       "name": "BodyTurnsignalsRear",
-      "parent": 299,
+      "parent": 298,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12323,9 +12295,9 @@
       ]
     },
     {
-      "id": 304,
+      "id": 303,
       "name": "BodyTaillightsPanels",
-      "parent": 299,
+      "parent": 298,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12360,9 +12332,9 @@
       ]
     },
     {
-      "id": 305,
+      "id": 304,
       "name": "BodyTaillights",
-      "parent": 299,
+      "parent": 298,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12397,9 +12369,9 @@
       ]
     },
     {
-      "id": 306,
+      "id": 305,
       "name": "BodyRearwindow",
-      "parent": 299,
+      "parent": 298,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12434,9 +12406,9 @@
       ]
     },
     {
-      "id": 307,
+      "id": 306,
       "name": "BodyDoorLColor1",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12471,9 +12443,9 @@
       ]
     },
     {
-      "id": 308,
+      "id": 307,
       "name": "InteriorDoorL04",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12508,9 +12480,9 @@
       ]
     },
     {
-      "id": 309,
+      "id": 308,
       "name": "InteriorDoorL01",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12546,9 +12518,9 @@
       ]
     },
     {
-      "id": 310,
+      "id": 309,
       "name": "InteriorDoorL02",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12583,9 +12555,9 @@
       ]
     },
     {
-      "id": 311,
+      "id": 310,
       "name": "InteriorDoorL03",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12620,9 +12592,9 @@
       ]
     },
     {
-      "id": 312,
+      "id": 311,
       "name": "InteriorDoorL05",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12657,9 +12629,9 @@
       ]
     },
     {
-      "id": 313,
+      "id": 312,
       "name": "InteriorDoorL06",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12694,9 +12666,9 @@
       ]
     },
     {
-      "id": 314,
+      "id": 313,
       "name": "BodyDoorLColor2",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12731,9 +12703,9 @@
       ]
     },
     {
-      "id": 315,
+      "id": 314,
       "name": "BodyDoorLHandle01",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12768,9 +12740,9 @@
       ]
     },
     {
-      "id": 316,
+      "id": 315,
       "name": "BodyDoorLHandle02",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12805,9 +12777,9 @@
       ]
     },
     {
-      "id": 317,
+      "id": 316,
       "name": "BodyDoorLMirror",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12842,9 +12814,9 @@
       ]
     },
     {
-      "id": 318,
+      "id": 317,
       "name": "BodyDoorLMirrorColor1",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12879,9 +12851,9 @@
       ]
     },
     {
-      "id": 319,
+      "id": 318,
       "name": "BodyDoorLWindowGasket",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12916,9 +12888,9 @@
       ]
     },
     {
-      "id": 320,
+      "id": 319,
       "name": "BodyDoorLWindow",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12953,9 +12925,9 @@
       ]
     },
     {
-      "id": 321,
+      "id": 320,
       "name": "BodyDoorLMirrorColor2",
-      "parent": 307,
+      "parent": 306,
       "components": {
         "LocalTRS": {
           "position": [
@@ -12990,9 +12962,9 @@
       ]
     },
     {
-      "id": 322,
+      "id": 321,
       "name": "BodyPanelsColor2",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13027,9 +12999,9 @@
       ]
     },
     {
-      "id": 323,
+      "id": 322,
       "name": "BodyHood",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13064,9 +13036,9 @@
       ]
     },
     {
-      "id": 324,
+      "id": 323,
       "name": "BodyHoodInterior01",
-      "parent": 323,
+      "parent": 322,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13101,9 +13073,9 @@
       ]
     },
     {
-      "id": 325,
+      "id": 324,
       "name": "BodyHoodInterior02",
-      "parent": 323,
+      "parent": 322,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13138,9 +13110,9 @@
       ]
     },
     {
-      "id": 326,
+      "id": 325,
       "name": "BodyHoodTopgrill",
-      "parent": 323,
+      "parent": 322,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13175,9 +13147,9 @@
       ]
     },
     {
-      "id": 327,
+      "id": 326,
       "name": "BodyHoodUnder",
-      "parent": 323,
+      "parent": 322,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13212,9 +13184,9 @@
       ]
     },
     {
-      "id": 328,
+      "id": 327,
       "name": "BodyHeadlights",
-      "parent": 323,
+      "parent": 322,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13249,9 +13221,9 @@
       ]
     },
     {
-      "id": 329,
+      "id": 328,
       "name": "BodyDoorRColor1",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13286,9 +13258,9 @@
       ]
     },
     {
-      "id": 330,
+      "id": 329,
       "name": "BodyDoorRColor2",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13323,9 +13295,9 @@
       ]
     },
     {
-      "id": 331,
+      "id": 330,
       "name": "BodyDoorRHandle01",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13360,9 +13332,9 @@
       ]
     },
     {
-      "id": 332,
+      "id": 331,
       "name": "BodyDoorRHandle02",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13397,9 +13369,9 @@
       ]
     },
     {
-      "id": 333,
+      "id": 332,
       "name": "BodyDoorRMirror",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13434,9 +13406,9 @@
       ]
     },
     {
-      "id": 334,
+      "id": 333,
       "name": "BodyDoorRMirrorColor1",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13471,9 +13443,9 @@
       ]
     },
     {
-      "id": 335,
+      "id": 334,
       "name": "BodyDoorRMirrorColor2",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13508,9 +13480,9 @@
       ]
     },
     {
-      "id": 336,
+      "id": 335,
       "name": "BodyDoorRWindow",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13545,9 +13517,9 @@
       ]
     },
     {
-      "id": 337,
+      "id": 336,
       "name": "BodyDoorRWindowGasket",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13582,9 +13554,9 @@
       ]
     },
     {
-      "id": 338,
+      "id": 337,
       "name": "InteriorDoorR01",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13620,9 +13592,9 @@
       ]
     },
     {
-      "id": 339,
+      "id": 338,
       "name": "InteriorDoorR02",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13657,9 +13629,9 @@
       ]
     },
     {
-      "id": 340,
+      "id": 339,
       "name": "InteriorDoorR03",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13694,9 +13666,9 @@
       ]
     },
     {
-      "id": 341,
+      "id": 340,
       "name": "InteriorDoorR04",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13731,9 +13703,9 @@
       ]
     },
     {
-      "id": 342,
+      "id": 341,
       "name": "InteriorDoorR05",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13768,9 +13740,9 @@
       ]
     },
     {
-      "id": 343,
+      "id": 342,
       "name": "InteriorDoorR06",
-      "parent": 329,
+      "parent": 328,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13805,9 +13777,9 @@
       ]
     },
     {
-      "id": 344,
+      "id": 343,
       "name": "WheelFrontL",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13846,9 +13818,9 @@
       }
     },
     {
-      "id": 345,
+      "id": 344,
       "name": "WheelFrontLRim",
-      "parent": 344,
+      "parent": 343,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13884,9 +13856,9 @@
       ]
     },
     {
-      "id": 346,
+      "id": 345,
       "name": "WheelFrontLBrakePad",
-      "parent": 344,
+      "parent": 343,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13921,9 +13893,9 @@
       ]
     },
     {
-      "id": 347,
+      "id": 346,
       "name": "WheelFrontLBrakeDisc",
-      "parent": 344,
+      "parent": 343,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13958,9 +13930,9 @@
       ]
     },
     {
-      "id": 348,
+      "id": 347,
       "name": "Node 84",
-      "parent": 344,
+      "parent": 343,
       "components": {
         "LocalTRS": {
           "position": [
@@ -13996,9 +13968,9 @@
       ]
     },
     {
-      "id": 349,
+      "id": 348,
       "name": "WheelFrontR",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14037,9 +14009,9 @@
       }
     },
     {
-      "id": 350,
+      "id": 349,
       "name": "WheelFrontRRim",
-      "parent": 349,
+      "parent": 348,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14075,9 +14047,9 @@
       ]
     },
     {
-      "id": 351,
+      "id": 350,
       "name": "WheelFrontRBrakePad",
-      "parent": 349,
+      "parent": 348,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14112,9 +14084,9 @@
       ]
     },
     {
-      "id": 352,
+      "id": 351,
       "name": "WheelFrontRBrakeDisc",
-      "parent": 349,
+      "parent": 348,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14149,9 +14121,9 @@
       ]
     },
     {
-      "id": 353,
+      "id": 352,
       "name": "Node 89",
-      "parent": 349,
+      "parent": 348,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14187,9 +14159,9 @@
       ]
     },
     {
-      "id": 354,
+      "id": 353,
       "name": "WheelRearL",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14228,9 +14200,9 @@
       }
     },
     {
-      "id": 355,
+      "id": 354,
       "name": "WheelRearLBrakeDisc",
-      "parent": 354,
+      "parent": 353,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14265,9 +14237,9 @@
       ]
     },
     {
-      "id": 356,
+      "id": 355,
       "name": "WheelRearLBrakePad",
-      "parent": 354,
+      "parent": 353,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14302,9 +14274,9 @@
       ]
     },
     {
-      "id": 357,
+      "id": 356,
       "name": "WheelRearLRim",
-      "parent": 354,
+      "parent": 353,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14340,9 +14312,9 @@
       ]
     },
     {
-      "id": 358,
+      "id": 357,
       "name": "Node 94",
-      "parent": 354,
+      "parent": 353,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14378,9 +14350,9 @@
       ]
     },
     {
-      "id": 359,
+      "id": 358,
       "name": "WheelRearR",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14419,9 +14391,9 @@
       }
     },
     {
-      "id": 360,
+      "id": 359,
       "name": "WheelRearRBrakeDisc",
-      "parent": 359,
+      "parent": 358,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14456,9 +14428,9 @@
       ]
     },
     {
-      "id": 361,
+      "id": 360,
       "name": "WheelRearRBrakePad",
-      "parent": 359,
+      "parent": 358,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14493,9 +14465,9 @@
       ]
     },
     {
-      "id": 362,
+      "id": 361,
       "name": "WheelRearRRim",
-      "parent": 359,
+      "parent": 358,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14531,9 +14503,9 @@
       ]
     },
     {
-      "id": 363,
+      "id": 362,
       "name": "Node 99",
-      "parent": 359,
+      "parent": 358,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14569,9 +14541,9 @@
       ]
     },
     {
-      "id": 364,
+      "id": 363,
       "name": "InteriorFloor",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14625,9 +14597,9 @@
       ]
     },
     {
-      "id": 365,
+      "id": 364,
       "name": "BodyPillars",
-      "parent": 265,
+      "parent": 264,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14681,7 +14653,7 @@
       ]
     },
     {
-      "id": 366,
+      "id": 365,
       "name": "Launch Pad",
       "components": {
         "LocalTRS": {
@@ -14736,9 +14708,9 @@
       }
     },
     {
-      "id": 367,
+      "id": 366,
       "name": "Plate",
-      "parent": 366,
+      "parent": 365,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14770,9 +14742,9 @@
       ]
     },
     {
-      "id": 368,
+      "id": 367,
       "name": "Marker",
-      "parent": 366,
+      "parent": 365,
       "components": {
         "LocalTRS": {
           "position": [
@@ -14811,6 +14783,60 @@
       "tags": [
         "ShadowCasterTag"
       ]
+    },
+    {
+      "id": 368,
+      "name": "Chase Camera",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            -5.5,
+            3.2,
+            -8.0
+          ],
+          "rotation": [
+            0.101201,
+            0.228507,
+            -0.02389,
+            0.967973
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "CameraComponent": {
+          "fov": 60.0,
+          "near": 0.1,
+          "far": 500.0
+        },
+        "Scripts": {
+          "scripts": [
+            {
+              "script": "/Scripts/ChaseCamera.luau",
+              "enabled": true,
+              "values": [
+                {
+                  "name": "distance",
+                  "type": "Number",
+                  "value": 7.0
+                },
+                {
+                  "name": "height",
+                  "type": "Number",
+                  "value": 2.5
+                },
+                {
+                  "name": "lookHeight",
+                  "type": "Number",
+                  "value": 1.0
+                }
+              ]
+            }
+          ]
+        }
+      }
     }
   ]
 }

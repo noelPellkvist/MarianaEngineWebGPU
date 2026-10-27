@@ -1,6 +1,5 @@
 #include <Mariana/Physics/VehiclePresets.hpp>
 
-#include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Rendering/Components.hpp>
@@ -50,7 +49,6 @@ namespace
         vehicle.type = VehicleType::Wheeled;
         vehicle.drive = VehicleDrive::Rear;
         car.Add<Vehicle>(vehicle);
-        car.Add<PlayerControl>(PlayerControl{});
 
         Part(scene, assets, car, BuiltinMesh::Cube, "Body", glm::vec3(0.75f, 0.08f, 0.06f), glm::vec3(0.0f), kIdentity, glm::vec3(1.8f, 0.5f, 4.2f));
         Part(scene, assets, car, BuiltinMesh::Cube, "Cabin", glm::vec3(0.12f, 0.16f, 0.22f), glm::vec3(0.0f, 0.47f, -0.3f), kIdentity, glm::vec3(1.5f, 0.45f, 2.0f));
@@ -93,7 +91,6 @@ namespace
         vehicle.differentialRatio = 1.93f * 40.0f / 16.0f;
         vehicle.antiRollStiffness = 0.0f;
         bike.Add<Vehicle>(vehicle);
-        bike.Add<PlayerControl>(PlayerControl{});
 
         Part(scene, assets, bike, BuiltinMesh::Cube, "Frame", glm::vec3(0.08f, 0.2f, 0.65f), glm::vec3(0.0f), kIdentity, glm::vec3(0.4f, 0.6f, 0.8f));
         Part(scene, assets, bike, BuiltinMesh::Cube, "Seat", glm::vec3(0.05f), glm::vec3(0.0f, 0.35f, -0.2f), kIdentity, glm::vec3(0.3f, 0.1f, 0.55f), Solid::None);
@@ -134,7 +131,6 @@ namespace
         vehicle.collision = WheelCollision::Ray;
         vehicle.differentialRatio = 6.0f;
         tank.Add<Vehicle>(vehicle);
-        tank.Add<PlayerControl>(PlayerControl{});
 
         const glm::vec3 olive(0.28f, 0.32f, 0.17f), darkOlive(0.2f, 0.24f, 0.12f);
         Part(scene, assets, tank, BuiltinMesh::Cube, "Hull", olive, glm::vec3(0.0f), kIdentity, glm::vec3(3.4f, 1.0f, 6.4f));
@@ -369,8 +365,8 @@ namespace VehiclePresets
         body.mass = mass;
         body.centerOfMass = glm::vec3(0.0f, -0.25f, 0.0f);
         model.Add<RigidBody>(body);
-        // A sports car: a strong engine revving high through six close gears, firm springs held
-        // level by anti-roll bars, and steering that gives less lock the faster it goes.
+        // A sports car: a strong engine revving high through six close gears and firm springs held
+        // level by anti-roll bars.
         Vehicle vehicle;
         vehicle.engineTorque = 700.0f;
         vehicle.maxRPM = 7000.0f;
@@ -380,9 +376,6 @@ namespace VehiclePresets
         vehicle.differentialRatio = 3.6f;
         vehicle.antiRollStiffness = 4000.0f;
         model.Add<Vehicle>(vehicle);
-        PlayerControl control;
-        control.steerFade = 25.0f;
-        model.Add<PlayerControl>(control);
         const glm::vec3 lifted = chassisPosition + chassisUp * settle;
         if (LocalTRS* trs = model.Get<LocalTRS>())
             SetWorldPose(scene, model, *trs, lifted, chassisRotation);

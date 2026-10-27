@@ -2,7 +2,6 @@
 // PhysicsWorld::RegisterComponents. What drives them while the game runs (a vehicle's pedals, a
 // character's walking) isn't saved: those fields are transient, there for code (scripts) only.
 #include <Mariana/Physics/PhysicsWorld.hpp>
-#include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Importers/SceneFile.hpp>
 #include <Mariana/Graphics/Mesh.hpp>
 
@@ -98,18 +97,6 @@ namespace PhysicsInternal
             a.Field("maxBrakeTorque", w.maxBrakeTorque);
             a.Field("maxHandBrakeTorque", w.maxHandBrakeTorque);
             a.Field("grip", w.grip);
-        });
-        SceneFile::RegisterComponent<PlayerControl>("PlayerControl", [](SceneArchive& a, PlayerControl& c) {
-            a.Field("enabled", c.enabled);
-            a.Field("steerSpeed", c.steerSpeed);
-            a.Field("steerFade", c.steerFade);
-        });
-        SceneFile::RegisterComponent<FollowCamera>("FollowCamera", [](SceneArchive& a, FollowCamera& f) {
-            a.Field("target", f.target);
-            a.Field("distance", f.distance);
-            a.Field("height", f.height);
-            a.Field("lookHeight", f.lookHeight);
-            a.Field("stiffness", f.stiffness);
         });
         SceneFile::RegisterComponent<CharacterController>("CharacterController", [](SceneArchive& a, CharacterController& c) {
             a.Field("radius", c.radius);

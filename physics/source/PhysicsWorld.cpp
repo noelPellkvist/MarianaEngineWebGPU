@@ -1,7 +1,6 @@
 #include "WorldImpl.hpp"
 
 #include <Mariana/Foundation/Logger.hpp>
-#include <Mariana/Physics/Controllers.hpp>
 
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/JobSystemSingleThreaded.h>
@@ -952,8 +951,6 @@ void PhysicsWorld::RegisterComponents()
     ECS::RegisterComponent<MeshCollider>("MeshCollider");
     ECS::RegisterComponent<Vehicle>("Vehicle");
     ECS::RegisterComponent<VehicleWheel>("VehicleWheel");
-    ECS::RegisterComponent<PlayerControl>("PlayerControl");
-    ECS::RegisterComponent<FollowCamera>("FollowCamera");
     ECS::RegisterComponent<CharacterController>("CharacterController");
     ECS::RegisterComponent<Joint>("Joint");
     ECS::RegisterComponent<WaterVolume>("WaterVolume");

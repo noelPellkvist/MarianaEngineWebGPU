@@ -94,7 +94,8 @@ class EditorApp : public Application
         // 0 chain, 1 door, 2 spinner, 3 wrecking ball, 4 water, 5 water pool, 6 a dancing ragdoll
         // (facing the camera), on the ground ahead.
         Entity SpawnJointPreset(int which);
-        // A camera following the player-controlled entity, unless the scene has a FollowCamera.
+        // A camera following the driven entity (ChaseCamera.luau with these properties), unless the
+        // scene has one.
         void AddChaseCamera(float distance, float height, float lookHeight);
         // What the editor opens with when the project has no /Scenes/Playground.scene (and what that
         // was saved from): the vehicle playground, a drivable car, dancers, a pool, jellies and a flag.

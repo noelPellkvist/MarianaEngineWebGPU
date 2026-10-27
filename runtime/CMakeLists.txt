@@ -79,6 +79,8 @@ if(EMSCRIPTEN)
       mariana_player_add_file("${prefab}")
     endforeach()
   endif()
+  # The scripts that come with scripting (a few KB; scenes refer to them as /Scripts/...).
+  list(APPEND player_files "${MARIANA_SCRIPTING_RESOURCES}")
   list(REMOVE_DUPLICATES player_files)
 
   # A standalone site in player/ (index.html, .js, .wasm, .data), ready to upload as is. Kept out of

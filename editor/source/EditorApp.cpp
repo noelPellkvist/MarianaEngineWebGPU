@@ -19,7 +19,6 @@
 #include <Mariana/Scene/Prefab.hpp>
 #include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Physics/Components.hpp>
-#include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/VehiclePresets.hpp>
 #include <Mariana/Physics/CharacterPresets.hpp>
@@ -247,9 +246,9 @@ Entity EditorApp::SpawnVehicle(VehicleType type)
     position.y = 1.5f;
     const glm::quat facing = glm::angleAxis(std::atan2(forward.x, forward.z), glm::vec3(0.0f, 1.0f, 0.0f));
     Entity vehicle = VehiclePresets::Spawn(scene, assets, type, position, facing);
-
-    // A chase camera for the Game view, unless the scene has one.
-    AddChaseCamera(FollowCamera{}.distance, FollowCamera{}.height, FollowCamera{}.lookHeight);
+    // The keys drive it, and a chase camera for the Game view follows (unless the scene has one).
+    ScriptWorld::AddScript(vehicle, assets, "/Scripts/VehicleDriver.luau");
+    AddChaseCamera(7.0f, 2.5f, 1.0f);
     scene.Update(0.0f);
     DeselectEntity();
     SelectEntity(vehicle.RawId());
@@ -266,6 +265,7 @@ Entity EditorApp::SpawnCharacter()
     position.y = 0.0f;
     const glm::quat facing = glm::angleAxis(std::atan2(forward.x, forward.z), glm::vec3(0.0f, 1.0f, 0.0f));
     Entity character = CharacterPresets::Spawn(scene, assets, position, facing);
+    ScriptWorld::AddScript(character, assets, "/Scripts/CharacterDriver.luau");
     AddChaseCamera(5.0f, 2.0f, 1.4f);
     scene.Update(0.0f);
     DeselectEntity();
@@ -313,16 +313,19 @@ Entity EditorApp::SpawnCharacterCourse()
 void EditorApp::AddChaseCamera(float distance, float height, float lookHeight)
 {
     bool following = false;
-    scene.Each<FollowCamera>([&](Entity, const FollowCamera&) { following = true; });
+    scene.Each<Scripts>([&](Entity, const Scripts& s) {
+        for (const ScriptSlot& slot : s.scripts)
+            if (const std::shared_ptr<ScriptAsset>& script = slot.script.Get(); script && script->file.stem() == "ChaseCamera")
+                following = true;
+    });
     if (following)
         return;
     Entity camera = SpawnCamera();
-    FollowCamera follow;
-    follow.distance = distance;
-    follow.height = height;
-    follow.lookHeight = lookHeight;
-    camera.Add<FollowCamera>(follow);
     camera.SetName("Chase Camera");
+    ScriptWorld::AddScript(camera, assets, "/Scripts/ChaseCamera.luau", {
+        ScriptValue{ "distance", ScriptValueType::Number, distance },
+        ScriptValue{ "height", ScriptValueType::Number, height },
+        ScriptValue{ "lookHeight", ScriptValueType::Number, lookHeight } });
 }
 
 Entity EditorApp::SpawnPlayground()
@@ -652,9 +655,15 @@ void EditorApp::BuildStartupScene()
     VehiclePresets::SpawnPlayground(scene, assets, glm::vec3(0.0f));
     scene.Update(0.0f);
     Entity car = VehiclePresets::SpawnCar(scene, assets, "/Models/CarConcept/CarConcept.gltf", glm::vec3(0.0f));
+    // The keys drive it (the concept car with less steering lock the faster it goes).
+    std::vector<ScriptValue> driver = { ScriptValue{ "steerFade", ScriptValueType::Number, 25.0f } };
     if (!car.IsValid())
+    {
         car = VehiclePresets::Spawn(scene, assets, VehicleType::Wheeled, glm::vec3(0.0f, 1.0f, 0.0f));
-    AddChaseCamera(FollowCamera{}.distance, FollowCamera{}.height, FollowCamera{}.lookHeight);
+        driver.clear();
+    }
+    ScriptWorld::AddScript(car, assets, "/Scripts/VehicleDriver.luau", driver);
+    AddChaseCamera(7.0f, 2.5f, 1.0f);
     const glm::quat facingCar = glm::angleAxis(glm::pi<float>(), glm::vec3(0.0f, 1.0f, 0.0f));
     for (const glm::vec3& at : { glm::vec3(0.0f, 0.0f, 14.0f), glm::vec3(-0.9f, 0.0f, 16.0f), glm::vec3(0.9f, 0.0f, 16.0f) })
         if (Entity dancer = CharacterPresets::SpawnRagdoll(scene, assets, at, facingCar); dancer.IsValid())
@@ -668,15 +677,7 @@ void EditorApp::BuildStartupScene()
     SoftBodyPresets::SpawnJelly(scene, assets, glm::vec3(5.0f, 0.0f, 4.5f));
     SoftBodyPresets::SpawnFlag(scene, assets, glm::vec3(-5.0f, 0.0f, 8.0f), facingCar);
 
-    auto addScript = [&](Entity entity, const char* resource) {
-        AssetHandle<ScriptAsset> script = assets.Load<ScriptAsset>(FileSystem::Resolve(resource));
-        if (!script.Get())
-            return;
-        if (!entity.Has<Scripts>())
-            entity.Add<Scripts>(Scripts{});
-        entity.Get<Scripts>()->scripts.push_back(ScriptSlot{ script, true, {} });
-    };
-    addScript(car, "/Scripts/Respawn.luau");
+    ScriptWorld::AddScript(car, assets, "/Scripts/Respawn.luau");
     Entity pad = scene.Instantiate("Launch Pad");
     pad.SetPosition(-10.0f, 0.0f, 20.0f);
     BoxCollider zone;
@@ -684,7 +685,7 @@ void EditorApp::BuildStartupScene()
     zone.center = glm::vec3(0.0f, 0.75f, 0.0f);
     zone.isTrigger = true;
     pad.Add<BoxCollider>(zone);
-    addScript(pad, "/Scripts/LaunchPad.luau");
+    ScriptWorld::AddScript(pad, assets, "/Scripts/LaunchPad.luau");
     Entity plate = BuiltinAssets::InstantiatePrimitive(scene, assets, BuiltinMesh::Cube, "Plate", glm::vec3(0.95f, 0.5f, 0.1f));
     plate.SetParent(pad);
     plate.SetPosition(0.0f, 0.01f, 0.0f);
@@ -695,7 +696,7 @@ void EditorApp::BuildStartupScene()
     marker.SetScaleUniform(0.5f);
     const glm::quat tilt = glm::quat(glm::radians(glm::vec3(45.0f, 0.0f, 35.0f)));
     marker.SetRotationQuat(tilt.x, tilt.y, tilt.z, tilt.w);
-    addScript(marker, "/Scripts/Hover.luau");
+    ScriptWorld::AddScript(marker, assets, "/Scripts/Hover.luau");
 
     scene.Update(0.0f);
     DeselectEntity();
@@ -774,20 +775,10 @@ void EditorApp::OnUpdate(float deltaTime)
     animationSystem.Run(gameClock.DeltaTime());
     if (gameClock.IsPlaying())
     {
-        if (gameHasKeys)
-        {
-            // Characters walk relative to the game camera (last frame's first one), else the editor's.
-            glm::vec3 viewForward = glm::vec3(cam->GetCameraInfo().invView[2]);
-            if (!sceneCameras.empty())
-                if (const WorldXform* w = sceneCameras.front().TryGet<WorldXform>())
-                    viewForward = glm::vec3(w->model[8], w->model[9], w->model[10]);
-            physics->UpdatePlayerControls(input, gameClock.DeltaTime(), viewForward);
-        }
         physics->Step(gameClock.DeltaTime());
         // Paused, a Step shows what its step did rather than the frame before it.
         if (gameClock.IsPaused())
             physics->ShowLatest();
-        physics->UpdateFollowCameras(gameClock.DeltaTime());
         if (gameAdvances)
             scripts->LateUpdate(gameClock.DeltaTime());
     }

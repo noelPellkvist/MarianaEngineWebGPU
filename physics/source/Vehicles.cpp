@@ -1,8 +1,6 @@
 #include "WorldImpl.hpp"
 
 #include <Mariana/Foundation/Logger.hpp>
-#include <Mariana/Physics/Controllers.hpp>
-#include <Mariana/Platform/IInput.hpp>
 
 #include <Jolt/Physics/Body/BodyLock.h>
 #include <Jolt/Physics/Vehicle/MotorcycleController.h>
@@ -500,62 +498,4 @@ bool PhysicsWorld::GetVehicleInfo(Entity entity, VehicleInfo& info) const
         info.wheels.push_back(w);
     }
     return true;
-}
-
-void PhysicsWorld::UpdatePlayerControls(const IInput& input, float dt, const glm::vec3& viewForward)
-{
-    const auto down = [&](Key a, Key b) { return input.IsKeyDown(a) || input.IsKeyDown(b); };
-    const float wanted = (down(Key::W, Key::UP) ? 1.0f : 0.0f) - (down(Key::S, Key::DOWN) ? 1.0f : 0.0f);
-    const float steerTarget = (down(Key::D, Key::RIGHT) ? 1.0f : 0.0f) - (down(Key::A, Key::LEFT) ? 1.0f : 0.0f);
-    const bool space = input.IsKeyDown(Key::SPACE);
-    const bool jump = input.IsKeyPressed(Key::SPACE);
-    const bool run = down(Key::LEFT_SHIFT, Key::RIGHT_SHIFT);
-
-    // Walking is relative to the view: forward is where the camera looks, level.
-    glm::vec3 forward(viewForward.x, 0.0f, viewForward.z);
-    forward = glm::length(forward) > 1e-4f ? glm::normalize(forward) : glm::vec3(0.0f, 0.0f, 1.0f);
-    const glm::vec3 right(forward.z, 0.0f, -forward.x);
-
-    for (Entity e : m_Impl->Find<PlayerControl>())
-    {
-        const PlayerControl* control = e.TryGet<PlayerControl>();
-        if (!control || !control->enabled)
-            continue;
-        if (CharacterController* character = e.Get<CharacterController>())
-        {
-            glm::vec3 move = forward * wanted + right * steerTarget;
-            if (glm::length(move) > 1.0f)
-                move = glm::normalize(move);
-            character->move = move;
-            character->run = run;
-            if (jump)
-                character->jump = true;
-            continue;
-        }
-        Vehicle* vehicle = e.Get<Vehicle>();
-        if (!vehicle)
-            continue;
-        VehicleInfo info;
-        const float speed = GetVehicleInfo(e, info) ? info.speed : 0.0f;
-        // Going the other way: brake until it has (nearly) stopped, then drive.
-        if (wanted * speed < 0.0f && std::abs(speed) > 0.5f)
-        {
-            vehicle->throttle = 0.0f;
-            vehicle->brake = 1.0f;
-        }
-        else
-        {
-            vehicle->throttle = wanted;
-            vehicle->brake = 0.0f;
-        }
-        vehicle->handBrake = space ? 1.0f : 0.0f;
-        if (space)
-            vehicle->throttle = 0.0f;
-        // The steering follows the keys at steerSpeed, and comes back twice as fast; with steerFade
-        // fast cars get less of the lock.
-        const float lock = control->steerFade > 0.0f ? 1.0f / (1.0f + std::abs(speed) / control->steerFade) : 1.0f;
-        const float rate = std::max(control->steerSpeed, 0.1f) * dt * (steerTarget == 0.0f ? 2.0f : 1.0f);
-        const float delta = steerTarget * lock - vehicle->steering;
-        vehicle->steering += std::clamp(delta, -rate, rate);
-    }
 }

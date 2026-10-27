@@ -5,7 +5,7 @@
 #include <Mariana/Rendering/SceneView.hpp>
 #include <Mariana/Rendering/Effect.hpp>
 #include <Mariana/Scene/ECS.hpp>
-#include <Mariana/Physics/Controllers.hpp>
+#include <Mariana/Rendering/SceneCamera.hpp>
 #include <Mariana/Scripting/ScriptWorld.hpp>
 
 #include <memory>
@@ -25,15 +25,18 @@
 //                  "physics": { "body": "dynamic", "mass": 2, "bounciness": 0.5 } }, ... ]
 //   }
 // Everything is optional; paths are resource paths (FileSystem). `scene` is a scene file the editor
-// saved (SceneFile), loaded first; the spawns are added to it. A spawn is a `prefab`, a
-// `primitive` (cube, sphere, plane, cylinder, capsule; tinted by `color`) or a `preset` (car,
-// motorcycle, tank: a vehicle the keyboard drives, W A S D and Space; playground: ground with ramps;
-// character: one that walks with W A S D, Shift and Space; course: steps, slopes and crates for it;
+// saved (SceneFile), loaded first; the spawns are added to it. The view is the scene's first camera
+// entity (CameraComponent), as the editor's Game view shows it; `camera` is the view of a scene
+// without one. A spawn is a `prefab`, a `primitive` (cube, sphere, plane, cylinder, capsule; tinted
+// by `color`) or a `preset` (car, motorcycle, tank: a vehicle the keyboard drives, W A S D and Space
+// (VehicleDriver.luau); playground: ground with ramps; character: one that walks with W A S D, Shift
+// and Space (CharacterDriver.luau); course: steps, slopes and crates for it;
 // chain (hanging from `position`), door, spinner, wrecking ball: joints at work; pool: water with
 // things floating in it and a ramp to drive in; ragdoll: the dancing Rumba, knocked limp by a hit;
 // soft bodies: flag (on a pole, in the wind), drape (cloth falling over a ball), jelly, balloon).
-// With `follow` (and optional `distance`, `height`) the camera chases the driven vehicle. A prefab
-// with "vehicle": "car" is rigged as a car (its "Wheel..." entities become its wheels); one with
+// With `follow` (and optional `distance`, `height`) a scene without a camera gets one chasing the
+// driven vehicle or character (ChaseCamera.luau). A prefab with "vehicle": "car" is rigged as a car
+// driven by the keyboard (its "Wheel..." entities become its wheels); one with
 // "ragdoll": "powered" (or "animated", "limp") gets a Ragdoll of its skeleton, so an animated
 // character keeps playing its animation until something hits it hard enough; as an object it also
 // takes the Ragdoll's settings: { "mode": "powered", "mass": 80, "limpOnImpact": 4, "knockback": 1.2,
@@ -84,19 +87,19 @@ struct PlayerConfig
     glm::vec3 cameraTarget{0.0f, 1.0f, 0.0f};
     float orbitSpeed = 0.0f; // degrees per second around the target
     bool follow = false;
-    FollowCamera chase;
+    float followDistance = 7.0f;
+    float followHeight = 2.5f;
     std::vector<Spawn> spawns;
 
     static bool Load(const std::string& path, PlayerConfig& out, std::string& error);
 };
 
-// Looks at a target from a position, optionally circling it.
+// Looks at a target from a position, optionally circling it (the view of a scene without a camera).
 class PlayerCamera final : public ICamera
 {
 public:
     PlayerCamera(IInput& input, const glm::vec3& position, const glm::vec3& target, float orbitSpeed);
     void OnUpdate(float deltaTime) override;
-    void Place(const glm::vec3& position, const glm::vec3& lookAt) { _pos = position; target = lookAt; }
 
 private:
     glm::vec3 target;
@@ -133,8 +136,11 @@ private:
     // Systems query `scene`, so they are declared after it to be destroyed first.
     System animationSystem;
 
+    // The scene's first camera entity, when it has one, is the view.
+    SceneCamera sceneCamera;
+
     void OnWindowResized(int width, int height);
+    Entity FirstCamera() const;
     Entity SpawnPrimitive(const PlayerConfig::Spawn& spawn);
-    ChaseCamera chase;
     void AddPhysics(Entity root, const PlayerConfig::Spawn& spawn);
 };

@@ -64,8 +64,8 @@ bool PlayerConfig::Load(const std::string& path, PlayerConfig& out, std::string&
             out.cameraTarget = ReadVec3(*camera, "target", out.cameraTarget);
             out.orbitSpeed = camera->value("orbitSpeed", out.orbitSpeed);
             out.follow = camera->value("follow", out.follow);
-            out.chase.distance = camera->value("distance", out.chase.distance);
-            out.chase.height = camera->value("height", out.chase.height);
+            out.followDistance = camera->value("distance", out.followDistance);
+            out.followHeight = camera->value("height", out.followHeight);
         }
         if (const auto spawns = file.find("spawn"); spawns != file.end() && spawns->is_array())
         {
@@ -142,7 +142,8 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
       config(config),
       sceneRenderer(scene, assets),
       sceneView(sceneRenderer),
-      effects(renderer.graph, sceneView.CameraBuffer())
+      effects(renderer.graph, sceneView.CameraBuffer()),
+      sceneCamera(input)
 {
     Animator::RegisterComponents();
     SceneRenderer::RegisterComponents();
@@ -275,12 +276,12 @@ void PlayerApp::OnStart()
             if (spawn.preset == "car" || spawn.preset == "motorcycle" || spawn.preset == "tank")
             {
                 const VehicleType type = spawn.preset == "car" ? VehicleType::Wheeled : spawn.preset == "motorcycle" ? VehicleType::Motorcycle : VehicleType::Tracked;
-                VehiclePresets::Spawn(scene, assets, type, spawn.position, turn);
+                ScriptWorld::AddScript(VehiclePresets::Spawn(scene, assets, type, spawn.position, turn), assets, "/Scripts/VehicleDriver.luau");
             }
             else if (spawn.preset == "playground")
                 VehiclePresets::SpawnPlayground(scene, assets, spawn.position);
             else if (spawn.preset == "character")
-                CharacterPresets::Spawn(scene, assets, spawn.position, turn);
+                ScriptWorld::AddScript(CharacterPresets::Spawn(scene, assets, spawn.position, turn), assets, "/Scripts/CharacterDriver.luau");
             else if (spawn.preset == "course")
                 CharacterPresets::SpawnCourse(scene, assets, spawn.position);
             else if (spawn.preset == "chain")
@@ -345,7 +346,8 @@ void PlayerApp::OnStart()
         if (spawn.vehicle == "car")
         {
             scene.Update(0.0f); // rigging reads the world transforms
-            VehiclePresets::RigCar(scene, root);
+            if (VehiclePresets::RigCar(scene, root))
+                ScriptWorld::AddScript(root, assets, "/Scripts/VehicleDriver.luau", { ScriptValue{ "steerFade", ScriptValueType::Number, 25.0f } });
         }
         else if (!spawn.vehicle.empty())
             Logger::Warning("Player.json: unknown vehicle \"" + spawn.vehicle + "\"");
@@ -365,6 +367,16 @@ void PlayerApp::OnStart()
             root.Add<Ragdoll>(ragdoll);
         }
     }
+    // A camera chasing what the keys drive, unless the scene has a camera of its own.
+    if (config.follow && !FirstCamera().IsValid())
+    {
+        Entity camera = scene.Instantiate("Chase Camera");
+        camera.SetPosition(config.cameraPosition.x, config.cameraPosition.y, config.cameraPosition.z);
+        camera.Add<CameraComponent>(CameraComponent{});
+        ScriptWorld::AddScript(camera, assets, "/Scripts/ChaseCamera.luau", {
+            ScriptValue{ "distance", ScriptValueType::Number, config.followDistance },
+            ScriptValue{ "height", ScriptValueType::Number, config.followHeight } });
+    }
     scene.Update(0.0f);
     // A player is the game: it plays from the start.
     gameClock.Play();
@@ -374,33 +386,36 @@ void PlayerApp::OnUpdate(float deltaTime)
 {
     scripts->Update(gameClock.DeltaTime(), &input);
     animationSystem.Run(gameClock.DeltaTime());
-    physics->UpdatePlayerControls(input, gameClock.DeltaTime(), glm::vec3(cam->GetCameraInfo().invView[2]));
     physics->Step(gameClock.DeltaTime());
-    physics->UpdateFollowCameras(gameClock.DeltaTime());
     scripts->LateUpdate(gameClock.DeltaTime());
+}
 
-    // The camera chases the driven vehicle.
-    if (config.follow)
-    {
-        // The first (by id) with a PlayerControl, as a FollowCamera without a target picks.
-        Entity driven;
-        scene.Each<PlayerControl>([&](Entity e, const PlayerControl&) {
-            if (!driven.IsValid() || e.RawId() < driven.RawId())
-                driven = e;
-        });
-        if (const WorldXform* world = driven.IsValid() ? driven.TryGet<WorldXform>() : nullptr)
-        {
-            chase.Update(glm::make_mat4(world->model), config.chase, deltaTime);
-            static_cast<PlayerCamera*>(cam.get())->Place(chase.position, chase.lookAt);
-        }
-    }
+Entity PlayerApp::FirstCamera() const
+{
+    Entity first;
+    scene.Each<CameraComponent>([&](Entity e, const CameraComponent&) {
+        if (!first.IsValid() || e.RawId() < first.RawId())
+            first = e;
+    });
+    return first;
 }
 
 void PlayerApp::OnRender()
 {
     scene.Update(0.0f);
     sceneRenderer.Update();
-    sceneView.Prepare(*cam);
+    // Through the scene's camera when it has one (with the pipeline's exposure).
+    const Entity camera = FirstCamera();
+    if (const WorldXform* world = camera.IsValid() ? camera.TryGet<WorldXform>() : nullptr)
+    {
+        sceneCamera.Follow(*world, *camera.TryGet<CameraComponent>());
+        sceneCamera.SetViewportSize(m_Window.GetWidth(), m_Window.GetHeight());
+        sceneCamera.SetExposure(cam->Exposure());
+        sceneCamera.UpdateBuffer();
+        sceneView.Prepare(sceneCamera);
+    }
+    else
+        sceneView.Prepare(*cam);
     effects.Update();
     renderer.Render();
 }

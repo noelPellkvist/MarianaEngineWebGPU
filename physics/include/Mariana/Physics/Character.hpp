@@ -28,7 +28,7 @@ struct CharacterController
     float turnSpeed = 720.0f;   // degrees per second
     uint32_t layer = 0;
 
-    // The driver (code, or PlayerControl): where to walk (world space, horizontal, length up to 1),
+    // The driver (code: scripts): where to walk (world space, horizontal, length up to 1),
     // whether to run, and a jump (taken at the next step on the ground, then cleared).
     glm::vec3 move{ 0.0f };
     bool run = false;

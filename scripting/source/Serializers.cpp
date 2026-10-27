@@ -1,6 +1,8 @@
-// The Scripts component in the ECS and in scene files.
+// The Scripts component in the ECS and in scene files, and putting scripts on entities.
 #include <Mariana/Scripting/ScriptWorld.hpp>
 
+#include <Mariana/Foundation/FileSystem.hpp>
+#include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Importers/SceneFile.hpp>
 
 void ScriptWorld::RegisterComponents()
@@ -23,4 +25,24 @@ void ScriptWorld::RegisterComponents()
             });
         });
     });
+}
+
+std::filesystem::path ScriptWorld::ResourceRoot()
+{
+    return MARIANA_SCRIPTING_RESOURCES;
+}
+
+bool ScriptWorld::AddScript(Entity entity, AssetManager2& assets, const std::string& resource, std::vector<ScriptValue> values)
+{
+    const std::filesystem::path file = FileSystem::Resolve(resource);
+    AssetHandle<ScriptAsset> script = file.empty() ? AssetHandle<ScriptAsset>{} : assets.Load<ScriptAsset>(file);
+    if (!script.Get())
+    {
+        Logger::Error("No script " + resource);
+        return false;
+    }
+    if (!entity.Has<Scripts>())
+        entity.Add<Scripts>(Scripts{});
+    entity.Get<Scripts>()->scripts.push_back(ScriptSlot{ script, true, std::move(values) });
+    return true;
 }

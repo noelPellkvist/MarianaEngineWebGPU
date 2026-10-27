@@ -6,6 +6,9 @@
 IInput::IInput(GLFWwindow* win)
     : m_window(win)
 {
+    // Without a window only SimulateKey feeds it (tests, automation).
+    if (!m_window)
+        return;
     glfwSetWindowUserPointer(m_window, this);
 
     #ifndef __EMSCRIPTEN__   // or if (!EMSCRIPTEN)
@@ -125,6 +128,8 @@ void IInput::GetMouseScrollDelta(double& dx, double& dy) const
 void IInput::SetCursorLocked(bool locked)
 {
     _cursorLocked = locked;
+    if (!m_window)
+        return;
     glfwSetInputMode(m_window, GLFW_CURSOR, locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 
     // Reset deltas to avoid a big jump on mode switch
@@ -137,6 +142,11 @@ void IInput::SetCursorLocked(bool locked)
 bool IInput::IsCursorLocked() const
 {
     return _cursorLocked;
+}
+
+void IInput::SimulateKey(Key key, bool down)
+{
+    OnKey(key, down ? GLFW_PRESS : GLFW_RELEASE);
 }
 
 // ---------- Event handlers (internal) ----------

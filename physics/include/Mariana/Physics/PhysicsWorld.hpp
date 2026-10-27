@@ -13,7 +13,6 @@
 #include <memory>
 #include <vector>
 
-class IInput;
 
 // What the simulation has for an entity's body (PhysicsWorld::GetBodyInfo).
 struct BodyInfo
@@ -76,8 +75,8 @@ public:
     PhysicsWorld(const PhysicsWorld&) = delete;
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
 
-    // RigidBody, the colliders, Joint, Vehicle, VehicleWheel, CharacterController, PlayerControl,
-    // FollowCamera, WaterVolume, Ragdoll and SoftBody, also in scene files (SceneFile); call before
+    // RigidBody, the colliders, Joint, Vehicle, VehicleWheel, CharacterController, WaterVolume,
+    // Ragdoll and SoftBody, also in scene files (SceneFile); call before
     // Scene::UpdateComponentRegistry.
     static void RegisterComponents();
 
@@ -148,13 +147,6 @@ public:
     bool GetJointInfo(Entity entity, JointInfo& info) const;
     // The joints that broke during the last Step call.
     const std::vector<Entity>& BrokenJoints() const;
-    // Sets the inputs of every entity with a PlayerControl from the keyboard (call each frame before
-    // Step, with the game time, while the player may drive): a Vehicle's pedals and steering, or a
-    // CharacterController's walking, relative to `viewForward` (where the camera looks).
-    void UpdatePlayerControls(const IInput& input, float dt, const glm::vec3& viewForward = glm::vec3(0.0f, 0.0f, 1.0f));
-    // Moves every FollowCamera entity after its target (call once per frame with game time, after
-    // Step).
-    void UpdateFollowCameras(float dt);
 
     // Lines picturing the simulation, added to `lines`.
     void DebugDraw(const PhysicsDebugDraw& settings, std::vector<DebugLine>& lines);

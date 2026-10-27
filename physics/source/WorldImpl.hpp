@@ -484,7 +484,6 @@ struct PhysicsWorld::Impl
     // Runs the write-back systems: entities `alpha` of the way from where their previous step left
     // them to where the last did (1 = the last), wheels on their chassis, soft bodies' meshes.
     void Show(float alpha);
-    void UpdateFollowCameras(float dt);
     void Step(float dt);
 
     // The entity's body (its solid one when it has both), invalid when it has none.

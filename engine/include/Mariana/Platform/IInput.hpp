@@ -138,6 +138,7 @@ struct GLFWwindow;
 
 class IInput {
     public:
+        // Fed by the window's keyboard and mouse; without a window (nullptr) only by SimulateKey.
         IInput(GLFWwindow* win);
 
         //Update the input system, so it continues working
@@ -196,6 +197,10 @@ class IInput {
         /// Indicates whether the mouse cursor is currently locked within the application window.
         /// @return True if the cursor is locked, false otherwise.
         bool IsCursorLocked() const;
+
+        /// A key going down or up as if it were typed (tests, automation); pressed and released
+        /// this frame as a real one would be.
+        void SimulateKey(Key key, bool down);
 
 
     private:

@@ -6,7 +6,6 @@
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Graphics/Mesh.hpp>
 #include <Mariana/Physics/ColliderGeometry.hpp>
-#include <Mariana/Physics/Controllers.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Physics/Water.hpp>
 #include <Mariana/Physics/Ragdoll.hpp>
@@ -806,46 +805,6 @@ namespace PhysicsEditor
             ImGui::PopID();
         });
 
-        inspector.SetComponentDrawer("PlayerControl", [&inspector, &undo](Entity& entity) {
-            ImGui::PushID("PlayerControl");
-            if (Section<PlayerControl>(inspector, undo, entity, "Player Control"))
-            {
-                EditComponent<PlayerControl>(entity, undo, "Edit Player Control", [&](PlayerControl& c) {
-                    bool changed = ImGui::Checkbox("Enabled", &c.enabled);
-                    changed |= ImGui::DragFloat("Steer Speed", &c.steerSpeed, 0.05f, 0.1f, 20.0f, "%.2f");
-                    return changed;
-                });
-                if (entity.TryGet<CharacterController>())
-                    ImGui::TextDisabled("WASD or arrows walk (from the view), Shift runs, Space jumps");
-                else
-                    ImGui::TextDisabled("W/S or Up/Down drive, A/D or Left/Right steer, Space hand brake");
-            }
-            ImGui::PopID();
-        });
-
-        inspector.SetComponentDrawer("FollowCamera", [&inspector, &undo](Entity& entity) {
-            ImGui::PushID("FollowCamera");
-            if (Section<FollowCamera>(inspector, undo, entity, "Follow Camera"))
-            {
-                EditComponent<FollowCamera>(entity, undo, "Edit Follow Camera", [&](FollowCamera& c) {
-                    char target[128] = {};
-                    std::snprintf(target, sizeof(target), "%s", c.target.c_str());
-                    bool changed = false;
-                    if (ImGui::InputTextWithHint("Target", "the player-controlled one", target, sizeof(target)))
-                    {
-                        c.target = target;
-                        changed = true;
-                    }
-                    changed |= ImGui::DragFloat("Distance", &c.distance, 0.05f, 0.0f, 500.0f, "%.2f m");
-                    changed |= ImGui::DragFloat("Height", &c.height, 0.05f, -100.0f, 100.0f, "%.2f m");
-                    changed |= ImGui::DragFloat("Look Height", &c.lookHeight, 0.05f, -100.0f, 100.0f, "%.2f m");
-                    changed |= ImGui::DragFloat("Stiffness", &c.stiffness, 0.05f, 0.0f, 100.0f, "%.2f");
-                    return changed;
-                });
-            }
-            ImGui::PopID();
-        });
-
         inspector.SetComponentDrawer("WaterVolume", [&inspector, &undo](Entity& entity) {
             ImGui::PushID("WaterVolume");
             if (Section<WaterVolume>(inspector, undo, entity, "Water Volume"))
@@ -1026,12 +985,6 @@ namespace PhysicsEditor
         inspector.AddComponentOption({ "Vehicles", "Vehicle Wheel",
             [](Entity e) { return !e.TryGet<VehicleWheel>(); },
             [&undo](Entity e) { AddWithUndo(undo, e, "Vehicle Wheel", VehicleWheel{}); } });
-        inspector.AddComponentOption({ "Vehicles", "Player Control",
-            [](Entity e) { return !e.TryGet<PlayerControl>(); },
-            [&undo](Entity e) { AddWithUndo(undo, e, "Player Control", PlayerControl{}); } });
-        inspector.AddComponentOption({ "Vehicles", "Follow Camera",
-            [](Entity e) { return !e.TryGet<FollowCamera>(); },
-            [&undo](Entity e) { AddWithUndo(undo, e, "Follow Camera", FollowCamera{}); } });
         // A model made solid at once (a level, say): a mesh collider on everything with a mesh.
         inspector.AddComponentOption({ "Physics", "Mesh Colliders on Children",
             [](Entity e) { return !WithoutMeshColliders(e).empty(); },

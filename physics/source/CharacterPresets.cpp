@@ -4,7 +4,6 @@
 #include <Mariana/Scene/Prefab.hpp>
 
 #include <Mariana/Physics/Character.hpp>
-#include <Mariana/Physics/Controllers.hpp>
 
 #include "PresetParts.hpp"
 
@@ -19,7 +18,6 @@ namespace CharacterPresets
         Entity character = scene.Instantiate("Character");
         Place(character, Entity{}, position, rotation, glm::vec3(1.0f));
         character.Add<CharacterController>(CharacterController{});
-        character.Add<PlayerControl>(PlayerControl{});
         // The capsule primitive is 1 m wide and 2 m tall: scaled to 0.6 by 1.8, standing on the feet.
         Part(scene, assets, character, BuiltinMesh::Capsule, "Body", glm::vec3(0.25f, 0.55f, 0.9f), glm::vec3(0.0f, 0.9f, 0.0f), kIdentity, glm::vec3(0.6f, 0.9f, 0.6f), Solid::None);
         Part(scene, assets, character, BuiltinMesh::Cube, "Visor", glm::vec3(0.08f), glm::vec3(0.0f, 1.55f, 0.24f), kIdentity, glm::vec3(0.4f, 0.12f, 0.14f), Solid::None);

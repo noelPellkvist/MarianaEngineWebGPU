@@ -2,6 +2,9 @@
 // A console program: no window, no GPU. Exits 1 when one fails.
 #include "Scenarios.hpp"
 
+#include <Mariana/Foundation/FileSystem.hpp>
+#include <Mariana/Rendering/SceneRenderer.hpp>
+
 #include <cstdio>
 #include <cstdlib>
 
@@ -22,6 +25,8 @@ int main()
 #endif
     PhysicsWorld::RegisterComponents();
     ScriptWorld::RegisterComponents();
+    SceneRenderer::RegisterComponents(); // CameraComponent
+    FileSystem::AddRoot(ScriptWorld::ResourceRoot());
     std::printf("MarianaScriptingTest\n");
 
     const std::vector<ScriptScenarios::Result> results = ScriptScenarios::RunAll([](const std::string& line) {
