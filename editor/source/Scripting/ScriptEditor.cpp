@@ -196,9 +196,9 @@ namespace
 namespace ScriptEditor
 {
     void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, ScriptWorld& scripts, ScriptChecker& checker, AssetManager2& assets,
-                           fs::path projectDir)
+                           fs::path projectDir, std::function<void(const fs::path&)> edit)
     {
-        inspector.SetComponentDrawer("Scripts", [&inspector, &undo, &scripts, &checker, &assets, projectDir](Entity& entity) {
+        inspector.SetComponentDrawer("Scripts", [&inspector, &undo, &scripts, &checker, &assets, projectDir, edit](Entity& entity) {
             ImGui::PushID("Scripts");
             if (Section<Scripts>(inspector, undo, entity, "Scripts"))
             {
@@ -215,14 +215,19 @@ namespace ScriptEditor
                         ImGui::SameLine();
                         ImGui::TextUnformatted(ScriptName(slot.script).c_str());
                         const std::shared_ptr<ScriptAsset>& asset = slot.script.Get();
-#ifndef __EMSCRIPTEN__
                         if (asset && !asset->file.empty())
                         {
                             ImGui::SameLine();
+                            if (ImGui::SmallButton("Edit") && edit)
+                                edit(asset->file);
+#ifndef __EMSCRIPTEN__
+                            ImGui::SameLine();
                             if (ImGui::SmallButton("Open"))
                                 OpenWithSystem(asset->file);
-                        }
+                            if (ImGui::IsItemHovered())
+                                ImGui::SetTooltip("Open in the app the system has for .luau files");
 #endif
+                        }
                         ImGui::SameLine();
                         if (ImGui::SmallButton("Remove"))
                             remove = static_cast<int>(i);

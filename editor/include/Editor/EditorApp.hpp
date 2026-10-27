@@ -22,6 +22,7 @@ class InspectorWindow;
 class AnimationGraphWindow;
 class PhysicsWindow;
 class ScriptChecker;
+class ScriptEditorWindow;
 class ThumbnailCache;
 class ViewportWindow;
 
@@ -58,6 +59,7 @@ class EditorApp : public Application
         std::unique_ptr<PhysicsWorld> physics;
         std::unique_ptr<ScriptWorld> scripts;
         std::unique_ptr<ScriptChecker> scriptChecker;
+        ScriptEditorWindow* scriptEditorWindow = nullptr;
         PhysicsWindow* physicsWindow = nullptr;
         std::vector<DebugLine> debugLines; // PhysicsWorld::DebugDraw's, kept to reuse the memory
         // The two views of sceneRenderer, drawn only while their windows show. The game view is made

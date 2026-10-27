@@ -31,6 +31,7 @@
 #include <Editor/Windows/Stats.hpp>
 #include <Editor/Physics/PhysicsEditor.hpp>
 #include <Editor/Scripting/ScriptEditor.hpp>
+#include <Editor/Windows/ScriptEditorWindow.hpp>
 #include <Mariana/ScriptTools/ScriptChecker.hpp>
 #include <Mariana/ScriptTools/ScriptTypes.hpp>
 #include <Editor/Windows/AnimationGraphWindow.hpp>
@@ -382,6 +383,10 @@ void EditorApp::OnStart()
 #ifndef __EMSCRIPTEN__
     ScriptEditor::WriteProjectTypes(MARIANA_PROJECT_DIR);
 #endif
+    auto scriptEditor = std::make_unique<ScriptEditorWindow>(gui, assets, *scriptChecker);
+    scriptEditorWindow = scriptEditor.get();
+    scriptEditor->onSaved = [this](const fs::path& file) { OfferDownload(file); };
+    EditorWindows["Script Editor"] = std::move(scriptEditor);
 
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui);
     thumbnails = std::make_unique<ThumbnailCache>(MARIANA_PROJECT_DIR, input);
@@ -399,7 +404,7 @@ void EditorApp::OnStart()
         if (extension == ".scene")
             OpenScene(file);
         if (extension == ".luau" || extension == ".lua")
-            ScriptEditor::OpenWithSystem(file);
+            scriptEditorWindow->Open(file);
     };
     assetsExplorer->createActions.push_back({ "Animation Graph", [this](const fs::path& folder) {
         graphWindow->CreateGraph(folder / "New Animation Graph.animgraph", nullptr);
@@ -424,7 +429,8 @@ void EditorApp::OnStart()
         SelectEntity(entity.RawId());
     });
     PhysicsEditor::RegisterInspector(*inspector, undo, *physics, assets, scene);
-    ScriptEditor::RegisterInspector(*inspector, undo, *scripts, *scriptChecker, assets, MARIANA_PROJECT_DIR);
+    ScriptEditor::RegisterInspector(*inspector, undo, *scripts, *scriptChecker, assets, MARIANA_PROJECT_DIR,
+                                    [this](const fs::path& file) { scriptEditorWindow->Open(file); });
     inspector->AddComponentOption({ "Rendering", "Camera",
         [](Entity e) { return !e.TryGet<CameraComponent>(); },
         [](Entity e) { e.Add<CameraComponent>(CameraComponent{}); } });
@@ -1170,6 +1176,7 @@ void EditorApp::DrawTopMenu()
             if (ImGui::MenuItem("Lighting")) { EditorWindows["Lighting"]->SetOpen(!EditorWindows["Lighting"]->IsOpen()); }
             if (ImGui::MenuItem("Animation Graph")) { graphWindow->SetOpen(!graphWindow->IsOpen()); }
             if (ImGui::MenuItem("Physics")) { physicsWindow->SetOpen(!physicsWindow->IsOpen()); }
+            if (ImGui::MenuItem("Script Editor")) { scriptEditorWindow->SetOpen(!scriptEditorWindow->IsOpen()); }
             ImGui::EndMenu();
         }
 

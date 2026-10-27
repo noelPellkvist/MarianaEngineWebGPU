@@ -60,6 +60,7 @@ _If it runs in your browser and on your PC with the same codebase, that’s not 
 - Game code in Luau: scripts on entities with Start/Update/contact callbacks, any saved component by name, input, game time and the physics API ([scripting/API.md](scripting/API.md))
 - Properties edited per entity in the inspector, live reload while playing, errors shown where they happen; native code generation on desktop
 - The game controls are scripts too: driving vehicles, walking characters and chase cameras come as readable `.luau` files a project can change
+- A built-in Script Editor with syntax colours, type errors as you type and autocomplete from the engine's API types (also set up for VS Code's Luau extension)
 
 **Editor** (Dear ImGui)
 - Scene and game views, hierarchy, inspector, asset browser with rendered thumbnails, material editor, undo/redo, play/pause/step, scene files

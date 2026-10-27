@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <string>
 
 class AssetManager2;
@@ -15,8 +16,9 @@ namespace ScriptEditor
     // The inspector's Scripts section (each script with its properties, its errors and what the type
     // checker found, and adding scripts by drop, from the project's files or as a new file) and its
     // Add Component entry. Edits are undoable; made while playing, they reach the running scripts.
+    // A script's Edit button calls `edit` with its file.
     void RegisterInspector(InspectorWindow& inspector, UndoStack& undo, ScriptWorld& scripts, ScriptChecker& checker, AssetManager2& assets,
-                           std::filesystem::path projectDir);
+                           std::filesystem::path projectDir, std::function<void(const std::filesystem::path&)> edit);
 
     // The project's types for VS Code: the API's definitions in <project>/.mariana/types/ (rewritten
     // when they change) and, when the project has none, .vscode/settings.json pointing the Luau

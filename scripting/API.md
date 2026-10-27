@@ -59,7 +59,10 @@ friends), plus `print` and `warn` (to the log, with the script and line).
 ## Types, errors and autocomplete
 
 Scripts are checked against the API's types by Luau's type checker: what it finds shows in the
-inspector next to the script (and it doesn't stop the script from running). A script is checked
+inspector next to the script and, as you type, in the editor's Script Editor (Window > Script Editor,
+or double-click a script in Assets: syntax colours, problems underlined, autocomplete with Ctrl+Space
+or after `.` `:` `"`, Ctrl+S saves and a running game takes the new code). A type problem doesn't stop
+the script from running. A script is checked
 loosely unless its first line is `--!strict`; the scripts that come with the engine are strict.
 The types are `Script`, `Entity`, `quat`, `Contact`, `RaycastHit`, `QueryOptions`, `BodyInfo`,
 `VehicleInfo`, `CharacterInfo` and one per component (`RigidBody`, `Vehicle`, ...), so
