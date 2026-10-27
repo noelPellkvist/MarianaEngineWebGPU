@@ -10,7 +10,7 @@
 #include <string>
 
 // A character and a course to try it on, made of the engine's primitives (its walking is up to the
-// app's scripts: the scripting library's CharacterDriver.luau walks one with the keyboard).
+// app's scripts: the Sandbox project's CharacterDriver.luau walks one with the keyboard).
 namespace CharacterPresets
 {
     // A 1.8 m capsule with a visor on its front (+Z) and a CharacterController, its feet at

@@ -10,7 +10,7 @@
 
 // Vehicles and a place to drive them, made of the engine's primitives (so any app can spawn them,
 // and they show how to build one). Who drives them is up to the app: its scripts set the Vehicle's
-// driver inputs (the scripting library's VehicleDriver.luau drives one from the keyboard).
+// driver inputs (the Sandbox project's VehicleDriver.luau drives one from the keyboard).
 namespace VehiclePresets
 {
     // A car (1.5 t, rear-wheel drive), a motorcycle (240 kg, leaning) or a tank (4 t, tracks with a

@@ -59,7 +59,7 @@ _If it runs in your browser and on your PC with the same codebase, that’s not 
 **Scripting** (Luau, native and web)
 - Game code in Luau: scripts on entities with Start/Update/contact callbacks, any saved component by name, input, game time and the physics API ([scripting/API.md](scripting/API.md))
 - Properties edited per entity in the inspector, live reload while playing, errors shown where they happen; native code generation on desktop
-- The game controls are scripts too: driving vehicles, walking characters and chase cameras come as readable `.luau` files a project can change
+- The game controls are scripts too: driving vehicles, walking characters and chase cameras are readable `.luau` files in the Sandbox project, to copy and change
 - A built-in Script Editor with syntax colours, type errors as you type and autocomplete from the engine's API types (also set up for VS Code's Luau extension)
 
 **Editor** (Dear ImGui)
@@ -68,7 +68,7 @@ _If it runs in your browser and on your PC with the same codebase, that’s not 
 **Player**
 - Runs a project without the editor from its `Player.json`; its web build packages only what the project uses
 
-**Try it:** the Sandbox project opens in a playground scene with a car, a pool, jellies, a flag and three dancers in the car's way. Press Play (Ctrl+P) in the editor, or open the player, and drive with W A S D (Space is the hand brake, R puts the car back at the start); the orange pad on the left throws the car into the air. All of that is Lua: the driving and the chase camera in `scripting/resources/Scripts/`, the respawn and the pad in `projects/Sandbox/Scripts/`.
+**Try it:** the Sandbox project opens in a playground scene with a car, a pool, jellies, a flag and three dancers in the car's way. Press Play (Ctrl+P) in the editor, or open the player, and drive with W A S D (Space is the hand brake, R puts the car back at the start); the orange pad on the left throws the car into the air. All of that is Lua, in `projects/Sandbox/Scripts/`: the driving, the chase camera, the respawn and the pad.
 
 ---
 

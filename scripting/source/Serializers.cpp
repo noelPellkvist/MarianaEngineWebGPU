@@ -27,11 +27,6 @@ void ScriptWorld::RegisterComponents()
     });
 }
 
-std::filesystem::path ScriptWorld::ResourceRoot()
-{
-    return MARIANA_SCRIPTING_RESOURCES;
-}
-
 bool ScriptWorld::AddScript(Entity entity, AssetManager2& assets, const std::string& resource, std::vector<ScriptValue> values)
 {
     const std::filesystem::path file = FileSystem::Resolve(resource);

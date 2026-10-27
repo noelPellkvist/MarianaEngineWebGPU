@@ -16,9 +16,6 @@ target_link_libraries(MarianaScripting
   PRIVATE Luau.VM Luau.Compiler
 )
 
-# The scripts that come with the library (ScriptWorld::ResourceRoot); web apps preload the folder.
-target_compile_definitions(MarianaScripting PRIVATE MARIANA_SCRIPTING_RESOURCES="${MARIANA_SCRIPTING_RESOURCES}")
-
 if(EMSCRIPTEN)
   # Luau raises its errors as C++ exceptions, so it must catch them the way the engine does.
   foreach(luau_target Luau.Ast Luau.Bytecode Luau.Compiler Luau.VM)
@@ -34,7 +31,7 @@ endif()
 add_subdirectory(tools)
 
 # MarianaScriptingTest: a console program that runs scripts against a scene made in code and checks
-# what they did, and the scripts' types (the shipped scripts, the Sandbox's included). No window, no
+# what they did (the Sandbox's control scripts among them), and the scripts' types. No window, no
 # GPU.
 if(NOT EMSCRIPTEN)
   add_executable(MarianaScriptingTest "${CMAKE_CURRENT_SOURCE_DIR}/tests/ScriptTest.cpp")

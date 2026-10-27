@@ -110,8 +110,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 # The engine's built-in resources (shaders, effects, pipelines, the default sky); every app needs them.
 set(MARIANA_ENGINE_RESOURCES "${PROJECT_SOURCE_DIR}/engine/resources")
-# The scripts MarianaScripting comes with (apps that link it add the folder as a root).
-set(MARIANA_SCRIPTING_RESOURCES "${PROJECT_SOURCE_DIR}/scripting/resources")
+# The script API's types the script tools read (the editor's web build preloads them).
+set(MARIANA_SCRIPT_TOOLS_RESOURCES "${PROJECT_SOURCE_DIR}/scripting/tools/resources")
 
 include(cmake/MarianaWeb.cmake)
 

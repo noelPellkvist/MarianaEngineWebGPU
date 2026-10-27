@@ -63,7 +63,7 @@ inspector next to the script and, as you type, in the editor's Script Editor (Wi
 or double-click a script in Assets: syntax colours, problems underlined, autocomplete with Ctrl+Space
 or after `.` `:` `"`, Ctrl+S saves and a running game takes the new code). A type problem doesn't stop
 the script from running. A script is checked
-loosely unless its first line is `--!strict`; the scripts that come with the engine are strict.
+loosely unless its first line is `--!strict`; the Sandbox's scripts are strict.
 The types are `Script`, `Entity`, `quat`, `Contact`, `RaycastHit`, `QueryOptions`, `BodyInfo`,
 `VehicleInfo`, `CharacterInfo` and one per component (`RigidBody`, `Vehicle`, ...), so
 `entity:Get("RigidBody")` is a `RigidBody?` and a misspelt component, field or enum value is an
@@ -172,12 +172,12 @@ In the editor keys read as up while a text field has them or the right mouse but
 
 `options` = `{ ignore = entity, triggers = true, layers = mask }`.
 
-## Scripts that come with the engine
+## Control scripts (in the Sandbox)
 
 Game controls are scripts too: the engine gives vehicles, characters and cameras, and these decide
-how the keys drive them. They live in `scripting/resources/Scripts/` and are found as
-`/Scripts/<name>.luau`; a project replaces one by putting its own file at the same path (or copies
-one under another name to start from).
+how the keys drive them. They belong to the standard project, not the engine: they live in
+`projects/Sandbox/Scripts/` and are found as `/Scripts/<name>.luau`. Another project copies them
+into its own `Scripts/` folder (and changes them as it likes).
 
 | Script | Goes on | What it does |
 |---|---|---|
@@ -186,7 +186,8 @@ one under another name to start from).
 | `ChaseCamera.luau` | a camera entity | Follows `target` (a name; empty = the first entity with a VehicleDriver or CharacterDriver) from `distance` behind and `height` above, catching up at `stiffness` per second. |
 
 The editor's Create > Vehicle and Create > Physics > Character put the drivers on what they make and
-add a chase camera; the player gives its presets the same.
+add a chase camera; the player gives its presets the same. Both look for them at those paths in the
+project, so a project without them gets vehicles nothing drives (and an error in the log).
 
 ## Examples
 

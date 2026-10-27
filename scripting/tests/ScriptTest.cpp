@@ -27,8 +27,7 @@ int main()
     PhysicsWorld::RegisterComponents();
     ScriptWorld::RegisterComponents();
     SceneRenderer::RegisterComponents(); // CameraComponent
-    FileSystem::AddRoot(ScriptWorld::ResourceRoot());
-    FileSystem::AddRoot(MARIANA_SANDBOX_DIR); // its scripts are checked too
+    FileSystem::AddRoot(MARIANA_SANDBOX_DIR); // the Sandbox's scripts are run and checked
     std::printf("MarianaScriptingTest\n");
 
     const auto log = [](const std::string& line) {

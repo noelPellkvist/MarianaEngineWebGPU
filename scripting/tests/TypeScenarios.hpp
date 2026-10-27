@@ -1,6 +1,6 @@
 #pragma once
 // Scenarios for the scripts' types (MarianaScriptTools): the definitions load, cover what the
-// bindings define, the shipped scripts check clean, mistakes are found where they are, and
+// bindings define, the Sandbox's scripts check clean, mistakes are found where they are, and
 // autocomplete offers what fits. Run by MarianaScriptingTest and the web build.
 #include "Scenarios.hpp"
 
@@ -80,8 +80,8 @@ return L
                       passed);
     }
 
-    // The scripts that come with the library and the Sandbox's check without a problem.
-    inline Result ShippedScripts(const Log& log, ScriptChecker& checker)
+    // The Sandbox's scripts check without a problem.
+    inline Result SandboxScripts(const Log& log, ScriptChecker& checker)
     {
         using namespace detail;
         std::string problems;
@@ -100,7 +100,7 @@ return L
             if (!diagnostics.empty())
                 problems += std::string(" | ") + script + Lines(diagnostics);
         }
-        return Finish(log, "shipped scripts", std::to_string(checked) + " checked" + (problems.empty() ? ", no problems" : problems),
+        return Finish(log, "sandbox scripts", std::to_string(checked) + " checked" + (problems.empty() ? ", no problems" : problems),
                       checked == 6 && problems.empty());
     }
 
@@ -165,6 +165,6 @@ return Bad
     {
         const std::string definitions = ScriptTypes::Definitions();
         ScriptChecker checker(definitions);
-        return { Definitions(log, definitions, checker), ShippedScripts(log, checker), Mistakes(log, checker), Completion(log, checker) };
+        return { Definitions(log, definitions, checker), SandboxScripts(log, checker), Mistakes(log, checker), Completion(log, checker) };
     }
 }

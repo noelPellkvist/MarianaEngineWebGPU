@@ -2,7 +2,6 @@
 #include <Mariana/Scripting/Script.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
-#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -34,10 +33,6 @@ public:
 
     // The Scripts component and its scene file serializer; before Scene::UpdateComponentRegistry.
     static void RegisterComponents();
-    // The folder of the scripts that come with the library (/Scripts/VehicleDriver.luau,
-    // CharacterDriver.luau, ChaseCamera.luau): apps add it as a FileSystem root before their own, so a
-    // project can replace one by having a file at the same path.
-    static std::filesystem::path ResourceRoot();
     // Puts the script at `resource` (a resource path) on the entity after the ones it has, with
     // `values` for its properties; false when it can't be loaded.
     static bool AddScript(Entity entity, AssetManager2& assets, const std::string& resource, std::vector<ScriptValue> values = {});

@@ -2,7 +2,6 @@
 
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Importers/SceneFile.hpp>
-#include <Mariana/Scripting/ScriptWorld.hpp>
 
 #include <fstream>
 #include <sstream>
@@ -71,7 +70,7 @@ namespace ScriptTypes
 {
     std::string Definitions()
     {
-        std::string text = ReadText(ScriptWorld::ResourceRoot() / "Types" / "Core.d.luau");
+        std::string text = ReadText(std::filesystem::path(MARIANA_SCRIPT_TOOLS_RESOURCES) / "Core.d.luau");
 
         // Each component's fields, read from a default one on an entity of a scene of its own.
         AssetManager2 assets;

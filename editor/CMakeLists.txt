@@ -21,7 +21,7 @@ if(EMSCRIPTEN)
   mariana_web_app(MarianaEditor
     OUTPUT_NAME index
     SHELL "${CMAKE_CURRENT_SOURCE_DIR}/shell.html"
-    PRELOAD "${CMAKE_CURRENT_SOURCE_DIR}/resources" "${MARIANA_SCRIPTING_RESOURCES}" "${MARIANA_PROJECT_DIR}"
+    PRELOAD "${CMAKE_CURRENT_SOURCE_DIR}/resources" "${MARIANA_SCRIPT_TOOLS_RESOURCES}" "${MARIANA_PROJECT_DIR}"
   )
   # Branding next to index.html
   add_custom_command(TARGET MarianaEditor POST_BUILD

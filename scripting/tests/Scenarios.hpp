@@ -1,8 +1,8 @@
 #pragma once
 // Script scenarios with known answers, run by the native test (MarianaScriptingTest) and by the web
 // build, so both are checked on the same numbers. No window or GPU: scripts given as source or the
-// ones that come with the library (ScriptWorld::ResourceRoot must be a FileSystem root), scenes made
-// in code, physics on colliders, keys simulated. Scripts report what they saw in their entity's name.
+// Sandbox project's (its folder must be a FileSystem root), scenes made in code, physics on
+// colliders, keys simulated. Scripts report what they saw in their entity's name.
 #include <Mariana/Assets/AssetManager.hpp>
 #include <Mariana/Foundation/GameClock.hpp>
 #include <Mariana/Physics/Components.hpp>
@@ -473,7 +473,7 @@ return Driver
         return Finish(log, "driving", std::string(car.GetName()) + Format(" (%.3f)", kmh), kmh > 65.0f && kmh < 85.0f && info.gear >= 2);
     }
 
-    // The scripts that come with the library: VehicleDriver with W held drives the primitive car as
+    // The Sandbox's control scripts: VehicleDriver with W held drives the primitive car as
     // the physics test does (the same 73.8 km/h); then S brakes it to a stop and backs it up, and
     // D steers right; ChaseCamera follows it (further behind the faster it goes: it catches up at
     // `stiffness` per second).

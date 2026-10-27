@@ -5,7 +5,7 @@
 // The Mariana script API as a Luau definitions file, for type checking and autocomplete.
 namespace ScriptTypes
 {
-    // The hand-written core (Types/Core.d.luau in the scripting library's resources) with a type per
+    // The hand-written core (scripting/tools/resources/Core.d.luau) with a type per
     // component the app registered (its fields as scene files save them: enums as their names,
     // two or three floats as vectors) and entity:Get / Add overloads by component name. Call after
     // the app registered its components.

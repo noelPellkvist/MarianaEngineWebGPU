@@ -15,6 +15,9 @@ target_link_libraries(MarianaScriptTools
   PRIVATE Luau.Analysis
 )
 
+# Where the hand-written part of the API's types is (resources/Core.d.luau).
+target_compile_definitions(MarianaScriptTools PRIVATE MARIANA_SCRIPT_TOOLS_RESOURCES="${MARIANA_SCRIPT_TOOLS_RESOURCES}")
+
 if(EMSCRIPTEN)
   # The checker reports what it can't go on with as C++ exceptions too.
   foreach(luau_target Luau.Analysis Luau.Config)
