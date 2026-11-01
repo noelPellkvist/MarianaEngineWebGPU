@@ -905,6 +905,7 @@ std::shared_ptr<Prefab> GLTF::GLTFLoader::LoadGLTF(AssetManager2& assets, Parsed
         setTexture(MaterialTexture::Occlusion, mat.occlusionTexture, false);
         setTexture(MaterialTexture::Emissive, mat.emissiveTexture, true);
 
+        material->MarkSaved(); // as the file has it
         materials[i] = assets.RegisterAsset<MaterialAsset>(material, AssetType::Material, subName(mat.name, "material", i), key);
     }
 

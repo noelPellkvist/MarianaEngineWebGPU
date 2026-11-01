@@ -34,6 +34,8 @@ struct SceneArchive::Context
     std::unordered_map<const MaterialAsset*, int> materialIndex;
     std::set<std::string> dependencies;
     std::vector<AssetID> graphs; // animation graphs used (their clips are dependencies too)
+    // Materials a model file holds that changed since it loaded, and how the scene refers to them.
+    std::vector<std::pair<AssetID, std::string>> overrides;
     // Loading: the file's own materials, and the files loaded for what they hold (kept while loading).
     std::vector<AssetHandle<MaterialAsset>> loadedMaterials;
     std::vector<AssetHandle<Prefab>> keep;
@@ -56,6 +58,16 @@ namespace
     bool Derived(const std::string& name)
     {
         return name == "NameComponent" || ECS::IsRuntimeComponent(name.c_str());
+    }
+
+    // The .material file a material is kept in (its own, or the one it was extracted or saved to).
+    std::filesystem::path MaterialFileOf(const AssetMetadata& meta)
+    {
+        if (meta.path.extension() == ".material")
+            return meta.path;
+        if (meta.source.extension() == ".material")
+            return meta.source;
+        return {};
     }
 
     const Serializer* FindSerializer(std::string_view name)
@@ -114,6 +126,65 @@ namespace
                     });
             });
             a.Asset("graph", animator.graph);
+            // The graph's parameters where they differ from its defaults (triggers aren't kept).
+            struct SavedParameter
+            {
+                std::string name;
+                float value = 0.0f;
+                glm::vec3 vector{ 0.0f };
+            };
+            const AnimationGraph* graph = animator.graph.Get().get();
+            std::vector<SavedParameter> parameters;
+            if (graph && !a.IsLoading() && a.ForFile())
+            {
+                for (const AnimationParameter& p : graph->parameters)
+                {
+                    if (p.type == AnimationParameterType::Trigger)
+                        continue;
+                    SavedParameter saved{ p.name, animator.GetFloat(p.name), animator.GetVector(p.name) };
+                    if (p.type == AnimationParameterType::Vector ? saved.vector != p.defaultVector : saved.value != p.defaultValue)
+                        parameters.push_back(saved);
+                }
+            }
+            if (a.IsLoading() || !parameters.empty())
+                a.List("parameters", parameters, [&animator, graph](SceneArchive& e, SavedParameter& p) {
+                    e.Field("name", p.name);
+                    const int index = graph ? graph->FindParameter(p.name) : -1;
+                    if (index < 0)
+                        return;
+                    switch (graph->parameters[static_cast<size_t>(index)].type)
+                    {
+                    case AnimationParameterType::Float:
+                        e.Field("value", p.value);
+                        if (e.IsLoading())
+                            animator.SetFloat(p.name, p.value);
+                        break;
+                    case AnimationParameterType::Bool:
+                    {
+                        bool on = p.value != 0.0f;
+                        e.Field("value", on);
+                        if (e.IsLoading())
+                            animator.SetBool(p.name, on);
+                        break;
+                    }
+                    case AnimationParameterType::Vector:
+                        e.Field("value", p.vector);
+                        if (e.IsLoading())
+                            animator.SetVector(p.name, p.vector);
+                        break;
+                    case AnimationParameterType::Trigger:
+                        break;
+                    }
+                });
+            // Each state machine's state where it isn't the entry one.
+            std::vector<std::string> states;
+            if (!a.IsLoading())
+                states = animator.CurrentStates();
+            if (a.IsLoading() || !states.empty())
+                a.Field("states", states);
+            if (a.IsLoading())
+                for (const std::string& state : states)
+                    animator.CrossFadeState(state, 0.0f);
             a.Field("speed", animator.speed);
             a.Field("playing", animator.playing);
             a.Field("rootMotion", animator.rootMotion);
@@ -168,6 +239,214 @@ namespace
     }
 
     Json& J(void* json) { return *static_cast<Json*>(json); }
+
+    // A scene's lighting, both ways.
+    void VisitLighting(SceneArchive& a, LightingSettings& l)
+    {
+        a.Field("sunAzimuth", l.sunAzimuth);
+        a.Field("sunElevation", l.sunElevation);
+        a.Field("sunColor", l.sunColor);
+        a.Field("sunIntensity", l.sunIntensity);
+        a.Field("skyIntensity", l.skyIntensity);
+        a.Field("reflectionIntensity", l.reflectionIntensity);
+        a.Field("skyRotation", l.skyRotation);
+    }
+
+    // A material written into the scene file, its textures by reference.
+    Json WriteMaterial(SceneArchive::Context& context, AssetManager2& assets, const MaterialAsset& material)
+    {
+        return MaterialJson::Write(material, [&](MaterialTexture, const MaterialAsset::TextureSlot& slot, Json& entry) {
+            Json holder = Json::object();
+            SceneArchive textures(context, &holder, false, assets);
+            AssetHandle<Texture> texture = slot.texture;
+            textures.Asset("asset", texture);
+            if (!holder.contains("asset") || holder["asset"].get<std::string>().empty())
+                return false;
+            entry["asset"] = holder["asset"];
+            return true;
+        });
+    }
+
+    std::shared_ptr<MaterialAsset> ReadMaterial(SceneArchive::Context& context, AssetManager2& assets, const Json& json)
+    {
+        return MaterialJson::Read(json, [&](MaterialTexture, const Json& slot) {
+            Json holder = Json::object();
+            holder["asset"] = slot.value("asset", std::string());
+            SceneArchive textures(context, &holder, true, assets);
+            AssetHandle<Texture> texture;
+            textures.Asset("asset", texture);
+            return texture;
+        });
+    }
+
+    // One entity's components and tags (not its name, parent or children).
+    void WriteComponents(SceneArchive::Context& context, AssetManager2& assets, const Scene& scene, Entity e, Json& entity)
+    {
+        Json components = Json::object();
+        Json tags = Json::array();
+        for (const Serializer& s : Registry())
+        {
+            if (!s.has(e))
+                continue;
+            if (s.tag)
+            {
+                tags.push_back(s.name);
+                continue;
+            }
+            Json object = Json::object();
+            SceneArchive archive(context, &object, false, assets);
+            s.save(e, archive);
+            components[s.name] = std::move(object);
+        }
+        scene.ForEachComponent(e, [&](const ComponentView& view) {
+            if (view.name && !Derived(view.name) && !FindSerializer(view.name))
+                context.Warn(std::string("Left out ") + view.name + " (nothing saves it)");
+        });
+        if (!components.empty())
+            entity["components"] = std::move(components);
+        if (!tags.empty())
+            entity["tags"] = std::move(tags);
+    }
+
+    void ReadComponents(SceneArchive::Context& context, AssetManager2& assets, Entity e, Json& entry, const std::string& name)
+    {
+        if (const auto components = entry.find("components"); components != entry.end() && components->is_object())
+        {
+            for (auto& [component, object] : components->items())
+            {
+                const Serializer* s = FindSerializer(component);
+                if (!s || s->tag)
+                {
+                    context.Warn("Can't read " + component + " (nothing loads it)");
+                    continue;
+                }
+                SceneArchive archive(context, &object, true, assets);
+                s->load(e, archive);
+            }
+        }
+        if (const auto tags = entry.find("tags"); tags != entry.end() && tags->is_array())
+        {
+            for (const Json& tag : *tags)
+            {
+                const Serializer* s = tag.is_string() ? FindSerializer(tag.get<std::string>()) : nullptr;
+                if (!s)
+                {
+                    context.Warn("Can't read the tag " + (tag.is_string() ? tag.get<std::string>() : std::string("?")) + " on " + name);
+                    continue;
+                }
+                SceneArchive archive(context, &entry, true, assets);
+                s->load(e, archive);
+            }
+        }
+    }
+
+    // FNV-1a over what a scene file would hold.
+    struct Hasher
+    {
+        uint64_t value = 1469598103934665603ull;
+
+        void Bytes(const void* data, size_t size)
+        {
+            const auto* bytes = static_cast<const unsigned char*>(data);
+            for (size_t i = 0; i < size; ++i)
+            {
+                value ^= bytes[i];
+                value *= 1099511628211ull;
+            }
+        }
+        template <typename T>
+        void Pod(const T& v) { Bytes(&v, sizeof(T)); }
+        void String(std::string_view text)
+        {
+            Pod(text.size());
+            Bytes(text.data(), text.size());
+        }
+    };
+
+    void HashMaterial(Hasher& h, const MaterialAsset& material)
+    {
+        h.Pod(material.properties);
+        h.Pod(material.doubleSided);
+        h.Pod(material.GetAlphaMode());
+        for (uint32_t t = 0; t < static_cast<uint32_t>(MaterialTexture::Count); ++t)
+        {
+            const MaterialAsset::TextureSlot& slot = material.GetTexture(static_cast<MaterialTexture>(t));
+            const AssetID id = slot.texture.IsValid() ? slot.texture.GetID() : AssetID{};
+            h.Pod(id.high);
+            h.Pod(id.low);
+            const SamplerSettings& s = slot.sampler;
+            h.Pod(s.addressU);
+            h.Pod(s.addressV);
+            h.Pod(s.magFilter);
+            h.Pod(s.minFilter);
+            h.Pod(s.mipmapFilter);
+            h.Pod(s.mipmaps);
+            h.Pod(slot.uvSet);
+            h.Pod(slot.transform.offset);
+            h.Pod(slot.transform.rotation);
+            h.Pod(slot.transform.scale);
+        }
+    }
+
+    class SignatureVisitor final : public FieldVisitor
+    {
+    public:
+        SignatureVisitor(Hasher& hasher, AssetManager2& assets) : m_Hasher(hasher), m_Assets(assets) {}
+
+        bool SeesFile() const override { return true; }
+
+        void Visit(const char* name, const Value& value) override
+        {
+            m_Hasher.String(name);
+            switch (value.type)
+            {
+            case Value::Type::Float: m_Hasher.Pod(*static_cast<const float*>(value.data)); break;
+            case Value::Type::Int: m_Hasher.Pod(*static_cast<const int*>(value.data)); break;
+            case Value::Type::UInt: m_Hasher.Pod(*static_cast<const uint32_t*>(value.data)); break;
+            case Value::Type::Bool: m_Hasher.Pod(*static_cast<const bool*>(value.data)); break;
+            case Value::Type::String: m_Hasher.String(*static_cast<const std::string*>(value.data)); break;
+            case Value::Type::Floats: m_Hasher.Bytes(value.data, sizeof(float) * static_cast<size_t>(value.count)); break;
+            case Value::Type::Quat: m_Hasher.Bytes(value.data, sizeof(glm::quat)); break;
+            case Value::Type::FloatList:
+            {
+                const auto& list = *static_cast<const std::vector<float>*>(value.data);
+                m_Hasher.Pod(list.size());
+                m_Hasher.Bytes(list.data(), list.size() * sizeof(float));
+                break;
+            }
+            case Value::Type::StringList:
+                for (const std::string& text : *static_cast<const std::vector<std::string>*>(value.data))
+                    m_Hasher.String(text);
+                break;
+            }
+        }
+
+        void VisitAsset(const char* name, AssetID id) override
+        {
+            m_Hasher.String(name);
+            m_Hasher.Pod(id.high);
+            m_Hasher.Pod(id.low);
+            // The materials the scene file holds (made in memory, or a model's with the scene's
+            // changes) count with what they are; .material files are saved on their own.
+            const AssetMetadata* meta = id.IsValid() ? m_Assets.GetMetadata(id) : nullptr;
+            if (!meta || meta->type != AssetType::Material || !MaterialFileOf(*meta).empty())
+                return;
+            if (!meta->key.empty() && meta->key.find("#material/") == std::string::npos)
+                return;
+            if (const std::shared_ptr<MaterialAsset> material = m_Assets.Get<MaterialAsset>(id))
+                HashMaterial(m_Hasher, *material);
+        }
+
+        void VisitList(const char* name, int count) override
+        {
+            m_Hasher.String(name);
+            m_Hasher.Pod(count);
+        }
+
+    private:
+        Hasher& m_Hasher;
+        AssetManager2& m_Assets;
+    };
 }
 
 SceneArchive::SceneArchive(Context& context, void* json, bool loading, AssetManager2& assets)
@@ -393,16 +672,32 @@ std::string SceneArchive::Reference(AssetID id, bool material)
     if (key.rfind("builtin://", 0) == 0)
         return key;
 
-    // A file, or what a file holds ("<file>#<what>").
+    // A file, or what a file holds ("<file>#<what>"). A model's material extracted to a .material
+    // file is that file (the model loads it from there).
     const size_t hash = key.find('#');
-    const std::string filePart = key.substr(0, hash);
-    const std::string inner = hash == std::string::npos ? std::string() : key.substr(hash);
-    const std::string resource = filePart.empty() ? std::string() : ResourcePathOf(meta->path.empty() || !inner.empty() ? filePart : meta->path.string());
+    std::string filePart = key.substr(0, hash);
+    std::string inner = hash == std::string::npos ? std::string() : key.substr(hash);
+    const std::filesystem::path materialFile = meta->type == AssetType::Material ? MaterialFileOf(*meta) : std::filesystem::path();
+    const bool extracted = !materialFile.empty() && !inner.empty();
+    if (extracted)
+    {
+        filePart = materialFile.string();
+        inner.clear();
+    }
+    const std::string resource = filePart.empty() ? std::string() : ResourcePathOf(extracted || meta->path.empty() || !inner.empty() ? filePart : meta->path.string());
     if (!resource.empty())
     {
         m_Context->dependencies.insert(resource);
         if (meta->type == AssetType::AnimationGraph && std::find(m_Context->graphs.begin(), m_Context->graphs.end(), id) == m_Context->graphs.end())
             m_Context->graphs.push_back(id);
+        if (meta->type == AssetType::Material && inner.rfind("#material/", 0) == 0)
+        {
+            // A model's material changed since it loaded: the scene keeps the change.
+            const std::shared_ptr<MaterialAsset> asset = m_Assets->Get<MaterialAsset>(id);
+            const bool listed = std::any_of(m_Context->overrides.begin(), m_Context->overrides.end(), [&](const auto& o) { return o.first == id; });
+            if (asset && asset->IsModified() && !listed)
+                m_Context->overrides.emplace_back(id, resource + inner);
+        }
         if (meta->type == AssetType::Material && inner.empty())
         {
             // A .material file: its images too.
@@ -519,7 +814,7 @@ namespace SceneFile
         }
     }
 
-    bool Save(const Scene& scene, AssetManager2& assets, const std::filesystem::path& file, std::string& error)
+    bool Save(const Scene& scene, AssetManager2& assets, const std::filesystem::path& file, std::string& error, const SceneSettings* settings)
     {
         EnsureEngineComponents();
         SceneArchive::Context context;
@@ -534,30 +829,7 @@ namespace SceneFile
             entity["name"] = e.GetName() ? e.GetName() : "";
             if (parent >= 0)
                 entity["parent"] = parent;
-            Json components = Json::object();
-            Json tags = Json::array();
-            for (const Serializer& s : Registry())
-            {
-                if (!s.has(e))
-                    continue;
-                if (s.tag)
-                {
-                    tags.push_back(s.name);
-                    continue;
-                }
-                Json object = Json::object();
-                SceneArchive archive(context, &object, false, assets);
-                s.save(e, archive);
-                components[s.name] = std::move(object);
-            }
-            scene.ForEachComponent(e, [&](const ComponentView& view) {
-                if (view.name && !Derived(view.name) && !FindSerializer(view.name))
-                    context.Warn(std::string("Left out ") + view.name + " (nothing saves it)");
-            });
-            if (!components.empty())
-                entity["components"] = std::move(components);
-            if (!tags.empty())
-                entity["tags"] = std::move(tags);
+            WriteComponents(context, assets, scene, e, entity);
             entities.push_back(std::move(entity));
             e.ForEachChild([&](Entity child) { visit(child, id); });
         };
@@ -567,22 +839,28 @@ namespace SceneFile
         Json materials = Json::array();
         for (size_t i = 0; i < context.materials.size(); ++i)
         {
-            Json material = MaterialJson::Write(*context.materials[i], [&](MaterialTexture, const MaterialAsset::TextureSlot& slot, Json& entry) {
-                Json holder = Json::object();
-                SceneArchive textures(context, &holder, false, assets);
-                AssetHandle<Texture> texture = slot.texture;
-                textures.Asset("asset", texture);
-                if (!holder.contains("asset") || holder["asset"].get<std::string>().empty())
-                    return false;
-                entry["asset"] = holder["asset"];
-                return true;
-            });
+            Json material = WriteMaterial(context, assets, *context.materials[i]);
             const AssetMetadata* meta = assets.GetMetadata(context.materialIds[i]);
             Json named = Json::object();
             named["name"] = meta ? meta->name : std::string("Material");
             for (auto& [key, value] : material.items())
                 named[key] = value;
             materials.push_back(std::move(named));
+        }
+
+        // The scene's changes to the materials its models hold.
+        Json overrides = Json::array();
+        for (const auto& [id, reference] : context.overrides)
+        {
+            const std::shared_ptr<MaterialAsset> material = assets.Get<MaterialAsset>(id);
+            if (!material)
+                continue;
+            Json entry = Json::object();
+            entry["material"] = reference;
+            Json written = WriteMaterial(context, assets, *material);
+            for (auto& [key, value] : written.items())
+                entry[key] = value;
+            overrides.push_back(std::move(entry));
         }
 
         // An animation graph's clips come from other files.
@@ -598,10 +876,26 @@ namespace SceneFile
             }
         }
 
+        // A pipeline is a file the scene uses too.
+        if (settings && !settings->pipeline.empty())
+            context.dependencies.insert(settings->pipeline);
+
         Json json = Json::object();
         json["version"] = 1;
         json["dependencies"] = std::vector<std::string>(context.dependencies.begin(), context.dependencies.end());
+        if (settings)
+        {
+            Json& out = json["settings"];
+            out["lighting"] = Json::object();
+            LightingSettings lighting = settings->lighting;
+            SceneArchive archive(context, &out["lighting"], false, assets);
+            VisitLighting(archive, lighting);
+            if (!settings->pipeline.empty())
+                out["pipeline"] = settings->pipeline;
+        }
         json["materials"] = std::move(materials);
+        if (!overrides.empty())
+            json["materialOverrides"] = std::move(overrides);
         json["entities"] = std::move(entities);
 
         for (const std::string& warning : context.warnings)
@@ -619,7 +913,7 @@ namespace SceneFile
         return static_cast<bool>(stream);
     }
 
-    bool Load(Scene& scene, AssetManager2& assets, const std::filesystem::path& file, std::string& error, std::string* warnings)
+    bool Load(Scene& scene, AssetManager2& assets, const std::filesystem::path& file, std::string& error, std::string* warnings, SceneSettings* settings)
     {
         EnsureEngineComponents();
         Json json;
@@ -634,22 +928,42 @@ namespace SceneFile
 
         SceneArchive::Context context;
         context.assets = &assets;
-        SceneArchive root(context, &json, true, assets);
+
+        if (settings)
+        {
+            *settings = SceneSettings{};
+            if (const auto found = json.find("settings"); found != json.end() && found->is_object())
+            {
+                if (const auto lighting = found->find("lighting"); lighting != found->end() && lighting->is_object())
+                {
+                    SceneArchive archive(context, &*lighting, true, assets);
+                    VisitLighting(archive, settings->lighting);
+                    settings->hasLighting = true;
+                }
+                settings->pipeline = found->value("pipeline", std::string());
+            }
+        }
 
         // The scene's own materials first: components refer to them.
         if (const auto materials = json.find("materials"); materials != json.end() && materials->is_array())
         {
             for (const Json& entry : *materials)
             {
-                std::shared_ptr<MaterialAsset> material = MaterialJson::Read(entry, [&](MaterialTexture, const Json& slot) {
-                    Json holder = Json::object();
-                    holder["asset"] = slot.value("asset", std::string());
-                    SceneArchive textures(context, &holder, true, assets);
-                    AssetHandle<Texture> texture;
-                    textures.Asset("asset", texture);
-                    return texture;
-                });
+                std::shared_ptr<MaterialAsset> material = ReadMaterial(context, assets, entry);
                 context.loadedMaterials.push_back(assets.RegisterAsset<MaterialAsset>(material, AssetType::Material, entry.value("name", std::string("Material"))));
+            }
+        }
+
+        // Its changes to its models' materials, onto the materials the models load.
+        if (const auto overrides = json.find("materialOverrides"); overrides != json.end() && overrides->is_array())
+        {
+            for (Json& entry : *overrides)
+            {
+                AssetHandle<MaterialAsset> target;
+                SceneArchive archive(context, &entry, true, assets);
+                archive.Asset("material", target);
+                if (target.IsValid())
+                    target.Get()->CopySettingsFrom(*ReadMaterial(context, assets, entry));
             }
         }
 
@@ -666,34 +980,7 @@ namespace SceneFile
                 else
                     context.Warn(name + "'s parent comes after it");
             }
-            if (const auto components = entry.find("components"); components != entry.end() && components->is_object())
-            {
-                for (auto& [component, object] : components->items())
-                {
-                    const Serializer* s = FindSerializer(component);
-                    if (!s || s->tag)
-                    {
-                        context.Warn("Can't read " + component + " (nothing loads it)");
-                        continue;
-                    }
-                    SceneArchive archive(context, &object, true, assets);
-                    s->load(e, archive);
-                }
-            }
-            if (const auto tags = entry.find("tags"); tags != entry.end() && tags->is_array())
-            {
-                for (const Json& tag : *tags)
-                {
-                    const Serializer* s = tag.is_string() ? FindSerializer(tag.get<std::string>()) : nullptr;
-                    if (!s)
-                    {
-                        context.Warn("Can't read the tag " + (tag.is_string() ? tag.get<std::string>() : std::string("?")));
-                        continue;
-                    }
-                    SceneArchive archive(context, &json, true, assets);
-                    s->load(e, archive);
-                }
-            }
+            ReadComponents(context, assets, e, entry, name);
         }
 
         for (const std::string& warning : context.warnings)
@@ -716,5 +1003,82 @@ namespace SceneFile
                 if (path.is_string())
                     files.push_back(path.get<std::string>());
         return files;
+    }
+
+    uint64_t Signature(const Scene& scene, AssetManager2& assets, const SceneSettings* settings)
+    {
+        EnsureEngineComponents();
+        Hasher h;
+        SignatureVisitor visitor(h, assets);
+        std::function<void(Entity)> visit = [&](Entity e) {
+            h.String(e.GetName() ? e.GetName() : "");
+            for (const Serializer& s : Registry())
+            {
+                if (!s.has(e))
+                    continue;
+                h.String(s.name);
+                SceneArchive archive(visitor, false, assets);
+                s.save(e, archive);
+            }
+            h.Pod('(');
+            e.ForEachChild(visit);
+            h.Pod(')');
+        };
+        scene.ForEachRoot(visit);
+        if (settings)
+        {
+            h.Pod(settings->lighting.sunAzimuth);
+            h.Pod(settings->lighting.sunElevation);
+            h.Pod(settings->lighting.sunColor);
+            h.Pod(settings->lighting.sunIntensity);
+            h.Pod(settings->lighting.skyIntensity);
+            h.Pod(settings->lighting.reflectionIntensity);
+            h.Pod(settings->lighting.skyRotation);
+            h.String(settings->pipeline);
+        }
+        return h.value;
+    }
+
+    EntityState SaveEntity(Entity entity, AssetManager2& assets)
+    {
+        EnsureEngineComponents();
+        SceneArchive::Context context;
+        context.assets = &assets;
+        Json json = Json::object();
+        json["name"] = entity.GetName() ? entity.GetName() : "";
+        WriteComponents(context, assets, *entity.GetScene(), entity, json);
+        EntityState state;
+        state.json = json.dump();
+        for (const AssetID& id : context.materialIds)
+            state.materials.push_back(assets.LoadAsset<MaterialAsset>(id));
+        return state;
+    }
+
+    void LoadEntity(Entity entity, AssetManager2& assets, const EntityState& state)
+    {
+        EnsureEngineComponents();
+        Json json = Json::parse(state.json, nullptr, false);
+        if (json.is_discarded() || !entity.IsValid())
+            return;
+        SceneArchive::Context context;
+        context.assets = &assets;
+        context.loadedMaterials = state.materials;
+
+        // What it has now that wasn't saved goes.
+        const Json& components = json.contains("components") ? json["components"] : Json::object();
+        const Json& tags = json.contains("tags") ? json["tags"] : Json::array();
+        for (const Serializer& s : Registry())
+        {
+            if (!s.has(entity))
+                continue;
+            const bool saved = s.tag ? std::find(tags.begin(), tags.end(), s.name) != tags.end() : components.contains(s.name);
+            if (!saved)
+                s.remove(entity);
+        }
+        const std::string name = json.value("name", std::string());
+        entity.SetName(name.c_str());
+        ReadComponents(context, assets, entity, json, name);
+        for (const std::string& warning : context.warnings)
+            Logger::Warning(name + ": " + warning);
     }
 }

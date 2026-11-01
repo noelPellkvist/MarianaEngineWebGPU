@@ -54,6 +54,18 @@ std::shared_ptr<MaterialAsset> MaterialAsset::Clone() const
     return copy;
 }
 
+void MaterialAsset::CopySettingsFrom(const MaterialAsset& other)
+{
+    if (&other == this)
+        return;
+    properties = other.properties;
+    doubleSided = other.doubleSided;
+    m_Textures = other.m_Textures;
+    m_AlphaMode = other.m_AlphaMode;
+    m_BindGroupDirty = true;
+    MarkDirty();
+}
+
 void MaterialAsset::SetTexture(MaterialTexture slot, AssetHandle<Texture> texture, const SamplerSettings& sampler, uint32_t uvSet)
 {
     const uint32_t index = static_cast<uint32_t>(slot);

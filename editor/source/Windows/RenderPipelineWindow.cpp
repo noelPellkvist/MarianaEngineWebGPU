@@ -39,7 +39,7 @@ RenderPipelineWindow::RenderPipelineWindow(GUI& gui, EffectStack& effects, Scene
 {
 }
 
-void RenderPipelineWindow::LoadPipeline(const std::string& path)
+bool RenderPipelineWindow::LoadPipeline(const std::string& path)
 {
     RenderPipelineDesc desc;
     std::string error;
@@ -47,14 +47,16 @@ void RenderPipelineWindow::LoadPipeline(const std::string& path)
     {
         Logger::Error(error);
         m_status = error;
-        return;
+        return false;
     }
     desc.Apply(m_effects, m_sceneRenderer, &m_camera);
     m_pipelinePath = path;
     m_status = "Loaded " + path;
+    MarkSaved();
+    return true;
 }
 
-void RenderPipelineWindow::SavePipeline(const std::string& path)
+bool RenderPipelineWindow::SavePipeline(const std::string& path)
 {
     RenderPipelineDesc desc = RenderPipelineDesc::Capture(m_effects, m_sceneRenderer, &m_camera);
     desc.name = std::filesystem::path(path).stem().string();
@@ -63,10 +65,29 @@ void RenderPipelineWindow::SavePipeline(const std::string& path)
     {
         Logger::Error(error);
         m_status = error;
-        return;
+        return false;
     }
     m_pipelinePath = path;
     m_status = "Saved " + path;
+    MarkSaved();
+    return true;
+}
+
+std::string RenderPipelineWindow::Captured() const
+{
+    RenderPipelineDesc desc = RenderPipelineDesc::Capture(m_effects, m_sceneRenderer, &m_camera);
+    desc.name = std::filesystem::path(m_pipelinePath).stem().string();
+    return desc.ToJson();
+}
+
+void RenderPipelineWindow::MarkSaved()
+{
+    m_savedJson = Captured();
+}
+
+bool RenderPipelineWindow::IsModified() const
+{
+    return !m_pipelinePath.empty() && Captured() != m_savedJson;
 }
 
 void RenderPipelineWindow::DrawPipelineFile()
@@ -83,8 +104,9 @@ void RenderPipelineWindow::DrawPipelineFile()
     }
 
     ImGui::BeginDisabled(m_pipelinePath.empty());
-    if (ImGui::Button("Save"))
+    if (ImGui::Button(IsModified() ? "Save*###Save" : "Save###Save"))
         SavePipeline(m_pipelinePath);
+    ImGui::SetItemTooltip("Writes what runs to %s (Save Scene does too)", m_pipelinePath.c_str());
     ImGui::SameLine();
     if (ImGui::Button("Reload"))
         LoadPipeline(m_pipelinePath);

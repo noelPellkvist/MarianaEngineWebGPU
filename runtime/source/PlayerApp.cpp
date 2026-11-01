@@ -169,13 +169,6 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
     AnimationGraphFile::RegisterLoader(assets);
     ScriptAsset::RegisterLoader(assets);
 
-    RenderPipelineDesc pipeline;
-    std::string error;
-    if (RenderPipelineDesc::Load(config.pipeline, pipeline, error))
-        pipeline.Apply(effects, sceneRenderer, cam.get());
-    else
-        Logger::Error("Could not load the render pipeline: " + error);
-
     animationSystem = Animator::CreateSystem(scene);
 
     PhysicsSettings physicsSettings;
@@ -262,16 +255,26 @@ void PlayerApp::AddPhysics(Entity root, const PlayerConfig::Spawn& spawn)
 
 void PlayerApp::OnStart()
 {
+    SceneSettings settings;
     if (!config.scene.empty())
     {
         std::string error;
         const std::filesystem::path file = FileSystem::Resolve(config.scene);
         if (file.empty())
             Logger::Error("Player.json: no scene " + config.scene);
-        else if (!SceneFile::Load(scene, assets, file, error))
+        else if (!SceneFile::Load(scene, assets, file, error, nullptr, &settings))
             Logger::Error(error);
         scene.Update(0.0f);
     }
+    if (settings.hasLighting)
+        sceneRenderer.lighting = settings.lighting;
+    // The pipeline Player.json names, else the scene's, else the engine's default.
+    const std::string pipelinePath = !config.pipeline.empty() ? config.pipeline : !settings.pipeline.empty() ? settings.pipeline : "/Pipelines/Default.pipeline";
+    RenderPipelineDesc pipeline;
+    if (std::string error; RenderPipelineDesc::Load(pipelinePath, pipeline, error))
+        pipeline.Apply(effects, sceneRenderer, cam.get());
+    else
+        Logger::Error("Could not load the render pipeline: " + error);
     for (const PlayerConfig::Spawn& spawn : config.spawns)
     {
         Entity root;

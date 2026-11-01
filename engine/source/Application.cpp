@@ -36,8 +36,14 @@ void Application::Start()
                 Profiler::EndFrame();
             }, this, 0, true);
     #else
-    while (!m_Window.ShouldClose() && m_Running)
+    while (m_Running)
     {
+        if (m_Window.ShouldClose())
+        {
+            if (OnCloseRequested())
+                break;
+            m_Window.CancelClose();
+        }
         Profiler::BeginFrame();
         MainLoop();
         {
@@ -58,6 +64,11 @@ void Application::Start()
 
 void Application::Initalize()
 {
+}
+
+void Application::Quit()
+{
+    m_Running = false;
 }
 
 void Application::MainLoop()

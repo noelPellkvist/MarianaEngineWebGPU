@@ -1,9 +1,11 @@
-// MarianaEngineTest: the engine's scenarios (the profiler; animation: root motion, events, IK) with
-// known answers. A console program: no window, no GPU. Exits 1 when one fails.
+// MarianaEngineTest: the engine's scenarios (the profiler; animation: root motion, events, IK; scene
+// files) with known answers. A console program: no window, no GPU. Exits 1 when one fails.
 #include "AnimationScenarios.hpp"
 #include "ProfilerScenarios.hpp"
+#include "SceneScenarios.hpp"
 
 #include <Mariana/Animation/Animator.hpp>
+#include <Mariana/Rendering/SceneRenderer.hpp>
 
 #include <cstdio>
 #include <cstdlib>
@@ -26,6 +28,7 @@ int main()
 #endif
     Profiler::SetMainThread();
     Animator::RegisterComponents();
+    SceneRenderer::RegisterComponents();
     std::printf("MarianaEngineTest\n");
 
     const EngineScenarios::Log log = [](const std::string& line) {
@@ -36,6 +39,10 @@ int main()
                                                      EngineScenarios::RootMotionWalk(log), EngineScenarios::RootMotionTurn(log),
                                                      EngineScenarios::RootMotionBlend(log), EngineScenarios::AnimationEventsFire(log),
                                                      EngineScenarios::TwoBoneIKReach(log), EngineScenarios::LookAtTurn(log) };
+    for (EngineScenarios::Result& r : EngineScenarios::SceneRoundTrip(log))
+        results.push_back(std::move(r));
+    results.push_back(EngineScenarios::SceneSignature(log));
+    results.push_back(EngineScenarios::SceneKeepEntity(log));
 
     size_t failed = 0;
     for (const EngineScenarios::Result& r : results)

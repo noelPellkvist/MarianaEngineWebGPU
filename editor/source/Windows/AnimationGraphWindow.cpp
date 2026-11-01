@@ -172,8 +172,6 @@ void AnimationGraphWindow::Open(AssetHandle<AnimationGraph> graph)
 {
     CommitIfIdle(true);
     m_Graph = std::move(graph);
-    m_SavedRevision = m_Graph.Get() ? m_Graph.Get()->Revision() : 0;
-    m_LayoutDirty = false;
     m_View = -1;
     m_SelectedNode = m_SelectedState = m_SelectedTransition = -1;
     m_SelectedAnyState = false;
@@ -302,8 +300,6 @@ bool AnimationGraphWindow::Save()
         m_Status = error;
         return false;
     }
-    m_SavedRevision = G().Revision();
-    m_LayoutDirty = false;
     m_Status = error.empty() ? "Saved" : "Saved; " + error;
     return true;
 }
@@ -314,7 +310,7 @@ void AnimationGraphWindow::Draw()
         return;
 
     const AssetMetadata* meta = m_Graph.GetMetadata();
-    const bool dirty = m_Graph.Get() && (G().Revision() != m_SavedRevision || m_LayoutDirty);
+    const bool dirty = m_Graph.Get() && G().IsModified();
     const std::string title = "Animation Graph" + (meta ? " - " + meta->name : std::string()) + (dirty ? " *" : "") + "###AnimationGraph";
     ImGui::SetNextWindowSize(ImVec2(1100.0f, 640.0f), ImGuiCond_FirstUseEver);
     if (ImGui::Begin(title.c_str(), &m_open))
@@ -344,7 +340,7 @@ void AnimationGraphWindow::Draw()
                     if (G().nodes[i].type == AnimationNodeType::StateMachine)
                         ArrangeMachine(i);
                 m_NeedsLayout = false;
-                m_LayoutDirty = true;
+                G().MarkLayoutChanged();
             }
 
             DrawToolbar();
@@ -1327,7 +1323,7 @@ void AnimationGraphWindow::ArrangeGraph()
     for (int n = 0; n < count; ++n)
         graph.nodes[n].position.y -= columnHeight[depth[n]] * 0.5f;
     m_FrameGraph = true;
-    m_LayoutDirty = true;
+    G().MarkLayoutChanged();
 }
 
 void AnimationGraphWindow::Frame(GraphCanvas& canvas, glm::vec2 min, glm::vec2 max)
@@ -1347,7 +1343,7 @@ void AnimationGraphWindow::ArrangeMachine(int machineIndex)
     for (size_t s = 0; s < machine.states.size(); ++s)
         machine.statePositions[s] = glm::vec2(static_cast<float>(s % 3) * 230.0f, static_cast<float>(s / 3) * 120.0f);
     machine.anyStatePosition = glm::vec2(-250.0f, 0.0f);
-    m_LayoutDirty = true;
+    G().MarkLayoutChanged();
 }
 
 void AnimationGraphWindow::DrawGraphView()
@@ -1480,7 +1476,7 @@ void AnimationGraphWindow::DrawGraphView()
             {
                 Begin("Move node");
                 graph.nodes[m_DragIndex].position = target;
-                m_LayoutDirty = true;
+                G().MarkLayoutChanged();
                 layouts[m_DragIndex] = Layout(m_DragIndex);
             }
         }
@@ -1768,7 +1764,7 @@ void AnimationGraphWindow::DrawMachineView(int machineIndex)
             {
                 Begin("Move state");
                 position = target;
-                m_LayoutDirty = true;
+                G().MarkLayoutChanged();
             }
         }
         else

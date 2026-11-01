@@ -139,6 +139,9 @@ struct Animator
     // Shows a state at a normalized time (0..1 = its first loop) without playing: it becomes the
     // current state at once, and the machine holds it (no transitions) until the game plays.
     bool PreviewState(std::string_view state, float normalizedTime);
+    // The state each state machine is in where that isn't its entry state (before the graph is
+    // bound: the states asked for), by name: what CrossFadeState puts back.
+    std::vector<std::string> CurrentStates() const;
 
     // Advances time by dt (if playing) and poses the bones below `root`.
     void Update(Entity root, float dt);

@@ -9,10 +9,12 @@
 #include <Mariana/Rendering/SceneRenderer.hpp>
 #include <Mariana/Rendering/SceneCamera.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
+#include <Mariana/Importers/SceneFile.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
 #include <Mariana/Scripting/ScriptWorld.hpp>
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -21,6 +23,7 @@
 class InspectorWindow;
 class AnimationGraphWindow;
 class PhysicsWindow;
+class RenderPipelineWindow;
 class ScriptChecker;
 class ScriptEditorWindow;
 class ThumbnailCache;
@@ -41,6 +44,8 @@ class EditorApp : public Application
         void OnRender() override;
         void OnGUI() override;
         void OnShutdown() override;
+        // Asks to save unsaved changes first.
+        bool OnCloseRequested() override;
 
     private:
         GUI gui;
@@ -51,6 +56,7 @@ class EditorApp : public Application
         std::unordered_map<std::string, std::unique_ptr<EditorWindow>> EditorWindows;
         InspectorWindow* inspectorWindow = nullptr;
         AnimationGraphWindow* graphWindow = nullptr;
+        RenderPipelineWindow* pipelineWindow = nullptr;
         ViewportWindow* sceneWindow = nullptr;
         ViewportWindow* gameWindow = nullptr;
         Scene scene;
@@ -78,6 +84,8 @@ class EditorApp : public Application
         SceneSnapshot playSnapshot;
         UndoStack playUndo;
         bool restoreOnStop = false;
+        // Entities whose changes made while playing stay after Stop (true: their children's too).
+        std::unordered_map<uint64_t, bool> keepOnStop;
 
         void OnWindowResized(int w, int h);
         void SpawnPrefab(const std::filesystem::path& path);
@@ -106,19 +114,37 @@ class EditorApp : public Application
         void BuildStartupScene();
 
         // Scene files (SceneFile): the one being edited (empty until saved), and whether it changed
-        // since (an undo step, or entities made or deleted).
+        // since: what saving would write (SceneFile::Signature, checked twice a second while the
+        // game is stopped), or the asset files with edits Save Scene writes too.
         std::filesystem::path scenePath;
-        size_t savedUndoVersion = 0;
-        size_t savedEntityCount = 0;
+        uint64_t savedSignature = 0;
+        bool signaturePending = true; // the next check takes the signature as the saved one
+        bool sceneChanged = false;
+        float signatureTimer = 0.0f;
+        std::vector<std::filesystem::path> unsavedFiles; // .material, .animgraph and .pipeline files
         std::vector<std::filesystem::path> recentScenes;
         bool openScenePopup = false;
         bool saveScenePopup = false;
+        bool savePromptPopup = false;
+        // What waits for the scene to be saved or not (opening another, quitting).
+        std::function<void()> afterSavePrompt;
         std::string sceneStatus;
         // Stops the game, empties the scene and forgets its history.
         void ClearScene();
         void NewScene();
         bool OpenScene(const std::filesystem::path& file);
+        // Writes the asset files with edits (see unsavedFiles), then the scene with its settings.
         bool SaveScene(const std::filesystem::path& file);
+        bool SaveModifiedAssets(std::vector<std::filesystem::path>& written);
+        // The lighting and pipeline the scene is saved with.
+        SceneSettings CurrentSettings() const;
+        void UpdateModified();
+        // Runs `then` at once when nothing is unsaved, else after asking (Save / Don't Save / Cancel).
+        void AskToSave(std::function<void()> then);
+        // The editor camera of each scene, in the project's .mariana/editor folder.
+        std::filesystem::path EditorCameraFile() const;
+        void SaveEditorCamera() const;
+        bool LoadEditorCamera();
         // Save, or Save As when the scene has no file yet; on the web the file also goes to the
         // browser as a download (the page's own files are gone when it reloads).
         void SaveSceneFromMenu(bool saveAs);

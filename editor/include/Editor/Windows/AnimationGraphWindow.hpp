@@ -82,7 +82,6 @@ private:
     const Scene& m_Scene;
     std::filesystem::path m_ProjectDir;
     AssetHandle<AnimationGraph> m_Graph;
-    uint32_t m_SavedRevision = 0;
     Entity m_PreviewEntity;
 
     GraphCanvas m_GraphCanvas;
@@ -107,6 +106,5 @@ private:
     AnimationGraph m_Before;
     std::string m_Status;
     bool m_NeedsLayout = false;
-    bool m_LayoutDirty = false;      // moved boxes (they don't change the graph's revision)
     bool m_FrameGraph = true;        // fit the graph's view to its nodes on the next draw
 };

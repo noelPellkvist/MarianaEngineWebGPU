@@ -21,12 +21,14 @@ target_link_libraries(MarianaEngine
   PRIVATE flecs::flecs_static
 )
 
-# MarianaEngineTest: a console program that runs tests/*Scenarios.hpp (the profiler, animation) and
+# MarianaEngineTest: a console program that runs tests/*Scenarios.hpp (the profiler, animation, scene files) and
 # prints what they measured. No window, no GPU.
 if(NOT EMSCRIPTEN)
   add_executable(MarianaEngineTest "${CMAKE_CURRENT_SOURCE_DIR}/tests/EngineTest.cpp")
   target_link_libraries(MarianaEngineTest PRIVATE MarianaEngine)
   target_include_directories(MarianaEngineTest PRIVATE "${PROJECT_SOURCE_DIR}/external/Loaders")
+  # The scene scenarios load a model of the Sandbox's.
+  target_compile_definitions(MarianaEngineTest PRIVATE MARIANA_SANDBOX_DIR="${PROJECT_SOURCE_DIR}/projects/Sandbox")
 endif()
 
 if(EMSCRIPTEN)

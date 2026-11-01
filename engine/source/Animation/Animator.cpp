@@ -1275,6 +1275,30 @@ bool Animator::CrossFadeState(std::string_view state, float seconds)
     return false;
 }
 
+std::vector<std::string> Animator::CurrentStates() const
+{
+    std::vector<std::string> states;
+    const AnimationGraph* definition = graph.Get().get();
+    if (!definition)
+        return states;
+    if (!m_Bound || m_BoundGraph != definition || !m_GraphValid)
+    {
+        for (const PendingState& pending : m_PendingStates)
+            states.push_back(pending.state);
+        return states;
+    }
+    for (size_t i = 0; i < m_Machines.size() && i < definition->nodes.size(); ++i)
+    {
+        const AnimationNode& node = definition->nodes[i];
+        if (node.type != AnimationNodeType::StateMachine || m_Machines[i].active.empty())
+            continue;
+        const int state = m_Machines[i].active.back().state;
+        if (state != node.entryState && state >= 0 && state < static_cast<int>(node.states.size()))
+            states.push_back(node.states[static_cast<size_t>(state)]);
+    }
+    return states;
+}
+
 bool Animator::PreviewState(std::string_view state, float normalizedTime)
 {
     const AnimationGraph* definition = graph.Get().get();

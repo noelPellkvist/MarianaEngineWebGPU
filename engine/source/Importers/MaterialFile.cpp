@@ -205,7 +205,7 @@ namespace MaterialFile
         Json json;
         if (!ReadJson(file, json, error))
             return nullptr;
-        return MaterialJson::Read(json, [&](MaterialTexture slot, const Json& entry) {
+        std::shared_ptr<MaterialAsset> material = MaterialJson::Read(json, [&](MaterialTexture slot, const Json& entry) {
             const std::string image = entry.value("image", std::string());
             if (image.empty())
                 return AssetHandle<Texture>{};
@@ -215,6 +215,8 @@ namespace MaterialFile
                 Logger::Warning(file.string() + ": could not load " + image);
             return texture;
         });
+        material->MarkSaved();
+        return material;
     }
 
     std::vector<ImageRef> Images(const std::filesystem::path& file, std::string& error)
@@ -267,7 +269,10 @@ namespace MaterialFile
             return false;
         }
         stream << json.dump(2) << "\n";
-        return static_cast<bool>(stream);
+        if (!stream)
+            return false;
+        material.MarkSaved();
+        return true;
     }
 
     void RegisterLoader(AssetManager2& assets)

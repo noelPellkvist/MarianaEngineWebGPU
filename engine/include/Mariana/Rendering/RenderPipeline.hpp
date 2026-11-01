@@ -47,6 +47,8 @@ struct RenderPipelineDesc
     // path resolves to, or creates it under the first root.
     static bool Load(const std::string& path, RenderPipelineDesc& out, std::string& error);
     bool Save(const std::string& path, std::string& error) const;
+    // What Save writes (two equal texts, the same pipeline).
+    std::string ToJson() const;
 
     // Makes the effect stack, the scene renderer and the camera's exposure (when given) match this.
     void Apply(EffectStack& effects, SceneRenderer& scene, ICamera* camera = nullptr) const;

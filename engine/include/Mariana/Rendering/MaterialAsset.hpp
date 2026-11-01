@@ -90,6 +90,9 @@ public:
     // A new material with the same settings and textures (and its own GPU slot), e.g. to edit
     // one mesh's material without changing the others that share it. Register it to use it.
     std::shared_ptr<MaterialAsset> Clone() const;
+    // Takes another material's settings and textures (keeping its own GPU slot): edits made
+    // elsewhere put back, like a scene's changes to a model's material.
+    void CopySettingsFrom(const MaterialAsset& other);
 
     PBRMaterialProperties properties;
     // Drawn without back-face culling, back faces lit from their side.
@@ -111,6 +114,10 @@ public:
     void ClearDirty() { m_Dirty = false; }
     // Changes with every edit (MarkDirty, SetTexture, SetTextureTransform, SetAlphaMode).
     uint32_t Version() const { return m_Version; }
+    // Whether it changed since it last matched where it is kept (its .material file, or the model
+    // it came from): loading and saving the file mark it saved.
+    void MarkSaved() const { m_SavedVersion = m_Version; }
+    bool IsModified() const { return m_SavedVersion != m_Version; }
 
     // Renderer side: the texture bind group, rebuilt while BindGroupDirty() (new materials start dirty).
     Material2 material;
@@ -122,6 +129,7 @@ private:
     AlphaMode m_AlphaMode = AlphaMode::Opaque;
     uint32_t m_GpuSlot = kInvalidSlot;
     uint32_t m_Version = 0;
+    mutable uint32_t m_SavedVersion = 0;
     bool m_Dirty = true;
     bool m_BindGroupDirty = true;
 };

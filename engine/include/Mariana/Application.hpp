@@ -27,7 +27,11 @@ class Application
         virtual void OnRender() {}
         virtual void OnGUI() {}
         virtual void OnShutdown() {}
+        // The window's close button was pressed: true closes it, false keeps it open (an editor
+        // asking about unsaved changes first, then calling Quit).
+        virtual bool OnCloseRequested() { return true; }
 
+        // Ends the main loop after this frame (natively; a page runs until it is closed).
         void Quit();
         
         Window m_Window;

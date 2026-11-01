@@ -21,6 +21,8 @@ class Window {
         void GetSurface();
 
         bool ShouldClose();
+        // The close asked for (the window's close button) doesn't happen after all.
+        void CancelClose();
         void ToggleFullscreen();
         // Web: when the page resized the canvas itself (a shell fitting it to the page), resizes the
         // window to match, so the surface and the UI follow. Once per frame; nothing natively.

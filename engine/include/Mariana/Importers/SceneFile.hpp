@@ -1,5 +1,6 @@
 #pragma once
 #include <Mariana/Assets/AssetManager.hpp>
+#include <Mariana/Rendering/StandardPBR.hpp>
 #include <Mariana/Scene/ECS.hpp>
 
 #include <glm/glm.hpp>
@@ -36,6 +37,12 @@ public:
     virtual void Visit(const char* name, const Value& value) = 0;
     // Writing: whether the value given for `name` is a number (an enum given by its number).
     virtual bool IsNumber(const char*) const { return false; }
+
+    // A visitor that sees what a file keeps (a scene's signature) also gets the asset references
+    // and the lists (each element's fields follow VisitList), and not the transient fields.
+    virtual bool SeesFile() const { return false; }
+    virtual void VisitAsset(const char*, AssetID) {}
+    virtual void VisitList(const char*, int) {}
 };
 
 // Reads or writes one component's fields in a scene file. The same function does both (it is given
@@ -47,6 +54,8 @@ class SceneArchive
 public:
     // Writing into the component (a file being loaded, code setting a field).
     bool IsLoading() const { return m_Loading; }
+    // Whether lists and assets are visited too: a file, or a visitor that sees what one keeps.
+    bool ForFile() const { return !m_Visitor || m_Visitor->SeesFile(); }
 
     void Field(const char* name, float& value);
     void Field(const char* name, int& value);
@@ -99,7 +108,7 @@ public:
     template <typename T>
     void Transient(const char* name, T& value)
     {
-        if (m_Visitor)
+        if (m_Visitor && !m_Visitor->SeesFile())
             Field(name, value);
     }
 
@@ -146,16 +155,29 @@ private:
     AssetManager2* m_Assets;
 };
 
+// What a scene keeps besides its entities: its lighting and the render pipeline it is seen with.
+struct SceneSettings
+{
+    LightingSettings lighting;
+    std::string pipeline; // resource path of a .pipeline file; empty = the app's choice
+    // Loading: whether the file had them (older files don't).
+    bool hasLighting = false;
+};
+
 // .scene files: a scene's entities, their hierarchy and their components, as JSON:
 //   { "version": 1, "dependencies": [ "/Models/Car.gltf", ... ],
+//     "settings": { "lighting": { "sunAzimuth": 270, ... }, "pipeline": "/Pipelines/Default.pipeline" },
 //     "materials": [ { a material as in a .material file, textures by "image" or "asset" } ],
+//     "materialOverrides": [ { "material": "/Models/Car.glb#material/2", the material as above } ],
 //     "entities": [ { "id": 0, "name": "Car", "parent": 3, "components": { "LocalTRS": { ... } },
 //                     "tags": [ "ShadowCasterTag" ] } ] }
 // Parents come before their children. Components are written by the serializer registered under
 // their ECS name (the engine's own: LocalTRS, MeshComponent, ShadowCasterTag, CameraComponent,
 // Animator, AnimationTargetEntity, SkinComponent; modules add theirs, e.g. the physics components);
 // components with none are left out with a warning, transforms derived from LocalTRS are rebuilt.
-// `dependencies` lists every file the scene uses (for packaging).
+// `dependencies` lists every file the scene uses (for packaging). `materialOverrides` are the
+// scene's edits to materials a model file holds (changed since it loaded, not extracted to a
+// .material file): loading puts them back onto the model's material.
 namespace SceneFile
 {
     template <typename T>
@@ -167,12 +189,31 @@ namespace SceneFile
     template <typename T>
     void RegisterTag(const char* name);
 
-    bool Save(const Scene& scene, AssetManager2& assets, const std::filesystem::path& file, std::string& error);
+    bool Save(const Scene& scene, AssetManager2& assets, const std::filesystem::path& file, std::string& error, const SceneSettings* settings = nullptr);
     // Adds the file's entities to `scene` (Scene::Clear it first to replace what is there); warnings
-    // (a missing file, a component nobody reads) go to the log and to `warnings`.
-    bool Load(Scene& scene, AssetManager2& assets, const std::filesystem::path& file, std::string& error, std::string* warnings = nullptr);
+    // (a missing file, a component nobody reads) go to the log and to `warnings`; the file's
+    // settings to `settings`.
+    bool Load(Scene& scene, AssetManager2& assets, const std::filesystem::path& file, std::string& error, std::string* warnings = nullptr,
+              SceneSettings* settings = nullptr);
     // The files a scene uses (resource paths), read without loading it.
     std::vector<std::string> Dependencies(const std::filesystem::path& file, std::string& error);
+
+    // A hash of what saving would write (entities, their names, hierarchy, components and tags,
+    // the materials they use, the settings): equal signatures, the same file. How an editor knows
+    // a scene changed since it was saved, whatever changed it.
+    uint64_t Signature(const Scene& scene, AssetManager2& assets, const SceneSettings* settings = nullptr);
+
+    // One entity's components as a file has them, to put back later onto the same entity (or
+    // another): keeping what changed while a game played after the scene is restored.
+    struct EntityState
+    {
+        std::string json;
+        std::vector<AssetHandle<MaterialAsset>> materials; // the ones made in memory it uses
+    };
+    EntityState SaveEntity(Entity entity, AssetManager2& assets);
+    // Gives the entity the saved components (adding, replacing, and removing those it has that
+    // weren't saved), its name too.
+    void LoadEntity(Entity entity, AssetManager2& assets, const EntityState& state);
 
     namespace detail
     {
@@ -201,7 +242,11 @@ void SceneArchive::Asset(const char* name, AssetHandle<T>& handle)
 {
     constexpr bool material = std::is_same_v<T, MaterialAsset>;
     if (m_Visitor)
+    {
+        if (!m_Loading && m_Visitor->SeesFile())
+            m_Visitor->VisitAsset(name, handle.IsValid() ? handle.GetID() : AssetID{});
         return;
+    }
     if (!m_Loading)
     {
         std::string reference = handle.IsValid() ? Reference(handle.GetID(), material) : std::string();
@@ -220,7 +265,15 @@ void SceneArchive::Assets(const char* name, std::vector<AssetHandle<T>>& handles
 {
     constexpr bool material = std::is_same_v<T, MaterialAsset>;
     if (m_Visitor)
+    {
+        if (!m_Loading && m_Visitor->SeesFile())
+        {
+            m_Visitor->VisitList(name, static_cast<int>(handles.size()));
+            for (const AssetHandle<T>& h : handles)
+                m_Visitor->VisitAsset(name, h.IsValid() ? h.GetID() : AssetID{});
+        }
         return;
+    }
     std::vector<std::string> references;
     if (!m_Loading)
     {
@@ -257,7 +310,17 @@ template <typename T, typename Fn>
 void SceneArchive::List(const char* name, std::vector<T>& elements, Fn&& item)
 {
     if (m_Visitor)
+    {
+        if (m_Loading || !m_Visitor->SeesFile())
+            return;
+        m_Visitor->VisitList(name, static_cast<int>(elements.size()));
+        for (T& element : elements)
+        {
+            SceneArchive archive(*m_Visitor, false, *m_Assets);
+            item(archive, element);
+        }
         return;
+    }
     const int count = BeginList(name, elements.size());
     if (count < 0)
         return;
@@ -276,8 +339,9 @@ void SceneFile::RegisterComponent(const char* name, Visit<T> visit)
     detail::Register({ name, false,
         [](Entity e) { return e.Has<T>(); },
         [visit](Entity e, SceneArchive& archive) {
-            T value = *e.TryGet<T>();
-            visit(archive, value);
+            // Saving reads the component itself (a copy may not keep everything, e.g. an
+            // Animator's state machines); visiting writes nothing back unless loading.
+            visit(archive, *const_cast<T*>(e.TryGet<T>()));
         },
         [visit](Entity e, SceneArchive& archive) {
             T value{};

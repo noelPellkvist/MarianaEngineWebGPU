@@ -64,7 +64,8 @@ _If it runs in your browser and on your PC with the same codebase, that’s not 
 - A built-in Script Editor with syntax colours, type errors as you type and autocomplete from the engine's API types (also set up for VS Code's Luau extension)
 
 **Editor** (Dear ImGui)
-- Scene and game views, hierarchy, inspector, asset browser with rendered thumbnails, material editor, undo/redo, play/pause/step, scene files
+- Scene and game views, hierarchy, inspector, asset browser with rendered thumbnails, material editor, undo/redo, play/pause/step
+- Scene files that keep what you see: every component's values, what each Animator is set to (its graph's parameters and states), the lighting and render pipeline, and edits to a model's materials. Ctrl+S saves the scene with every changed material, animation graph and pipeline file; the title shows a `*` for any unsaved change and the editor asks before throwing changes away. Play-mode changes reset on Stop, except on the entities you mark "Keep changes after Stop"
 - A profiler: each frame's CPU scopes (scripts, animation, physics, rendering, UI) on a timeline, GPU time per render pass (timestamp queries), counters, and traces for Perfetto
 
 **Player**

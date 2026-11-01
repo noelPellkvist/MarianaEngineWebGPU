@@ -140,7 +140,7 @@ bool RenderPipelineDesc::Load(const std::string& path, RenderPipelineDesc& out, 
     return true;
 }
 
-bool RenderPipelineDesc::Save(const std::string& path, std::string& error) const
+std::string RenderPipelineDesc::ToJson() const
 {
     Json file;
     file["name"] = name;
@@ -160,7 +160,11 @@ bool RenderPipelineDesc::Save(const std::string& path, std::string& error) const
         list.push_back(entry);
     }
     file["effects"] = list;
+    return file.dump(2);
+}
 
+bool RenderPipelineDesc::Save(const std::string& path, std::string& error) const
+{
     const std::filesystem::path fullPath = FileSystem::ResolveForWrite(path);
     std::error_code ec;
     std::filesystem::create_directories(fullPath.parent_path(), ec);
@@ -170,7 +174,7 @@ bool RenderPipelineDesc::Save(const std::string& path, std::string& error) const
         error = "Could not write " + fullPath.string();
         return false;
     }
-    stream << file.dump(2) << "\n";
+    stream << ToJson() << "\n";
     return static_cast<bool>(stream);
 }
 

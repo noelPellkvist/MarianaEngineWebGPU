@@ -126,10 +126,9 @@ namespace
         return fileKey;
     }
 
-    // Per material (by asset ID): its version when last loaded or saved, and the last save result.
+    // Per material (by asset ID): the last save result.
     struct SaveState
     {
-        uint32_t savedVersion = 0;
         std::string message;
     };
 
@@ -152,10 +151,7 @@ namespace
             std::string error;
             const bool saved = MaterialFile::Save(material, assets, file, error);
             if (saved)
-            {
                 assets.SetSource(meta->id, file);
-                state.savedVersion = material.Version();
-            }
             state.message = saved ? (error.empty() ? "Saved " + file.filename().string() : error) : error;
             if (!error.empty())
                 Logger::Warning(error);
@@ -169,13 +165,7 @@ namespace
 
         if (!file.empty())
         {
-            static std::unordered_map<std::string, bool> seen;
-            if (!seen[meta->id.ToString()])
-            {
-                seen[meta->id.ToString()] = true;
-                state.savedVersion = material.Version();
-            }
-            const bool unsaved = state.savedVersion != material.Version();
+            const bool unsaved = material.IsModified();
             ImGui::TextDisabled("%s%s", file.filename().string().c_str(), unsaved ? " (unsaved)" : "");
             ImGui::SetItemTooltip("%s", file.string().c_str());
             ImGui::SameLine();
@@ -185,7 +175,7 @@ namespace
         else if (const size_t at = meta->key.rfind("#material/"); at != std::string::npos)
         {
             const std::filesystem::path model = ModelFile(assets, meta->key.substr(0, at));
-            ImGui::TextDisabled("From %s, not saved", model.filename().string().c_str());
+            ImGui::TextDisabled("From %s%s", model.filename().string().c_str(), material.IsModified() ? ", changes kept by the scene" : "");
             ImGui::SameLine();
             if (ImGui::SmallButton("Extract materials"))
             {
@@ -195,7 +185,8 @@ namespace
                 if (!error.empty())
                     Logger::Warning(error);
             }
-            ImGui::SetItemTooltip("Writes every material of %s to .material files next to it, so edits can be saved and are used when it loads.",
+            ImGui::SetItemTooltip("Writes every material of %s to .material files next to it, so edits are used wherever it loads (a scene only keeps "
+                                  "its own changes to it).",
                                   model.filename().string().c_str());
         }
         else

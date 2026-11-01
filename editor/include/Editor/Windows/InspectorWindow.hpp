@@ -33,6 +33,8 @@ public:
     // the Add Component menu (grouped by `menu`, offered while `available` says so).
     using ComponentDrawer = std::function<void(Entity&)>;
     void SetComponentDrawer(const std::string& componentName, ComponentDrawer drawer) { m_componentDrawers[componentName] = std::move(drawer); }
+    // Drawn under the entity's name, above its components.
+    void SetEntityHeader(ComponentDrawer header) { m_entityHeader = std::move(header); }
     struct ComponentOption
     {
         std::string menu;
@@ -51,6 +53,7 @@ private:
     const Scene* m_scene = nullptr;
     AssetID m_asset; // shown instead of the entity while valid
     std::function<void(Entity)> m_selectEntity;
+    ComponentDrawer m_entityHeader;
     InspectorComponents::AnimatorActions m_animatorActions;
     Entity m_entity;
     uint64_t m_entityID = static_cast<uint64_t>(-1);

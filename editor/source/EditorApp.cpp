@@ -62,6 +62,16 @@ namespace fs = std::filesystem;
 namespace
 {
     const char* const kDefaultPipeline = "/Pipelines/Default.pipeline";
+
+    // The .material file a material is kept in (its own, or the one it was extracted or saved to).
+    fs::path MaterialFileOf(const AssetMetadata& meta)
+    {
+        if (meta.path.extension() == ".material")
+            return meta.path;
+        if (meta.source.extension() == ".material")
+            return meta.source;
+        return {};
+    }
 }
 
 #pragma region Helpers
@@ -451,14 +461,39 @@ void EditorApp::OnStart()
     inspector->AddComponentOption({ "Rendering", "Camera",
         [](Entity e) { return !e.TryGet<CameraComponent>(); },
         [](Entity e) { e.Add<CameraComponent>(CameraComponent{}); } });
+    // While playing: whether Stop keeps what the game did to this entity.
+    inspector->SetEntityHeader([this](Entity& e) {
+        if (!gameClock.IsPlaying())
+            return;
+        const auto found = keepOnStop.find(e.RawId());
+        bool keep = found != keepOnStop.end();
+        if (ImGui::Checkbox("Keep changes after Stop", &keep))
+        {
+            if (keep)
+                keepOnStop[e.RawId()] = false;
+            else
+                keepOnStop.erase(e.RawId());
+        }
+        ImGui::SetItemTooltip("Stop puts the scene back as it was on Play; this entity keeps its components as the game leaves them.");
+        if (keep)
+        {
+            ImGui::SameLine();
+            bool children = keepOnStop[e.RawId()];
+            if (ImGui::Checkbox("With children", &children))
+                keepOnStop[e.RawId()] = children;
+        }
+    });
     EditorWindows["Inspector"] = std::move(inspector);
     EditorWindows["Loaded Assets"] = std::make_unique<LoadedAssetsWindow>(gui, assets, [this](AssetID id) {
         inspectorWindow->InspectAsset(id);
         EditorWindows["Inspector"]->SetOpen(true);
     });
-    EditorWindows["Render Pipeline"] = std::make_unique<RenderPipelineWindow>(gui, sceneView->Effects(), sceneRenderer, *cam, kDefaultPipeline);
+    auto pipelineEditor = std::make_unique<RenderPipelineWindow>(gui, sceneView->Effects(), sceneRenderer, *cam, kDefaultPipeline);
+    pipelineWindow = pipelineEditor.get();
+    pipelineWindow->MarkSaved(); // the constructor's caller applied it
+    EditorWindows["Render Pipeline"] = std::move(pipelineEditor);
     EditorWindows["Lighting"] = std::make_unique<LightingWindow>(gui, sceneRenderer.lighting);
-    EditorWindows["Hierarchy"] = std::make_unique<HierarchyWindow>(
+    auto hierarchy = std::make_unique<HierarchyWindow>(
         gui,
         scene,
         selectedEntityID,
@@ -469,6 +504,30 @@ void EditorApp::OnStart()
         [this](const fs::path& gltfPath) {
             SpawnPrefab(gltfPath);
         });
+    // Entities that keep their play-mode changes are marked, and can be marked from their menu.
+    hierarchy->decorate = [this](Entity e) {
+        const auto found = keepOnStop.find(e.RawId());
+        if (found == keepOnStop.end())
+            return;
+        const char* name = e.GetName() ? e.GetName() : "";
+        const ImVec2 min = ImGui::GetItemRectMin();
+        const float x = min.x + ImGui::GetTreeNodeToLabelSpacing() + ImGui::CalcTextSize(name).x + ImGui::GetStyle().ItemSpacing.x;
+        ImGui::GetWindowDrawList()->AddText(ImVec2(x, min.y + ImGui::GetStyle().FramePadding.y), ImGui::GetColorU32(ImGuiCol_CheckMark),
+                                            found->second ? "keep (with children)" : "keep");
+    };
+    hierarchy->contextMenu = [this](Entity e) {
+        if (!gameClock.IsPlaying())
+            return;
+        const bool kept = keepOnStop.contains(e.RawId());
+        if (ImGui::MenuItem("Keep changes after Stop", nullptr, kept))
+        {
+            if (kept)
+                keepOnStop.erase(e.RawId());
+            else
+                keepOnStop[e.RawId()] = false;
+        }
+    };
+    EditorWindows["Hierarchy"] = std::move(hierarchy);
 
     auto sceneViewport = std::make_unique<ViewportWindow>("Scene", gui);
     sceneWindow = sceneViewport.get();
@@ -486,11 +545,24 @@ void EditorApp::OnStart()
         editorCam->SetYawPitch(glm::half_pi<float>() / 2, -glm::half_pi<float>() / 5);
     } 
 
+#if defined(__EMSCRIPTEN__)
+    // Leaving the page with unsaved changes asks first (UpdateModified sets the flag).
+    EM_ASM({
+        window.addEventListener('beforeunload', (event) => {
+            if (Module.marianaUnsaved) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
+    });
+#endif
+
     // The project's playground scene, or the same made in code when it has none.
     if (!OpenScene(FileSystem::Resolve("/Scenes/Playground.scene")))
         BuildStartupScene();
-    // Looking at the car from behind and to its left, the jump ahead of it.
-    if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get()))
+    // Where the camera was left in it, or looking at the car from behind and to its left, the jump
+    // ahead of it.
+    if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get()); editorCam && !LoadEditorCamera())
     {
         const glm::vec3 eye(-5.5f, 3.2f, -8.0f), target(0.0f, 0.6f, 3.0f);
         const glm::vec3 d = glm::normalize(target - eye);
@@ -504,6 +576,7 @@ void EditorApp::ClearScene()
 {
     if (gameClock.IsPlaying())
         TogglePlay();
+    SaveEditorCamera();
     scene.Clear();
     sceneRenderer.InvalidateTransforms();
     physics->Reset();
@@ -520,8 +593,9 @@ void EditorApp::NewScene()
 {
     ClearScene();
     scenePath.clear();
-    savedUndoVersion = undo.Version();
-    savedEntityCount = scene.EntityCount();
+    signaturePending = true;
+    sceneChanged = false;
+    signatureTimer = 0.0f;
 }
 
 bool EditorApp::OpenScene(const fs::path& file)
@@ -530,36 +604,118 @@ bool EditorApp::OpenScene(const fs::path& file)
         return false;
     ClearScene();
     std::string error, warnings;
-    if (!SceneFile::Load(scene, assets, file, error, &warnings))
+    SceneSettings settings;
+    if (!SceneFile::Load(scene, assets, file, error, &warnings, &settings))
     {
         Logger::Error(error);
         sceneStatus = error;
         return false;
     }
     scene.Update(0.0f);
+    // The scene's light and the pipeline it is seen with (older files have neither).
+    if (settings.hasLighting)
+        sceneRenderer.lighting = settings.lighting;
+    if (pipelineWindow && !settings.pipeline.empty() && settings.pipeline != pipelineWindow->PipelinePath())
+        pipelineWindow->LoadPipeline(settings.pipeline);
     scenePath = file;
-    savedUndoVersion = undo.Version();
-    savedEntityCount = scene.EntityCount();
+    // Taken after the next frame's update (Animators bind their graphs then).
+    signaturePending = true;
+    sceneChanged = false;
+    signatureTimer = 0.0f;
     sceneStatus = warnings;
     RememberScene(file);
+    LoadEditorCamera();
     return true;
+}
+
+SceneSettings EditorApp::CurrentSettings() const
+{
+    SceneSettings settings;
+    settings.lighting = sceneRenderer.lighting;
+    settings.hasLighting = true;
+    settings.pipeline = pipelineWindow ? pipelineWindow->PipelinePath() : kDefaultPipeline;
+    return settings;
+}
+
+bool EditorApp::SaveModifiedAssets(std::vector<fs::path>& written)
+{
+    bool saved = true;
+    auto report = [&](bool ok, const fs::path& file, const std::string& error) {
+        if (!error.empty())
+            (ok ? Logger::Warning(error) : Logger::Error(error));
+        if (ok)
+        {
+            written.push_back(file);
+            OfferDownload(file);
+        }
+        saved = saved && ok;
+    };
+
+    // Materials kept in .material files.
+    std::vector<std::pair<std::shared_ptr<MaterialAsset>, fs::path>> materials;
+    assets.ForEach<MaterialAsset>([&](AssetID id, MaterialAsset& material) {
+        if (const AssetMetadata* meta = assets.GetMetadata(id); meta && material.IsModified())
+            if (fs::path file = MaterialFileOf(*meta); !file.empty())
+                materials.emplace_back(assets.Get<MaterialAsset>(id), file);
+    });
+    for (const auto& [material, file] : materials)
+    {
+        std::string error;
+        report(MaterialFile::Save(*material, assets, file, error), file, error);
+    }
+
+    // Animation graphs.
+    std::vector<std::pair<std::shared_ptr<AnimationGraph>, fs::path>> graphs;
+    assets.ForEach<AnimationGraph>([&](AssetID id, AnimationGraph& graph) {
+        if (const AssetMetadata* meta = assets.GetMetadata(id); meta && graph.IsModified() && meta->path.extension() == ".animgraph")
+            graphs.emplace_back(assets.Get<AnimationGraph>(id), meta->path);
+    });
+    for (const auto& [graph, file] : graphs)
+    {
+        std::string error;
+        report(AnimationGraphFile::Save(*graph, assets, file, error), file, error);
+    }
+
+    // The render pipeline.
+    if (pipelineWindow && pipelineWindow->IsModified())
+    {
+        const bool ok = pipelineWindow->SavePipeline(pipelineWindow->PipelinePath());
+        report(ok, FileSystem::Resolve(pipelineWindow->PipelinePath()), std::string());
+    }
+    return saved;
 }
 
 bool EditorApp::SaveScene(const fs::path& file)
 {
+    std::vector<fs::path> written;
+    SaveModifiedAssets(written); // what fails is in the log; the scene is saved anyway
+
     std::string error;
-    if (!SceneFile::Save(scene, assets, file, error))
+    const SceneSettings settings = CurrentSettings();
+    if (!SceneFile::Save(scene, assets, file, error, &settings))
     {
         Logger::Error(error);
         sceneStatus = error;
         return false;
     }
     scenePath = file;
-    savedUndoVersion = undo.Version();
-    savedEntityCount = scene.EntityCount();
+    signaturePending = true;
+    sceneChanged = false;
+    signatureTimer = 0.0f;
     sceneStatus.clear();
     RememberScene(file);
-    Logger::Info("Saved " + file.string());
+    SaveEditorCamera();
+    std::string also;
+    for (const fs::path& f : written)
+        also += (also.empty() ? " (and " : ", ") + f.filename().string();
+    Logger::Info("Saved " + file.string() + (also.empty() ? "" : also + ")"));
+    UpdateModified();
+    if (afterSavePrompt)
+    {
+        const std::function<void()> then = std::move(afterSavePrompt);
+        afterSavePrompt = nullptr;
+        then();
+    }
     return true;
 }
 
@@ -603,7 +759,96 @@ void EditorApp::RememberScene(const fs::path& file)
 
 bool EditorApp::SceneModified() const
 {
-    return undo.Version() != savedUndoVersion || scene.EntityCount() != savedEntityCount;
+    return sceneChanged || !unsavedFiles.empty();
+}
+
+void EditorApp::UpdateModified()
+{
+    // Asset files with edits.
+    unsavedFiles.clear();
+    assets.ForEach<MaterialAsset>([&](AssetID id, MaterialAsset& material) {
+        if (const AssetMetadata* meta = assets.GetMetadata(id); meta && material.IsModified())
+            if (fs::path file = MaterialFileOf(*meta); !file.empty())
+                unsavedFiles.push_back(file);
+    });
+    assets.ForEach<AnimationGraph>([&](AssetID id, AnimationGraph& graph) {
+        if (const AssetMetadata* meta = assets.GetMetadata(id); meta && graph.IsModified() && meta->path.extension() == ".animgraph")
+            unsavedFiles.push_back(meta->path);
+    });
+    if (pipelineWindow && pipelineWindow->IsModified())
+        unsavedFiles.push_back(FileSystem::Resolve(pipelineWindow->PipelinePath()));
+
+    // The scene as it would be saved (while playing it is the one Stop puts back: unchanged).
+    if (!gameClock.IsPlaying())
+    {
+        const SceneSettings settings = CurrentSettings();
+        const uint64_t signature = SceneFile::Signature(scene, assets, &settings);
+        if (signaturePending)
+        {
+            savedSignature = signature;
+            signaturePending = false;
+        }
+        sceneChanged = signature != savedSignature;
+    }
+#if defined(__EMSCRIPTEN__)
+    EM_ASM({ Module.marianaUnsaved = $0; }, SceneModified() ? 1 : 0);
+#endif
+}
+
+void EditorApp::AskToSave(std::function<void()> then)
+{
+    UpdateModified();
+    if (!SceneModified())
+    {
+        then();
+        return;
+    }
+    afterSavePrompt = std::move(then);
+    savePromptPopup = true;
+}
+
+bool EditorApp::OnCloseRequested()
+{
+    UpdateModified();
+    if (!SceneModified())
+        return true;
+    AskToSave([this]() { Quit(); });
+    return false;
+}
+
+fs::path EditorApp::EditorCameraFile() const
+{
+    if (scenePath.empty())
+        return {};
+    return fs::path(MARIANA_PROJECT_DIR) / ".mariana" / "editor" / (scenePath.stem().string() + ".camera");
+}
+
+void EditorApp::SaveEditorCamera() const
+{
+    const auto* editorCam = dynamic_cast<const EditorCameraController*>(cam.get());
+    const fs::path file = EditorCameraFile();
+    if (!editorCam || file.empty())
+        return;
+    std::error_code ec;
+    fs::create_directories(file.parent_path(), ec);
+    const glm::vec3 p = editorCam->Position();
+    std::ofstream(file) << p.x << ' ' << p.y << ' ' << p.z << ' ' << editorCam->Yaw() << ' ' << editorCam->Pitch() << '\n';
+}
+
+bool EditorApp::LoadEditorCamera()
+{
+    auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get());
+    const fs::path file = EditorCameraFile();
+    if (!editorCam || file.empty())
+        return false;
+    std::ifstream stream(file);
+    glm::vec3 p;
+    float yaw = 0.0f, pitch = 0.0f;
+    if (!(stream >> p.x >> p.y >> p.z >> yaw >> pitch))
+        return false;
+    editorCam->SetPosition(p);
+    editorCam->SetYawPitch(yaw, pitch);
+    return true;
 }
 
 void EditorApp::DrawScenePopups()
@@ -617,6 +862,50 @@ void EditorApp::DrawScenePopups()
     {
         ImGui::OpenPopup("Save Scene As");
         saveScenePopup = false;
+    }
+    if (savePromptPopup)
+    {
+        ImGui::OpenPopup("Save Changes?");
+        savePromptPopup = false;
+    }
+
+    if (ImGui::BeginPopupModal("Save Changes?", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        const std::string name = scenePath.empty() ? std::string("Untitled") : scenePath.filename().string();
+        ImGui::Text("Save the changes before going on?");
+        if (sceneChanged)
+            ImGui::BulletText("%s", name.c_str());
+        for (const fs::path& file : unsavedFiles)
+            ImGui::BulletText("%s", file.filename().string().c_str());
+        ImGui::Spacing();
+        if (ImGui::Button("Save", ImVec2(110.0f, 0.0f)))
+        {
+            ImGui::CloseCurrentPopup();
+            if (gameClock.IsPlaying())
+                TogglePlay(); // what is saved is the scene as edited
+            if (scenePath.empty())
+                saveScenePopup = true; // Save As runs what waited once it has saved
+            else if (SaveScene(scenePath))
+                OfferDownload(scenePath);
+            else
+                afterSavePrompt = nullptr;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Don't Save", ImVec2(110.0f, 0.0f)))
+        {
+            ImGui::CloseCurrentPopup();
+            const std::function<void()> then = std::move(afterSavePrompt);
+            afterSavePrompt = nullptr;
+            if (then)
+                then();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(110.0f, 0.0f)) || ImGui::IsKeyPressed(ImGuiKey_Escape))
+        {
+            ImGui::CloseCurrentPopup();
+            afterSavePrompt = nullptr;
+        }
+        ImGui::EndPopup();
     }
 
     if (ImGui::BeginPopup("Open Scene"))
@@ -641,7 +930,7 @@ void EditorApp::DrawScenePopups()
         {
             if (ImGui::Selectable(name.c_str(), path == scenePath))
             {
-                OpenScene(path);
+                AskToSave([this, path = path]() { OpenScene(path); });
                 ImGui::CloseCurrentPopup();
             }
         }
@@ -675,6 +964,10 @@ void EditorApp::DrawScenePopups()
         ImGui::EndDisabled();
         ImGui::EndPopup();
     }
+
+    // Save As closed without saving: what waited for the save doesn't happen.
+    if (afterSavePrompt && !saveScenePopup && !savePromptPopup && !ImGui::IsPopupOpen("Save Scene As") && !ImGui::IsPopupOpen("Save Changes?"))
+        afterSavePrompt = nullptr;
 }
 
 void EditorApp::BuildStartupScene()
@@ -740,8 +1033,9 @@ void EditorApp::BuildStartupScene()
 
     scene.Update(0.0f);
     DeselectEntity();
-    savedUndoVersion = undo.Version();
-    savedEntityCount = scene.EntityCount();
+    signaturePending = true;
+    sceneChanged = false;
+    signatureTimer = 0.0f;
 }
 
 void EditorApp::OnUpdate(float deltaTime)
@@ -831,6 +1125,13 @@ void EditorApp::OnUpdate(float deltaTime)
 
     sceneCameras.clear();
     cameraSystem.Run();
+
+    signatureTimer -= deltaTime;
+    if (signatureTimer <= 0.0f)
+    {
+        signatureTimer = 0.5f;
+        UpdateModified();
+    }
 }
 
 void EditorApp::OnGUI()
@@ -859,7 +1160,7 @@ void EditorApp::OnGUI()
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_O, ImGuiInputFlags_RouteGlobal))
         openScenePopup = true;
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_N, ImGuiInputFlags_RouteGlobal))
-        NewScene();
+        AskToSave([this]() { NewScene(); });
 
     DrawTopMenu();
     // The views in a fixed order, Scene last: the first time they dock, it ends up the open tab.
@@ -1105,14 +1406,14 @@ void EditorApp::DrawTopMenu()
         {
             const bool playing = gameClock.IsPlaying();
             if (ImGui::MenuItem("New Scene", "Ctrl+N"))
-                NewScene();
+                AskToSave([this]() { NewScene(); });
             if (ImGui::MenuItem("Open Scene...", "Ctrl+O"))
                 openScenePopup = true;
             if (ImGui::BeginMenu("Open Recent", !recentScenes.empty()))
             {
                 for (const fs::path& recent : std::vector<fs::path>(recentScenes))
                     if (ImGui::MenuItem(recent.filename().string().c_str()))
-                        OpenScene(recent);
+                        AskToSave([this, recent]() { OpenScene(recent); });
                 ImGui::EndMenu();
             }
             if (ImGui::MenuItem("Save Scene", "Ctrl+S", false, !playing))
@@ -1124,7 +1425,10 @@ void EditorApp::DrawTopMenu()
             ImGui::Separator();
             if (ImGui::MenuItem("Preferences...", "Ctrl+,")) {}
             ImGui::Separator();
-            if (ImGui::MenuItem("Exit")) {/* set a flag to quit */}
+#ifndef __EMSCRIPTEN__
+            if (ImGui::MenuItem("Exit"))
+                AskToSave([this]() { Quit(); });
+#endif
             ImGui::EndMenu();
         }
 
@@ -1230,8 +1534,21 @@ void EditorApp::DrawTopMenu()
         const float titleWidth = ImGui::CalcTextSize(title.c_str()).x;
         ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX() + 16.0f, ImGui::GetWindowWidth() - titleWidth - ImGui::GetStyle().ItemSpacing.x * 2.0f));
         ImGui::TextDisabled("%s", title.c_str());
-        if (!sceneStatus.empty() && ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", sceneStatus.c_str());
+        if (ImGui::IsItemHovered() && (SceneModified() || !sceneStatus.empty()))
+        {
+            ImGui::BeginTooltip();
+            if (SceneModified())
+            {
+                ImGui::TextUnformatted("Not saved yet (Ctrl+S saves them all):");
+                if (sceneChanged)
+                    ImGui::BulletText("the scene");
+                for (const fs::path& file : unsavedFiles)
+                    ImGui::BulletText("%s", file.filename().string().c_str());
+            }
+            if (!sceneStatus.empty())
+                ImGui::TextDisabled("%s", sceneStatus.c_str());
+            ImGui::EndTooltip();
+        }
 
         ImGui::EndMainMenuBar();
     }
@@ -1291,6 +1608,7 @@ void EditorApp::TogglePlay()
         // Bodies and scripts are made from the scene as it is now.
         physics->Reset();
         scripts->Reset();
+        keepOnStop.clear();
         playSnapshot = scene.Snapshot();
         playUndo = undo;
         restoreOnStop = true;
@@ -1304,8 +1622,34 @@ void EditorApp::RestoreScene()
         return;
     restoreOnStop = false;
 
+    // What the entities marked to keep their changes are like now (with their children, if asked).
+    std::vector<std::pair<uint64_t, SceneFile::EntityState>> kept;
+    std::string keptName;
+    for (const auto& [id, children] : keepOnStop)
+    {
+        Entity e = scene.FromId(id);
+        if (!e.IsValid())
+            continue;
+        keptName = keptName.empty() ? std::string(e.GetName() ? e.GetName() : "entity") : std::string("entities");
+        kept.emplace_back(id, SceneFile::SaveEntity(e, assets));
+        if (children)
+            scene.ForEachDescendant(e, [&](Entity d) { kept.emplace_back(d.RawId(), SceneFile::SaveEntity(d, assets)); });
+    }
+    keepOnStop.clear();
+
     scene.Restore(playSnapshot);
     playSnapshot = SceneSnapshot();
+
+    // They get those back (entities made while playing are gone), as an undo step.
+    std::vector<std::pair<uint64_t, SceneFile::EntityState>> before;
+    for (const auto& [id, state] : kept)
+    {
+        Entity e = scene.FromId(id);
+        if (!e.IsValid())
+            continue;
+        before.emplace_back(id, SceneFile::SaveEntity(e, assets));
+        SceneFile::LoadEntity(e, assets, state);
+    }
     scene.Update(0.0f);
     sceneRenderer.InvalidateTransforms();
 
@@ -1318,6 +1662,18 @@ void EditorApp::RestoreScene()
     }
     undo = std::move(playUndo);
     playUndo = UndoStack();
+    if (!before.empty())
+    {
+        auto apply = [this](const std::vector<std::pair<uint64_t, SceneFile::EntityState>>& states) {
+            for (const auto& [id, state] : states)
+                if (Entity e = scene.FromId(id); e.IsValid())
+                    SceneFile::LoadEntity(e, assets, state);
+        };
+        undo.Push("Keep play-mode changes of " + keptName,
+                  [apply, before]() { apply(before); },
+                  [apply, kept]() { apply(kept); });
+        Logger::Info("Kept the play-mode changes of " + std::to_string(before.size()) + (before.size() == 1 ? " entity" : " entities"));
+    }
     // What only the snapshot or the play session held on to.
     assets.UnloadUnused();
 }
@@ -1387,5 +1743,6 @@ void EditorApp::OnRender()
 void EditorApp::OnShutdown()
 {
     Logger::Info("Shutdown now");
+    SaveEditorCamera();
     gui.KillGui();
 }

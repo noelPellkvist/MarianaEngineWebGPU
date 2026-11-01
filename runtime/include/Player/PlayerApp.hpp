@@ -26,7 +26,8 @@
 //                  "physics": { "body": "dynamic", "mass": 2, "bounciness": 0.5 } }, ... ]
 //   }
 // Everything is optional; paths are resource paths (FileSystem). `scene` is a scene file the editor
-// saved (SceneFile), loaded first; the spawns are added to it. The view is the scene's first camera
+// saved (SceneFile), loaded first with its lighting; the spawns are added to it. `pipeline` is the
+// scene's when Player.json names none (and /Pipelines/Default.pipeline without either). The view is the scene's first camera
 // entity (CameraComponent), as the editor's Game view shows it; `camera` is the view of a scene
 // without one. A spawn is a `prefab`, a `primitive` (cube, sphere, plane, cylinder, capsule; tinted
 // by `color`) or a `preset` (car, motorcycle, tank: a vehicle the keyboard drives, W A S D and Space
@@ -83,7 +84,7 @@ struct PlayerConfig
     };
 
     WindowSettings window{ "Mariana Player", 1280, 720, "" };
-    std::string pipeline = "/Pipelines/Default.pipeline";
+    std::string pipeline; // empty: the scene's, else /Pipelines/Default.pipeline
     std::string scene;
     glm::vec3 cameraPosition{0.0f, 2.0f, -5.0f};
     glm::vec3 cameraTarget{0.0f, 1.0f, 0.0f};

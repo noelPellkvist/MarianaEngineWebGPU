@@ -81,6 +81,8 @@ void InspectorWindow::DrawEntityInspector()
 
     if (ImGui::InputText("##entity_name", entityName, sizeof(entityName)))
         m_entity.SetName(entityName);
+    if (m_entityHeader)
+        m_entityHeader(m_entity);
 
     ImGui::Separator();
 

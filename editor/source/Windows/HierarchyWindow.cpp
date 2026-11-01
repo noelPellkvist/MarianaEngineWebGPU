@@ -104,8 +104,12 @@ void HierarchyWindow::DrawEntityNode(Entity e)
     {
         if (ImGui::MenuItem("Select"))
             m_selectEntity(e.RawId());
+        if (contextMenu)
+            contextMenu(e);
         ImGui::EndPopup();
     }
+    if (decorate)
+        decorate(e);
 
     if (open)
     {

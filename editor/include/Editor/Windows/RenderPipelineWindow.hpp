@@ -18,6 +18,15 @@ public:
     RenderPipelineWindow(GUI& gui, EffectStack& effects, SceneRenderer& sceneRenderer, ICamera& camera, std::string pipelinePath);
     void Draw() override;
 
+    // The file the running pipeline came from, and whether what runs differs from it.
+    const std::string& PipelinePath() const { return m_pipelinePath; }
+    bool IsModified() const;
+    // Loads and applies a pipeline file; saves what runs to one (false and the log say why not).
+    bool LoadPipeline(const std::string& path);
+    bool SavePipeline(const std::string& path);
+    // What runs now is what the file holds (the app applied it itself).
+    void MarkSaved();
+
 private:
     EffectStack& m_effects;
     SceneRenderer& m_sceneRenderer;
@@ -29,6 +38,7 @@ private:
     void DrawPipelineFile();
     void DrawSceneSettings();
     void DrawEffect(EffectInstance& effect, bool& removed);
-    void LoadPipeline(const std::string& path);
-    void SavePipeline(const std::string& path);
+    std::string Captured() const;
+
+    std::string m_savedJson; // what runs, as it was when loaded or saved
 };

@@ -190,14 +190,29 @@ public:
     void ReplaceWith(const AnimationGraph& other)
     {
         const uint32_t revision = m_Revision;
+        const uint32_t saved = m_SavedRevision;
         *this = other;
         m_Revision = revision + 1;
+        m_SavedRevision = saved;
+        m_LayoutChanged = true;
     }
+
+    // Whether it changed since its file was loaded or saved (which mark it saved): a new revision,
+    // or boxes moved in an editor (MarkLayoutChanged; the layout changes no revision).
+    void MarkSaved() const
+    {
+        m_SavedRevision = m_Revision;
+        m_LayoutChanged = false;
+    }
+    void MarkLayoutChanged() { m_LayoutChanged = true; }
+    bool IsModified() const { return m_Revision != m_SavedRevision || m_LayoutChanged; }
 
     class Builder;
 
 private:
     uint32_t m_Revision = 0;
+    mutable uint32_t m_SavedRevision = 0;
+    mutable bool m_LayoutChanged = false;
 };
 
 // Builds a graph in code; each node function returns the node's index.

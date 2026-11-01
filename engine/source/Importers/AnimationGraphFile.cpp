@@ -466,6 +466,7 @@ namespace AnimationGraphFile
         std::string problem;
         if (!graph->Validate(problem))
             Logger::Warning(file.string() + " isn't usable yet: " + problem);
+        graph->MarkSaved();
         return graph;
     }
 
@@ -528,6 +529,9 @@ namespace AnimationGraphFile
             return false;
         }
         stream << json.dump(2) << "\n";
+        if (!stream)
+            return false;
+        graph.MarkSaved();
         return true;
     }
 

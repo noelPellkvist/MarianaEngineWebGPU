@@ -165,3 +165,8 @@ bool Window::ShouldClose()
     glfwPollEvents();
     return glfwWindowShouldClose(m_Window);
 }
+
+void Window::CancelClose()
+{
+    glfwSetWindowShouldClose(m_Window, GLFW_FALSE);
+}

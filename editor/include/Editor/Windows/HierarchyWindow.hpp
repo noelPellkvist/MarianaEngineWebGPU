@@ -22,6 +22,10 @@ public:
 
     void Draw() override;
 
+    // Drawn on each entity's row after its name (a marker), and in its right-click menu.
+    std::function<void(Entity)> decorate;
+    std::function<void(Entity)> contextMenu;
+
 private:
     const Scene& m_scene;
     const uint64_t& m_selectedEntityID;
