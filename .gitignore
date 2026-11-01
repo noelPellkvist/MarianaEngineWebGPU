@@ -6,3 +6,5 @@
 /build-web-release/
 # Games built from a project (File > Build, MarianaExport)
 Builds/
+# The documentation website built by docs/build.py
+/docs/site/

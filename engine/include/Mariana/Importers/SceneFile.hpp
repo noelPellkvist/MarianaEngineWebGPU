@@ -344,9 +344,14 @@ void SceneFile::RegisterComponent(const char* name, Visit<T> visit)
             visit(archive, *const_cast<T*>(e.TryGet<T>()));
         },
         [visit](Entity e, SceneArchive& archive) {
+            // An existing component is changed in place: a copy may not keep everything (an
+            // Animator's state machines would start again from their entry states).
+            if (T* existing = e.Get<T>())
+            {
+                visit(archive, *existing);
+                return;
+            }
             T value{};
-            if (const T* existing = e.TryGet<T>())
-                value = *existing;
             visit(archive, value);
             e.Add<T>(value);
         },

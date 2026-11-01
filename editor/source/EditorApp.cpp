@@ -206,6 +206,16 @@ Entity EditorApp::SpawnPrimitive(BuiltinMesh shape, const char* name)
     return spawned;
 }
 
+Entity EditorApp::SpawnEmpty()
+{
+    Entity spawned = scene.Instantiate("Entity");
+    spawned.SetPosition(0.0f, 0.0f, 0.0f);
+    scene.Update(0.0f);
+    DeselectEntity();
+    SelectEntity(spawned.RawId());
+    return spawned;
+}
+
 Entity EditorApp::SpawnPhysicsShape(BuiltinMesh shape, const char* name, bool dynamic)
 {
     Entity spawned = SpawnPrimitive(shape, name);
@@ -1472,6 +1482,8 @@ void EditorApp::DrawTopMenu()
 
         if (ImGui::BeginMenu("Create"))
         {
+            if (ImGui::MenuItem("Empty Entity")) SpawnEmpty();
+            ImGui::Separator();
             if (ImGui::MenuItem("Cube")) SpawnPrimitive(BuiltinMesh::Cube, "Cube");
             if (ImGui::MenuItem("Sphere")) SpawnPrimitive(BuiltinMesh::Sphere, "Sphere");
             if (ImGui::MenuItem("Plane")) SpawnPrimitive(BuiltinMesh::Plane, "Plane");

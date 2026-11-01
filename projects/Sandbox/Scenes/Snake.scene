@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "dependencies": [
+    "/Pipelines/Default.pipeline",
+    "/Scripts/Snake.luau"
+  ],
+  "settings": {
+    "lighting": {
+      "sunAzimuth": 270.0,
+      "sunElevation": 45.0,
+      "sunColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "sunIntensity": 1.0,
+      "skyIntensity": 1.0,
+      "reflectionIntensity": 1.0,
+      "skyRotation": 0.0
+    },
+    "pipeline": "/Pipelines/Default.pipeline"
+  },
+  "materials": [],
+  "entities": [
+    {
+      "id": 0,
+      "name": "Camera",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            17.0,
+            -11.0
+          ],
+          "rotation": [
+            0.477159,
+            0.0,
+            0.0,
+            0.878817
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "CameraComponent": {
+          "fov": 60.0,
+          "near": 0.1,
+          "far": 500.0
+        }
+      }
+    },
+    {
+      "id": 1,
+      "name": "Game",
+      "components": {
+        "LocalTRS": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Scripts": {
+          "scripts": [
+            {
+              "script": "/Scripts/Snake.luau",
+              "enabled": true,
+              "values": []
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

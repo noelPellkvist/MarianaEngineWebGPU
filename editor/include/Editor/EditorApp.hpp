@@ -92,6 +92,9 @@ class EditorApp : public Application
         void OnWindowResized(int w, int h);
         void SpawnPrefab(const std::filesystem::path& path);
         Entity SpawnPrimitive(BuiltinMesh shape, const char* name);
+        // An entity with only a transform (a holder for scripts, a parent to group others), at the
+        // world's origin.
+        Entity SpawnEmpty();
         // A primitive with a collider to match, dynamic or static.
         Entity SpawnPhysicsShape(BuiltinMesh shape, const char* name, bool dynamic);
         // A static ground (30 m across) under where shapes spawn, and a tower of dynamic boxes on it.

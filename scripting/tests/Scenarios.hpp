@@ -21,8 +21,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <functional>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -682,9 +685,130 @@ return W
                       std::abs(target.x - 3.0f) < 1e-3f && std::abs(target.y - 1.0f) < 1e-3f && weight > 0.99f && error.empty());
     }
 
+    // The Sandbox's Snake.luau (the tutorial's game): it builds its board, eats an apple put in
+    // front of it and grows, runs into the wall, flies apart as physics bodies and starts again.
+    inline Result SnakeTutorial(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        Entity game = w.Make("Game");
+        if (!ScriptWorld::AddScript(game, w.assets, "/Scripts/Snake.luau"))
+            return Finish(log, "snake", "no /Scripts/Snake.luau", false);
+        // Reads the snake's own state (its `self`) and reports it in its entity's name.
+        Entity watcher = w.Make("Watcher");
+        Attach(watcher, w.Source("Watcher", R"(
+            local Watcher = {}
+            function Watcher.Start(self) self.frame = 0 end
+            function Watcher.Update(self, dt)
+                self.frame += 1
+                local snake = scene.Find("Game"):GetScript("Snake")
+                if not snake or not snake.cells then return end
+                if self.frame == 2 then
+                    snake.appleCell = snake.cells[1] + vec3(1, 0, 0)
+                    self.start = #snake.segments
+                end
+                if snake.score == 1 and not self.grown then self.grown = #snake.segments end
+                if snake.over and not self.overAt then
+                    self.overAt = self.frame
+                    self.flying = snake.segments[1]:Has("RigidBody")
+                    self.head = snake.cells[1]
+                end
+                if self.overAt and not snake.over then self.restarted = #snake.segments end
+                local walls = 0
+                scene.Each("BoxCollider", function(e) if e.name == "Wall" then walls += 1 end end)
+                self.entity.name = `{self.start}>{self.grown} over@{self.overAt} at {self.head} flying {self.flying} restart {self.restarted} walls {walls}`
+            end
+            return Watcher)"));
+        w.Frames(420);
+        const std::string report = watcher.GetName();
+        const std::string error = w.scripts.GetError(game, 0) + w.scripts.GetError(watcher, 0);
+        return Finish(log, "snake", report + (error.empty() ? "" : " | " + error),
+                      error.empty() && report.rfind("3>4 over@", 0) == 0 && report.find("flying true") != std::string::npos &&
+                          report.find("restart 3") != std::string::npos && report.find("walls 4") != std::string::npos);
+    }
+
+    // The documentation's Snake tutorial, stage by stage (docs/snippets/snake/part1..4.luau): each
+    // runs for 8 s with the snake steered up and left without an error, and builds its board.
+    inline Result SnakeTutorialStages(const Log& log)
+    {
+        using namespace detail;
+        std::string report;
+        bool passed = true;
+        for (int part = 1; part <= 4; ++part)
+        {
+            const std::filesystem::path file = std::filesystem::path(MARIANA_SANDBOX_DIR) / ".." / ".." / "docs" / "snippets" / "snake" /
+                                               ("part" + std::to_string(part) + ".luau");
+            std::ifstream stream(file, std::ios::binary);
+            std::ostringstream text;
+            text << stream.rdbuf();
+            if (text.str().empty())
+                return Finish(log, "snake tutorial stages", "no " + file.string(), false);
+            World w;
+            Entity game = w.Make("Game");
+            const std::string name = "Part" + std::to_string(part);
+            Attach(game, w.Source(name.c_str(), text.str().c_str()));
+            w.Frames(30);
+            const Key turns[] = { Key::UP, Key::LEFT };
+            for (Key key : turns)
+            {
+                w.input.SimulateKey(key, true);
+                w.Frames(1);
+                w.input.SimulateKey(key, false);
+                w.Frames(20);
+            }
+            w.Frames(420);
+            const std::string error = w.scripts.GetError(game, 0);
+            const bool board = w.scene.FindByName("Wall").IsValid() && w.scene.FindByName("Segment").IsValid();
+            report += (report.empty() ? "" : ", ") + name + (error.empty() ? (board ? " ok" : " no board") : " | " + error);
+            passed = passed && error.empty() && board;
+        }
+        return Finish(log, "snake tutorial stages", report, passed);
+    }
+
+    // The documentation's cookbook and API examples (docs/snippets/cookbook, api): each script runs for 3 s on an entity in
+    // an empty scene, with keys and the mouse pressed, without an error (a recipe must cope with what
+    // it looks for not being there).
+    inline Result CookbookRuns(const Log& log)
+    {
+        using namespace detail;
+        namespace fs = std::filesystem;
+        std::string report;
+        int ran = 0;
+        const fs::path docs = fs::path(MARIANA_SANDBOX_DIR) / ".." / ".." / "docs" / "snippets";
+        std::vector<fs::path> files;
+        std::error_code ec;
+        for (const char* folder : { "cookbook", "api" })
+            for (const auto& entry : fs::directory_iterator(docs / folder, ec))
+                files.push_back(entry.path());
+        for (const fs::path& path : files)
+        {
+            if (path.extension() != ".luau")
+                continue;
+            std::ifstream stream(path, std::ios::binary);
+            std::ostringstream text;
+            text << stream.rdbuf();
+            World w;
+            Entity tester = w.Make("Tester", glm::vec3(0.0f, 1.0f, 0.0f));
+            const std::string name = path.stem().string();
+            Attach(tester, w.Source(name.c_str(), text.str().c_str()));
+            const Key keys[] = { Key::W, Key::SPACE, Key::X, Key::F, Key::TAB, Key::E };
+            for (Key key : keys)
+            {
+                w.input.SimulateKey(key, true);
+                w.Frames(20);
+                w.input.SimulateKey(key, false);
+                w.Frames(10);
+            }
+            ++ran;
+            if (const std::string error = w.scripts.GetError(tester, 0); !error.empty())
+                report += " | " + name + ": " + error;
+        }
+        return Finish(log, "cookbook runs", std::to_string(ran) + " scripts" + (report.empty() ? ", no errors" : report), ran >= 15 && report.empty());
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         return { Lifecycle(log), Components(log), Physics(log), Spawning(log), Talking(log), Reload(log), Errors(log), Driving(log),
-                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log), LookAtFromLua(log), WatchCar(log) };
+                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log), LookAtFromLua(log), WatchCar(log), SnakeTutorial(log), SnakeTutorialStages(log), CookbookRuns(log) };
     }
 }

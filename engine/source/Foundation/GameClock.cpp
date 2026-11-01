@@ -25,6 +25,7 @@ void GameClock::Stop()
     m_Time = 0.0;
     m_Frame = 0;
     m_StepPending = false;
+    timeScale = 1.0f;
 }
 
 void GameClock::Step()

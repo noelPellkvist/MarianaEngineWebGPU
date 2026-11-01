@@ -14,7 +14,7 @@ public:
     // Enters play mode (with the time at 0), or resumes from a pause.
     void Play();
     void Pause();
-    // Leaves play mode; the time goes back to 0.
+    // Leaves play mode; the time goes back to 0 and the time scale to 1.
     void Stop();
     // Advances one frame (kStep) on the next tick, pausing first if the game is running.
     void Step();
@@ -33,7 +33,7 @@ public:
     double Time() const { return m_Time; }
     uint64_t Frame() const { return m_Frame; }
 
-    // Game seconds per real second.
+    // Game seconds per real second (the game sets it while playing; Stop puts it back).
     float timeScale = 1.0f;
 
     static constexpr float kStep = 1.0f / 60.0f;

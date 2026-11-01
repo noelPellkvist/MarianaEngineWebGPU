@@ -1,0 +1,79 @@
+[
+  {
+    "title": "Getting Started",
+    "pages": [
+      "index",
+      "getting-started/installing",
+      "getting-started/editor-tour",
+      "getting-started/first-game",
+      "getting-started/projects"
+    ]
+  },
+  {
+    "title": "Using the Editor",
+    "pages": [
+      "manual/editor",
+      "manual/scenes",
+      "manual/entities",
+      "manual/play-mode",
+      "manual/importing",
+      "manual/materials",
+      "manual/rendering",
+      "manual/animation",
+      "manual/physics",
+      "manual/gameplay-physics",
+      "manual/profiler"
+    ]
+  },
+  {
+    "title": "Scripting",
+    "pages": [
+      "scripting/overview",
+      "scripting/first-script",
+      "scripting/lifecycle",
+      "scripting/properties",
+      "scripting/luau",
+      "scripting/script-editor",
+      "scripting/cookbook",
+      "scripting/debugging"
+    ]
+  },
+  {
+    "title": "Scripting API Reference",
+    "pages": [
+      "scripting/api/index",
+      "scripting/api/vec3",
+      "scripting/api/quat",
+      "scripting/api/entity",
+      "scripting/api/components",
+      "scripting/api/component-reference",
+      "scripting/api/animator",
+      "scripting/api/scene",
+      "scripting/api/input",
+      "scripting/api/time",
+      "scripting/api/physics",
+      "scripting/api/types",
+      "scripting/api/sandbox-scripts"
+    ]
+  },
+  {
+    "title": "Building Games",
+    "pages": [
+      "building/build-profiles",
+      "building/windows",
+      "building/web",
+      "building/command-line",
+      "building/player-config"
+    ]
+  },
+  {
+    "title": "Reference",
+    "pages": [
+      "reference/shortcuts",
+      "reference/file-formats",
+      "reference/custom-effects",
+      "reference/troubleshooting",
+      "reference/limitations"
+    ]
+  }
+]

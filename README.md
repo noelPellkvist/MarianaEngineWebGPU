@@ -76,6 +76,18 @@ _If it runs in your browser and on your PC with the same codebase, that’s not 
 
 ---
 
+## 📖 Documentation
+
+The documentation for people making games with the engine lives in `docs/`: getting started, a tutorial that makes a complete 3D Snake game, the editor manual, the full Luau scripting API with a cookbook of recipes, and building games for Windows and the web. The pages are Markdown in `docs/pages/`; build them into a static website (Python 3, nothing to install) with
+
+```bash
+python docs/build.py
+```
+
+and open `docs/site/index.html` from a local server, or upload the folder. Every Luau example under `docs/snippets/` is type-checked and run by `MarianaScriptingTest`, so the examples keep working as the API changes.
+
+---
+
 ## 📦 Getting Started
 
 ### 1) Clone the repository

@@ -305,4 +305,36 @@ namespace EngineScenarios
                       reset && position == glm::vec3(5.0f, 1.0f, -2.0f) && animator && animator->speed == 3.0f && animator->GetFloat("speed") == 4.0f &&
                           animator->graph.Get() && o && o->pos[0] == 0.0f);
     }
+
+    // Writing one field the way scripts do (a FieldVisitor through the component's serializer)
+    // changes the component in place: an Animator's state machine stays in its state.
+    inline Result SceneFieldWrite(const Log& log)
+    {
+        using namespace detail;
+        SceneWorld w;
+        std::string error;
+        if (!BuildBoxScene(w, error))
+            return Finish(log, "field write keeps state", error, false);
+        Entity box = w.Box();
+        box.Get<Animator>()->CrossFadeState("Move", 0.0f);
+        w.Update();
+
+        struct SpeedWriter final : FieldVisitor
+        {
+            void Visit(const char* name, const Value& value) override
+            {
+                if (std::string(name) == "speed" && value.type == Value::Type::Float)
+                    *static_cast<float*>(value.data) = 2.0f;
+            }
+        } writer;
+        SceneArchive archive(writer, true, w.assets);
+        SceneFile::FindComponent("Animator")->load(box, archive);
+        w.Update();
+
+        const Animator& animator = *box.TryGet<Animator>();
+        const std::vector<std::string> states = animator.CurrentStates();
+        const std::string state = states.empty() ? std::string("(entry)") : states[0];
+        return Finish(log, "field write keeps state", Format("speed %.1f, state ", animator.speed) + state,
+                      animator.speed == 2.0f && state == "Move");
+    }
 }
