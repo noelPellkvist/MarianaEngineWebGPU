@@ -1,0 +1,43 @@
+{
+  "active": "Windows",
+  "profiles": [
+    {
+      "name": "Windows",
+      "platform": "Windows",
+      "configuration": "Release",
+      "output": "",
+      "gameName": "Playground",
+      "window": {
+        "title": "Mariana Playground",
+        "width": 1280,
+        "height": 720,
+        "icon": ""
+      },
+      "scene": "/Scenes/Playground.scene",
+      "scenes": [],
+      "pipeline": "",
+      "followCamera": true,
+      "logProfile": false,
+      "wholeProject": false
+    },
+    {
+      "name": "Web",
+      "platform": "Web",
+      "configuration": "Release",
+      "output": "",
+      "gameName": "Playground",
+      "window": {
+        "title": "Mariana Playground",
+        "width": 1280,
+        "height": 720,
+        "icon": ""
+      },
+      "scene": "/Scenes/Playground.scene",
+      "scenes": [],
+      "pipeline": "",
+      "followCamera": true,
+      "logProfile": false,
+      "wholeProject": false
+    }
+  ]
+}

@@ -4,6 +4,12 @@
 #include <cctype>
 #include <system_error>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 namespace
 {
     std::vector<std::filesystem::path>& AppRoots()
@@ -98,5 +104,23 @@ namespace FileSystem
                 return "/" + full.substr(prefix.size());
         }
         return {};
+    }
+
+    std::filesystem::path ExecutableDirectory()
+    {
+#if defined(_WIN32)
+        std::wstring path(MAX_PATH, L'\0');
+        DWORD length = 0;
+        while ((length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()))) >= path.size())
+            path.resize(path.size() * 2);
+        path.resize(length);
+        return std::filesystem::path(path).parent_path();
+#elif defined(__EMSCRIPTEN__)
+        return "/";
+#else
+        std::error_code error;
+        const std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", error);
+        return error ? std::filesystem::current_path() : self.parent_path();
+#endif
     }
 }

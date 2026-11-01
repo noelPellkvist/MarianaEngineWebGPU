@@ -70,6 +70,7 @@ _If it runs in your browser and on your PC with the same codebase, that’s not 
 
 **Player**
 - Runs a project without the editor from its `Player.json`; its web build packages only what the project uses
+- File > Build turns a project into a game with build profiles: a Windows folder (`Game.exe` with its `data/`) or a static website (the web player plus the game's files in `game.data`), Release or Debug, its start scene, window and pipeline; Build and Run starts it
 
 **Try it:** the Sandbox project opens in a playground scene with a car, a pool, jellies, a flag and three dancers in the car's way. Press Play (Ctrl+P) in the editor, or open the player, and drive with W A S D (Space is the hand brake, R puts the car back at the start); the orange pad on the left throws the car into the air. All of that is Lua, in `projects/Sandbox/Scripts/`: the driving, the chase camera, the respawn and the pad.
 
@@ -131,6 +132,19 @@ emrun --no_browser --port 8000 build-web/bin
 ```
 
 The editor is built into `build-web/bin`, the player into `build-web/player` (a standalone site to upload as is). WebGPU needs a secure context: https, or localhost.
+
+#### Building a game
+
+In the editor, **File → Build → Build Settings...** shows the project's build profiles (`BuildProfiles.json`; the Sandbox has *Windows* and *Web*): platform, Release or Debug, the game's name, window, start scene and pipeline, and the output folder (`Builds/<profile>` in the project). **Build** (Ctrl+B) builds the selected profile, **Build and Run** (Ctrl+Shift+B) starts it afterwards. It builds what is saved, so save first.
+
+- **Windows**: `Builds/Windows/Playground.exe` with `data/engine` and `data/game` next to it. Zip the folder to share it.
+- **Web**: `Builds/Web/` with `index.html`, the player and `game.data`: upload the folder to any static host (https), or Build and Run to serve it on localhost. The first web build sets up `build-web-release` and takes a while; later ones only build what changed. It needs the Emscripten SDK (`EMSDK`, or its folder in the Build window's tools).
+
+The same from a terminal (CI, scripts):
+```bash
+./build/bin/Debug/MarianaExport --project projects/Sandbox --profile Web
+```
+`--list` prints the files a profile takes from the project without building anything.
 
 ---
 

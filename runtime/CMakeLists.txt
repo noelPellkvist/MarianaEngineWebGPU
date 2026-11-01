@@ -94,4 +94,26 @@ if(EMSCRIPTEN)
     SHELL "${CMAKE_CURRENT_SOURCE_DIR}/shell.html"
     PRELOAD ${player_files}
   )
+
+  # MarianaPlayerRuntime: the same player with only the engine's resources, for exported games
+  # (MarianaExport): the exporter packs a game's files into game.data + game.data.js, which its page
+  # loads before the player, and the player runs what it finds at /game. In player-runtime/; built
+  # only when asked for (the exporter does).
+  add_executable(MarianaPlayerRuntime EXCLUDE_FROM_ALL ${MARIANA_PLAYER_SOURCES})
+  target_include_directories(MarianaPlayerRuntime PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/external/Loaders"
+  )
+  target_link_libraries(MarianaPlayerRuntime PRIVATE MarianaEngine MarianaPhysics MarianaScripting)
+  target_compile_definitions(MarianaPlayerRuntime PRIVATE MARIANA_PROJECT_DIR="/game")
+  set_target_properties(MarianaPlayerRuntime PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/player-runtime")
+  # The player's page, loading the game's package first.
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/shell.html")
+  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/shell.html" runtime_shell)
+  string(REPLACE "{{{ SCRIPT }}}" "<script src=\"game.data.js\"></script>\n  {{{ SCRIPT }}}" runtime_shell "${runtime_shell}")
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/runtime-shell.html" "${runtime_shell}")
+  mariana_web_app(MarianaPlayerRuntime
+    OUTPUT_NAME index
+    SHELL "${CMAKE_CURRENT_BINARY_DIR}/runtime-shell.html"
+  )
 endif()

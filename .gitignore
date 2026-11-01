@@ -3,3 +3,6 @@
 /build-release/
 # Editor caches inside projects (thumbnails)
 .mariana/
+/build-web-release/
+# Games built from a project (File > Build, MarianaExport)
+Builds/

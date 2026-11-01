@@ -38,6 +38,7 @@
 #include <Mariana/ScriptTools/ScriptTypes.hpp>
 #include <Editor/Windows/AnimationGraphWindow.hpp>
 #include <Editor/Windows/AssetsExplorer.hpp>
+#include <Editor/Windows/BuildWindow.hpp>
 #include <Editor/Windows/HierarchyWindow.hpp>
 #include <Editor/Windows/InspectorWindow.hpp>
 #include <Editor/Windows/LoadedAssetsWindow.hpp>
@@ -493,6 +494,9 @@ void EditorApp::OnStart()
     pipelineWindow->MarkSaved(); // the constructor's caller applied it
     EditorWindows["Render Pipeline"] = std::move(pipelineEditor);
     EditorWindows["Lighting"] = std::make_unique<LightingWindow>(gui, sceneRenderer.lighting);
+    auto builds = std::make_unique<BuildWindow>(gui, MARIANA_PROJECT_DIR);
+    buildWindow = builds.get();
+    EditorWindows["Build"] = std::move(builds);
     auto hierarchy = std::make_unique<HierarchyWindow>(
         gui,
         scene,
@@ -1161,6 +1165,10 @@ void EditorApp::OnGUI()
         openScenePopup = true;
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_N, ImGuiInputFlags_RouteGlobal))
         AskToSave([this]() { NewScene(); });
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_B, ImGuiInputFlags_RouteGlobal))
+        buildWindow->Build(false);
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_B, ImGuiInputFlags_RouteGlobal))
+        buildWindow->Build(true);
 
     DrawTopMenu();
     // The views in a fixed order, Scene last: the first time they dock, it ends up the open tab.
@@ -1422,6 +1430,23 @@ void EditorApp::DrawTopMenu()
                 SaveSceneFromMenu(true);
             if (playing && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("Stop the game first: a scene is saved as edited");
+            ImGui::Separator();
+            if (ImGui::BeginMenu("Build"))
+            {
+                // What is built is what is saved: the scene and assets as their files have them.
+                if (ImGui::MenuItem("Build Settings..."))
+                    buildWindow->SetOpen(true);
+                const bool canBuild = BuildWindow::CanBuild() && !buildWindow->IsBuilding();
+                if (ImGui::MenuItem("Build", "Ctrl+B", false, canBuild))
+                    buildWindow->Build(false);
+                if (ImGui::MenuItem("Build and Run", "Ctrl+Shift+B", false, canBuild))
+                    buildWindow->Build(true);
+                if (!BuildWindow::CanBuild() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip("Building runs CMake and Emscripten: it needs the desktop editor");
+                if (SceneModified())
+                    ImGui::TextDisabled("Unsaved changes aren't in a build: save first");
+                ImGui::EndMenu();
+            }
             ImGui::Separator();
             if (ImGui::MenuItem("Preferences...", "Ctrl+,")) {}
             ImGui::Separator();

@@ -22,6 +22,7 @@
 
 class InspectorWindow;
 class AnimationGraphWindow;
+class BuildWindow;
 class PhysicsWindow;
 class RenderPipelineWindow;
 class ScriptChecker;
@@ -57,6 +58,7 @@ class EditorApp : public Application
         InspectorWindow* inspectorWindow = nullptr;
         AnimationGraphWindow* graphWindow = nullptr;
         RenderPipelineWindow* pipelineWindow = nullptr;
+        BuildWindow* buildWindow = nullptr;
         ViewportWindow* sceneWindow = nullptr;
         ViewportWindow* gameWindow = nullptr;
         Scene scene;
