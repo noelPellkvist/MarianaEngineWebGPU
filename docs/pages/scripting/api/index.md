@@ -15,9 +15,15 @@ This is the complete reference for what scripts can use. For how scripts work, s
 | [`vec3(x, y, z)`](vec3.md) | Makes a vector. Luau's `vector` library works on it |
 | [`quat`](quat.md) | Rotations: `quat.euler`, `quat.angleAxis`, `quat.lookRotation`, … |
 | [`scene`](scene.md) | Finding, creating, spawning and destroying entities |
-| [`input`](input.md) | Keyboard and mouse |
+| [`input`](input.md) | Keyboard and mouse, the cursor |
+| [`screen`](screen.md) | The game view: rays through the mouse (picking), points of the world on screen |
 | [`time`](time.md) | Frame time, game time, frame count, time scale |
+| [`task`](task.md) | Functions that wait: `task.spawn`, `task.delay`, `task.wait` |
 | [`physics`](physics.md) | Raycasts, overlaps, forces, velocities, teleporting, vehicle, character and ragdoll control, water |
+| [`lighting`](lighting.md#lighting) | The sun, the sky and exposure |
+| [`effects`](lighting.md#effects) | The render pipeline's effects: parameters, on and off |
+| [`gizmos`](gizmos.md) | Debug drawing: lines, spheres, boxes, text |
+| [`save`](save.md) | Values kept between runs of the game |
 | [`mesh`](meshes.md#mesh-new) | Builds meshes at run time: `mesh.new{ positions = ..., indices = ... }` |
 | [`material`](meshes.md#material-new) | New materials: `material.new{ color = ..., metallic = ... }` |
 | [`texture`](meshes.md#texture-load) | Loads images for materials: `texture.load("/Textures/Grass.png")` |
@@ -53,10 +59,13 @@ The engine calls these on your script when they exist. See [Script Lifecycle](..
 | `Start(self)` | Once, before the first Update |
 | `Update(self, dt)` | Every frame |
 | `LateUpdate(self, dt)` | Every frame, after physics and animation |
+| `FixedUpdate(self, dt)` | Before every physics step (`dt` = the step, 1/60 s) |
 | `OnContactBegin(self, other, contact)`, `OnContactEnd(self, other)` | Bodies touching |
 | `OnTriggerEnter(self, other)`, `OnTriggerExit(self, other)` | Triggers |
 | `OnAnimationEvent(self, name, clip)` | Animation events |
 | `OnDestroy(self)` | The instance ends |
+
+Any other function can be called by name from other scripts with [`entity:Send`](entity.md#send) and [`scene.Broadcast`](scene.md#broadcast).
 
 ## Conventions
 
@@ -94,10 +103,22 @@ e:Add("BoxCollider", { size = vec3(1, 2, 1) })
 e:Has("Vehicle");  e:Remove("RigidBody")
 scene.Each("Vehicle", function(car) ... end)
 
--- Input and time
+-- Input, the view and time
 input.GetKey("w");  input.GetKeyDown("space");  input.GetKeyUp("e")
 input.GetMouseButton(0);  input.GetMouseDelta();  input.GetMousePosition();  input.GetScroll()
+input.SetCursorLocked(true)
+local origin, direction = screen.Ray()         -- through the mouse (nil without a camera)
 time.delta;  time.time;  time.frame;  time.scale = 0.5
+task.spawn(function() task.wait(2) print("2 s later") end);  task.delay(1, fn)
+
+-- Messages and scenes
+other:Send("Damage", 10);  scene.Broadcast("OnRoundOver")
+scene.Load("/Scenes/Level2.scene");  scene.Reload()
+
+-- Light, effects, debug drawing, save data
+lighting.sunElevation = 10;  lighting.exposure = 2;  effects.Set("Bloom", "intensity", 2)
+gizmos.Line(a, b, vec3(1, 0, 0));  gizmos.Sphere(p, 1);  gizmos.Text(p, "here")
+save.Set("best", 120);  local best = save.Get("best", 0)
 
 -- Physics
 local hit = physics.Raycast(origin, direction, 100, { ignore = e })

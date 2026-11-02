@@ -373,6 +373,10 @@ struct PhysicsWorld::Impl
     std::unordered_map<uint64_t, Record> records;
     std::vector<Candidate> candidates;
     std::unordered_map<uint64_t, Pending> pending;
+    // Pushes made before a fixed step (beforeStep), for that step only.
+    std::unordered_map<uint64_t, Pending> stepPending;
+    std::function<void(float)> beforeStep;
+    bool inBeforeStep = false;
     // Body id -> entity, also for bodies removed since the last step (Jolt reports their contacts
     // ending in the next one).
     std::unordered_map<uint32_t, uint64_t> bodyEntities;
@@ -437,7 +441,7 @@ struct PhysicsWorld::Impl
     JPH::BodyID Create(const Candidate& c, std::vector<ColliderGeometry> parts, bool sensor, const glm::vec3& position, const glm::quat& rotation);
     void Sync();
     void MoveKinematics(float dt);
-    void ApplyPending(bool impulses);
+    void ApplyPending(const std::unordered_map<uint64_t, Pending>& pushes, bool impulses);
     void SyncVehicles();
     void RemoveVehicle(VehicleRecord& record);
     void DriveVehicles();

@@ -31,7 +31,7 @@ Open it again from the **Window** menu.
 Something you looked up wasn't there: `scene.Find` didn't find the name, `entity:Get` the component, or an entity was destroyed. Check for `nil` before using it (see [Narrowing nil](../scripting/api/types.md#narrowing-nil)).
 
 **`the script ran too long (an endless loop?)`.**
-One call ran for more than 2 seconds, usually a `while` loop whose condition never changes. Scripts can't wait inside a loop: keep state in `self` and do a bit every `Update` instead (see [Timers](../scripting/cookbook.md#timers-and-cooldowns)).
+One call ran for more than 2 seconds, usually a `while` loop whose condition never changes. A loop that should go on over time must wait in it: run it as a [task](../scripting/api/task.md) with `task.wait()` in the loop, or keep state in `self` and do a bit every `Update` (see [Timers](../scripting/cookbook.md#timers-and-cooldowns)).
 
 **Keys do nothing while playing in the editor.**
 The game doesn't get the keyboard while a text field is focused (click the Game view or empty space) or while the right mouse button flies the Scene camera. See [input](../scripting/api/input.md#in-the-editor).

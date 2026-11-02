@@ -50,7 +50,7 @@ Key names don't care about case (`"W"` and `"w"` are the same key). A name that 
 | `input.GetMouseButton(button?)` | `true` while the button is held |
 | `input.GetMouseButtonDown(button?)` | `true` the frame it went down |
 | `input.GetMouseButtonUp(button?)` | `true` the frame it went up |
-| `input.GetMousePosition()` | The pointer's position in pixels from the window's top-left corner, as a vector (`x`, `y`; `z` is 0) |
+| `input.GetMousePosition()` | The pointer's position in pixels from the game view's top-left corner, as a vector (`x`, `y`; `z` is 0) |
 | `input.GetMouseDelta()` | How far the pointer moved since the last frame, in pixels |
 | `input.GetScroll()` | The wheel this frame: `y` up/down (positive = away from you), `x` sideways |
 
@@ -65,7 +65,16 @@ end
 self.distance = math.clamp(self.distance - input.GetScroll().y, 2, 30)
 ```
 
-See the full [orbit camera recipe](../cookbook.md#orbit-camera-with-the-mouse).
+See the full [orbit camera recipe](../cookbook.md#orbit-camera-with-the-mouse). To find what the mouse points at, use [`screen.Ray()`](screen.md#ray).
+
+### The cursor {#cursor}
+
+| Function | |
+|---|---|
+| `input.SetCursorLocked(on)` | Hides the cursor and holds it in place, for mouse look; `GetMouseDelta` still moves |
+| `input.SetCursorHidden(on)` | Hides it but leaves it free |
+
+See [Locking and hiding the cursor](screen.md#cursor) (in the editor, Escape gives it back).
 
 ## In the editor
 
@@ -76,7 +85,7 @@ While you play in the editor, the game gets the keyboard and mouse **except**:
 
 Then every key and button reads as not pressed, so your game doesn't react to what you type. Click the Game view (or empty space) to give the game the keys back.
 
-The mouse position is relative to the editor's whole window, not the Game view; in a built game it is relative to the game's window.
+The mouse position is relative to the Game window's image, so it means the same as in a built game, where it is relative to the game's window.
 
 > [!NOTE]
 > Input is read once per frame, before `Update`. A press shorter than one frame still counts in `GetKeyDown`.

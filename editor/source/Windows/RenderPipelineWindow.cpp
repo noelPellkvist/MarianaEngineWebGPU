@@ -85,6 +85,25 @@ void RenderPipelineWindow::MarkSaved()
     m_savedJson = Captured();
 }
 
+RenderPipelineWindow::State RenderPipelineWindow::Keep() const
+{
+    State state;
+    state.path = m_pipelinePath;
+    state.desc = RenderPipelineDesc::Capture(m_effects, m_sceneRenderer, &m_camera);
+    state.json = Captured();
+    state.savedJson = m_savedJson;
+    return state;
+}
+
+void RenderPipelineWindow::PutBack(const State& state)
+{
+    // Loading effects again takes a moment: only when something changed.
+    if (Captured() != state.json || m_pipelinePath != state.path)
+        state.desc.Apply(m_effects, m_sceneRenderer, &m_camera);
+    m_pipelinePath = state.path;
+    m_savedJson = state.savedJson;
+}
+
 bool RenderPipelineWindow::IsModified() const
 {
     return !m_pipelinePath.empty() && Captured() != m_savedJson;

@@ -8,7 +8,7 @@ add_library(MarianaScripting STATIC ${MARIANA_SCRIPTING_SOURCES})
 
 target_include_directories(MarianaScripting
   PUBLIC  "${CMAKE_CURRENT_SOURCE_DIR}/include"
-  PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/source"
+  PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/source" "${PROJECT_SOURCE_DIR}/external/Loaders"
 )
 
 target_link_libraries(MarianaScripting

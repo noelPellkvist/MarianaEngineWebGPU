@@ -142,6 +142,9 @@ namespace ScriptingInternal
         {
             OpenGame(L);
             OpenAssets(L);
+            OpenPlay(L);
+            OpenSave(L);
+            OpenTask(L);
         }
 
         // Globals and libraries read-only; each module gets globals of its own.
@@ -228,7 +231,7 @@ namespace ScriptingInternal
             "id", "name", "parent", "position", "rotation", "scale", "worldPosition", "worldRotation",
             "forward", "right", "up", "IsValid", "Destroy", "Has", "Get", "Add", "Remove", "GetScript",
             "GetChildren", "FindChild", "Rotate", "Translate", "LookAt", "SetMesh", "GetMesh", "GetMaterial",
-            "SetMaterial", "active", "visible", "activeInHierarchy", "AddScript", "RemoveScript", "SetScriptEnabled",
+            "SetMaterial", "active", "visible", "activeInHierarchy", "AddScript", "RemoveScript", "SetScriptEnabled", "Send",
             "x", "y", "z", "w", "Inverse", "ToEuler",
             "delta", "time", "frame",
             "SetFloat", "SetBool", "SetTrigger", "ResetTrigger", "GetFloat", "GetBool", "Play", "CrossFade",

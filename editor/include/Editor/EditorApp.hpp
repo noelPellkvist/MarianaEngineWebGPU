@@ -6,6 +6,7 @@
 #include <Editor/ViewRenderer.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Editor/Windows/EditorWindow.hpp>
+#include <Editor/Windows/RenderPipelineWindow.hpp>
 #include <Mariana/Rendering/SceneRenderer.hpp>
 #include <Mariana/Rendering/SceneCamera.hpp>
 #include <Mariana/Rendering/BuiltinAssets.hpp>
@@ -92,6 +93,13 @@ class EditorApp : public Application
         bool restoreOnStop = false;
         // Entities whose changes made while playing stay after Stop (true: their children's too).
         std::unordered_map<uint64_t, bool> keepOnStop;
+        // The lighting and pipeline at Play (scripts may change them; Stop puts them back), and the
+        // scene a script loaded while playing (scene.Load; empty: the edited one).
+        LightingSettings playLighting;
+        RenderPipelineWindow::State playPipeline;
+        std::string gameScene;
+        // The cursor as the game last had it (locked, hidden), applied only when it changes.
+        bool gameCursorLocked = false, gameCursorHidden = false;
 
         void OnWindowResized(int w, int h);
         void SpawnPrefab(const std::filesystem::path& path);
@@ -190,6 +198,12 @@ class EditorApp : public Application
         // Stop: the scene goes back to what it was on Play (what changed while playing is undone;
         // edits to assets, like materials, stay).
         void RestoreScene();
+        // scene.Load / scene.Reload from a script while playing: another scene (or the one playing
+        // again) replaces this one until Stop, its scripts and bodies starting anew.
+        void LoadGameScene(const std::string& file, bool reload);
+        // The cursor the game asks for while it runs and has the keys; Escape gives it back.
+        void ApplyGameCursor(bool gameHasKeys);
+        void DrawGameOverlay(ViewportWindow& window);
         void DrawMat4(const char* id, float m[16], bool editable = true, float speed = 0.05f, const char* fmt = "%.3f");
         // Over the Scene window's image: the cameras' frustums, the selection's gizmo, picking.
         void DrawSceneOverlay(ViewportWindow& window);

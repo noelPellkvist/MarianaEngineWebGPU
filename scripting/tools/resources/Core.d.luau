@@ -168,6 +168,9 @@ declare extern type Entity with
     function AddScript(self, path: string, values: { [string]: any }?): ()
     function RemoveScript(self, name: string): ()
     function SetScriptEnabled(self, name: string, enabled: boolean): ()
+    -- Calls the function `name` of each of its running scripts that has one (with that script's
+    -- self and the arguments); how many did.
+    function Send(self, name: string, ...: any): number
     -- @componentMethods
 end
 
@@ -199,6 +202,12 @@ declare scene: {
     Each: (component: ComponentName, fn: (Entity) -> ()) -> (),
     Clone: (entity: Entity, position: vector?, rotation: quat?) -> Entity,
     Destroy: (entity: Entity) -> (),
+    -- Switches to another scene once this frame's scripts have run (every script starts again).
+    Load: (path: string) -> (),
+    -- Starts the current scene again, as it was when the game started.
+    Reload: () -> (),
+    -- Calls the function `name` of every running script that has one; how many did.
+    Broadcast: (name: string, ...any) -> number,
 }
 
 declare input: {
@@ -211,6 +220,74 @@ declare input: {
     GetMousePosition: () -> vector,
     GetMouseDelta: () -> vector,
     GetScroll: () -> vector,
+    -- Hidden and held in place, the mouse delta still moving (mouse look).
+    SetCursorLocked: (locked: boolean) -> (),
+    SetCursorHidden: (hidden: boolean) -> (),
+}
+
+-- The game view: its size in pixels, rays through it (mouse picking) and points of the world on it.
+declare extern type Screen with
+    width: number
+    height: number
+    -- The ray from the camera through a point of the view (pixels from its top-left; default the
+    -- mouse): its origin and direction (nil while nothing shows the game: no camera, no Game window).
+    Ray: (point: vector?) -> (vector?, vector?)
+    -- A point of the world in the view (x, y pixels, z its distance from the camera), nil behind it.
+    WorldToScreen: (point: vector) -> vector?
+end
+
+declare screen: Screen
+
+-- The scene's sun and sky, and the camera's exposure; changes made while playing go at Stop.
+declare extern type Lighting with
+    sunAzimuth: number
+    sunElevation: number
+    sunColor: vector
+    sunIntensity: number
+    skyIntensity: number
+    reflectionIntensity: number
+    skyRotation: number
+    exposure: number
+end
+
+declare lighting: Lighting
+
+-- The render pipeline's effects by name ("Bloom", "GTAO", "Tonemap"): their parameters and switches.
+declare effects: {
+    Get: (effect: string, parameter: string) -> any,
+    Set: (effect: string, parameter: string, value: number | boolean | vector) -> (),
+    SetEnabled: (effect: string, enabled: boolean) -> (),
+    IsEnabled: (effect: string) -> boolean,
+    Names: () -> { string },
+}
+
+-- Shapes drawn over the game for a frame (or `seconds`), in the editor's Scene and Game views (the
+-- player doesn't draw them).
+declare gizmos: {
+    Line: (from: vector, to: vector, color: vector?, seconds: number?) -> (),
+    Sphere: (center: vector, radius: number, color: vector?, seconds: number?) -> (),
+    Box: (center: vector, size: vector, rotation: quat?, color: vector?, seconds: number?) -> (),
+    Text: (position: vector, text: string, color: vector?, seconds: number?) -> (),
+}
+
+-- Values kept between runs of the game: numbers, booleans, strings, vectors and tables of them.
+declare save: {
+    Set: (key: string, value: any) -> (),
+    Get: (key: string, default: any?) -> any,
+    Has: (key: string) -> boolean,
+    Delete: (key: string) -> (),
+    Keys: () -> { string },
+    Clear: () -> (),
+    Flush: () -> (),
+}
+
+-- Functions that wait: spawn and delay start one (it belongs to the script that started it and
+-- pauses with it), wait (only inside one) goes on after that many seconds of game time.
+declare task: {
+    spawn: (fn: (...any) -> ...any, ...any) -> thread,
+    delay: (seconds: number, fn: (...any) -> ...any, ...any) -> thread,
+    wait: (seconds: number?) -> number,
+    cancel: (task: thread) -> (),
 }
 
 declare extern type Time with

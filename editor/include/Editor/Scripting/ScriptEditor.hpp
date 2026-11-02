@@ -1,14 +1,18 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 #include <filesystem>
 #include <functional>
 #include <string>
+#include <vector>
 
 class AssetManager2;
 class InspectorWindow;
 class ScriptChecker;
 class ScriptWorld;
 class UndoStack;
+struct ScriptDebugShape;
 
 // The editor's side of MarianaScripting (the library itself has no UI).
 namespace ScriptEditor
@@ -31,4 +35,8 @@ namespace ScriptEditor
 
     // Opens a file with the app the system has for it (natively; nothing on the web).
     void OpenWithSystem(const std::filesystem::path& file);
+
+    // The shapes scripts draw (gizmos) over a view's image: lines, spheres and boxes as lines (no
+    // depth test), text at its point.
+    void DrawGizmos(const std::vector<ScriptDebugShape>& shapes, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize);
 }

@@ -17,11 +17,14 @@
 #include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/Components.hpp>
 #include <Mariana/Rendering/MaterialAsset.hpp>
+#include <Mariana/Rendering/StandardPBR.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Scene/Transform.hpp>
 #include <Mariana/Scripting/ScriptWorld.hpp>
 
 #include "../../engine/tests/TestRig.hpp"
+
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -59,12 +62,18 @@ namespace ScriptScenarios
             PhysicsWorld physics;
             ScriptWorld scripts;
             System animation; // queries the scene: made after it, so destroyed first
+            LightingSettings lighting;
 
             World() : physics(scene, Settings()), scripts(scene, assets, clock)
             {
                 scene.UpdateComponentRegistry();
                 ScriptAsset::RegisterLoader(assets);
                 scripts.SetPhysics(&physics);
+                scripts.SetLighting(&lighting);
+                // A game view of 800 x 600 from 10 m behind and 5 m above the origin.
+                const glm::vec3 eye(0.0f, 5.0f, -10.0f);
+                scripts.SetView(glm::vec4(0.0f, 0.0f, 800.0f, 600.0f), glm::lookAtLH(eye, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+                                glm::perspectiveLH_ZO(glm::radians(60.0f), 800.0f / 600.0f, 0.1f, 100.0f), eye);
                 animation = Animator::CreateSystem(scene);
                 clock.Play();
             }
@@ -1035,9 +1044,272 @@ return D
                       said == "off=10 on=20 disabled=20 r1=42 last=63 loop=true missing=true" && cloned && spawned && error.empty());
     }
 
+    // task.spawn / delay / wait / cancel on game time (by frame: 60 a second), a task pausing with its
+    // switched-off entity, and wait refused outside a task.
+    inline Result Tasks(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        Entity e = w.Make("Tasks");
+        Attach(e, w.Source("Tasks.luau", R"(
+local T = {}
+function T:Start()
+    self.log = {}
+    local function note(text) table.insert(self.log, text .. "@" .. time.frame) end
+    task.spawn(function(first)
+        note(first)
+        local waited = task.wait(0.5)
+        note(string.format("b%.1f", waited))
+        task.wait()
+        note("c")
+    end, "a")
+    task.delay(1, note, "d")
+    local doomed = task.delay(0.2, note, "never")
+    task.cancel(doomed)
+    self.outside = if pcall(task.wait, 1) then "waited" else "refused"
+end
+function T:Update()
+    self.entity.name = table.concat(self.log, " ") .. " " .. self.outside
+end
+return T
+)"));
+        // A task of an entity switched off waits for it: on at frame 40 for 30 frames, its 0.25 s
+        // waits pause in between.
+        Entity sleeper = w.Make("Sleeper");
+        Attach(sleeper, w.Source("Sleeper.luau", R"(
+local S = {}
+function S:Start()
+    self.ticks = 0
+    task.spawn(function()
+        while true do
+            task.wait(0.25)
+            self.ticks += 1
+        end
+    end)
+end
+function S:LateUpdate() self.entity.name = "ticks=" .. self.ticks end
+return S
+)"));
+        w.Frames(40);
+        const std::string before = sleeper.GetName();
+        sleeper.SetActive(false);
+        w.Frames(30);
+        sleeper.SetActive(true);
+        w.Frames(10);
+        const std::string after = sleeper.GetName();
+        const std::string said = e.GetName();
+        const std::string expected = "a@1 b0.5@31 c@32 d@61 refused";
+        return Finish(log, "tasks", said + " | sleeper " + before + " then " + after,
+                      said == expected && before == "ticks=2" && after == "ticks=3");
+    }
+
+    // FixedUpdate runs before every physics step with the step's length (two a frame at 30 fps), and
+    // a force added there acts on that step: 20 N on 2 kg for 60 steps = 10 m/s.
+    inline Result FixedUpdate(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        Entity e = w.Make("Pushed");
+        SphereCollider sphere;
+        sphere.radius = 0.5f;
+        e.Add<SphereCollider>(sphere);
+        RigidBody body;
+        body.motion = MotionType::Dynamic;
+        body.mass = 2.0f;
+        body.gravityFactor = 0.0f;
+        body.linearDamping = 0.0f;
+        e.Add<RigidBody>(body);
+        Attach(e, w.Source("Push.luau", R"(
+local P = {}
+function P:Start() self.steps = 0 self.total = 0 end
+function P:FixedUpdate(dt)
+    self.steps += 1
+    self.total += dt
+    physics.AddForce(self.entity, vec3(20, 0, 0))
+end
+function P:LateUpdate() self.entity.name = string.format("steps=%d time=%.4f", self.steps, self.total) end
+return P
+)"));
+        for (int i = 0; i < 30; ++i)
+        {
+            w.clock.Tick(2.0f * kStep);
+            w.scripts.Update(2.0f * kStep, &w.input);
+            w.physics.Step(2.0f * kStep);
+            w.scripts.LateUpdate(2.0f * kStep);
+            w.scene.Update(2.0f * kStep);
+        }
+        glm::vec3 linear(0.0f), angular(0.0f);
+        w.physics.GetVelocity(e, linear, angular);
+        const std::string said = e.GetName();
+        return Finish(log, "fixed update", said + Format(", %.3f m/s", linear.x),
+                      said == "steps=60 time=1.0000" && std::abs(linear.x - 10.0f) < 1e-3f);
+    }
+
+    // entity:Send and scene.Broadcast call a function by name on running scripts with arguments
+    // (not on a switched-off entity, nor on scripts without it).
+    inline Result Messages(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        const AssetHandle<ScriptAsset> health = w.Source("Health.luau", R"(
+local H = {}
+H.properties = { hp = 100 }
+function H:Damage(n, from) self.hp -= n self.from = from end
+return H
+)");
+        Entity a = w.Make("A");
+        Entity b = w.Make("B");
+        Entity off = w.Make("Off");
+        Attach(a, health);
+        Attach(b, health);
+        Attach(off, health);
+        Entity sender = w.Make("Sender");
+        Attach(sender, w.Source("Sender.luau", R"(
+local S = {}
+function S:Update()
+    if time.frame ~= 2 then return end
+    local a, b = scene.Find("A"), scene.Find("B")
+    local sent = a:Send("Damage", 30, "sender")
+    local all = scene.Broadcast("Damage", 5)
+    local none = b:Send("Heal", 5)
+    self.entity.name = string.format("sent=%d all=%d none=%d A=%d B=%d from=%s", sent, all, none, a:GetScript("Health").hp,
+        b:GetScript("Health").hp, tostring(a:GetScript("Health").from))
+end
+return S
+)"));
+        off.SetActive(false);
+        w.Frames(3);
+        const std::string said = sender.GetName();
+        return Finish(log, "messages", said, said == "sent=1 all=2 none=0 A=65 B=95 from=nil");
+    }
+
+    // save keeps values in a file (written after the frame that set them) and gives them back to a
+    // new game; vectors, lists and tables come back as they went in.
+    inline Result SaveData(const Log& log)
+    {
+        using namespace detail;
+        namespace fs = std::filesystem;
+        const fs::path file = fs::temp_directory_path() / "mariana-script-test" / "save.json";
+        std::error_code ec;
+        fs::remove(file, ec);
+        std::string first, second;
+        {
+            World w;
+            w.scripts.SetSaveLocation(file.string());
+            Entity e = w.Make("Writer");
+            Attach(e, w.Source("Writer.luau", R"(
+local W = {}
+function W:Start()
+    save.Set("best", 42)
+    save.Set("spot", vec3(1, 2, 3))
+    save.Set("list", { 3, 1, 2 })
+    save.Set("player", { name = "Ada", alive = true })
+    save.Set("gone", 1)
+    save.Delete("gone")
+    self.entity.name = string.format("had=%s", tostring(save.Has("best")))
+end
+return W
+)"));
+            w.Frames(1);
+            first = e.GetName();
+        }
+        const bool written = fs::exists(file);
+        {
+            World w;
+            w.scripts.SetSaveLocation(file.string());
+            Entity e = w.Make("Reader");
+            Attach(e, w.Source("Reader.luau", R"(
+local R = {}
+function R:Start()
+    local spot = save.Get("spot")
+    local list = save.Get("list")
+    local player = save.Get("player")
+    local keys = save.Keys()
+    table.sort(keys)
+    self.entity.name = string.format("best=%d spot=%g,%g,%g list=%s player=%s/%s missing=%s keys=%s", save.Get("best"),
+        spot.x, spot.y, spot.z, table.concat(list, ","), player.name, tostring(player.alive), tostring(save.Get("gone", "none")),
+        table.concat(keys, ","))
+end
+return R
+)"));
+            w.Frames(1);
+            second = e.GetName();
+        }
+        fs::remove(file, ec);
+        const std::string expected = "best=42 spot=1,2,3 list=3,1,2 player=Ada/true missing=none keys=best,list,player,spot";
+        return Finish(log, "save data", first + (written ? ", written, " : ", not written, ") + second,
+                      first == "had=true" && written && second == expected);
+    }
+
+    // The game view's rays and points (a camera 10 m behind the origin in an 800 x 600 view), gizmos
+    // lasting a frame or their seconds, lighting from scripts, the cursor, and scene requests.
+    inline Result PlayHelpers(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        const glm::vec3 eye(0.0f, 0.0f, -10.0f);
+        const glm::mat4 view = glm::lookAtLH(eye, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        const glm::mat4 projection = glm::perspectiveLH_ZO(glm::radians(60.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+        w.scripts.SetView(glm::vec4(100.0f, 50.0f, 800.0f, 600.0f), view, projection, eye);
+        LightingSettings lighting;
+        w.scripts.SetLighting(&lighting);
+        Entity e = w.Make("Helper");
+        Attach(e, w.Source("Helper.luau", R"(
+local H = {}
+function H:Start()
+    gizmos.Sphere(vec3(0, 1, 0), 0.5, vec3(1, 0, 0), 1)
+    gizmos.Text(vec3(0, 2, 0), "hello", nil, 1)
+    local origin, direction = screen.Ray(vec3(400, 300, 0))
+    local corner = select(2, screen.Ray(vec3(0, 0, 0)))
+    local spot = screen.WorldToScreen(vec3(0, 0, 0))
+    local behind = screen.WorldToScreen(vec3(0, 0, -20))
+    lighting.sunElevation = 12
+    lighting.sunColor = vec3(1, 0.5, 0.25)
+    input.SetCursorLocked(true)
+    local missing = pcall(scene.Load, "/Scenes/NoSuchScene.scene")
+    local effectsOk = pcall(effects.Names)
+    self.entity.name = string.format("ray=%g,%g,%g dir=%.3f,%.3f,%.3f corner=%s spot=%.1f,%.1f,%.1f behind=%s view=%dx%d missing=%s effects=%s",
+        origin.x, origin.y, origin.z, direction.x, direction.y, direction.z,
+        tostring(corner.x < 0 and corner.y > 0), spot.x, spot.y, spot.z, tostring(behind), screen.width, screen.height,
+        tostring(missing), tostring(effectsOk))
+end
+function H:Update()
+    gizmos.Line(vec3(0, 0, 0), vec3(1, 0, 0))
+    if time.frame == 30 then scene.Load("/Scenes/Snake.scene") end
+    if time.frame == 31 then scene.Reload() end
+end
+return H
+)"));
+        w.Frames(1);
+        const size_t firstFrame = w.scripts.DebugShapes().size();
+        w.Frames(29);
+        std::string file;
+        bool reload = false;
+        const bool asked = w.scripts.TakeSceneRequest(file, reload);
+        const bool load = asked && file == "/Scenes/Snake.scene" && !reload;
+        w.Frames(1);
+        const bool again = w.scripts.TakeSceneRequest(file, reload) && reload && file.empty();
+        const bool taken = !w.scripts.TakeSceneRequest(file, reload);
+        const size_t whileShown = w.scripts.DebugShapes().size();
+        w.Frames(40);
+        const size_t later = w.scripts.DebugShapes().size();
+        const std::string said = e.GetName();
+        const bool lit = std::abs(lighting.sunElevation - 12.0f) < 1e-5f && std::abs(lighting.sunColor.y - 0.5f) < 1e-5f;
+        const std::string expected =
+            "ray=0,0,-10 dir=0.000,0.000,1.000 corner=true spot=400.0,300.0,10.0 behind=nil view=800x600 missing=false effects=true";
+        const std::string detail = said + Format(" | shapes %.0f, %.0f, %.0f", static_cast<double>(firstFrame), static_cast<double>(whileShown),
+                                                 static_cast<double>(later)) +
+                                   (lit ? ", lit" : ", not lit") + (w.scripts.CursorLocked() ? ", cursor locked" : ", cursor free") +
+                                   (load && again && taken ? ", load then reload asked" : ", no scene requests");
+        return Finish(log, "play helpers", detail,
+                      said == expected && firstFrame == 3 && whileShown == 3 && later == 1 && lit && w.scripts.CursorLocked() && load &&
+                          again && taken);
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         return { Lifecycle(log), Components(log), Physics(log), Spawning(log), Talking(log), Reload(log), Errors(log), Driving(log),
-                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log), LookAtFromLua(log), WatchCar(log), SnakeTutorial(log), SnakeTutorialStages(log), CookbookRuns(log), MeshesAndMaterials(log), SpawningAndRequire(log) };
+                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log), LookAtFromLua(log), WatchCar(log), SnakeTutorial(log), SnakeTutorialStages(log), CookbookRuns(log), MeshesAndMaterials(log), SpawningAndRequire(log),
+                 Tasks(log), FixedUpdate(log), Messages(log), SaveData(log), PlayHelpers(log) };
     }
 }

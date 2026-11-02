@@ -720,10 +720,10 @@ void PhysicsWorld::Impl::MoveKinematics(float dt)
 }
 
 // Jolt clears forces after every step, so they are given again before each one.
-void PhysicsWorld::Impl::ApplyPending(bool impulses)
+void PhysicsWorld::Impl::ApplyPending(const std::unordered_map<uint64_t, Pending>& pushes, bool impulses)
 {
     JPH::BodyInterface& bodies = system->GetBodyInterface();
-    for (const auto& [id, p] : pending)
+    for (const auto& [id, p] : pushes)
     {
         const auto found = records.find(id);
         if (found == records.end() || found->second.motion != MotionType::Dynamic || found->second.body.IsInvalid())
@@ -876,10 +876,18 @@ void PhysicsWorld::Impl::Step(float dt)
             contactLines.clear();
             BeginStepDrawing(&contactLines, maxContactLines);
         }
+        if (beforeStep)
+        {
+            inBeforeStep = true;
+            beforeStep(step);
+            inBeforeStep = false;
+        }
         {
             MARIANA_PROFILE("Physics drive");
             MoveKinematics(step);
-            ApplyPending(steps == 0);
+            ApplyPending(pending, steps == 0);
+            ApplyPending(stepPending, true);
+            stepPending.clear();
             DriveVehicles();
             MoveCharacters(step);
             DriveJoints();
@@ -930,12 +938,17 @@ Entity PhysicsWorld::Impl::EntityOf(JPH::BodyID body) const
     return found == bodyEntities.end() ? Entity{} : scene.FromId(found->second);
 }
 
+void PhysicsWorld::SetBeforeStep(std::function<void(float)> beforeStep)
+{
+    m_Impl->beforeStep = std::move(beforeStep);
+}
+
 PhysicsWorld::Impl::Pending* PhysicsWorld::Impl::PendingFor(Entity entity)
 {
     const RigidBody* body = entity.IsValid() ? entity.TryGet<RigidBody>() : nullptr;
     if (!body || body->motion != MotionType::Dynamic || (body->lockedAxes & 63) == 63)
         return nullptr;
-    return &pending[entity.RawId()];
+    return &(inBeforeStep ? stepPending : pending)[entity.RawId()];
 }
 
 void PhysicsWorld::RegisterComponents()

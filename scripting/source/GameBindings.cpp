@@ -148,6 +148,39 @@ namespace ScriptingInternal
             return 1;
         }
 
+        // scene.Load(path): the scene to switch to once this frame's scripts have run (the app loads
+        // it, every script starting again); scene.Reload(): the current one again.
+        int SceneLoad(lua_State* L)
+        {
+            const char* path = luaL_checkstring(L, 1);
+            if (FileSystem::Resolve(path).empty())
+                Error(L, "no scene %s", path);
+            Context& context = GetContext(L);
+            context.loadScene = path;
+            context.reloadScene = false;
+            return 0;
+        }
+
+        int SceneReload(lua_State* L)
+        {
+            Context& context = GetContext(L);
+            context.loadScene.clear();
+            context.reloadScene = true;
+            return 0;
+        }
+
+        // scene.Broadcast(name, ...): calls `name` on every running script that has it; how many did.
+        int SceneBroadcast(lua_State* L)
+        {
+            luaL_checkstring(L, 1);
+            Context& context = GetContext(L);
+            if (!context.send)
+                Error(L, "Broadcast isn't available here");
+            lua_pushnil(L);
+            lua_insert(L, 1);
+            return context.send(L);
+        }
+
         int SceneDestroy(lua_State* L)
         {
             const Entity entity = ToEntity(L, 1);
@@ -230,6 +263,35 @@ namespace ScriptingInternal
                 (input->*Query)(x, y);
             lua_pushvector(L, static_cast<float>(x), static_cast<float>(y), 0.0f);
             return 1;
+        }
+
+        // The mouse in the game view's pixels, from its top-left corner (the editor's Game window,
+        // the player's window).
+        int MousePosition(lua_State* L)
+        {
+            const Context& context = GetContext(L);
+            double x = 0.0, y = 0.0;
+            if (context.input)
+                context.input->GetMousePosition(x, y);
+            lua_pushvector(L, static_cast<float>(x) - context.viewport.x, static_cast<float>(y) - context.viewport.y, 0.0f);
+            return 1;
+        }
+
+        // input.SetCursorLocked(on): hidden and held in place, the mouse delta still moving (mouse
+        // look); input.SetCursorHidden(on): hidden but free. The app applies them while the game has
+        // the keys.
+        int SetCursorLocked(lua_State* L)
+        {
+            luaL_checktype(L, 1, LUA_TBOOLEAN);
+            GetContext(L).cursorLocked = lua_toboolean(L, 1) != 0;
+            return 0;
+        }
+
+        int SetCursorHidden(lua_State* L)
+        {
+            luaL_checktype(L, 1, LUA_TBOOLEAN);
+            GetContext(L).cursorHidden = lua_toboolean(L, 1) != 0;
+            return 0;
         }
 
         // ---- time -----------------------------------------------------------------------------
@@ -542,6 +604,9 @@ namespace ScriptingInternal
         SetFunction(L, "SpawnPrimitive", SceneSpawnPrimitive);
         SetFunction(L, "Each", SceneEach);
         SetFunction(L, "Clone", SceneClone);
+        SetFunction(L, "Load", SceneLoad);
+        SetFunction(L, "Reload", SceneReload);
+        SetFunction(L, "Broadcast", SceneBroadcast);
         SetFunction(L, "Destroy", SceneDestroy);
         lua_setglobal(L, "scene");
 
@@ -552,7 +617,9 @@ namespace ScriptingInternal
         SetFunction(L, "GetMouseButton", ButtonQuery<&IInput::IsMouseButtonDown>);
         SetFunction(L, "GetMouseButtonDown", ButtonQuery<&IInput::IsMouseButtonPressed>);
         SetFunction(L, "GetMouseButtonUp", ButtonQuery<&IInput::IsMouseButtonReleased>);
-        SetFunction(L, "GetMousePosition", MouseQuery<&IInput::GetMousePosition>);
+        SetFunction(L, "GetMousePosition", MousePosition);
+        SetFunction(L, "SetCursorLocked", SetCursorLocked);
+        SetFunction(L, "SetCursorHidden", SetCursorHidden);
         SetFunction(L, "GetMouseDelta", MouseQuery<&IInput::GetMouseDelta>);
         SetFunction(L, "GetScroll", MouseQuery<&IInput::GetMouseScrollDelta>);
         lua_setglobal(L, "input");

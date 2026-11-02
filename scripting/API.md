@@ -42,11 +42,16 @@ return Spin
 | `Start()` | Once, the first frame the script runs (every new script starts before any updates) |
 | `Update(dt)` | Every frame the game moves, before animation and physics (`dt` in game seconds) |
 | `LateUpdate(dt)` | After physics and the follow cameras |
+| `FixedUpdate(dt)` | Before every physics step (`dt` = the step, 1/60 s), so a force added there acts on that step whatever the frame rate |
 | `OnContactBegin(other, contact)` | A body of this entity began touching `other`; `contact` = `{ point, normal, speed }`, the normal pointing from this entity to `other` |
 | `OnContactEnd(other)` | They stopped touching |
 | `OnTriggerEnter(other)` / `OnTriggerExit(other)` | A trigger collider and a body met / parted (both sides get it) |
 | `OnAnimationEvent(name, clip)` | The entity's Animator passed an event of one of its clips (`"Footstep"` at 0.4 s of `"Walk"`), after physics and before `LateUpdate`. Events are set on the clips in the inspector's Animator section (or the graph's clips in the Animation Graph window); a clip fires its events when it makes up at least a quarter of the pose, and an event name once per frame |
 | `OnDestroy()` | The entity was destroyed, the script removed, or the game stopped |
+
+Any other function of a script can be called by name: `entity:Send(name, ...)` (that entity's
+scripts) and `scene.Broadcast(name, ...)` (every running script) call it with the script's `self`
+and the arguments and return how many did.
 
 Scripts on an entity run in their order, entities in id order. A script that raises an error is
 stopped (the error is logged and shown in the inspector) until its file changes; a call that runs
@@ -96,6 +101,7 @@ errors and autocomplete there.
 | `active`, `visible` | its own switches (settable): inactive = not drawn or simulated, scripts and animation stopped; hidden = not drawn; both for everything below it too |
 | `activeInHierarchy` | whether it and every entity above it are active |
 | `AddScript(path, values?)`, `RemoveScript(name)`, `SetScriptEnabled(name, on)` | scripts on it; changes take effect with the next frame's scripts |
+| `Send(name, ...)` | calls `name` on its running scripts that have it; how many did |
 | `IsValid()` | false once destroyed |
 | `Destroy()` | destroys it and everything below it once the scripts of this frame have run |
 | `Has(name)`, `Get(name)`, `Add(name, fields?)`, `Remove(name)` | components by name (below) |
@@ -142,6 +148,8 @@ m/s along the model's own axes and the turn in degrees per second).
 | `scene.SpawnPrimitive(shape, position?, color?, rotation?)` | `"cube"`, `"sphere"`, `"plane"`, `"cylinder"` or `"capsule"`, with a material of its own |
 | `scene.Each(component, fn)` | `fn(entity)` for every entity with the component, in id order |
 | `scene.Destroy(entity)` | as `entity:Destroy()` |
+| `scene.Load(path)`, `scene.Reload()` | another scene (or this one as it started) once this frame's scripts have run; every script starts again. In the editor until Stop |
+| `scene.Broadcast(name, ...)` | calls `name` on every running script that has it; how many did |
 
 ## require
 
@@ -158,14 +166,30 @@ Keys by name, case-insensitive: `"a"`..`"z"`, `"0"`..`"9"`, `"f1"`..`"f12"`, `"s
 | `input.GetKey(name)` | held |
 | `input.GetKeyDown(name)` / `input.GetKeyUp(name)` | pressed / released this frame |
 | `input.GetMouseButton(i)`, `GetMouseButtonDown(i)`, `GetMouseButtonUp(i)` | 0 left, 1 right, 2 middle |
-| `input.GetMousePosition()`, `GetMouseDelta()`, `GetScroll()` | vectors (x, y, 0) |
+| `input.GetMousePosition()`, `GetMouseDelta()`, `GetScroll()` | vectors (x, y, 0); the position in the game view's pixels from its top-left |
+| `input.SetCursorLocked(on)`, `SetCursorHidden(on)` | locked = hidden and held (mouse look; the delta still moves) |
 
-In the editor keys read as up while a text field has them or the right mouse button flies the camera.
+In the editor keys read as up while a text field has them or the right mouse button flies the camera;
+the cursor is the game's while it plays and has the keys (Escape gives it back).
 
-## time
+## screen
+
+The game view (the editor's Game window, the player's window) through the scene's first camera:
+`screen.width`, `screen.height`, `screen.Ray(point?)` (origin and direction of the ray through a
+point of the view, the mouse by default: pass them to `physics.Raycast`; nil while nothing shows
+the game) and `screen.WorldToScreen(point)` (x, y pixels from the top-left, z the distance; nil
+behind the camera).
+
+## time and task
 
 `time.delta` (this frame's game seconds), `time.time` (since Play), `time.frame`, `time.scale`
 (settable: 0.5 is slow motion).
+
+`task.spawn(fn, ...)` runs `fn` as a task until it waits; `task.delay(seconds, fn, ...)` after
+`seconds`; inside a task `task.wait(seconds?)` goes on after that much game time (none: the next
+frame) and returns how long it waited; `task.cancel(t)` stops one. Waiting tasks go on after every
+script's `Update`, at most once a frame; a task belongs to the script that started it (it pauses
+while its entity is off or the script disabled, ends with it). `task.wait` outside a task is an error.
 
 ## physics
 
@@ -198,6 +222,15 @@ In the editor keys read as up while a text field has them or the right mouse but
 | `texture.load(path)` | an image by resource path, loaded in the colour space of the slot it is put in |
 
 What scripts make or change this way lasts while the game runs: Stop puts the scene back.
+
+## lighting, effects, gizmos and save
+
+| | |
+|---|---|
+| `lighting.sunAzimuth`, `sunElevation`, `sunColor`, `sunIntensity`, `skyIntensity`, `reflectionIntensity`, `skyRotation`, `exposure` | the scene's light and the camera's exposure (settable; put back at Stop in the editor) |
+| `effects.Get(effect, parameter)`, `Set(effect, parameter, value)`, `SetEnabled(effect, on)`, `IsEnabled(effect)`, `Names()` | the pipeline's effects by name (exact, start or a word, any case) |
+| `gizmos.Line(a, b, color?, seconds?)`, `Sphere(center, radius, color?, seconds?)`, `Box(center, size, rotation?, color?, seconds?)`, `Text(position, text, color?, seconds?)` | drawn over the editor's Scene and Game views for the frame (or `seconds` of game time); not in the player |
+| `save.Set(key, value)`, `Get(key, default?)`, `Has`, `Delete`, `Keys`, `Clear`, `Flush` | values kept between runs (numbers, booleans, strings, vectors, tables of them): the editor's in `<project>/.mariana/save.json`, a Windows build's in `%APPDATA%/<title>/save.json`, a web build's in localStorage; written after each frame that changed them |
 
 ## Control scripts (in the Sandbox)
 

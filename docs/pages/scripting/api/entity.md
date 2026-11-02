@@ -135,6 +135,20 @@ if health then
 end
 ```
 
+### `entity:Send(name, ...) -> number` {#send}
+
+Calls the function `name` on each of this entity's running scripts that has one, with that script's `self` and the arguments; returns how many did (0 when none has it). Unlike `GetScript`, you don't need to know which script handles it:
+
+```luau
+-- The bullet doesn't care what the target is: anything with a Damage function takes it.
+function Bullet.OnContactBegin(self: Script, other: Entity, contact: Contact)
+    other:Send("Damage", 10)
+    self.entity:Destroy()
+end
+```
+
+An error in the called function stops that script, as in any of its own functions. For every script in the scene, use [`scene.Broadcast`](scene.md#broadcast).
+
 ### `entity:GetChildren() -> { Entity }` {#getchildren}
 
 The entities directly below it, in order.

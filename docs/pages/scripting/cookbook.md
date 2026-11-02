@@ -26,7 +26,7 @@ Moves its entity along its own axes with **W A S D** or the arrows; **Q** and **
 
 ### Timers and cooldowns
 
-There's no `wait()` in scripts: a function must return so the frame can go on. Keep timers in `self` and count them down in `Update`.
+Keep timers in `self` and count them down in `Update`. (For one-offs and sequences, a [task](api/task.md) that waits reads more simply: see [Waves](#waves-with-tasks).)
 
 ```luau title="Timers.luau"
 @include docs/snippets/cookbook/Timers.luau
@@ -70,6 +70,17 @@ Drops crates at random places in an area, keeping at most a set number.
 
 `scene.SpawnPrimitive(shape, position, color, rotation)` makes a cube, sphere, plane, cylinder or capsule with a material of its own. To spawn a model, use `scene.Spawn("/Models/Thing.glb", position, rotation)`.
 
+### Waves with tasks
+
+Countdowns and waves of crates as one function that waits between steps, with [`task.wait`](api/task.md). When it's done, every script with an `OnWavesDone` function hears it.
+
+```luau title="WaveSpawner.luau"
+@include docs/snippets/cookbook/WaveSpawner.luau
+```
+
+- The task belongs to the script: it pauses with the entity and ends at Stop or when the entity is destroyed.
+- `task.wait` counts game time, so pausing or slow motion holds the waves too.
+
 ## Scores and game flow
 
 ### A game manager and pickups
@@ -95,6 +106,17 @@ Countdown, play, results, repeat: a small state machine in plain Lua.
 @include docs/snippets/cookbook/RoundTimer.luau
 ```
 
+### A saved high score
+
+A score with a best that's kept between runs of the game, and every script told when it's beaten. Other scripts give points with `scene.Find("Game"):Send("AddPoints", 10)`.
+
+```luau title="HighScore.luau"
+@include docs/snippets/cookbook/HighScore.luau
+```
+
+- [`save`](api/save.md) keeps numbers, strings, vectors and tables; in the editor in `.mariana/save.json` (delete it to start over).
+- [`Send`](api/entity.md#send) and [`Broadcast`](api/scene.md#broadcast) call functions by name, so the sender doesn't need to know which script answers.
+
 ## Cameras
 
 ### Smooth follow camera
@@ -118,6 +140,17 @@ Drag with the left mouse button to orbit around a target, scroll to zoom.
 ```
 
 `input.GetMouseDelta()` is how far the mouse moved this frame, in pixels; `input.GetScroll()` the wheel. Both are vectors (`x`, `y`, `0`).
+
+### Click on things
+
+A ray from the camera through the mouse: what it points at is marked, and a click shoves it.
+
+```luau title="ClickToPush.luau"
+@include docs/snippets/cookbook/ClickToPush.luau
+```
+
+- [`screen.Ray()`](api/screen.md#ray) is `nil` until something shows the game (a camera, the Game window in the editor).
+- The marks are [gizmos](api/gizmos.md): drawn in the editor's views only, so they can stay in the game.
 
 ## Physics
 
@@ -154,6 +187,14 @@ Throws every dynamic body within a radius away from the centre, harder the close
 - `physics.OverlapSphere` returns every entity whose body touches the sphere.
 - An **impulse** is an instant kick (newton-seconds: an impulse of 10 on a 2 kg body adds 5 m/s). A **force** (`AddForce`) pushes over time; call it every frame for a steady push.
 - A ragdoll's bodies are its **bones**; the Ragdoll component is on the model's root. Walk up `parent` to find it.
+
+### Hovering
+
+A body held up by a spring toward a height above the ground, in [`FixedUpdate`](lifecycle.md#fixedupdate): the push is worked out again before every physics step, so it's as steady at 30 fps as at 144.
+
+```luau title="HoverSpring.luau"
+@include docs/snippets/cookbook/HoverSpring.luau
+```
 
 ### Moving platforms
 
@@ -261,6 +302,19 @@ Hold **Tab** for slow motion, eased in and out.
 ```
 
 `time.scale` slows everything on game time: scripts' `dt`, physics and animation. Set it back to 1 when you're done; this script does that in `OnDestroy` too, so stopping the game never leaves it slow.
+
+## Light
+
+### Day and night
+
+The sun goes round, the light dims and warms toward dusk, and bloom rises at night.
+
+```luau title="DayNight.luau"
+@include docs/snippets/cookbook/DayNight.luau
+```
+
+- [`lighting`](api/lighting.md) and [`effects`](api/lighting.md#effects) changes made while playing in the editor are put back at Stop.
+- `effects.Set` is an error for an effect the pipeline doesn't have, so the script checks `effects.Names()` once.
 
 ## More examples
 

@@ -52,8 +52,13 @@
       "scripting/api/animator",
       "scripting/api/scene",
       "scripting/api/input",
+      "scripting/api/screen",
       "scripting/api/time",
+      "scripting/api/task",
       "scripting/api/physics",
+      "scripting/api/lighting",
+      "scripting/api/gizmos",
+      "scripting/api/save",
       "scripting/api/types",
       "scripting/api/sandbox-scripts"
     ]

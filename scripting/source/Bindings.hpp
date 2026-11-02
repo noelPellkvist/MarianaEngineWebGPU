@@ -4,6 +4,7 @@
 #include <Mariana/Assets/AssetsStructs.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Scene/Transform.hpp>
+#include <Mariana/Scripting/ScriptWorld.hpp>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -20,10 +21,13 @@
 #include "lualib.h"
 
 class AssetManager2;
+class EffectStack;
 class GameClock;
+class ICamera;
 class IInput;
 class IMesh;
 class PhysicsWorld;
+struct LightingSettings;
 
 namespace ScriptingInternal
 {
@@ -37,9 +41,12 @@ namespace ScriptingInternal
         kMeshTag,
         kMaterialTag,
         kTextureTag,
+        kScreenTag,
+        kLightingTag,
     };
 
     struct ScriptMesh; // AssetBindings.cpp
+    struct SaveData;   // SaveData.hpp
 
     // What the bindings work with, reached from any thread of the state (lua_callbacks userdata).
     struct Context
@@ -59,6 +66,29 @@ namespace ScriptingInternal
         std::function<bool(lua_State*, Entity, std::string_view)> pushScript;
         // require(name): pushes what the script named returned (ScriptWorld runs it once).
         std::function<int(lua_State*)> require;
+        // entity:Send(name, ...) (an Entity at 1) and scene.Broadcast(name, ...) (nil at 1); the
+        // task library. ScriptWorld's.
+        std::function<int(lua_State*)> send;
+        std::function<int(lua_State*)> taskSpawn, taskDelay, taskWait, taskCancel;
+
+        // What the game is seen through (ScriptWorld::SetView): the game view's rectangle in window
+        // pixels (x, y, width, height) and its camera.
+        glm::vec4 viewport{ 0.0f };
+        glm::mat4 view{ 1.0f };
+        glm::mat4 projection{ 1.0f };
+        glm::vec3 cameraPosition{ 0.0f };
+        bool hasView = false;
+        LightingSettings* lighting = nullptr;
+        EffectStack* effects = nullptr;
+        ICamera* exposureCamera = nullptr;
+        SaveData* save = nullptr;
+        // Asked of the app: the cursor, a scene to load (or the current one again).
+        bool cursorLocked = false;
+        bool cursorHidden = false;
+        std::string loadScene;
+        bool reloadScene = false;
+        // Drawn by scripts (gizmos), shown until their time.
+        std::vector<ScriptDebugShape> gizmos;
         // A running call stops with an error once this passes (an endless loop); 0 = no limit.
         double deadline = 0.0;
         double timeLimit = 2.0; // seconds a call may take
@@ -101,7 +131,7 @@ namespace ScriptingInternal
         kId, kName, kParent, kPosition, kRotation, kScale, kWorldPosition, kWorldRotation,
         kForward, kRight, kUp, kIsValid, kDestroy, kHas, kGet, kAdd, kRemove, kGetScript,
         kGetChildren, kFindChild, kRotate, kTranslate, kLookAt, kSetMesh, kGetMesh, kGetMaterial,
-        kSetMaterial, kActive, kVisible, kActiveInHierarchy, kAddScript, kRemoveScript, kSetScriptEnabled,
+        kSetMaterial, kActive, kVisible, kActiveInHierarchy, kAddScript, kRemoveScript, kSetScriptEnabled, kSend,
         // quat
         kX, kY, kZ, kW, kInverse, kToEuler,
         // time
@@ -120,6 +150,9 @@ namespace ScriptingInternal
     void OpenEntity(lua_State* L);
     void OpenGame(lua_State* L);
     void OpenAssets(lua_State* L);
+    void OpenPlay(lua_State* L); // screen, lighting, effects, gizmos (PlayBindings.cpp)
+    void OpenSave(lua_State* L); // save (SaveData.cpp)
+    void OpenTask(lua_State* L); // task (PlayBindings.cpp, run by ScriptWorld)
 
     // Entity methods that work with meshes and materials (AssetBindings.cpp).
     int EntitySetMesh(lua_State* L);

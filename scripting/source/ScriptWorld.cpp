@@ -9,6 +9,7 @@
 #include <Mariana/Physics/PhysicsWorld.hpp>
 
 #include "Bindings.hpp"
+#include "SaveData.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -28,13 +29,13 @@ namespace
     {
         kStart, kUpdate, kLateUpdate, kOnDestroy,
         kOnContactBegin, kOnContactEnd, kOnTriggerEnter, kOnTriggerExit,
-        kOnAnimationEvent,
+        kOnAnimationEvent, kFixedUpdate,
         kCallbackCount
     };
     const char* const kCallbackNames[kCallbackCount] = {
         "Start", "Update", "LateUpdate", "OnDestroy",
         "OnContactBegin", "OnContactEnd", "OnTriggerEnter", "OnTriggerExit",
-        "OnAnimationEvent",
+        "OnAnimationEvent", "FixedUpdate",
     };
 
     // A script file loaded into the state: the table it returned, the metatable its instances share
@@ -129,6 +130,22 @@ namespace
         return 1;
     }
 
+    // A function running as a coroutine (task.spawn, task.delay) for the instance that started it:
+    // it runs until it waits (task.wait), then goes on from there when its time comes, while its
+    // instance runs (its entity active, the script enabled).
+    struct Task
+    {
+        lua_State* thread = nullptr;
+        int ref = LUA_NOREF;      // keeps the thread
+        uint64_t entity = 0;      // the instance it belongs to (0 = none)
+        size_t slot = 0;
+        double resumeAt = 0.0;    // game time
+        uint64_t frame = 0;       // the frame it last ran in (it runs at most once a frame)
+        int startArgs = -1;       // task.delay: the arguments waiting for its first run
+        double waitedSince = 0.0; // when it went to wait (what task.wait returns)
+        bool done = false;
+    };
+
     // A script other scripts load with require: run once per state, what it returned kept until its
     // file changes.
     struct Library
@@ -173,6 +190,10 @@ struct ScriptWorld::Impl
     std::unordered_map<AssetID, Module> modules;
     std::vector<Instance> instances; // by entity id, then slot
     Libraries libraries;
+    std::vector<std::unique_ptr<Task>> tasks;
+    Task* running = nullptr;                 // the task being run (task.wait yields it)
+    std::pair<uint64_t, size_t> calling{};   // the instance whose code runs (what task.spawn belongs to)
+    SaveData save;
 
     // Reading what scripts declare, apart from the game (no scene, input or physics).
     Context inspectContext;
@@ -195,10 +216,19 @@ struct ScriptWorld::Impl
         context.game = true;
         context.pushScript = [this](lua_State* state, Entity entity, std::string_view name) { return PushScript(state, entity, name); };
         context.require = [this](lua_State* state) { return Require(state, context, libraries); };
+        context.send = [this](lua_State* state) { return Send(state); };
+        context.taskSpawn = [this](lua_State* state) { return TaskSpawn(state, false); };
+        context.taskDelay = [this](lua_State* state) { return TaskSpawn(state, true); };
+        context.taskWait = [this](lua_State* state) { return TaskWait(state); };
+        context.taskCancel = [this](lua_State* state) { return TaskCancel(state); };
+        context.save = &save;
         inspectContext = context;
         inspectContext.game = false;
         inspectContext.pushScript = nullptr;
         inspectContext.require = [this](lua_State* state) { return Require(state, inspectContext, inspectLibraries); };
+        inspectContext.send = nullptr;
+        inspectContext.taskSpawn = inspectContext.taskDelay = inspectContext.taskWait = inspectContext.taskCancel = nullptr;
+        inspectContext.save = nullptr;
     }
 
     ~Impl()
@@ -210,6 +240,9 @@ struct ScriptWorld::Impl
 
     void Close()
     {
+        tasks.clear();
+        running = nullptr;
+        save.Flush();
         if (L)
             lua_close(L);
         L = nullptr;
@@ -220,6 +253,10 @@ struct ScriptWorld::Impl
         // After the state: its userdata let go of their meshes and materials as it closed.
         context.scriptMaterials.clear();
         context.scriptMeshes.clear();
+        context.gizmos.clear();
+        context.cursorLocked = context.cursorHidden = false;
+        context.loadScene.clear();
+        context.reloadScene = false;
         libraries = {};
     }
 
@@ -288,8 +325,11 @@ struct ScriptWorld::Impl
         lua_getref(L, instance.self);
         const int nargs = push(L);
         std::string error;
+        const auto outer = calling;
+        calling = { instance.entity, instance.slot };
         if (!Run(L, context, 1 + nargs, 0, error))
             Fail(instance, *module, error);
+        calling = outer;
         lua_settop(L, top);
     }
 
@@ -417,6 +457,216 @@ struct ScriptWorld::Impl
         if (reload)
             Logger::Info("Script " + module.name + " reloaded");
         return module;
+    }
+
+    // ---- Messages -------------------------------------------------------------------------------
+
+    // entity:Send(name, ...) (the entity at 1) and scene.Broadcast(name, ...) (nil at 1): calls the
+    // function `name` of every running script that has one (on that entity, or anywhere), with its
+    // `self` and the arguments; returns how many did.
+    int Send(lua_State* state)
+    {
+        const Entity target = lua_isnil(state, 1) ? Entity{} : CheckEntity(state, 1);
+        const std::string name = luaL_checkstring(state, 2);
+        const int args = lua_gettop(state) - 2;
+        const uint64_t only = target.IsValid() ? target.RawId() : 0;
+        const auto [first, last] = only ? InstancesOf(only) : std::pair<size_t, size_t>{ 0, instances.size() };
+        // Keys first: a call may add or end instances.
+        std::vector<std::pair<uint64_t, size_t>> receivers;
+        for (size_t i = first; i < last && i < instances.size(); ++i)
+            receivers.emplace_back(instances[i].entity, instances[i].slot);
+        int called = 0;
+        for (const auto& [entity, slot] : receivers)
+        {
+            Instance* instance = Find(entity, slot);
+            const Module* module = instance ? ModuleOf(*instance) : nullptr;
+            if (!module || !instance->enabled || !instance->started || instance->failed || instance->self == LUA_NOREF || !Active(*instance))
+                continue;
+            const int top = lua_gettop(state);
+            lua_getref(state, module->table);
+            lua_getfield(state, -1, name.c_str());
+            if (!lua_isfunction(state, -1))
+            {
+                lua_settop(state, top);
+                continue;
+            }
+            lua_remove(state, -2);
+            lua_getref(state, instance->self);
+            for (int a = 0; a < args; ++a)
+                lua_pushvalue(state, 3 + a);
+            std::string error;
+            const auto outer = calling;
+            calling = { entity, slot };
+            const bool ok = Run(state, context, 1 + args, 0, error);
+            calling = outer;
+            if (Instance* still = Find(entity, slot); !ok && still)
+                Fail(*still, *module, error);
+            lua_settop(state, top);
+            ++called;
+        }
+        lua_pushnumber(state, called);
+        return 1;
+    }
+
+    Instance* Find(uint64_t entity, size_t slot)
+    {
+        const auto [first, last] = InstancesOf(entity);
+        for (size_t i = first; i < last; ++i)
+            if (instances[i].slot == slot)
+                return &instances[i];
+        return nullptr;
+    }
+
+    // ---- Tasks ----------------------------------------------------------------------------------
+
+    // task.spawn(fn, ...) runs fn now until it waits; task.delay(seconds, fn, ...) runs it after
+    // `seconds`. Both return the task (a thread) for task.cancel.
+    int TaskSpawn(lua_State* state, bool delayed)
+    {
+        const int fn = delayed ? 2 : 1;
+        const double delay = delayed ? std::max(0.0, luaL_checknumber(state, 1)) : 0.0;
+        luaL_checktype(state, fn, LUA_TFUNCTION);
+        const int args = lua_gettop(state) - fn;
+        lua_State* thread = lua_newthread(state);
+        auto task = std::make_unique<Task>();
+        task->thread = thread;
+        task->ref = lua_ref(state, -1);
+        task->entity = calling.first;
+        task->slot = calling.second;
+        lua_pushvalue(state, fn);
+        lua_xmove(state, thread, 1);
+        for (int a = 0; a < args; ++a)
+        {
+            lua_pushvalue(state, fn + 1 + a);
+            lua_xmove(state, thread, 1);
+        }
+        Task& added = *task;
+        tasks.push_back(std::move(task));
+        if (delayed)
+        {
+            added.startArgs = args;
+            added.resumeAt = clock.Time() + delay;
+            added.frame = clock.Frame();
+        }
+        else
+            Resume(added, args);
+        return 1; // the thread
+    }
+
+    // task.wait(seconds?): only inside a task; goes on after `seconds` of game time (none: the next
+    // frame) and returns how long it waited.
+    int TaskWait(lua_State* state)
+    {
+        if (!running || running->thread != state)
+            Error(state, "task.wait only works inside task.spawn or task.delay (a callback like Update can't wait)");
+        const double seconds = std::max(0.0, luaL_optnumber(state, 1, 0.0));
+        running->resumeAt = clock.Time() + seconds;
+        running->waitedSince = clock.Time();
+        return lua_yield(state, 0);
+    }
+
+    int TaskCancel(lua_State* state)
+    {
+        lua_State* thread = lua_tothread(state, 1);
+        if (!thread)
+            luaL_typeerror(state, 1, "thread (a task)");
+        for (const std::unique_ptr<Task>& task : tasks)
+            if (task->thread == thread)
+                task->done = true;
+        return 0;
+    }
+
+    // Runs a task until it waits or ends (`args` values on its stack go to it).
+    void Resume(Task& task, int args)
+    {
+        Task* outer = running;
+        const auto outerCalling = calling;
+        running = &task;
+        calling = { task.entity, task.slot };
+        task.frame = clock.Frame();
+        const double outerDeadline = context.deadline;
+        if (outerDeadline <= 0.0)
+        {
+            context.deadline = lua_clock() + context.timeLimit;
+            context.interrupts = 0;
+        }
+        const int status = lua_resume(task.thread, nullptr, args);
+        context.deadline = outerDeadline;
+        running = outer;
+        calling = outerCalling;
+        if (status == LUA_YIELD)
+            return;
+        task.done = true;
+        if (status != LUA_OK)
+        {
+            const char* message = lua_tostring(task.thread, -1);
+            const Instance* owner = Find(task.entity, task.slot);
+            const Module* module = owner ? ModuleOf(*owner) : nullptr;
+            Logger::Error("A task of " + std::string(module ? module->name : "a script") + " stopped: " + (message ? message : "error"));
+        }
+    }
+
+    // The tasks whose time has come, while their instances run; those of instances that ended go.
+    void RunTasks()
+    {
+        const double now = clock.Time();
+        const uint64_t frame = clock.Frame();
+        for (size_t i = 0; i < tasks.size(); ++i)
+        {
+            Task& task = *tasks[i];
+            if (task.done)
+                continue;
+            if (task.entity)
+            {
+                const Instance* owner = Find(task.entity, task.slot);
+                if (!owner || owner->failed)
+                {
+                    task.done = true;
+                    continue;
+                }
+                if (!owner->enabled || !Active(*owner))
+                    continue; // paused with its script
+            }
+            if (task.frame == frame || task.resumeAt > now + 1e-9)
+                continue;
+            if (task.startArgs >= 0)
+            {
+                const int args = task.startArgs;
+                task.startArgs = -1;
+                Resume(task, args);
+            }
+            else
+            {
+                lua_pushnumber(task.thread, now - task.waitedSince);
+                Resume(task, 1);
+            }
+        }
+        for (size_t i = 0; i < tasks.size();)
+        {
+            if (tasks[i]->done)
+            {
+                lua_unref(L, tasks[i]->ref);
+                tasks.erase(tasks.begin() + static_cast<std::ptrdiff_t>(i));
+            }
+            else
+                ++i;
+        }
+    }
+
+    // Before each fixed physics step.
+    void FixedUpdate(float step)
+    {
+        if (!L)
+            return;
+        for (size_t i = 0; i < instances.size(); ++i)
+        {
+            Instance& instance = instances[i];
+            if (instance.enabled && instance.started && Active(instance))
+                Call(instance, kFixedUpdate, [step](lua_State* state) {
+                    lua_pushnumber(state, step);
+                    return 1;
+                });
+        }
     }
 
     // ---- require --------------------------------------------------------------------------------
@@ -852,7 +1102,80 @@ ScriptWorld::~ScriptWorld() = default;
 
 void ScriptWorld::SetPhysics(PhysicsWorld* physics)
 {
+    if (m_Impl->context.physics && m_Impl->context.physics != physics)
+        m_Impl->context.physics->SetBeforeStep(nullptr);
     m_Impl->context.physics = physics;
+    if (physics)
+        physics->SetBeforeStep([this](float step) { m_Impl->FixedUpdate(step); });
+}
+
+void ScriptWorld::SetView(const glm::vec4& viewport, const glm::mat4& view, const glm::mat4& projection, const glm::vec3& position)
+{
+    Context& context = m_Impl->context;
+    context.viewport = viewport;
+    context.view = view;
+    context.projection = projection;
+    context.cameraPosition = position;
+    context.hasView = viewport.z > 0.0f && viewport.w > 0.0f;
+}
+
+void ScriptWorld::SetLighting(LightingSettings* lighting)
+{
+    m_Impl->context.lighting = lighting;
+}
+
+void ScriptWorld::SetEffects(EffectStack* effects, ICamera* exposure)
+{
+    m_Impl->context.effects = effects;
+    m_Impl->context.exposureCamera = exposure;
+}
+
+void ScriptWorld::SetSaveLocation(const std::string& location)
+{
+    SaveData& save = m_Impl->save;
+    if (save.location == location)
+        return;
+    save.Flush();
+    save.location = location;
+    save.loaded = false;
+}
+
+void ScriptWorld::FlushSave()
+{
+    m_Impl->save.Flush();
+}
+
+bool ScriptWorld::TakeSceneRequest(std::string& file, bool& reload)
+{
+    Context& context = m_Impl->context;
+    if (context.loadScene.empty() && !context.reloadScene)
+        return false;
+    file = context.loadScene;
+    reload = context.reloadScene;
+    context.loadScene.clear();
+    context.reloadScene = false;
+    return true;
+}
+
+bool ScriptWorld::CursorLocked() const
+{
+    return m_Impl->context.cursorLocked;
+}
+
+bool ScriptWorld::CursorHidden() const
+{
+    return m_Impl->context.cursorHidden;
+}
+
+void ScriptWorld::ReleaseCursor()
+{
+    m_Impl->context.cursorLocked = false;
+    m_Impl->context.cursorHidden = false;
+}
+
+const std::vector<ScriptDebugShape>& ScriptWorld::DebugShapes() const
+{
+    return m_Impl->context.gizmos;
 }
 
 void ScriptWorld::SetTimeLimit(double seconds)
@@ -866,6 +1189,9 @@ void ScriptWorld::Update(float dt, const IInput* input)
     MARIANA_PROFILE("Scripts");
     Impl& w = *m_Impl;
     w.context.input = input;
+    // Shapes drawn before now are gone (those of a frame last until the next).
+    const double now = w.clock.Time();
+    std::erase_if(w.context.gizmos, [now](const ScriptDebugShape& shape) { return shape.until < now; });
     w.Sync();
     Profiler::Count("Script instances", static_cast<double>(w.instances.size()));
     if (!w.L)
@@ -889,6 +1215,7 @@ void ScriptWorld::Update(float dt, const IInput* input)
                 return 1;
             });
     }
+    w.RunTasks();
     w.FlushDestroys();
 }
 
@@ -928,6 +1255,7 @@ void ScriptWorld::LateUpdate(float dt)
             });
     }
     w.FlushDestroys();
+    w.save.Flush();
 }
 
 void ScriptWorld::Reset()

@@ -1,5 +1,7 @@
 #include <Editor/Scripting/ScriptEditor.hpp>
 
+#include <Editor/Physics/PhysicsEditor.hpp>
+
 #include <Editor/UndoStack.hpp>
 #include <Editor/Windows/InspectorComponents/ComponentEdit.hpp>
 #include <Editor/Windows/InspectorWindow.hpp>
@@ -12,6 +14,7 @@
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
 
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <algorithm>
@@ -364,4 +367,67 @@ namespace ScriptEditor
             << "    \"luau-lsp.types.definitionFiles\": [\".mariana/types/Mariana.d.luau\"]\n"
             << "}\n";
     }
+}
+
+void ScriptEditor::DrawGizmos(const std::vector<ScriptDebugShape>& shapes, const glm::mat4& viewProj, glm::vec2 imageMin, glm::vec2 imageSize)
+{
+    if (shapes.empty())
+        return;
+    std::vector<DebugLine> lines;
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    constexpr int kSegments = 24;
+    for (const ScriptDebugShape& shape : shapes)
+    {
+        switch (shape.type)
+        {
+        case ScriptDebugShape::Type::Line:
+            lines.push_back({ shape.a, shape.b, shape.color });
+            break;
+        case ScriptDebugShape::Type::Sphere:
+            // A circle in each of the three planes.
+            for (int axis = 0; axis < 3; ++axis)
+                for (int i = 0; i < kSegments; ++i)
+                {
+                    auto point = [&](int k) {
+                        const float angle = glm::two_pi<float>() * static_cast<float>(k) / kSegments;
+                        glm::vec3 p(0.0f);
+                        p[(axis + 1) % 3] = std::cos(angle) * shape.radius;
+                        p[(axis + 2) % 3] = std::sin(angle) * shape.radius;
+                        return shape.a + p;
+                    };
+                    lines.push_back({ point(i), point(i + 1), shape.color });
+                }
+            break;
+        case ScriptDebugShape::Type::Box:
+        {
+            glm::vec3 corners[8];
+            for (int i = 0; i < 8; ++i)
+            {
+                const glm::vec3 sign((i & 1) ? 0.5f : -0.5f, (i & 2) ? 0.5f : -0.5f, (i & 4) ? 0.5f : -0.5f);
+                corners[i] = shape.a + shape.rotation * (sign * shape.b);
+            }
+            for (int i = 0; i < 8; ++i)
+                for (int bit : { 1, 2, 4 })
+                    if (!(i & bit))
+                        lines.push_back({ corners[i], corners[i | bit], shape.color });
+            break;
+        }
+        case ScriptDebugShape::Type::Text:
+        {
+            const glm::vec4 clip = viewProj * glm::vec4(shape.a, 1.0f);
+            if (clip.w <= 1e-3f)
+                break;
+            const glm::vec2 ndc = glm::vec2(clip) / clip.w;
+            if (std::abs(ndc.x) > 1.0f || std::abs(ndc.y) > 1.0f)
+                break;
+            const ImVec2 size = ImGui::CalcTextSize(shape.text.c_str());
+            const ImVec2 at(imageMin.x + (ndc.x * 0.5f + 0.5f) * imageSize.x - size.x * 0.5f,
+                            imageMin.y + (0.5f - ndc.y * 0.5f) * imageSize.y - size.y * 0.5f);
+            drawList->AddText(ImVec2(at.x + 1.0f, at.y + 1.0f), IM_COL32(0, 0, 0, 200), shape.text.c_str());
+            drawList->AddText(at, shape.color | IM_COL32(0, 0, 0, 255), shape.text.c_str());
+            break;
+        }
+        }
+    }
+    PhysicsEditor::DrawDebugLines(lines, viewProj, imageMin, imageSize);
 }

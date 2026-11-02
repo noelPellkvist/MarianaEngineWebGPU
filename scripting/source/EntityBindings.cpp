@@ -627,6 +627,17 @@ namespace ScriptingInternal
             return 0;
         }
 
+        // entity:Send(name, ...): calls the function `name` of every script on the entity that has one.
+        int Send(lua_State* L)
+        {
+            CheckEntity(L, 1);
+            luaL_checkstring(L, 2);
+            Context& context = GetContext(L);
+            if (!context.send)
+                Error(L, "Send isn't available here");
+            return context.send(L);
+        }
+
         Entity FindBelow(Entity entity, const char* name)
         {
             Entity found;
@@ -729,6 +740,7 @@ namespace ScriptingInternal
             case kAddScript: return AddScript;
             case kRemoveScript: return RemoveScript;
             case kSetScriptEnabled: return SetScriptEnabled;
+            case kSend: return Send;
             default: return nullptr;
             }
         }

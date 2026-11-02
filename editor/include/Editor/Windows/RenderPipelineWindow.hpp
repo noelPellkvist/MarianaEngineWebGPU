@@ -2,6 +2,7 @@
 
 #include <Editor/Windows/EditorWindow.hpp>
 #include <Mariana/Rendering/Effect.hpp>
+#include <Mariana/Rendering/RenderPipeline.hpp>
 #include <Mariana/Rendering/SceneRenderer.hpp>
 
 #include <string>
@@ -26,6 +27,16 @@ public:
     bool SavePipeline(const std::string& path);
     // What runs now is what the file holds (the app applied it itself).
     void MarkSaved();
+
+    // What runs and its file, kept at Play and put back at Stop (scripts may change effects, and a
+    // scene loaded while playing brings its own pipeline).
+    struct State
+    {
+        std::string path, json, savedJson;
+        RenderPipelineDesc desc;
+    };
+    State Keep() const;
+    void PutBack(const State& state);
 
 private:
     EffectStack& m_effects;

@@ -111,6 +111,40 @@ enemy.active = true
 
 **Templates.** Build what you'll spawn in the editor, scripts and all, untick its **Active** box so it takes no part in the game, and clone it: the copies are inactive too until you set `active = true`. See the [spawner recipe](../cookbook.md#spawn-copies-of-a-template).
 
+### `scene.Load(path)` {#load}
+
+Switches to another scene: once this frame's scripts have run, the scene is replaced by the file's (with its lighting and pipeline), and its scripts start. Every running script ends first (`OnDestroy`), and its tasks with it. A path to a scene that isn't there is an error.
+
+```luau
+function Goal.OnTriggerEnter(self: Script, other: Entity)
+    if other.name == "Player" then
+        scene.Load("/Scenes/Level2.scene")
+    end
+end
+```
+
+Nothing carries over from one scene to the next but the [save data](save.md) (and `time.time`, which keeps counting): keep what the next scene needs there. A build takes the scenes its [profile](../../building/build-profiles.md) lists, so add every scene the game loads to it.
+
+In the editor the loaded scene plays until you press Stop, which brings back the scene you were editing.
+
+### `scene.Reload()` {#reload}
+
+Starts the scene again, as it was when the game started (or as its file has it, after a `scene.Load`): a restart after game over. Like `Load`, it happens once this frame's scripts have run.
+
+### `scene.Broadcast(name, ...) -> number` {#broadcast}
+
+Calls the function `name` on every running script that has one (with its `self` and the arguments), in entity order, and returns how many did. Scripts on switched-off entities, disabled ones and ones that have stopped on an error don't hear it; scripts without such a function are skipped.
+
+```luau
+scene.Broadcast("OnRoundOver", winner)
+-- any script can listen:
+function Crowd.OnRoundOver(self: Script, winner: string)
+    print(`{winner} wins!`)
+end
+```
+
+To call one entity's scripts, use [`entity:Send`](entity.md#send).
+
 ## Prefab files
 
 A **prefab** is an entity saved to a file, with everything below it: right-click it in the Hierarchy and choose **Save as Prefab**, and it is written to the project's `Prefabs/` folder. Spawn it like a model:

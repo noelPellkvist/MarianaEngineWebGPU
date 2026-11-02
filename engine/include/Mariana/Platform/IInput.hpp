@@ -198,6 +198,10 @@ class IInput {
         /// @return True if the cursor is locked, false otherwise.
         bool IsCursorLocked() const;
 
+        /// Hides the cursor over the window while leaving it free to move (a locked one is hidden too).
+        void SetCursorHidden(bool hidden);
+        bool IsCursorHidden() const { return _cursorHidden; }
+
         /// A key going down or up as if it were typed (tests, automation); pressed and released
         /// this frame as a real one would be.
         void SimulateKey(Key key, bool down);
@@ -220,6 +224,7 @@ class IInput {
         double _sx{0.0}, _sy{0.0};
 
         bool _cursorLocked{false};
+        bool _cursorHidden{false};
 
         void OnKey(Key key, int action);
         void OnMouseButton(int button, int action);

@@ -13,6 +13,7 @@ A script is a table of functions. The engine calls the ones with these names, on
 | `Start(self)` | Once, before the instance's first `Update` | |
 | `Update(self, dt)` | Every frame the game moves | `dt`: seconds since the last frame (game time) |
 | `LateUpdate(self, dt)` | Every frame, after physics and animation | `dt` |
+| `FixedUpdate(self, dt)` | Before every physics step | `dt`: the step's length (1/60 s by default) |
 | `OnContactBegin(self, other, contact)` | A body of this entity began touching another | `other`: the [Entity](api/entity.md); `contact`: a [Contact](api/types.md#contact) |
 | `OnContactEnd(self, other)` | They stopped touching | `other` |
 | `OnTriggerEnter(self, other)` | A trigger and a body met (on both sides) | `other` |
@@ -26,9 +27,11 @@ A script is a table of functions. The engine calls the ones with these names, on
 Frame N
   ├─ input is read
   ├─ scripts: Start (new instances, in entity order), then Update (everyone)
+  │     then tasks whose wait is over (task.wait)
   │     destroys asked for during these calls happen here
   ├─ animation: Animators advance and pose their models
-  ├─ physics: fixed steps (bodies, vehicles, characters, water, ragdolls, soft bodies)
+  ├─ physics: fixed steps (bodies, vehicles, characters, water, ragdolls, soft bodies),
+  │     each after FixedUpdate (everyone)
   ├─ scripts: physics events (contacts, triggers) for this frame's steps
   │           animation events for this frame
   │           LateUpdate (everyone)
@@ -58,7 +61,7 @@ Instances start:
 - again after an error, once the script file is changed.
 
 > [!NOTE]
-> Scripts can't attach scripts to the entities they create yet. Put the scripts that need to run on spawned things on an entity in the editor, and have it manage what it spawns (as the tutorial's Snake script does with its segments).
+> Entities a script makes get scripts with [`entity:AddScript`](api/entity.md#addscript), or come with them when cloned from a template or spawned from a prefab; their `Start` runs on the next frame.
 
 ## Update and dt
 
@@ -73,6 +76,22 @@ self.entity.position += self.entity.forward * self.speed * dt
 ## LateUpdate
 
 `LateUpdate` runs after physics and animation have moved everything this frame. It's the place for **cameras** that follow something (so they see where it ended up, not where it was) and for anything that reacts to the frame's final positions.
+
+## FixedUpdate
+
+Physics runs in fixed steps of 1/60 s (the Physics settings' steps per second), as many as the frame needs: none on some frames at 144 fps, two or more at 30 fps. `FixedUpdate` runs before **each** step, with that step's length as `dt`, so a force added there acts on exactly that step:
+
+```luau
+function Rocket.FixedUpdate(self: Script, dt: number)
+    physics.AddForce(self.entity, self.entity.up * self.thrust)
+end
+```
+
+Use it for forces that depend on the body's state as it is step by step (springs, hovering, steering by velocity): the result doesn't change with the frame rate. A force added in `Update` acts through every step of that frame's physics, which is fine for steady pushes. Reading input belongs in `Update` (a key pressed this frame is seen once there, however many steps there are). See [Hovering](cookbook.md#hovering).
+
+## Messages
+
+Scripts call each other's functions by name with [`entity:Send(name, ...)`](api/entity.md#send) (the scripts on one entity) and [`scene.Broadcast(name, ...)`](api/scene.md#broadcast) (every script): any function of a script can receive them, called at once with that script's `self`.
 
 ## Physics events
 

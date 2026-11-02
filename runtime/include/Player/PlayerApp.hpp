@@ -144,8 +144,18 @@ private:
     SceneCamera sceneCamera;
 
     double profileLogged = 0.0; // when the profile was last logged (Profiler::Now)
+    // The game as it started (scene.Reload without a scene.Load), the scene a script loaded since,
+    // and the pipeline that runs.
+    SceneSnapshot startSnapshot;
+    LightingSettings startLighting;
+    std::string loadedScene;
+    std::string pipelinePath;
+    bool cursorLocked = false, cursorHidden = false;
 
     void OnWindowResized(int width, int height);
+    // scene.Load / scene.Reload from a script: another scene (or this one again) after the frame.
+    void LoadGameScene(const std::string& file, bool reload);
+    bool ApplyPipeline(const std::string& path);
     void LogProfile();
     Entity FirstCamera() const;
     Entity SpawnPrimitive(const PlayerConfig::Spawn& spawn);

@@ -53,7 +53,7 @@ namespace ScriptScenarios
 local L = {}
 function L:Start()
     local names = {}
-    for _, lib in { { "scene", scene }, { "input", input }, { "physics", physics }, { "quat", quat }, { "mesh", mesh }, { "material", material }, { "texture", texture } } do
+    for _, lib in { { "scene", scene }, { "input", input }, { "physics", physics }, { "quat", quat }, { "mesh", mesh }, { "material", material }, { "texture", texture }, { "effects", effects }, { "gizmos", gizmos }, { "save", save }, { "task", task } } do
         for key in lib[2] do
             table.insert(names, key)
         end

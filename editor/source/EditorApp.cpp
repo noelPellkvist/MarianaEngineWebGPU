@@ -407,6 +407,8 @@ void EditorApp::OnStart()
     EditorWindows["Physics"] = std::move(physicsEditor);
     scripts = std::make_unique<ScriptWorld>(scene, assets, gameClock);
     scripts->SetPhysics(physics.get());
+    // What scripts keep between runs, while the game is played in the editor.
+    scripts->SetSaveLocation((project / ".mariana" / "save.json").string());
     // Checking scripts against the API's types (every component is registered by now), and the same
     // types written out for VS Code.
     scriptChecker = std::make_unique<ScriptChecker>(ScriptTypes::Definitions());
@@ -598,6 +600,7 @@ void EditorApp::OnStart()
     gameWindow = gameViewport.get();
     gameWindow->image = [this]() -> Texture* { return gameView && !sceneCameras.empty() ? gameView->Image() : nullptr; };
     gameWindow->emptyText = "No camera in the scene";
+    gameWindow->overlay = [this](ViewportWindow& window) { DrawGameOverlay(window); };
     EditorWindows["Game"] = std::move(gameViewport);
 
     if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get())) {
@@ -1341,7 +1344,26 @@ void EditorApp::OnUpdate(float deltaTime)
     const bool gameHasKeys = !ImGui::GetIO().WantTextInput && !input.IsMouseButtonDown(MouseButton::Right);
     const bool gameAdvances = gameClock.IsPlaying() && (!gameClock.IsPaused() || gameClock.DeltaTime() > 0.0f);
     if (gameAdvances)
+    {
+        // What the game is seen through (screen rays, the mouse in the view): the Game window's image
+        // as last drawn and the scene's first camera.
+        const glm::vec2 gameMin = gameWindow->ImageMin(), gameSize = gameWindow->ImageMax() - gameMin;
+        const Entity viewCamera = sceneCameras.empty() ? Entity{} : sceneCameras.front();
+        const WorldXform* cameraWorld = viewCamera.IsValid() ? viewCamera.TryGet<WorldXform>() : nullptr;
+        const CameraComponent* cameraSettings = viewCamera.IsValid() ? viewCamera.TryGet<CameraComponent>() : nullptr;
+        if (cameraWorld && cameraSettings && gameSize.x >= 1.0f && gameSize.y >= 1.0f)
+        {
+            gameCamera.Follow(*cameraWorld, *cameraSettings);
+            gameCamera.SetViewportSize(static_cast<uint32_t>(gameSize.x), static_cast<uint32_t>(gameSize.y));
+            gameCamera.UpdateBuffer();
+            scripts->SetView(glm::vec4(gameMin, gameSize), gameCamera.View(), gameCamera.Projection(), gameCamera.Position());
+        }
+        else
+            scripts->SetView(glm::vec4(0.0f), glm::mat4(1.0f), glm::mat4(1.0f), glm::vec3(0.0f));
+        scripts->SetLighting(&sceneRenderer.lighting);
+        scripts->SetEffects(&sceneView->Effects(), cam.get());
         scripts->Update(gameClock.DeltaTime(), gameHasKeys ? &input : nullptr);
+    }
     {
         MARIANA_PROFILE("Animation");
         animationSystem.Run(gameClock.DeltaTime());
@@ -1354,7 +1376,12 @@ void EditorApp::OnUpdate(float deltaTime)
             physics->ShowLatest();
         if (gameAdvances)
             scripts->LateUpdate(gameClock.DeltaTime());
+        std::string requested;
+        bool reload = false;
+        if (scripts->TakeSceneRequest(requested, reload))
+            LoadGameScene(requested, reload);
     }
+    ApplyGameCursor(gameHasKeys);
 
     sceneCameras.clear();
     cameraSystem.Run();
@@ -1371,6 +1398,8 @@ void EditorApp::OnGUI()
 {
     gui.PreUpdateGUI();
     ImGuizmo::BeginFrame();
+    if (gameCursorHidden && !gameCursorLocked)
+        ImGui::SetMouseCursor(ImGuiMouseCursor_None);
     graphWindow->SetPreview(selectedEntity);
 
     // Global, so a focused text field keeps Ctrl+Z for itself.
@@ -1413,9 +1442,69 @@ void EditorApp::OnGUI()
     sceneWindow->Draw();
 }
 
+void EditorApp::DrawGameOverlay(ViewportWindow& window)
+{
+    if (gameClock.IsPlaying() && !sceneCameras.empty())
+        ScriptEditor::DrawGizmos(scripts->DebugShapes(), gameCamera.Projection() * gameCamera.View(), window.ImageMin(),
+                                 window.ImageMax() - window.ImageMin());
+}
+
+void EditorApp::ApplyGameCursor(bool gameHasKeys)
+{
+    const bool running = gameClock.IsPlaying() && !gameClock.IsPaused();
+    if (running && gameHasKeys && input.IsKeyPressed(Key::ESCAPE))
+        scripts->ReleaseCursor();
+    const bool locked = running && gameHasKeys && scripts->CursorLocked();
+    const bool hidden = running && gameHasKeys && scripts->CursorHidden();
+    if (hidden != gameCursorHidden)
+        input.SetCursorHidden(gameCursorHidden = hidden);
+    if (locked != gameCursorLocked)
+        input.SetCursorLocked(gameCursorLocked = locked);
+}
+
+void EditorApp::LoadGameScene(const std::string& file, bool reload)
+{
+    scripts->Reset();
+    physics->Reset();
+    undo.Clear(); // its steps are about the scene that was; Stop brings back the one from before Play
+    const std::string path = reload ? gameScene : file;
+    if (path.empty())
+    {
+        // The scene as it was when Play was pressed.
+        scene.Restore(playSnapshot);
+        sceneRenderer.lighting = playLighting;
+        pipelineWindow->PutBack(playPipeline);
+    }
+    else
+    {
+        scene.Clear();
+        std::string error, warnings;
+        SceneSettings settings;
+        if (!SceneFile::Load(scene, assets, FileSystem::Resolve(path), error, &warnings, &settings))
+            Logger::Error("scene.Load: " + error);
+        if (settings.hasLighting)
+            sceneRenderer.lighting = settings.lighting;
+        if (!settings.pipeline.empty() && settings.pipeline != pipelineWindow->PipelinePath())
+            pipelineWindow->LoadPipeline(settings.pipeline);
+        gameScene = path;
+    }
+    scene.Update(0.0f);
+    sceneRenderer.InvalidateTransforms();
+    keepOnStop.clear();
+    if (!selectedEntity.IsValid())
+    {
+        selectedEntityID = static_cast<uint64_t>(-1);
+        selectedEntity = Entity{};
+        inspectorWindow->ClearInspectedEntity();
+    }
+    Logger::Info(path.empty() ? std::string("The game started again") : "The game is in " + path);
+}
+
 void EditorApp::DrawSceneOverlay(ViewportWindow& window)
 {
     DrawCameraFrustums(window);
+    if (gameClock.IsPlaying())
+        ScriptEditor::DrawGizmos(scripts->DebugShapes(), cam->Projection() * cam->View(), window.ImageMin(), window.ImageMax() - window.ImageMin());
     PhysicsEditor::DrawColliders(scene, selectedEntity, physicsWindow->showAllColliders, cam->Projection() * cam->View(),
                                  window.ImageMin(), window.ImageMax() - window.ImageMin(), physics.get());
     // Jolt's own view of the simulation, while there is one.
@@ -1871,6 +1960,12 @@ void EditorApp::TogglePlay()
         scripts->Reset();
         RestoreScene();
         physics->Reset();
+        // The light and pipeline as they were (scripts, or a scene they loaded, may have changed them).
+        sceneRenderer.lighting = playLighting;
+        pipelineWindow->PutBack(playPipeline);
+        playPipeline = {};
+        gameScene.clear();
+        ApplyGameCursor(false);
     }
     else
     {
@@ -1881,6 +1976,9 @@ void EditorApp::TogglePlay()
         playSnapshot = scene.Snapshot();
         playUndo = undo;
         restoreOnStop = true;
+        playLighting = sceneRenderer.lighting;
+        playPipeline = pipelineWindow->Keep();
+        gameScene.clear();
         gameClock.Play();
     }
 }

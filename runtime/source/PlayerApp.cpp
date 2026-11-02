@@ -26,7 +26,9 @@
 #include <json.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <filesystem>
 #include <functional>
@@ -37,6 +39,31 @@
 namespace
 {
     using Json = nlohmann::json;
+
+    // Where the game's save data (the scripts' `save`) is kept: natively a file in the user's
+    // application data under the game's title, on the web the page's localStorage under it.
+    std::string SaveLocation(const std::string& title)
+    {
+        std::string name;
+        for (char c : title)
+            name += (std::isalnum(static_cast<unsigned char>(c)) || c == ' ' || c == '-' || c == '_') ? c : '_';
+        if (name.empty())
+            name = "Mariana Game";
+#if defined(__EMSCRIPTEN__)
+        return "mariana-save/" + name;
+#else
+        std::filesystem::path folder;
+        if (const char* appData = std::getenv("APPDATA"))
+            folder = appData;
+        else if (const char* data = std::getenv("XDG_DATA_HOME"))
+            folder = data;
+        else if (const char* home = std::getenv("HOME"))
+            folder = std::filesystem::path(home) / ".local" / "share";
+        else
+            folder = FileSystem::ExecutableDirectory();
+        return (folder / name / "save.json").string();
+#endif
+    }
 
     glm::vec3 ReadVec3(const Json& object, const char* key, const glm::vec3& fallback)
     {
@@ -270,12 +297,7 @@ void PlayerApp::OnStart()
     if (settings.hasLighting)
         sceneRenderer.lighting = settings.lighting;
     // The pipeline Player.json names, else the scene's, else the engine's default.
-    const std::string pipelinePath = !config.pipeline.empty() ? config.pipeline : !settings.pipeline.empty() ? settings.pipeline : "/Pipelines/Default.pipeline";
-    RenderPipelineDesc pipeline;
-    if (std::string error; RenderPipelineDesc::Load(pipelinePath, pipeline, error))
-        pipeline.Apply(effects, sceneRenderer, cam.get());
-    else
-        Logger::Error("Could not load the render pipeline: " + error);
+    ApplyPipeline(!config.pipeline.empty() ? config.pipeline : !settings.pipeline.empty() ? settings.pipeline : "/Pipelines/Default.pipeline");
     for (const PlayerConfig::Spawn& spawn : config.spawns)
     {
         Entity root;
@@ -387,12 +409,67 @@ void PlayerApp::OnStart()
             ScriptValue{ "height", ScriptValueType::Number, config.followHeight } });
     }
     scene.Update(0.0f);
+    // What scene.Reload goes back to, and where the game's save data is kept.
+    scene.Update(0.0f);
+    startSnapshot = scene.Snapshot();
+    startLighting = sceneRenderer.lighting;
+    scripts->SetSaveLocation(SaveLocation(config.window.title));
+    scripts->SetLighting(&sceneRenderer.lighting);
+    scripts->SetEffects(&effects, cam.get());
+
     // A player is the game: it plays from the start.
     gameClock.Play();
 }
 
+bool PlayerApp::ApplyPipeline(const std::string& path)
+{
+    RenderPipelineDesc pipeline;
+    if (std::string error; !RenderPipelineDesc::Load(path, pipeline, error))
+    {
+        Logger::Error("Could not load the render pipeline: " + error);
+        return false;
+    }
+    pipeline.Apply(effects, sceneRenderer, cam.get());
+    pipelinePath = path;
+    return true;
+}
+
+void PlayerApp::LoadGameScene(const std::string& file, bool reload)
+{
+    scripts->Reset();
+    physics->Reset();
+    const std::string path = reload ? loadedScene : file;
+    if (path.empty())
+    {
+        scene.Restore(startSnapshot);
+        sceneRenderer.lighting = startLighting;
+    }
+    else
+    {
+        scene.Clear();
+        std::string error;
+        SceneSettings settings;
+        if (!SceneFile::Load(scene, assets, FileSystem::Resolve(path), error, nullptr, &settings))
+            Logger::Error("scene.Load: " + error);
+        if (settings.hasLighting)
+            sceneRenderer.lighting = settings.lighting;
+        // Player.json's pipeline holds for every scene; else each scene's own.
+        if (config.pipeline.empty() && !settings.pipeline.empty() && settings.pipeline != pipelinePath)
+            ApplyPipeline(settings.pipeline);
+        loadedScene = path;
+    }
+    scene.Update(0.0f);
+    sceneRenderer.InvalidateTransforms();
+}
+
 void PlayerApp::OnUpdate(float deltaTime)
 {
+    // What the game is seen through (last frame's): the window and the camera that draws it.
+    const Entity camera = FirstCamera();
+    const WorldXform* cameraWorld = camera.IsValid() ? camera.TryGet<WorldXform>() : nullptr;
+    const ICamera& view = cameraWorld ? static_cast<const ICamera&>(sceneCamera) : *cam;
+    scripts->SetView(glm::vec4(0.0f, 0.0f, static_cast<float>(m_Window.GetWidth()), static_cast<float>(m_Window.GetHeight())), view.View(),
+                     view.Projection(), view.Position());
     scripts->Update(gameClock.DeltaTime(), &input);
     {
         MARIANA_PROFILE("Animation");
@@ -400,6 +477,14 @@ void PlayerApp::OnUpdate(float deltaTime)
     }
     physics->Step(gameClock.DeltaTime());
     scripts->LateUpdate(gameClock.DeltaTime());
+    std::string requested;
+    bool reload = false;
+    if (scripts->TakeSceneRequest(requested, reload))
+        LoadGameScene(requested, reload);
+    if (scripts->CursorHidden() != cursorHidden)
+        input.SetCursorHidden(cursorHidden = scripts->CursorHidden());
+    if (scripts->CursorLocked() != cursorLocked)
+        input.SetCursorLocked(cursorLocked = scripts->CursorLocked());
     if (config.profile)
         LogProfile();
 }

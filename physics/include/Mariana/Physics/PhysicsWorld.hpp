@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include <Mariana/Physics/Components.hpp>
 #include <Mariana/Physics/PhysicsSettings.hpp>
 #include <Mariana/Physics/Queries.hpp>
@@ -82,6 +83,9 @@ public:
 
     const PhysicsSettings& Settings() const;
     void SetSettings(const PhysicsSettings& settings);
+    // Called before each fixed step with its length (scripts' FixedUpdate). Forces, torques and
+    // impulses added while it runs act on that step only.
+    void SetBeforeStep(std::function<void(float)> beforeStep);
 
     // Makes the bodies match the components, then runs the fixed steps `dt` seconds of game time
     // cover (time left over carries to the next call) and moves the entities: with interpolation

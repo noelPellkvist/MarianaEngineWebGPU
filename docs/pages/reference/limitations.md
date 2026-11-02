@@ -22,12 +22,11 @@ Mariana is young. This page lists what it doesn't do yet, so you know before you
 | **Lights** | One sun and the sky light. No point or spot lights yet; glowing (emissive) materials don't light their surroundings |
 | **Saving game data** | Scripts can't write files (high scores, save games) |
 | **Multiplayer** | Not yet available to games (a networking library is in development) |
-| **Scene loading from scripts** | A game runs one scene; scripts can't switch scenes yet |
 
 ## Scripting
 
 - Animation clips and graphs can't be assigned from scripts (meshes, materials and textures can: see [Meshes, Materials and Textures](../scripting/api/meshes.md)). Meshes made by scripts aren't saved in scene files.
-- There is no `wait` or yielding: spread work over frames with timers in `self`.
+- Gizmos are drawn in the editor only, not in built games.
 
 ## Assets
 

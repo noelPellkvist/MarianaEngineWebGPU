@@ -197,10 +197,10 @@ Available in scripts:
 | `os` | `clock` (seconds, for timing), `time`, `date` |
 | `print`, `warn` | To the log, with the script's name and line |
 
-Not available: files (`io`) and Roblox's APIs (`game`, `workspace`, `task`, `wait`, `Instance`). `require` loads library scripts: see [Sharing Code with require](modules.md).
+Not available: files (`io`) and Roblox's APIs (`game`, `workspace`, `wait`, `Instance`). `require` loads library scripts: see [Sharing Code with require](modules.md).
 
 > [!NOTE]
-> There's no `wait()`: a script function must return so the frame can go on. For things that take time, keep a timer in `self` and check it in `Update`. See [Timers and cooldowns](cookbook.md#timers-and-cooldowns).
+> A script function must return so the frame can go on, so `Update` can't wait. To wait, start a [task](api/task.md): `task.spawn(function() task.wait(2) ... end)`. For things checked every frame, a timer in `self` is simpler: see [Timers and cooldowns](cookbook.md#timers-and-cooldowns).
 
 ## Common pitfalls
 

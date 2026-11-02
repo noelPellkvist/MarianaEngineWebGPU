@@ -125,12 +125,19 @@ void IInput::GetMouseScrollDelta(double& dx, double& dy) const
 }
 
 // ---------- Cursor lock ----------
+void IInput::SetCursorHidden(bool hidden)
+{
+    _cursorHidden = hidden;
+    if (m_window && !_cursorLocked)
+        glfwSetInputMode(m_window, GLFW_CURSOR, hidden ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL);
+}
+
 void IInput::SetCursorLocked(bool locked)
 {
     _cursorLocked = locked;
     if (!m_window)
         return;
-    glfwSetInputMode(m_window, GLFW_CURSOR, locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+    glfwSetInputMode(m_window, GLFW_CURSOR, locked ? GLFW_CURSOR_DISABLED : _cursorHidden ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL);
 
     // Reset deltas to avoid a big jump on mode switch
     double x, y;
