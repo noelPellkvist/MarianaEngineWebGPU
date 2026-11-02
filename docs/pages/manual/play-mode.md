@@ -27,7 +27,11 @@ While the game runs, its clock (seconds since Play) is shown next to the buttons
 - **Game time** only moves while playing (and not while paused): scripts' `dt`, physics and animations all use it. While stopped, animations hold their pose; the Animator's time slider in the Inspector still poses the model.
 - **Physics bodies** are made when you press Play and dropped when you stop, so every Play starts from the same state and runs the same way.
 - **Scripts** start (their `Start` runs) on the first frame and end (`OnDestroy`) when you stop.
-- **Input** goes to the game while the mouse isn't flying the editor camera (right mouse button) and you aren't typing in a text field.
+- **Input** goes to the game while the mouse isn't flying the editor camera (right mouse button) and you aren't typing in a text field. The mouse position scripts read is relative to the Game window's image, and [`screen.Ray`](../scripting/api/screen.md) looks through the scene's first camera there.
+- **The cursor**: a game that locks or hides it (mouse look) gets it while it plays and has the keys. **Escape** gives it back, and so do Pause and Stop.
+- **Scene switches**: a script's [`scene.Load`](../scripting/api/scene.md#load) replaces the scene until you stop; Stop brings back the one you were editing.
+- **Gizmos** that scripts draw show over both the Scene and the Game window.
+- **Save data** scripts keep with [`save`](../scripting/api/save.md) goes to the project's `.mariana/save.json`, apart from a built game's: delete it to start afresh.
 
 Watch the game in the **Game** window. The **Scene** window still works while playing: fly around, select things and watch their components change live in the Inspector.
 
@@ -35,7 +39,7 @@ Watch the game in the **Game** window. The **Scene** window still works while pl
 
 You can change anything while the game runs: move entities, change a rigid body's mass, edit a script's properties. Saving a script while playing reloads it into the running game, and every instance keeps its state.
 
-When you stop, the **scene** goes back to how it was when you pressed Play, and so does the undo history. **Asset** changes stay: edits to materials, animation graphs and the render pipeline made while playing aren't undone by stopping.
+When you stop, the **scene** goes back to how it was when you pressed Play, and so does the undo history, the **lighting** and the **render pipeline** (scripts may change them; so tune those while stopped). Other **asset** changes stay: edits to materials and animation graphs made while playing aren't undone by stopping.
 
 ## Keeping changes
 

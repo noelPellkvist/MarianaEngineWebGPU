@@ -37,7 +37,7 @@ return Spin
 1. A script **returns a table**. Its functions with known names (`Start`, `Update`, `OnTriggerEnter`, …) are called by the engine.
 2. Each entity with the script gets its own **`self`**: a table that holds that entity's state. `self.entity` is the entity.
 3. **`properties`** lists values the Inspector edits per entity. They're put into `self` before `Start`, so the code reads `self.speed`.
-4. Everything else comes from a handful of **globals**: `scene`, `input`, `time`, `physics`, `vec3`, `quat`, and Luau's standard library.
+4. Everything else comes from **globals**: `scene`, `input`, `time`, `physics`, `vec3`, `quat` and the others below, and Luau's standard library.
 
 ## Attaching scripts
 
@@ -66,10 +66,17 @@ Entities run in the order they were created, and an entity's scripts in the orde
 
 | Global | For | Reference |
 |---|---|---|
-| `scene` | Finding, creating, spawning and destroying entities | [`scene`](api/scene.md) |
-| `input` | Keyboard and mouse | [`input`](api/input.md) |
+| `scene` | Finding, creating, spawning, cloning and destroying entities; loading scenes; messages to every script | [`scene`](api/scene.md) |
+| `input` | Keyboard, mouse and the cursor | [`input`](api/input.md) |
+| `screen` | The game view: what the mouse points at, where things are on screen | [`screen`](api/screen.md) |
 | `time` | Game time, frame count, slow motion | [`time`](api/time.md) |
+| `task` | Functions that wait (`task.wait`) | [`task`](api/task.md) |
 | `physics` | Raycasts, overlaps, forces, velocities, vehicles, characters, ragdolls, water | [`physics`](api/physics.md) |
+| `mesh`, `material`, `texture` | Meshes built at run time, materials, images | [Meshes and materials](api/meshes.md) |
+| `lighting`, `effects` | The sun, the sky, exposure and post effects | [lighting and effects](api/lighting.md) |
+| `gizmos` | Debug drawing in the editor's views | [`gizmos`](api/gizmos.md) |
+| `save` | Values kept between runs of the game | [`save`](api/save.md) |
+| `require` | Library scripts shared between scripts | [Sharing Code with require](modules.md) |
 | `vec3`, `vector` | 3D vectors | [`vec3` and `vector`](api/vec3.md) |
 | `quat` | Rotations | [`quat`](api/quat.md) |
 | `print`, `warn` | Messages to the log | [Debugging](debugging.md) |

@@ -40,11 +40,11 @@ The left side of the Build window lists the profiles. **+ Windows** and **+ Web*
 | **Configuration** | **Release** (fast; what you ship) or **Debug** (slow, with checks; for finding engine problems) |
 | **Folder** | Where the game goes, relative to the project (or a full path). Empty = `Builds/<name>` |
 | **Game name** | The `.exe`'s name on Windows |
-| **Window title** | The window's title (the browser tab's on the web). Empty = the game name |
+| **Window title** | The window's title (the browser tab's on the web). Empty = the game name. It also names where the game's [save data](../scripting/api/save.md) is kept, so changing it starts players afresh |
 | **Window size** | The window's size when it opens, in pixels (on the web the page fills the browser) |
 | **Icon** | A PNG for the window icon; empty = the engine's |
 | **Start scene** | The scene the game opens. Choose from the project's `Scenes/` folder |
-| **More scenes** | Other scenes to package with it |
+| **More scenes** | Other scenes to package with it: every scene a script switches to with [`scene.Load`](../scripting/api/scene.md#load) |
 | **Pipeline** | The [render pipeline](../manual/rendering.md); empty = the one the scene was saved with |
 | **Follow camera** | A scene without a camera gets one that chases what the keys drive (a vehicle or character with the Sandbox's driver scripts) |
 | **Log frame times** | Every 5 seconds the game logs its average CPU and GPU times and its busiest parts (in the console on Windows, the browser's console on the web) |
@@ -61,7 +61,7 @@ Without **Whole project**, a build takes only what your scenes need:
 - the project's `Physics.json`, its own pipelines and icon when it uses them,
 - the whole `Scripts/` folder, and the `Prefabs/` folder with what the prefabs use.
 
-So files that only scripts load (a model `scene.Spawn` spawns that no scene contains) aren't included: put them in a scene, or turn on **Whole project**. To see exactly what a profile takes without building, run the [command line tool](command-line.md) with `--list`. Files a scene refers to that can't be found are listed as warnings.
+So files that only scripts load (a model `scene.Spawn` spawns that no scene contains, a texture for `texture.load`) aren't included: put them in a scene, or turn on **Whole project**. Scenes the game switches to go in **More scenes**. To see exactly what a profile takes without building, run the [command line tool](command-line.md) with `--list`. Files a scene refers to that can't be found are listed as warnings.
 
 **Whole project** takes everything except the editor's own folders (`.mariana`, `Builds`, `.vscode`, `.git`). The game is bigger, but nothing can be left out.
 
