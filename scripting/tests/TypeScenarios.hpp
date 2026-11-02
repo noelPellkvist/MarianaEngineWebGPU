@@ -189,11 +189,40 @@ return Bad
                       passed);
     }
 
+    // require in the checker: a strict script finds what a library (requiring another) returns,
+    // so calling it wrongly is a problem; a missing script is one too; a right use checks clean.
+    inline Result RequireTypes(const Log& log, ScriptChecker& checker)
+    {
+        using namespace detail;
+        RequireFolder();
+        const char* source = R"(--!strict
+local Util = require("./ReqLib/Util")
+local Missing = require("./ReqLib/Nope")
+local T = {} :: Script
+function T.Update(self: Script, dt: number)
+    local a: number = Util.scale(2)
+    local b = Util.scale("two")
+end
+return T
+)";
+        const std::vector<ScriptDiagnostic> diagnostics = checker.Check("/Scripts/RequireTest.luau", source);
+        std::set<int> lines;
+        for (const ScriptDiagnostic& d : diagnostics)
+            lines.insert(d.line + 1);
+        const std::vector<ScriptDiagnostic> clean = checker.Check("/Scripts/RequireClean.luau", R"(--!strict
+local Util = require("./ReqLib/Util")
+local x: number = Util.scale(3)
+return {}
+)");
+        return Finish(log, "require types", std::to_string(diagnostics.size()) + " problems" + Lines(diagnostics) + (clean.empty() ? ", clean use clean" : " | clean:" + Lines(clean)),
+                      lines == std::set<int>{ 3, 7 } && clean.empty());
+    }
+
     inline std::vector<Result> RunTypes(const Log& log)
     {
         const std::string definitions = ScriptTypes::Definitions();
         ScriptChecker checker(definitions);
         return { Definitions(log, definitions, checker), SandboxScripts(log, checker), DocsSnippets(log, checker), Mistakes(log, checker),
-                 Completion(log, checker) };
+                 Completion(log, checker), RequireTypes(log, checker) };
     }
 }

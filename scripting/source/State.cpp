@@ -68,6 +68,14 @@ namespace ScriptingInternal
             return 0;
         }
 
+        int Require(lua_State* L)
+        {
+            Context& context = GetContext(L);
+            if (!context.require)
+                Error(L, "require isn't available here");
+            return context.require(L);
+        }
+
         int Warn(lua_State* L)
         {
             const std::string text = Join(L);
@@ -116,6 +124,8 @@ namespace ScriptingInternal
         lua_setglobal(L, "print");
         lua_pushcfunction(L, Warn, "warn");
         lua_setglobal(L, "warn");
+        lua_pushcfunction(L, Require, "require");
+        lua_setglobal(L, "require");
 
         // Entity userdata by id, weak so it goes when scripts drop it.
         lua_newtable(L);
@@ -218,7 +228,7 @@ namespace ScriptingInternal
             "id", "name", "parent", "position", "rotation", "scale", "worldPosition", "worldRotation",
             "forward", "right", "up", "IsValid", "Destroy", "Has", "Get", "Add", "Remove", "GetScript",
             "GetChildren", "FindChild", "Rotate", "Translate", "LookAt", "SetMesh", "GetMesh", "GetMaterial",
-            "SetMaterial",
+            "SetMaterial", "active", "visible", "activeInHierarchy", "AddScript", "RemoveScript", "SetScriptEnabled",
             "x", "y", "z", "w", "Inverse", "ToEuler",
             "delta", "time", "frame",
             "SetFloat", "SetBool", "SetTrigger", "ResetTrigger", "GetFloat", "GetBool", "Play", "CrossFade",

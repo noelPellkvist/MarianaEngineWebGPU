@@ -82,7 +82,8 @@ namespace
         if (entry.version != asset->Version())
         {
             entry.version = asset->Version();
-            entry.problems = checker.Check(ScriptName(script), asset->source);
+            const std::string resource = asset->file.empty() ? std::string() : FileSystem::ToResourcePath(asset->file);
+            entry.problems = checker.Check(resource.empty() ? ScriptName(script) : resource, asset->source);
         }
         return entry.problems;
     }

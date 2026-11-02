@@ -16,6 +16,11 @@ public:
     static Prefab FromEntity(const Scene& src, Entity root);
 
     bool IsValid() const { return _rootId != 0; }
+    // The prefab's own scene, and which of its entities is the one instantiated (with what is below
+    // it): what loaders fill in.
+    Scene& Contents() { return _scene; }
+    const Scene& Contents() const { return _scene; }
+    void SetRoot(Entity root) { _rootId = root.RawId(); }
     const char* GetName() const;
     Entity Root();
     Entity Root() const;

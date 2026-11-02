@@ -228,6 +228,8 @@ void SceneView::CreateSystems()
     Scene& scene = renderer.scene;
 
     gatherDrawsSystem = scene.CreateSystem<MeshComponent, WorldXform>([this](Entity ent, MeshComponent& meshComp, WorldXform& form, float dt){
+        if (!form.visible)
+            return; // hidden or inactive, itself or above it
         const MeshOverride* drawn = ent.TryGet<MeshOverride>();
         IMesh* mesh = (drawn ? drawn->mesh : meshComp.mesh).Get().get();
         if (!mesh)
@@ -263,6 +265,8 @@ void SceneView::CreateSystems()
     });
 
     gatherShadowCastersSystem = scene.CreateSystem<MeshComponent, WorldXform, ShadowCasterTag>([this](Entity ent, MeshComponent& meshComp, WorldXform& form, ShadowCasterTag& tag, float dt){
+        if (!form.visible)
+            return;
         const MeshOverride* drawn = ent.TryGet<MeshOverride>();
         IMesh* mesh = (drawn ? drawn->mesh : meshComp.mesh).Get().get();
         if (!mesh)

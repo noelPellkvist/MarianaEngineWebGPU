@@ -29,6 +29,9 @@ local body = e:Get("RigidBody")
 | `forward` | vector | read | Its +Z axis in the world (where it looks) |
 | `right` | vector | read | Its +X axis in the world |
 | `up` | vector | read | Its +Y axis in the world |
+| `active` | boolean | read / write | Its own switch: an inactive entity and everything below it isn't drawn or simulated, and their scripts and animation don't run |
+| `visible` | boolean | read / write | Its own switch: a hidden entity and everything below it isn't drawn (it still runs) |
+| `activeInHierarchy` | boolean | read | Whether it actually runs: it and every entity above it are active |
 
 Transforms are always current: set `position` and the next read of `worldPosition` (or of a child's) already reflects it.
 
@@ -92,6 +95,34 @@ Whether the entity has the component (or tag).
 ### `entity:Remove(component)` {#remove}
 
 Removes the component if the entity has it.
+
+### Switching entities off {#active}
+
+```luau
+door.active = false          -- gone: not drawn, no collider, its scripts pause
+door.active = true           -- back, scripts going on where they were
+
+marker.visible = false       -- not drawn, but still solid and running
+```
+
+A switched-off entity keeps its components and its scripts' state; its physics bodies are removed and made again when it comes back (from where it is). Scripts don't start until their entity is active. The editor's Inspector has the same **Active** and **Visible** boxes, and the Hierarchy greys out what isn't drawn.
+
+### `entity:AddScript(path, values?)` {#addscript}
+
+Puts a script (by resource path) on the entity, after the ones it has, with `values` for its properties (numbers, booleans, strings and vectors by name). It starts with the next frame's scripts, so `GetScript` finds it from then on.
+
+```luau
+local ball = scene.SpawnPrimitive("sphere", vec3(0, 5, 0))
+ball:AddScript("/Scripts/Bouncer.luau", { height = 2 })
+```
+
+### `entity:RemoveScript(name)` {#removescript}
+
+Takes a script off by its file name (without `.luau`); its `OnDestroy` runs with the next frame's scripts.
+
+### `entity:SetScriptEnabled(name, enabled)` {#setscriptenabled}
+
+Pauses (`false`) or resumes a script: a disabled script keeps its state and gets no calls. Like the checkbox next to each script in the Inspector.
 
 ### `entity:GetScript(name) -> any` {#getscript}
 

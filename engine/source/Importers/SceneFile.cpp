@@ -103,6 +103,8 @@ namespace
             a.Assets("materials", c.materials);
         });
         SceneFile::RegisterTag<ShadowCasterTag>("ShadowCasterTag");
+        SceneFile::RegisterTag<InactiveTag>("Inactive");
+        SceneFile::RegisterTag<HiddenTag>("Hidden");
         SceneFile::RegisterComponent<CameraComponent>("CameraComponent", [](SceneArchive& a, CameraComponent& c) {
             a.Field("fov", c.fov);
             a.Field("near", c.nearClip);
@@ -990,6 +992,47 @@ namespace SceneFile
                 *warnings += (warnings->empty() ? "" : "\n") + warning;
         }
         return true;
+    }
+
+    bool SavePrefab(Entity root, AssetManager2& assets, const std::filesystem::path& file, std::string& error)
+    {
+        if (!root.IsValid())
+        {
+            error = "No entity to save as a prefab";
+            return false;
+        }
+        // A scene of its own holding a copy of it: a scene file with one root.
+        const Prefab copy = Prefab::FromEntity(*root.GetScene(), root);
+        return Save(copy.Contents(), assets, file, error);
+    }
+
+    void RegisterPrefabLoader(AssetManager2& assets)
+    {
+        assets.RegisterLoader<Prefab>(AssetType::Prefab, { ".prefab" },
+            [](AssetManager2& manager, const AssetMetadata& meta) -> std::shared_ptr<Prefab> {
+                auto prefab = std::make_shared<Prefab>();
+                Scene& scene = prefab->Contents();
+                scene.Clear(); // the root a new Prefab has
+                std::string error;
+                if (!Load(scene, manager, meta.path, error))
+                {
+                    Logger::Error(error);
+                    return nullptr;
+                }
+                Entity root;
+                scene.ForEachRoot([&](Entity e) {
+                    if (!root.IsValid())
+                        root = e;
+                });
+                if (!root.IsValid())
+                {
+                    Logger::Error(meta.path.string() + " has no entity in it");
+                    return nullptr;
+                }
+                prefab->SetRoot(root);
+                scene.Update(0.0f);
+                return prefab;
+            });
     }
 
     std::vector<std::string> Dependencies(const std::filesystem::path& file, std::string& error)

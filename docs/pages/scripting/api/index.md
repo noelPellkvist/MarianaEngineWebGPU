@@ -22,6 +22,7 @@ This is the complete reference for what scripts can use. For how scripts work, s
 | [`material`](meshes.md#material-new) | New materials: `material.new{ color = ..., metallic = ... }` |
 | [`texture`](meshes.md#texture-load) | Loads images for materials: `texture.load("/Textures/Grass.png")` |
 | `print(...)`, `warn(...)` | Log messages, with the script's name and line |
+| [`require(path)`](../modules.md) | Loads a library script and returns what it returned |
 
 Plus Luau's standard libraries: `math`, `string`, `table`, `vector`, `bit32`, `utf8`, `buffer`, `coroutine` and `os.clock`/`os.time`/`os.date`. See [Luau for Game Scripting](../luau.md#the-standard-library).
 
@@ -77,10 +78,15 @@ local e = scene.Find("Player")                 -- Entity?
 local box = scene.SpawnPrimitive("cube", vec3(0, 5, 0), vec3(1, 0, 0))
 local model = scene.Spawn("/Models/Rumba.glb", vec3(2, 0, 0))
 local empty = scene.Create("Group")
+local copy = scene.Clone(template, vec3(0, 0, 5));  copy.active = true
+local crate = scene.Spawn("/Prefabs/Crate.prefab", vec3(0, 3, 0))
 e.position = vec3(0, 1, 0);  e.rotation = quat.euler(0, 90, 0);  e.scale = vec3(2, 2, 2)
 e.worldPosition, e.worldRotation, e.forward, e.right, e.up, e.parent, e.name
 e:Translate(vec3(0, 0, 1));  e:Rotate(vec3(0, 1, 0), 45);  e:LookAt(target)
 e:GetChildren();  e:FindChild("Wheel");  e:GetScript("Health");  e:IsValid();  e:Destroy()
+e.active = false;  e.visible = false;  e.activeInHierarchy
+e:AddScript("/Scripts/Health.luau", { max = 100 });  e:RemoveScript("Health");  e:SetScriptEnabled("Health", false)
+local Grid = require("./Lib/Grid")
 
 -- Components
 local body = e:Get("RigidBody")                -- RigidBody?

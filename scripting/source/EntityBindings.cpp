@@ -4,6 +4,8 @@
 
 #include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Importers/SceneFile.hpp>
+#include <Mariana/Scripting/Script.hpp>
+#include <Mariana/Scripting/ScriptWorld.hpp>
 
 #include <cmath>
 #include <cstdio>
@@ -541,6 +543,90 @@ namespace ScriptingInternal
             return 1;
         }
 
+        // ---- Scripts on an entity --------------------------------------------------------------
+
+        std::string ScriptName(const ScriptSlot& slot)
+        {
+            const std::shared_ptr<ScriptAsset>& asset = slot.script.Get();
+            if (asset && !asset->file.empty())
+                return asset->file.stem().string();
+            const AssetMetadata* meta = slot.script.GetMetadata();
+            return meta ? std::filesystem::path(meta->name).stem().string() : std::string();
+        }
+
+        // entity:AddScript(path, values): puts a script on it, with values for its properties (a
+        // table of numbers, booleans, strings and vectors). It starts with the next frame's scripts.
+        int AddScript(lua_State* L)
+        {
+            const Entity entity = CheckEntity(L, 1);
+            const char* path = luaL_checkstring(L, 2);
+            std::vector<ScriptValue> values;
+            if (!lua_isnoneornil(L, 3))
+            {
+                luaL_checktype(L, 3, LUA_TTABLE);
+                lua_pushnil(L);
+                while (lua_next(L, 3) != 0)
+                {
+                    if (lua_type(L, -2) != LUA_TSTRING)
+                        Error(L, "AddScript takes values by name: { speed = 2 }");
+                    ScriptValue value;
+                    value.name = lua_tostring(L, -2);
+                    switch (lua_type(L, -1))
+                    {
+                    case LUA_TNUMBER: value.type = ScriptValueType::Number; value.number = static_cast<float>(lua_tonumber(L, -1)); break;
+                    case LUA_TBOOLEAN: value.type = ScriptValueType::Bool; value.boolean = lua_toboolean(L, -1) != 0; break;
+                    case LUA_TSTRING: value.type = ScriptValueType::String; value.text = lua_tostring(L, -1); break;
+                    case LUA_TVECTOR: value.type = ScriptValueType::Vector; value.vector = CheckVector(L, -1); break;
+                    default:
+                        Error(L, "the value %s is a %s: properties are numbers, booleans, strings and vectors", value.name.c_str(), luaL_typename(L, -1));
+                    }
+                    values.push_back(std::move(value));
+                    lua_pop(L, 1);
+                }
+            }
+            if (!ScriptWorld::AddScript(entity, *GetContext(L).assets, path, std::move(values)))
+                Error(L, "there is no script %s", path);
+            return 0;
+        }
+
+        // Calls fn(scripts, index) for each of the entity's slots of the script named `name` (its file
+        // name without the extension), last first; false when it has none.
+        template <typename Fn>
+        bool ForScript(Entity entity, const char* name, Fn&& fn)
+        {
+            Scripts* scripts = entity.Get<Scripts>();
+            bool found = false;
+            if (scripts)
+                for (size_t i = scripts->scripts.size(); i-- > 0;)
+                    if (ScriptName(scripts->scripts[i]) == name)
+                    {
+                        found = true;
+                        fn(*scripts, i);
+                    }
+            return found;
+        }
+
+        // entity:RemoveScript(name): its instance ends (OnDestroy) with the next frame's scripts.
+        int RemoveScript(lua_State* L)
+        {
+            const Entity entity = CheckEntity(L, 1);
+            const char* name = luaL_checkstring(L, 2);
+            ForScript(entity, name, [](Scripts& scripts, size_t i) { scripts.scripts.erase(scripts.scripts.begin() + static_cast<std::ptrdiff_t>(i)); });
+            return 0;
+        }
+
+        // entity:SetScriptEnabled(name, on): a disabled script keeps its state and doesn't run.
+        int SetScriptEnabled(lua_State* L)
+        {
+            const Entity entity = CheckEntity(L, 1);
+            const char* name = luaL_checkstring(L, 2);
+            luaL_checktype(L, 3, LUA_TBOOLEAN);
+            const bool on = lua_toboolean(L, 3) != 0;
+            if (!ForScript(entity, name, [on](Scripts& scripts, size_t i) { scripts.scripts[i].enabled = on; }))
+                Error(L, "%s has no script %s", entity.GetName(), name);
+            return 0;
+        }
+
         Entity FindBelow(Entity entity, const char* name)
         {
             Entity found;
@@ -640,6 +726,9 @@ namespace ScriptingInternal
             case kGetMesh: return EntityGetMesh;
             case kGetMaterial: return EntityGetMaterial;
             case kSetMaterial: return EntitySetMaterial;
+            case kAddScript: return AddScript;
+            case kRemoveScript: return RemoveScript;
+            case kSetScriptEnabled: return SetScriptEnabled;
             default: return nullptr;
             }
         }
@@ -672,6 +761,9 @@ namespace ScriptingInternal
             case kForward: PushVector(L, WorldRotation(scene, entity) * glm::vec3(0.0f, 0.0f, 1.0f)); return 1;
             case kRight: PushVector(L, WorldRotation(scene, entity) * glm::vec3(1.0f, 0.0f, 0.0f)); return 1;
             case kUp: PushVector(L, WorldRotation(scene, entity) * glm::vec3(0.0f, 1.0f, 0.0f)); return 1;
+            case kActive: lua_pushboolean(L, entity.IsActiveSelf()); return 1;
+            case kVisible: lua_pushboolean(L, entity.IsVisibleSelf()); return 1;
+            case kActiveInHierarchy: lua_pushboolean(L, entity.IsActive()); return 1;
             default: Error(L, "Entity has no member '%s'", name);
             }
         }
@@ -718,6 +810,14 @@ namespace ScriptingInternal
                 return 0;
             }
             case kWorldRotation: SetWorldRotation(scene, entity, CheckQuat(L, 3)); return 0;
+            case kActive:
+                luaL_checktype(L, 3, LUA_TBOOLEAN);
+                entity.SetActive(lua_toboolean(L, 3) != 0);
+                return 0;
+            case kVisible:
+                luaL_checktype(L, 3, LUA_TBOOLEAN);
+                entity.SetVisible(lua_toboolean(L, 3) != 0);
+                return 0;
             default: Error(L, "can't set '%s' on an Entity", name);
             }
         }

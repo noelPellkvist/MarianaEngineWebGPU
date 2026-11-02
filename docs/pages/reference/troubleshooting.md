@@ -22,7 +22,7 @@ Open it again from the **Window** menu.
 ## Scripts
 
 **My script doesn't run.**
-- Scripts only run while **playing** (Ctrl+P).
+- Scripts only run while **playing** (Ctrl+P), and only on **active** entities: check the entity's (and its parents') **Active** box.
 - Is the script **enabled** on the entity (the checkbox in its Scripts section)?
 - Did it fail? A script that raised an error stops for that entity until you change it: the Inspector shows the error under the script, and the log has the full message with its line.
 - Does the file **return** the script's table on its last line (`return MyScript`)?

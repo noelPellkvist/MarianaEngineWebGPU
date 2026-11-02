@@ -5,6 +5,7 @@
 // colliders, keys simulated. Scripts report what they saw in their entity's name.
 #include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/GameClock.hpp>
 #include <Mariana/Physics/Components.hpp>
 #include <Mariana/Physics/PhysicsWorld.hpp>
@@ -179,6 +180,36 @@ namespace ScriptScenarios
             w.Make("Wheel RL", glm::vec3(-x, y, -z), car).Add<VehicleWheel>(rear);
             w.Make("Wheel RR", glm::vec3(x, y, -z), car).Add<VehicleWheel>(rear);
             return car;
+        }
+
+        // Scripts in a folder of their own (a FileSystem root), for require: /Scripts/ReqLib/...
+        inline const std::filesystem::path& RequireFolder()
+        {
+            namespace fs = std::filesystem;
+            static const fs::path folder = [] {
+                const fs::path f = fs::temp_directory_path() / "MarianaScriptRequire";
+                std::error_code ec;
+                fs::remove_all(f, ec);
+                fs::create_directories(f / "Scripts" / "ReqLib", ec);
+                std::ofstream(f / "Scripts" / "ReqLib" / "Numbers.luau") << "return { factor = 2 }\n";
+                std::ofstream(f / "Scripts" / "ReqLib" / "Util.luau") << R"(local Numbers = require("./Numbers")
+local Util = {}
+function Util.scale(x: number): number
+    return x * Numbers.factor
+end
+return Util
+)";
+                std::ofstream(f / "Scripts" / "ReqLib" / "Loop.luau") << "return require(\"./Loop\")\n";
+                std::ofstream(f / "Scripts" / "ReqLib" / "Tagger.luau") << R"(local T = {}
+T.properties = { label = "no" }
+function T:Start() self.entity.name = "tagged " .. self.label end
+function T:OnDestroy() self.entity.name = "removed" end
+return T
+)";
+                FileSystem::AddRoot(f);
+                return f;
+            }();
+            return folder;
         }
 
         inline Result Finish(const Log& log, const char* name, std::string detail, bool passed)
@@ -717,7 +748,7 @@ return W
                     self.flying = snake.segments[1]:Has("RigidBody")
                     self.head = snake.cells[1]
                 end
-                if self.overAt and not snake.over then self.restarted = #snake.segments end
+                if self.overAt and not snake.over and not self.restarted then self.restarted = #snake.segments end -- the new game's first frame (an apple later would grow it)
                 local walls = 0
                 scene.Each("BoxCollider", function(e) if e.name == "Wall" then walls += 1 end end)
                 self.entity.name = `{self.start}>{self.grown} over@{self.overAt} at {self.head} flying {self.flying} restart {self.restarted} walls {walls}`
@@ -915,9 +946,98 @@ return T
                           said == "quad=4 same=true triMinY=2 again=true clone=true metallic=1 mode=Opaque errors=true");
     }
 
+    // The spawning round from Luau: an entity switched off stops its script and on again goes on;
+    // a disabled script; a script put on a spawned entity (AddScript, with a value) and taken off
+    // (OnDestroy); an inactive template copied with its script (scene.Clone) and switched on;
+    // require from a script with no file (from /Scripts) of a library that requires another
+    // (relative paths), cached, run again when one changes (and the requiring script with it), a
+    // library requiring itself and a missing one errors.
+    inline Result SpawningAndRequire(const Log& log)
+    {
+        using namespace detail;
+        namespace fs = std::filesystem;
+        RequireFolder();
+        World w;
+        Entity counter = w.Make("Counter");
+        Attach(counter, w.Source("Counter.luau", R"(
+local C = {}
+function C:Start() self.n = 0 end
+function C:Update() self.n += 1 end
+return C
+)"));
+        Entity templateEntity = w.Make("Template");
+        Attach(templateEntity, w.Source("Blinker.luau", R"(
+local B = {}
+function B:Start() self.entity.name = "clone started" end
+return B
+)"));
+        templateEntity.SetActive(false);
+        Entity director = w.Make("Director");
+        Attach(director, w.Source("Director.luau", R"(
+local D = {}
+local Util = require("./ReqLib/Util")
+function D:Start()
+    self.frame = 0
+    self.counter = scene.Find("Counter")
+    self.template = scene.Find("Template")
+    self.r1 = Util.scale(21)
+end
+function D:Update()
+    self.frame += 1
+    local f = self.frame
+    local c = self.counter:GetScript("Counter")
+    if f == 5 then
+        self.spawned = scene.Create("Spawned")
+        self.spawned:AddScript("/Scripts/ReqLib/Tagger.luau", { label = "yes" })
+    elseif f == 8 then
+        local copy = scene.Clone(self.template, vec3(3, 0, 0))
+        copy.active = true
+    elseif f == 10 then
+        self.counter.active = false
+    elseif f == 15 then
+        self.spawned:RemoveScript("Tagger")
+    elseif f == 20 then
+        self.off = c.n
+        self.counter.active = true
+    elseif f == 30 then
+        self.on = c.n
+        self.counter:SetScriptEnabled("Counter", false)
+    elseif f == 40 then
+        self.disabled = c.n
+        self.counter:SetScriptEnabled("Counter", true)
+    end
+    self.last = Util.scale(21)
+    if f == 60 then
+        local loopOk, loopError = pcall(require, "./ReqLib/Loop")
+        local missingOk, missingError = pcall(require, "./ReqLib/Nope")
+        self.entity.name = string.format("off=%d on=%d disabled=%d r1=%d last=%d loop=%s missing=%s", self.off, self.on, self.disabled,
+            self.r1, self.last, tostring(not loopOk and string.find(tostring(loopError), "requires itself") ~= nil),
+            tostring(not missingOk and string.find(tostring(missingError), "there is no script") ~= nil))
+    end
+end
+return D
+)"));
+        w.Frames(45);
+        // A library changes: the scripts that use it run again with it.
+        AssetHandle<ScriptAsset> numbers = w.assets.Load<ScriptAsset>(FileSystem::Resolve("/Scripts/ReqLib/Numbers.luau"));
+        if (numbers.Get())
+            numbers.Get()->SetSource("return { factor = 3 }\n");
+        w.Frames(15);
+        const std::string said = director.GetName();
+        Entity clone = w.scene.FindByName("clone started");
+        const bool cloned = clone.IsValid() && clone.RawId() != templateEntity.RawId() && std::abs(Position(clone).x - 3.0f) < 1e-4f &&
+                            std::string(templateEntity.GetName()) == "Template";
+        const bool spawned = w.scene.FindByName("removed").IsValid();
+        const std::string error = w.scripts.GetError(director, 0);
+        return Finish(log, "spawning and require",
+                      said + (cloned ? ", clone started at x 3" : ", no clone") + (spawned ? ", tagged and removed" : ", no tagging") +
+                          (error.empty() ? "" : " | " + error),
+                      said == "off=10 on=20 disabled=20 r1=42 last=63 loop=true missing=true" && cloned && spawned && error.empty());
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         return { Lifecycle(log), Components(log), Physics(log), Spawning(log), Talking(log), Reload(log), Errors(log), Driving(log),
-                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log), LookAtFromLua(log), WatchCar(log), SnakeTutorial(log), SnakeTutorialStages(log), CookbookRuns(log), MeshesAndMaterials(log) };
+                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log), LookAtFromLua(log), WatchCar(log), SnakeTutorial(log), SnakeTutorialStages(log), CookbookRuns(log), MeshesAndMaterials(log), SpawningAndRequire(log) };
     }
 }

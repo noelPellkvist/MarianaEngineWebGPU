@@ -135,6 +135,22 @@ namespace GameExport
         addResource(profile.icon);
         if (Exists(project / "Scripts"))
             add("Scripts");
+        // Prefabs too (scripts spawn them by name), with the files they use.
+        if (Exists(project / "Prefabs"))
+        {
+            add("Prefabs");
+            std::error_code ec;
+            for (const auto& entry : fs::recursive_directory_iterator(project / "Prefabs", ec))
+            {
+                if (entry.path().extension() != ".prefab")
+                    continue;
+                std::string problem;
+                for (const std::string& dependency : SceneFile::Dependencies(entry.path(), problem))
+                    addResource(dependency);
+                if (!problem.empty())
+                    out.warnings.push_back(problem);
+            }
+        }
 
         // A file inside a folder that is taken whole is taken with it.
         for (const fs::path& file : files)

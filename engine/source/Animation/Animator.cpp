@@ -113,8 +113,10 @@ void Animator::RegisterComponents()
 
 System Animator::CreateSystem(Scene& scene)
 {
+    // Inactive models (or below an inactive entity) hold their pose.
     return scene.CreateSystem<Animator>([](Entity e, Animator& animator, float dt) {
-        animator.Update(e, dt);
+        if (e.IsActive())
+            animator.Update(e, dt);
     });
 }
 

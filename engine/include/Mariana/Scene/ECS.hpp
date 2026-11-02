@@ -33,7 +33,17 @@ struct WorldXform {
     };
     uint32_t id = 0;
     uint32_t version = 0; // bumped whenever model/normal are recomputed
+    // The entity and every entity above it are active (no InactiveTag), and also not hidden (no
+    // HiddenTag): what is drawn. Worked out with the transforms.
+    bool active = true;
+    bool visible = true;
 };
+
+// An entity's own switches, saved with scenes: an inactive entity (and everything below it) takes no
+// part in the game (not drawn or simulated, its scripts and animation don't run); a hidden one (and
+// everything below it) isn't drawn. Entity::SetActive / SetVisible change them.
+struct InactiveTag {};
+struct HiddenTag {};
 
 struct XformCache { uint32_t local_v=~0u, parent_v=~0u, world_v=0; };
 struct TransformClock { uint32_t tick = 1; };
@@ -224,6 +234,15 @@ public:
     Entity& SetScale(float sx, float sy, float sz);
     Entity& SetScaleUniform(float s);
 
+    // Its own switches (InactiveTag, HiddenTag); IsActive / IsVisible also look at every entity
+    // above it, so they are current even before Scene::Update works out WorldXform's.
+    Entity& SetActive(bool active);
+    Entity& SetVisible(bool visible);
+    bool IsActiveSelf() const;
+    bool IsVisibleSelf() const;
+    bool IsActive() const;
+    bool IsVisible() const;
+
     template<class T> Entity&   Add(const T& value);
     template<class T> Entity&   Add();
     template<class T> Entity&   AddTag();
@@ -261,6 +280,9 @@ public:
 
     Entity Instantiate(const char* name = nullptr);
     Entity Instantiate(const Prefab& prefab, const char* name = nullptr);
+    // A copy of the entity and everything below it (components by name, not the runtime ones),
+    // under the same parent.
+    Entity Clone(Entity source);
     void Destroy(Entity e);
     // Destroys every entity and hands out transform slots (WorldXform::id) from 0 again; whoever
     // keeps state per slot must drop it (SceneRenderer::InvalidateTransforms).
@@ -320,6 +342,7 @@ private:
 
     uint64_t _create(const char* name);
     void     _destroy(uint64_t eid);
+    void     _invalidateTransform(uint64_t eid);
     void     _update(float dt);
     void     _applyRegistry();
     bool     _isAlive(uint64_t eid) const;
@@ -457,6 +480,19 @@ inline Entity& Entity::SetScale(float sx, float sy, float sz) {
     t->scl[0]=sx; t->scl[1]=sy; t->scl[2]=sz; ++t->version; return *this;
 }
 inline Entity& Entity::SetScaleUniform(float s) { return SetScale(s,s,s); }
+
+inline bool Entity::IsActiveSelf() const { return IsValid() && !HasTag<InactiveTag>(); }
+inline bool Entity::IsVisibleSelf() const { return IsValid() && !HasTag<HiddenTag>(); }
+inline bool Entity::IsActive() const {
+    for (Entity e = *this; e.IsValid(); e = _scene->Parent(e))
+        if (e.HasTag<InactiveTag>()) return false;
+    return IsValid();
+}
+inline bool Entity::IsVisible() const {
+    for (Entity e = *this; e.IsValid(); e = _scene->Parent(e))
+        if (e.HasTag<InactiveTag>() || e.HasTag<HiddenTag>()) return false;
+    return IsValid();
+}
 
 template<class Fn>
 inline void Entity::ForEachChild(Fn&& fn) {

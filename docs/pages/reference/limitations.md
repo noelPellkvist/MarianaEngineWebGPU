@@ -26,9 +26,7 @@ Mariana is young. This page lists what it doesn't do yet, so you know before you
 
 ## Scripting
 
-- Scripts can't put scripts on entities they create, or copy an existing entity. Have one script drive what it spawns (see [Spawning things that have scripts](../scripting/api/scene.md#spawning-things-that-have-scripts)).
 - Animation clips and graphs can't be assigned from scripts (meshes, materials and textures can: see [Meshes, Materials and Textures](../scripting/api/meshes.md)). Meshes made by scripts aren't saved in scene files.
-- There is no `require`: scripts reach each other through [`entity:GetScript`](../scripting/api/entity.md#getscript).
 - There is no `wait` or yielding: spread work over frames with timers in `self`.
 
 ## Assets
@@ -51,8 +49,8 @@ Mariana is young. This page lists what it doesn't do yet, so you know before you
 
 ## Editor
 
-- One entity is selected at a time; there is no copy, paste or duplicate for entities yet.
-- Your own prefabs: a "prefab" is a model file. Groups of entities can't be saved as reusable prefabs yet.
+- One entity is selected at a time; there is no copy, paste or duplicate for entities in the editor yet (scripts can copy with `scene.Clone`).
+- Prefab files aren't linked to their copies: saving a prefab again doesn't change copies already in scenes, and there is no prefab editing mode.
 - Open Recent remembers scenes for the current session only (a project does reopen in the scene you had open last).
 - On the web, the editor's files live in the page: saving also downloads the file, and everything is gone when the page reloads.
 - Undoing an edit back to the saved state still marks a `.material` or `.animgraph` file as modified.

@@ -38,6 +38,12 @@ public:
     // Makes .luau and .lua files load as ScriptAssets.
     static void RegisterLoader(AssetManager2& assets);
 
+    // The script `require(name)` means in the script at resource path `from` (empty: a script in
+    // /Scripts): a name starting with "/" is a resource path, any other is relative to the folder
+    // `from` is in ("./Util", "../Lib/Util", "Util"); without an extension .luau, else .lua. The
+    // resource path of that file, or empty when there is none.
+    static std::string ResolveRequire(const std::string& name, const std::string& from);
+
 private:
     uint32_t m_Version = 0;
     std::filesystem::file_time_type m_WriteTime{};

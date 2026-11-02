@@ -146,6 +146,11 @@ declare extern type Entity with
     forward: vector
     right: vector
     up: vector
+    -- Its own switches: inactive = not drawn or simulated, its scripts and animation don't run (with
+    -- everything below it); hidden = not drawn. activeInHierarchy also looks at the entities above.
+    active: boolean
+    visible: boolean
+    activeInHierarchy: boolean
     function IsValid(self): boolean
     function Destroy(self): ()
     function Has(self, component: ComponentName): boolean
@@ -160,6 +165,9 @@ declare extern type Entity with
     function GetMesh(self): Mesh?
     function GetMaterial(self, slot: number?): Material?
     function SetMaterial(self, material: Material, slot: number?): ()
+    function AddScript(self, path: string, values: { [string]: any }?): ()
+    function RemoveScript(self, name: string): ()
+    function SetScriptEnabled(self, name: string, enabled: boolean): ()
     -- @componentMethods
 end
 
@@ -189,6 +197,7 @@ declare scene: {
     Spawn: (path: string, position: vector?, rotation: quat?) -> Entity,
     SpawnPrimitive: (shape: "cube" | "sphere" | "plane" | "cylinder" | "capsule", position: vector?, color: vector?, rotation: quat?) -> Entity,
     Each: (component: ComponentName, fn: (Entity) -> ()) -> (),
+    Clone: (entity: Entity, position: vector?, rotation: quat?) -> Entity,
     Destroy: (entity: Entity) -> (),
 }
 

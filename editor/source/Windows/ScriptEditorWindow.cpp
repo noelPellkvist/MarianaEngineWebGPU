@@ -1,6 +1,7 @@
 #include <Editor/Windows/ScriptEditorWindow.hpp>
 
 #include <Mariana/Assets/AssetManager.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -53,6 +54,14 @@ struct ScriptEditorWindow::Tab
 
 namespace
 {
+    // What the checker calls a tab's script: its resource path, so its requires resolve as in the game.
+    std::string CheckName(const ScriptEditorWindow::Tab& tab)
+    {
+        const std::shared_ptr<ScriptAsset>& asset = tab.script.Get();
+        const std::string resource = asset && !asset->file.empty() ? FileSystem::ToResourcePath(asset->file) : std::string();
+        return resource.empty() ? tab.name : resource;
+    }
+
     bool IsWordChar(unsigned int c)
     {
         return c < 128 && (std::isalnum(static_cast<int>(c)) || c == '_');
@@ -347,7 +356,7 @@ void ScriptEditorWindow::DrawTab(Tab& tab)
     // Checked again a moment after typing stops.
     if (tab.checkPending && ImGui::GetTime() - tab.editedAt > 0.3)
     {
-        tab.problems = m_Checker.Check(tab.name, tab.text);
+        tab.problems = m_Checker.Check(CheckName(tab), tab.text);
         tab.checkPending = false;
     }
 }
@@ -503,7 +512,7 @@ void ScriptEditorWindow::DrawCode(Tab& tab, float height)
             --wordStart;
         tab.wordStart = wordStart;
         const auto [line, column] = LineColumn(tab, tab.cursor);
-        tab.all = m_Checker.Complete(tab.name, tab.text, line, column);
+        tab.all = m_Checker.Complete(CheckName(tab), tab.text, line, column);
         tab.completing = !tab.all.empty();
         tab.selected = 0;
     }

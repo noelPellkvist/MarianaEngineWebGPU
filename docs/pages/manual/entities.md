@@ -61,6 +61,17 @@ From a script, set `entity.parent` (the local transform is kept as it is) and re
 
 Every component and its fields can also be read and changed from scripts by name: see the [Component Reference](../scripting/api/component-reference.md).
 
+## Active and visible
+
+Two boxes at the top of the Inspector switch an entity off, with everything below it:
+
+| | Unticked |
+|---|---|
+| **Active** | The entity takes no part in the game: it isn't drawn, it has no physics body, and its scripts and animation don't run. Use it for templates you'll copy from a script, things that appear later, levels' parts that load in |
+| **Visible** | It isn't drawn, but everything else goes on (an invisible wall, a trigger's marker) |
+
+The Hierarchy greys out entities that aren't drawn. Both are saved with the scene, and scripts switch them with [`entity.active` and `entity.visible`](../scripting/api/entity.md#active).
+
 ## Names
 
 Names don't have to be unique, but scripts find entities by name (`scene.Find("Player")`), and with several of the same name they get the one created first. Give the entities your scripts look for clear, unique names.

@@ -2,6 +2,7 @@
 
 #include <Mariana/Animation/Animator.hpp>
 #include <Mariana/Assets/AssetManager.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
 #include <Mariana/Foundation/GameClock.hpp>
 #include <Mariana/Foundation/Logger.hpp>
 #include <Mariana/Foundation/Profiler.hpp>
@@ -11,7 +12,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #if MARIANA_LUAU_CODEGEN
 #include "luacodegen.h"
@@ -126,6 +129,30 @@ namespace
         return 1;
     }
 
+    // A script other scripts load with require: run once per state, what it returned kept until its
+    // file changes.
+    struct Library
+    {
+        AssetHandle<ScriptAsset> asset;
+        uint32_t version = 0;
+        int value = LUA_NOREF;
+        bool loading = false;
+        std::vector<std::string> users; // resource paths of the scripts that required it
+    };
+
+    // A state's libraries, and the resource path of each script running in it (by its globals, which
+    // its functions share), for require's relative paths.
+    struct Libraries
+    {
+        std::unordered_map<std::string, Library> byPath;
+        int scriptPaths = LUA_NOREF; // weak-keyed table: a script's globals -> its resource path
+    };
+
+    std::string ResourceOf(const ScriptAsset& asset)
+    {
+        return asset.file.empty() ? std::string() : FileSystem::ToResourcePath(asset.file);
+    }
+
     std::string StemOf(const AssetHandle<ScriptAsset>& handle)
     {
         const std::shared_ptr<ScriptAsset>& asset = handle.Get();
@@ -145,10 +172,12 @@ struct ScriptWorld::Impl
     lua_State* L = nullptr;
     std::unordered_map<AssetID, Module> modules;
     std::vector<Instance> instances; // by entity id, then slot
+    Libraries libraries;
 
     // Reading what scripts declare, apart from the game (no scene, input or physics).
     Context inspectContext;
     lua_State* inspect = nullptr;
+    Libraries inspectLibraries;
     struct Described
     {
         bool read = false;
@@ -165,9 +194,11 @@ struct ScriptWorld::Impl
         context.clock = &clock;
         context.game = true;
         context.pushScript = [this](lua_State* state, Entity entity, std::string_view name) { return PushScript(state, entity, name); };
+        context.require = [this](lua_State* state) { return Require(state, context, libraries); };
         inspectContext = context;
         inspectContext.game = false;
         inspectContext.pushScript = nullptr;
+        inspectContext.require = [this](lua_State* state) { return Require(state, inspectContext, inspectLibraries); };
     }
 
     ~Impl()
@@ -189,6 +220,7 @@ struct ScriptWorld::Impl
         // After the state: its userdata let go of their meshes and materials as it closed.
         context.scriptMaterials.clear();
         context.scriptMeshes.clear();
+        libraries = {};
     }
 
     // ---- Calls ----------------------------------------------------------------------------------
@@ -200,10 +232,15 @@ struct ScriptWorld::Impl
         const int function = lua_gettop(state) - nargs;
         lua_pushcfunction(state, Traceback, "traceback");
         lua_insert(state, function);
-        ctx.deadline = lua_clock() + ctx.timeLimit;
-        ctx.interrupts = 0;
+        // A run inside another (a script required while one runs) keeps the outer one's deadline.
+        const double outer = ctx.deadline;
+        if (outer <= 0.0)
+        {
+            ctx.deadline = lua_clock() + ctx.timeLimit;
+            ctx.interrupts = 0;
+        }
         const int status = lua_pcall(state, nargs, nresults, function);
-        ctx.deadline = 0.0;
+        ctx.deadline = outer;
         if (status != LUA_OK)
         {
             const char* message = lua_tostring(state, -1);
@@ -213,6 +250,12 @@ struct ScriptWorld::Impl
         }
         lua_remove(state, function); // the handler
         return true;
+    }
+
+    // An instance runs while its entity and every entity above it are active.
+    bool Active(const Instance& instance) const
+    {
+        return scene.FromId(instance.entity).IsActive();
     }
 
     const Module* ModuleOf(const Instance& instance) const
@@ -263,9 +306,11 @@ struct ScriptWorld::Impl
             L = NewState(context);
     }
 
-    // Runs a script's chunk in a thread of its own (its globals) and leaves the table it returned
-    // on `state`'s stack; false with the error otherwise.
-    static bool RunChunk(lua_State* state, Context& ctx, const ScriptAsset& asset, const std::string& name, std::string& error)
+    // Runs a script's chunk in a thread of its own (its globals, noted in `libs` as the script's)
+    // and leaves what it returned on `state`'s stack (a script on an entity must return a table);
+    // false with the error otherwise.
+    static bool RunChunk(lua_State* state, Context& ctx, const ScriptAsset& asset, const std::string& name, std::string& error, Libraries& libs,
+                         bool library = false)
     {
         if (!asset.error.empty())
         {
@@ -280,6 +325,21 @@ struct ScriptWorld::Impl
         const int top = lua_gettop(state);
         lua_State* thread = lua_newthread(state);
         luaL_sandboxthread(thread);
+        if (libs.scriptPaths == LUA_NOREF)
+        {
+            lua_newtable(state);
+            lua_newtable(state);
+            lua_pushstring(state, "k");
+            lua_setfield(state, -2, "__mode");
+            lua_setmetatable(state, -2);
+            libs.scriptPaths = lua_ref(state, -1);
+            lua_pop(state, 1);
+        }
+        lua_getref(thread, libs.scriptPaths);
+        lua_pushvalue(thread, LUA_GLOBALSINDEX);
+        lua_pushstring(thread, ResourceOf(asset).c_str());
+        lua_rawset(thread, -3);
+        lua_pop(thread, 1);
         const std::string chunk = "=" + name;
         if (luau_load(thread, chunk.c_str(), asset.bytecode.data(), asset.bytecode.size(), 0) != 0)
         {
@@ -296,7 +356,7 @@ struct ScriptWorld::Impl
             lua_settop(state, top);
             return false;
         }
-        if (!lua_istable(thread, -1))
+        if (!library && !lua_istable(thread, -1))
         {
             error = name + " must return a table (its functions and properties)";
             lua_settop(state, top);
@@ -321,7 +381,7 @@ struct ScriptWorld::Impl
         module.version = asset.Version();
 
         std::string error;
-        if (!RunChunk(L, context, asset, module.name, error))
+        if (!RunChunk(L, context, asset, module.name, error, libraries))
         {
             module.error = error;
             Logger::Error("Script " + module.name + ": " + error);
@@ -357,6 +417,93 @@ struct ScriptWorld::Impl
         if (reload)
             Logger::Info("Script " + module.name + " reloaded");
         return module;
+    }
+
+    // ---- require --------------------------------------------------------------------------------
+
+    // require(name): what the script named returned, running it the first time (and again after its
+    // file changed). Relative names are from the folder of the script that calls it.
+    int Require(lua_State* state, Context& ctx, Libraries& libs)
+    {
+        const std::string name = luaL_checkstring(state, 1);
+        std::string from;
+        lua_Debug ar;
+        if (libs.scriptPaths != LUA_NOREF && lua_getinfo(state, 1, "f", &ar))
+        {
+            lua_getfenv(state, -1);
+            lua_getref(state, libs.scriptPaths);
+            lua_pushvalue(state, -2);
+            lua_rawget(state, -2);
+            if (const char* path = lua_tostring(state, -1))
+                from = path;
+            lua_pop(state, 4); // path, table, globals, function
+        }
+        const std::string resource = ScriptAsset::ResolveRequire(name, from);
+        if (resource.empty())
+        {
+            const std::string message = "require: there is no script " + name + (from.empty() ? std::string() : " (from " + from + ")");
+            Error(state, "%s", message.c_str());
+        }
+        AssetHandle<ScriptAsset> handle = assets.Load<ScriptAsset>(FileSystem::Resolve(resource));
+        if (!handle.Get())
+            Error(state, "require: %s could not be read", resource.c_str());
+        Library& library = libs.byPath[resource];
+        if (std::find(library.users.begin(), library.users.end(), from) == library.users.end())
+            library.users.push_back(from);
+        if (library.value != LUA_NOREF && library.version == handle.Get()->Version())
+        {
+            lua_getref(state, library.value);
+            return 1;
+        }
+        if (library.loading)
+            Error(state, "require: %s requires itself (through %s)", resource.c_str(), from.c_str());
+        library.loading = true;
+        std::string error;
+        const bool ran = RunChunk(state, ctx, *handle.Get(), StemOf(handle), error, libs, true);
+        Library& again = libs.byPath[resource]; // the chunk may have required others
+        again.loading = false;
+        if (!ran)
+        {
+            const std::string message = "require " + resource + ": " + error;
+            Error(state, "%s", message.c_str());
+        }
+        if (again.value != LUA_NOREF)
+            lua_unref(state, again.value);
+        again.value = lua_ref(state, -1);
+        again.asset = handle;
+        again.version = handle.Get()->Version();
+        return 1;
+    }
+
+    // Libraries whose files changed run again the next time they're required, and so does every
+    // script that required them (a module loaded again keeps its instances' state).
+    void ReloadLibraries()
+    {
+        std::vector<std::string> changed;
+        for (auto& [path, library] : libraries.byPath)
+            if (library.value != LUA_NOREF && library.asset.Get() && library.asset.Get()->Version() != library.version)
+                changed.push_back(path);
+        std::unordered_set<std::string> stale;
+        while (!changed.empty())
+        {
+            const std::string path = changed.back();
+            changed.pop_back();
+            if (!stale.insert(path).second)
+                continue;
+            const auto found = libraries.byPath.find(path);
+            if (found == libraries.byPath.end())
+                continue;
+            if (found->second.value != LUA_NOREF)
+                lua_unref(L, found->second.value);
+            found->second.value = LUA_NOREF;
+            for (const std::string& user : found->second.users)
+                changed.push_back(user);
+        }
+        if (stale.empty())
+            return;
+        for (auto& [id, module] : modules)
+            if (module.asset.Get() && stale.count(ResourceOf(*module.asset.Get())))
+                module.version = ~0u; // loaded again by the next GetModule
     }
 
     // Puts the module's properties into the table on top of the stack: the entity's value where it
@@ -426,6 +573,7 @@ struct ScriptWorld::Impl
             return; // nothing to run yet
         std::sort(ids.begin(), ids.end());
         EnsureState();
+        ReloadLibraries();
 
         // The modules first: their chunks are script code, which may change the scene.
         std::vector<AssetHandle<ScriptAsset>> used;
@@ -617,7 +765,7 @@ struct ScriptWorld::Impl
         for (size_t i = first; i < last && i < instances.size(); ++i)
         {
             Instance& instance = instances[i];
-            if (!instance.enabled || !instance.started)
+            if (!instance.enabled || !instance.started || !Active(instance))
                 continue;
             Call(instance, callback, [&](lua_State* state) {
                 PushEntity(state, other);
@@ -660,7 +808,7 @@ struct ScriptWorld::Impl
         if (!inspect)
             inspect = NewState(inspectContext);
         const int top = lua_gettop(inspect);
-        if (!RunChunk(inspect, inspectContext, asset, name, info.error))
+        if (!RunChunk(inspect, inspectContext, asset, name, info.error, inspectLibraries))
             return info;
         lua_getfield(inspect, -1, "properties");
         if (lua_istable(inspect, -1))
@@ -726,7 +874,7 @@ void ScriptWorld::Update(float dt, const IInput* input)
     for (size_t i = 0; i < w.instances.size(); ++i)
     {
         Instance& instance = w.instances[i];
-        if (instance.enabled && !instance.started && !instance.failed && instance.self != LUA_NOREF)
+        if (instance.enabled && !instance.started && !instance.failed && instance.self != LUA_NOREF && w.Active(instance))
         {
             instance.started = true;
             w.Call(instance, kStart);
@@ -735,7 +883,7 @@ void ScriptWorld::Update(float dt, const IInput* input)
     for (size_t i = 0; i < w.instances.size(); ++i)
     {
         Instance& instance = w.instances[i];
-        if (instance.enabled && instance.started)
+        if (instance.enabled && instance.started && w.Active(instance))
             w.Call(instance, kUpdate, [dt](lua_State* L) {
                 lua_pushnumber(L, dt);
                 return 1;
@@ -762,7 +910,7 @@ void ScriptWorld::LateUpdate(float dt)
         for (const Animator::FiredEvent& event : events)
         {
             Instance& instance = w.instances[i];
-            if (instance.enabled && instance.started)
+            if (instance.enabled && instance.started && w.Active(instance))
                 w.Call(instance, kOnAnimationEvent, [&event](lua_State* L) {
                     lua_pushstring(L, event.name.c_str());
                     lua_pushstring(L, event.clip.c_str());
@@ -773,7 +921,7 @@ void ScriptWorld::LateUpdate(float dt)
     for (size_t i = 0; i < w.instances.size(); ++i)
     {
         Instance& instance = w.instances[i];
-        if (instance.enabled && instance.started)
+        if (instance.enabled && instance.started && w.Active(instance))
             w.Call(instance, kLateUpdate, [dt](lua_State* L) {
                 lua_pushnumber(L, dt);
                 return 1;

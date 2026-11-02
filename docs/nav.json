@@ -32,6 +32,7 @@
       "scripting/first-script",
       "scripting/lifecycle",
       "scripting/properties",
+      "scripting/modules",
       "scripting/luau",
       "scripting/script-editor",
       "scripting/cookbook",

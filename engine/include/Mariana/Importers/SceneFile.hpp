@@ -198,6 +198,12 @@ namespace SceneFile
     // The files a scene uses (resource paths), read without loading it.
     std::vector<std::string> Dependencies(const std::filesystem::path& file, std::string& error);
 
+    // Prefab files (.prefab): one entity and everything below it in the scene file format (with the
+    // materials made in memory it uses), instantiated like a model: scene.Spawn, the Hierarchy.
+    bool SavePrefab(Entity root, AssetManager2& assets, const std::filesystem::path& file, std::string& error);
+    // Makes .prefab files load as Prefab assets (assets.Load<Prefab>).
+    void RegisterPrefabLoader(AssetManager2& assets);
+
     // A hash of what saving would write (entities, their names, hierarchy, components and tags,
     // the materials they use, the settings): equal signatures, the same file. How an editor knows
     // a scene changed since it was saved, whatever changed it.

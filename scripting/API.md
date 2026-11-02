@@ -93,6 +93,9 @@ errors and autocomplete there.
 | `position`, `rotation`, `scale` | local transform (settable; `scale` takes a number too) |
 | `worldPosition`, `worldRotation` | settable |
 | `forward`, `right`, `up` | its +Z, +X and +Y in the world |
+| `active`, `visible` | its own switches (settable): inactive = not drawn or simulated, scripts and animation stopped; hidden = not drawn; both for everything below it too |
+| `activeInHierarchy` | whether it and every entity above it are active |
+| `AddScript(path, values?)`, `RemoveScript(name)`, `SetScriptEnabled(name, on)` | scripts on it; changes take effect with the next frame's scripts |
 | `IsValid()` | false once destroyed |
 | `Destroy()` | destroys it and everything below it once the scripts of this frame have run |
 | `Has(name)`, `Get(name)`, `Add(name, fields?)`, `Remove(name)` | components by name (below) |
@@ -134,10 +137,15 @@ m/s along the model's own axes and the turn in degrees per second).
 |---|---|
 | `scene.Find(name)` | the entity with that name (the smallest id when several have it), or nil |
 | `scene.Create(name?, parent?)` | an empty entity |
-| `scene.Spawn(path, position?, rotation?)` | an instance of a model (`"/Models/Rumba.glb"`) |
+| `scene.Spawn(path, position?, rotation?)` | an instance of a model (`"/Models/Rumba.glb"`) or a prefab (`"/Prefabs/Crate.prefab"`, saved from the Hierarchy) |
+| `scene.Clone(entity, position?, rotation?)` | a copy of it and everything below it (scripts too), under the same parent, placed in world space |
 | `scene.SpawnPrimitive(shape, position?, color?, rotation?)` | `"cube"`, `"sphere"`, `"plane"`, `"cylinder"` or `"capsule"`, with a material of its own |
 | `scene.Each(component, fn)` | `fn(entity)` for every entity with the component, in id order |
 | `scene.Destroy(entity)` | as `entity:Destroy()` |
+
+## require
+
+`require("./Lib/Grid")` loads a library script (relative to the requiring script's folder; `"/Scripts/..."` by resource path; the extension optional) and returns what it returned. It runs once per game and its value is shared; when its file changes it runs again, and so does every script that required it. The type checker follows requires.
 
 ## input
 

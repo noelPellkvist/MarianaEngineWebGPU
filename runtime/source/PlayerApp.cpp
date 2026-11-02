@@ -168,6 +168,7 @@ PlayerApp::PlayerApp(const PlayerConfig& config)
     MaterialFile::RegisterLoader(assets);
     AnimationGraphFile::RegisterLoader(assets);
     ScriptAsset::RegisterLoader(assets);
+    SceneFile::RegisterPrefabLoader(assets);
 
     animationSystem = Animator::CreateSystem(scene);
 
@@ -455,7 +456,7 @@ Entity PlayerApp::FirstCamera() const
 {
     Entity first;
     scene.Each<CameraComponent>([&](Entity e, const CameraComponent&) {
-        if (!first.IsValid() || e.RawId() < first.RawId())
+        if (e.IsActive() && (!first.IsValid() || e.RawId() < first.RawId()))
             first = e;
     });
     return first;

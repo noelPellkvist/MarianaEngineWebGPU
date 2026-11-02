@@ -43,7 +43,7 @@ Use empty entities to group things (destroying the group destroys everything bel
 
 ### `scene.Spawn(path, position?, rotation?) -> Entity` {#spawn}
 
-An instance of a model (`.glb` / `.gltf`) or prefab file, by its resource path (from the project folder, starting with `/`). Returns the model's root, placed at `position` with `rotation`. An animated model comes with its Animator playing its first clip.
+An instance of a model (`.glb` / `.gltf`) or [prefab](#prefab-files) (`.prefab`) file, by its resource path (from the project folder, starting with `/`). Returns the model's root, placed at `position` with `rotation`. An animated model comes with its Animator playing its first clip.
 
 ```luau
 local tree = scene.Spawn("/Models/Tree.glb", vec3(math.random(-20, 20), 0, math.random(-20, 20)))
@@ -100,35 +100,39 @@ end)
 
 The same as [`entity:Destroy()`](entity.md#destroy): the entity and everything below it are destroyed at the end of the current phase, after their scripts' `OnDestroy`. `nil` or an entity that's already gone is ignored.
 
-## Spawning things that have scripts
+### `scene.Clone(entity, position?, rotation?) -> Entity` {#clone}
 
-Scripts can't put scripts on the entities they make (a script is an asset, chosen in the editor). Two ways to give spawned things behaviour:
+A copy of the entity and everything below it: components, colliders, bodies, animation, and **scripts** (the copies' instances start with the next frame's scripts, with the property values the original's slots have, not its running state). The copy goes under the same parent, at a world `position` and `rotation` when given.
 
-- **A manager drives them.** One script spawns the entities, keeps them in a table and moves them all in its `Update`. This is how the [Snake tutorial](../../getting-started/first-game.md) works, and it is the fastest way to run many similar things.
-- **Physics does the work.** Give them colliders, bodies, joints or water, and let the simulation move them. Contacts with them still reach the scripts on the things they touch (`OnContactBegin`'s `other`).
-
-```luau title="A manager that moves what it spawns"
-local Spinners = {} :: Script
-Spinners.properties = { count = 8 }
-
-function Spinners.Start(self: Script)
-    self.items = {}
-    for i = 1, self.count do
-        local angle = i / self.count * math.pi * 2
-        local item = scene.SpawnPrimitive("cube", vec3(math.cos(angle) * 4, 1, math.sin(angle) * 4))
-        item.parent = self.entity
-        table.insert(self.items, item)
-    end
-end
-
-function Spinners.Update(self: Script, dt: number)
-    for _, item in self.items do
-        item:Rotate(vec3(0, 1, 0), 180 * dt)
-    end
-end
-
-return Spinners
+```luau
+local enemy = scene.Clone(scene.Find("Enemy Template") :: Entity, vec3(4, 0, 10))
+enemy.active = true
 ```
+
+**Templates.** Build what you'll spawn in the editor, scripts and all, untick its **Active** box so it takes no part in the game, and clone it: the copies are inactive too until you set `active = true`. See the [spawner recipe](../cookbook.md#spawn-copies-of-a-template).
+
+## Prefab files
+
+A **prefab** is an entity saved to a file, with everything below it: right-click it in the Hierarchy and choose **Save as Prefab**, and it is written to the project's `Prefabs/` folder. Spawn it like a model:
+
+```luau
+local crate = scene.Spawn("/Prefabs/Crate.prefab", vec3(0, 3, 0))
+```
+
+Its scripts come with it and start with the next frame's scripts. Builds always take the `Prefabs` folder (and what the prefabs use). A prefab file isn't linked to copies already in scenes: saving it again changes what is spawned from then on.
+
+## Putting scripts on entities
+
+### `entity:AddScript(path, values?)`
+
+Puts a script on any entity, with values for its properties. See [Entity](entity.md#addscript).
+
+```luau
+local mine = scene.SpawnPrimitive("sphere", vec3(0, 0.5, 5), vec3(1, 0.2, 0.2))
+mine:AddScript("/Scripts/Mine.luau", { radius = 3, damage = 50 })
+```
+
+For many similar things, one **manager** script that spawns them, keeps them in a table and moves them all in its `Update` is still the fastest way: this is how the [Snake tutorial](../../getting-started/first-game.md) works.
 
 ## Entities made while playing
 

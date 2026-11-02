@@ -197,7 +197,7 @@ Available in scripts:
 | `os` | `clock` (seconds, for timing), `time`, `date` |
 | `print`, `warn` | To the log, with the script's name and line |
 
-Not available: files (`io`), `require` (one script can't load another as a library: use [`GetScript`](properties.md#calling-another-script) to call other scripts), and Roblox's APIs (`game`, `workspace`, `task`, `wait`, `Instance`).
+Not available: files (`io`) and Roblox's APIs (`game`, `workspace`, `task`, `wait`, `Instance`). `require` loads library scripts: see [Sharing Code with require](modules.md).
 
 > [!NOTE]
 > There's no `wait()`: a script function must return so the frame can go on. For things that take time, keep a timer in `self` and check it in `Update`. See [Timers and cooldowns](cookbook.md#timers-and-cooldowns).

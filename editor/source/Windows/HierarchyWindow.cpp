@@ -95,7 +95,13 @@ void HierarchyWindow::DrawEntityNode(Entity e)
         (m_selectedEntityID == e.RawId() ? ImGuiTreeNodeFlags_Selected : 0);
 
     ImGui::PushID((ImGuiID)(uintptr_t)e.RawId());
+    // Inactive or hidden entities (or below one) are greyed out.
+    const bool dimmed = !e.IsVisible();
+    if (dimmed)
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     bool open = ImGui::TreeNodeEx("label", flags, "%s", name);
+    if (dimmed)
+        ImGui::PopStyleColor();
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen())
         m_selectEntity(e.RawId());

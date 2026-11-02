@@ -44,6 +44,7 @@ int main()
     results.push_back(EngineScenarios::SceneSignature(log));
     results.push_back(EngineScenarios::SceneKeepEntity(log));
     results.push_back(EngineScenarios::SceneFieldWrite(log));
+    results.push_back(EngineScenarios::SceneActiveCloneAndPrefab(log));
 
     size_t failed = 0;
     for (const EngineScenarios::Result& r : results)

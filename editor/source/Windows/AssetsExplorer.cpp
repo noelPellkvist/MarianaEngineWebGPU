@@ -60,7 +60,8 @@ void AssetsExplorer::ScanDirectory(const fs::path& dir, const fs::path& root)
                 entry.extension = entry.path.extension().string();
                 std::transform(entry.extension.begin(), entry.extension.end(), entry.extension.begin(), ::tolower);
                 entry.isImage = IsImageExtension(entry.extension);
-                entry.isGltf = entry.extension == ".glb" || entry.extension == ".gltf";
+                // Models and prefabs drag into the Hierarchy and the Scene view alike.
+                entry.isGltf = entry.extension == ".glb" || entry.extension == ".gltf" || entry.extension == ".prefab";
 
                 // Local key relative to the root in form "/sub/dir/file.ext" (thumbnail lookup)
                 std::error_code rel_ec;

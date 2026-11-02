@@ -57,6 +57,8 @@ namespace ScriptingInternal
         // An entity's script instance by the script's name (entity:GetScript); pushes nothing and
         // returns false when there is none.
         std::function<bool(lua_State*, Entity, std::string_view)> pushScript;
+        // require(name): pushes what the script named returned (ScriptWorld runs it once).
+        std::function<int(lua_State*)> require;
         // A running call stops with an error once this passes (an endless loop); 0 = no limit.
         double deadline = 0.0;
         double timeLimit = 2.0; // seconds a call may take
@@ -99,7 +101,7 @@ namespace ScriptingInternal
         kId, kName, kParent, kPosition, kRotation, kScale, kWorldPosition, kWorldRotation,
         kForward, kRight, kUp, kIsValid, kDestroy, kHas, kGet, kAdd, kRemove, kGetScript,
         kGetChildren, kFindChild, kRotate, kTranslate, kLookAt, kSetMesh, kGetMesh, kGetMaterial,
-        kSetMaterial,
+        kSetMaterial, kActive, kVisible, kActiveInHierarchy, kAddScript, kRemoveScript, kSetScriptEnabled,
         // quat
         kX, kY, kZ, kW, kInverse, kToEuler,
         // time

@@ -306,6 +306,64 @@ namespace EngineScenarios
                           animator->graph.Get() && o && o->pos[0] == 0.0f);
     }
 
+    // Active and visible down the hierarchy (the transform system's flags and Entity's own checks),
+    // a copy of a model with its parts (Scene::Clone), and the model saved as a .prefab and spawned
+    // from it with its switches.
+    inline Result SceneActiveCloneAndPrefab(const Log& log)
+    {
+        using namespace detail;
+        SceneWorld w;
+        SceneFile::RegisterPrefabLoader(w.assets);
+        std::string error;
+        if (!BuildBoxScene(w, error))
+            return Finish(log, "active, clone and prefab", error, false);
+        Entity box = w.Box();
+        Entity part;
+        box.ForEachChild([&](Entity child) {
+            if (!part.IsValid())
+                part = child;
+        });
+        w.Update();
+        auto flags = [&](Entity e) {
+            const WorldXform* x = e.TryGet<WorldXform>();
+            return std::string(x && x->active ? "A" : "a") + (x && x->visible ? "V" : "v") + (e.IsActive() ? "A" : "a") + (e.IsVisible() ? "V" : "v");
+        };
+        const std::string start = flags(part);
+        box.SetActive(false);
+        const std::string before = flags(part); // the entity's own check is current before Update
+        w.Update();
+        const std::string inactive = flags(part);
+        box.SetActive(true);
+        part.SetVisible(false);
+        w.Update();
+        const std::string hidden = flags(part) + (part.IsActiveSelf() ? "+" : "-");
+        part.SetVisible(true);
+
+        // A copy of the whole model, under the same parent (a root here).
+        int parts = 0, cloneParts = 0;
+        w.scene.ForEachDescendant(box, [&](Entity) { ++parts; });
+        box.SetActive(false);
+        Entity copy = w.scene.Clone(box);
+        w.scene.ForEachDescendant(copy, [&](Entity) { ++cloneParts; });
+        const bool cloned = copy.IsValid() && copy.RawId() != box.RawId() && std::string(copy.GetName()) == "Box" && cloneParts == parts &&
+                            copy.TryGet<Animator>() && !copy.IsActiveSelf() && !w.scene.Parent(copy).IsValid();
+
+        // Saved as a prefab (inactive) and spawned from it.
+        const std::filesystem::path file = SceneTestFolder() / "Box.prefab";
+        const bool saved = SceneFile::SavePrefab(box, w.assets, file, error);
+        AssetHandle<Prefab> prefab = w.assets.Load<Prefab>(file);
+        Entity spawned = prefab.Get() ? w.scene.Instantiate(*prefab.Get()) : Entity{};
+        int spawnedParts = 0;
+        if (spawned.IsValid())
+            w.scene.ForEachDescendant(spawned, [&](Entity) { ++spawnedParts; });
+        const bool fromPrefab = saved && spawned.IsValid() && spawnedParts == parts && spawned.TryGet<Animator>() && !spawned.IsActiveSelf();
+
+        const std::string detail = start + " " + before + " " + inactive + " " + hidden + Format(", %.0f parts copied, %.0f from the prefab", cloneParts, spawnedParts) +
+                                   (error.empty() ? "" : " | " + error);
+        return Finish(log, "active, clone and prefab", detail,
+                      start == "AVAV" && before == "AVav" && inactive == "avav" && hidden == "AvAv+" && cloned && fromPrefab);
+    }
+
     // Writing one field the way scripts do (a FieldVisitor through the component's serializer)
     // changes the component in place: an Animator's state machine stays in its state.
     inline Result SceneFieldWrite(const Log& log)

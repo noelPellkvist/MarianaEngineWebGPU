@@ -49,6 +49,17 @@ There's no `wait()` in scripts: a function must return so the frame can go on. K
 - `continuous = true` stops fast, small bodies from tunnelling through thin walls.
 - Keep the entities you spawn in a list so you can clean them up; iterate backwards when removing.
 
+### Spawn copies of a template
+
+Builds a ready-made enemy (or pickup, or anything) once in the editor, with its scripts and colliders, and stamps out copies of it while the game runs. Make the template, untick its **Active** box so it takes no part in the game itself, and give its name to the spawner.
+
+```luau title="TemplateSpawner.luau"
+@include docs/snippets/cookbook/TemplateSpawner.luau
+```
+
+- `scene.Clone` copies everything below the template too, and the copies' scripts start the next frame with the property values the template's slots have.
+- Save the template as a **prefab** (Hierarchy > right-click > Save as Prefab) to share it between scenes, and use `scene.Spawn("/Prefabs/Enemy.prefab", position)` instead.
+
 ### Spawn things at random
 
 Drops crates at random places in an area, keeping at most a set number.

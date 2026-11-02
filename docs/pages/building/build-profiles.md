@@ -59,7 +59,7 @@ Without **Whole project**, a build takes only what your scenes need:
 - the start scene and the other scenes, and every file each one uses (models, materials and their textures, animation graphs and their clip files, the pipeline),
 - each model's companions: a `.gltf`'s whole folder (its buffers and textures), a `.glb`'s extracted `.materials` folder,
 - the project's `Physics.json`, its own pipelines and icon when it uses them,
-- the whole `Scripts/` folder.
+- the whole `Scripts/` folder, and the `Prefabs/` folder with what the prefabs use.
 
 So files that only scripts load (a model `scene.Spawn` spawns that no scene contains) aren't included: put them in a scene, or turn on **Whole project**. To see exactly what a profile takes without building, run the [command line tool](command-line.md) with `--list`. Files a scene refers to that can't be found are listed as warnings.
 

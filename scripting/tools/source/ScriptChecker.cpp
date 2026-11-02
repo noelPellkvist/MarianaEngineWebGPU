@@ -1,4 +1,6 @@
 #include <Mariana/ScriptTools/ScriptChecker.hpp>
+#include <Mariana/Foundation/FileSystem.hpp>
+#include <Mariana/Scripting/Script.hpp>
 
 #include "Luau/Autocomplete.h"
 #include "Luau/BuiltinDefinitions.h"
@@ -8,21 +10,44 @@
 #include "Luau/TypeArena.h"
 
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace
 {
-    // The scripts' text, by name, as the checker reads it.
+    // The scripts' text, by name (a resource path, or a file name for one in /Scripts), as the checker
+    // reads it: what the caller checks, else the file a require names, read from disk.
     struct Sources final : Luau::FileResolver
     {
         std::unordered_map<std::string, std::string> text;
+        std::unordered_set<std::string> fromDisk; // read again before each check
 
         std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
         {
-            const auto it = text.find(name);
-            if (it == text.end())
+            if (const auto it = text.find(name); it != text.end())
+                return Luau::SourceCode{ it->second, Luau::SourceCode::Module };
+            const std::filesystem::path file = name.rfind('/', 0) == 0 ? FileSystem::Resolve(name) : std::filesystem::path();
+            std::ifstream stream(file, std::ios::binary);
+            if (file.empty() || !stream)
                 return std::nullopt;
-            return Luau::SourceCode{ it->second, Luau::SourceCode::Module };
+            std::ostringstream source;
+            source << stream.rdbuf();
+            fromDisk.insert(name);
+            return Luau::SourceCode{ source.str(), Luau::SourceCode::Module };
+        }
+
+        // require("./Util") as the game resolves it (ScriptAsset::ResolveRequire).
+        std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* expr, const Luau::TypeCheckLimits&) override
+        {
+            const Luau::AstExprConstantString* string = expr ? expr->as<Luau::AstExprConstantString>() : nullptr;
+            if (!string)
+                return std::nullopt;
+            const std::string resolved = ScriptAsset::ResolveRequire(std::string(string->value.data, string->value.size), context ? context->name : std::string());
+            if (resolved.empty())
+                return std::nullopt;
+            return Luau::ModuleInfo{ resolved };
         }
     };
 
@@ -85,6 +110,9 @@ struct ScriptChecker::Impl
     {
         sources.text[name] = source;
         frontend->markDirty(name);
+        // Required scripts may have changed on disk since.
+        for (const std::string& required : sources.fromDisk)
+            frontend->markDirty(required);
         Luau::FrontendOptions options = frontend->options;
         options.forAutocomplete = forAutocomplete;
         return frontend->check(name, options);

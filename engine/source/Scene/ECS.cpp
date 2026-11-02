@@ -138,6 +138,9 @@ struct Scene::Impl {
     std::unordered_map<ecs_entity_t, ecs_query_t*> each_queries;
 
     Scene* owner = nullptr;
+    // InactiveTag and HiddenTag, for the transform system (0 until the registry is applied).
+    ecs_entity_t inactiveTag = 0;
+    ecs_entity_t hiddenTag = 0;
     uint32_t next_trs_id = 0;
 
     Impl(Scene* s) : ecs(), owner(s) {}
@@ -324,10 +327,11 @@ Scene::Scene() : _p(new Impl) {
 
     // Parents are processed before children (cascade), and the parent's WorldXform/XformCache
     // come straight from the query (null for roots) instead of per-entity lookups.
+    Impl* impl = _p;
     _p->ecs.system<LocalTRS, WorldXform, XformCache, const WorldXform*, const XformCache*>()
       .term_at(3).cascade(flecs::ChildOf)
       .term_at(4).up(flecs::ChildOf)
-      .each([](flecs::entity e, LocalTRS& local, WorldXform& world, XformCache& cache,
+      .each([impl](flecs::entity e, LocalTRS& local, WorldXform& world, XformCache& cache,
                const WorldXform* parent_world, const XformCache* parent_cache)
     {
         const uint32_t parent_ver = parent_cache ? parent_cache->world_v : 0;
@@ -352,6 +356,11 @@ Scene::Scene() : _p(new Impl) {
         std::memcpy(world.model,  glm::value_ptr(M), sizeof(float) * 16);
         glm::mat3 N = glm::mat3(glm::transpose(glm::inverse(glm::mat3(M))));
         std::memcpy(world.normal, glm::value_ptr(N), sizeof(float) * 9);
+        // Active and visible down the hierarchy (SetActive / SetVisible make this run again).
+        const bool selfActive = !impl->inactiveTag || !e.has(impl->inactiveTag);
+        const bool selfVisible = !impl->hiddenTag || !e.has(impl->hiddenTag);
+        world.active = selfActive && (!parent_world || parent_world->active);
+        world.visible = world.active && selfVisible && (!parent_world || parent_world->visible);
         ++world.version;
 
         auto& clk = e.world().get_mut<TransformClock>();
@@ -361,6 +370,8 @@ Scene::Scene() : _p(new Impl) {
     });
 
     ApplyGlobalRegistryToScene(*_p);
+    _p->inactiveTag = ecs_lookup(_p->ecs.c_ptr(), "Inactive");
+    _p->hiddenTag = ecs_lookup(_p->ecs.c_ptr(), "Hidden");
 }
 
 Scene::~Scene() { delete _p; }
@@ -396,6 +407,38 @@ Entity Scene::Instantiate(const Prefab& prefab, const char* name) {
         root.SetName(name);
     }
     return root;
+}
+
+Entity Scene::Clone(Entity source) {
+    if (!source.IsValid()) return Entity{};
+    // Through a prefab of its own: copying within one world could move the source's components
+    // while they are read.
+    const Prefab copy = Prefab::FromEntity(*this, source);
+    Entity clone = Instantiate(copy);
+    if (const Entity parent = Parent(source); parent.IsValid() && clone.IsValid())
+        clone.SetParent(parent);
+    return clone;
+}
+
+Entity& Entity::SetActive(bool active) {
+    if (!IsValid() || active == IsActiveSelf()) return *this;
+    if (active) RemoveTag<InactiveTag>(); else AddTag<InactiveTag>();
+    _scene->_invalidateTransform(_id);
+    return *this;
+}
+
+Entity& Entity::SetVisible(bool visible) {
+    if (!IsValid() || visible == IsVisibleSelf()) return *this;
+    if (visible) RemoveTag<HiddenTag>(); else AddTag<HiddenTag>();
+    _scene->_invalidateTransform(_id);
+    return *this;
+}
+
+// Its WorldXform (and its children's) are worked out again on the next Update.
+void Scene::_invalidateTransform(uint64_t id) {
+    ecs_world_t* w = _p->ecs.c_ptr();
+    if (void* cache = ecs_get_mut_id(w, (ecs_entity_t)id, _p->ecs.component<XformCache>().id()))
+        static_cast<XformCache*>(cache)->local_v = ~0u;
 }
 
 void Scene::_destroy(uint64_t id) {
@@ -911,6 +954,8 @@ void RegisterBuiltinComponents() {
     RegisterRuntimeComponent<WorldXform>("WorldXform");
     RegisterRuntimeComponent<TransformClock>("TransformClock");
     RegisterRuntimeComponent<XformCache>("XformCache");
+    RegisterTag<InactiveTag>("Inactive");
+    RegisterTag<HiddenTag>("Hidden");
 }
 
 static void Register(const std::type_info& ti, std::size_t size, std::size_t align, const char* name, const ComponentLifecycle* lifecycle, bool runtime) {

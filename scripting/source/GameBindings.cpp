@@ -118,6 +118,36 @@ namespace ScriptingInternal
             return 0;
         }
 
+        // scene.Clone(entity, position, rotation): a copy of the entity and everything below it (with
+        // their scripts, which start next frame), under the same parent, at a world position and
+        // rotation when given.
+        int SceneClone(lua_State* L)
+        {
+            Scene& scene = *GetContext(L).scene;
+            const Entity source = CheckEntity(L, 1);
+            Entity clone = scene.Clone(source);
+            if (!clone.IsValid())
+                Error(L, "could not copy %s", source.GetName());
+            const Entity parent = scene.Parent(clone);
+            if (!lua_isnoneornil(L, 2))
+            {
+                glm::vec3 p = CheckVector(L, 2);
+                if (parent.IsValid())
+                    p = glm::vec3(glm::inverse(WorldMatrix(scene, parent)) * glm::vec4(p, 1.0f));
+                clone.SetPosition(p.x, p.y, p.z);
+            }
+            if (!lua_isnoneornil(L, 3))
+            {
+                glm::quat q = CheckQuat(L, 3);
+                if (parent.IsValid())
+                    q = glm::inverse(WorldRotation(scene, parent)) * q;
+                q = glm::normalize(q);
+                clone.SetRotationQuat(q.x, q.y, q.z, q.w);
+            }
+            PushEntity(L, clone);
+            return 1;
+        }
+
         int SceneDestroy(lua_State* L)
         {
             const Entity entity = ToEntity(L, 1);
@@ -511,6 +541,7 @@ namespace ScriptingInternal
         SetFunction(L, "Spawn", SceneSpawn);
         SetFunction(L, "SpawnPrimitive", SceneSpawnPrimitive);
         SetFunction(L, "Each", SceneEach);
+        SetFunction(L, "Clone", SceneClone);
         SetFunction(L, "Destroy", SceneDestroy);
         lua_setglobal(L, "scene");
 

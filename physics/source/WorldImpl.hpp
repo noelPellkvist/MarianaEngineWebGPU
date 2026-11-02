@@ -413,13 +413,18 @@ struct PhysicsWorld::Impl
     void Apply();
     void RemoveBody(JPH::BodyID& id);
     void RemoveAll();
-    // The entities with any of the components (Scene::Each), each once, in id order: bodies are made
-    // in this order, so the simulation doesn't depend on how the scene stores its entities.
+    // The active entities with any of the components (Scene::Each), each once, in id order: bodies are
+    // made in this order, so the simulation doesn't depend on how the scene stores its entities. An
+    // inactive entity (or one below an inactive one) has no body, joint, vehicle or character.
     template <class... T>
     std::vector<Entity> Find() const
     {
         std::vector<Entity> found;
-        (scene.Each<T>([&](Entity e, const T&) { found.push_back(e); }), ...);
+        (scene.Each<T>([&](Entity e, const T&) {
+             if (e.IsActive())
+                 found.push_back(e);
+         }),
+         ...);
         std::sort(found.begin(), found.end(), [](Entity a, Entity b) { return a.RawId() < b.RawId(); });
         found.erase(std::unique(found.begin(), found.end(), [](Entity a, Entity b) { return a.RawId() == b.RawId(); }), found.end());
         return found;

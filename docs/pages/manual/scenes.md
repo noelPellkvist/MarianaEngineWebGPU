@@ -60,10 +60,13 @@ In the web editor the browser asks before you leave a page with unsaved changes.
 
 A model file (`.gltf` or `.glb`) works like a prefab: drag it into the scene as often as you like, and each copy is a tree of entities you can change independently. The scene refers to the model's meshes, materials and skeleton by path, so updating the model file updates every scene that uses it.
 
+To reuse something you built in the editor (a model with colliders, materials and scripts, or a group of entities), save it as a **prefab file**: right-click it in the Hierarchy and choose **Save as Prefab**. It is written to `Prefabs/<name>.prefab` with everything below it, components, materials and scripts included. Drag the file from the Assets browser into the Hierarchy or the Scene view to place a copy. A copy isn't linked to its file: saving the prefab again changes what you place (or spawn) from then on, not the copies already in scenes.
+
 From a script, spawn models with [`scene.Spawn`](../scripting/api/scene.md):
 
 ```luau
 local dancer = scene.Spawn("/Models/Rumba.glb", vec3(0, 0, 5))
+local crate = scene.Spawn("/Prefabs/Crate.prefab", vec3(0, 3, 0))
 ```
 
 ## The Playground

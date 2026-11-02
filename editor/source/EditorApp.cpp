@@ -141,6 +141,7 @@ gameCamera(input)
     MaterialFile::RegisterLoader(assets);
     AnimationGraphFile::RegisterLoader(assets);
     ScriptAsset::RegisterLoader(assets);
+    SceneFile::RegisterPrefabLoader(assets);
 
     // The effects, their settings, the exposure and the shadow settings come from a pipeline file.
     // The game view copies the scene view's.
@@ -152,8 +153,9 @@ gameCamera(input)
         Logger::Error("Could not load the render pipeline: " + pipelineError);
 
     animationSystem = Animator::CreateSystem(scene);
-    cameraSystem = scene.CreateSystem<CameraComponent, WorldXform>([this](Entity e, CameraComponent&, WorldXform&, float) {
-        sceneCameras.push_back(e);
+    cameraSystem = scene.CreateSystem<CameraComponent, WorldXform>([this](Entity e, CameraComponent&, WorldXform& world, float) {
+        if (world.active) // an inactive camera doesn't show the game
+            sceneCameras.push_back(e);
     });
 
     scene.Update(0.f);
@@ -478,6 +480,27 @@ void EditorApp::OnStart()
         [](Entity e) { e.Add<CameraComponent>(CameraComponent{}); } });
     // While playing: whether Stop keeps what the game did to this entity.
     inspector->SetEntityHeader([this](Entity& e) {
+        // Its own switches (the Hierarchy greys out what isn't drawn), as undo steps.
+        auto toggle = [this](Entity entity, bool on, bool active) {
+            const uint64_t id = entity.RawId();
+            auto set = [this, id, active](bool value) {
+                Entity target = scene.FromId(id);
+                if (target.IsValid())
+                    active ? target.SetActive(value) : target.SetVisible(value);
+            };
+            set(on);
+            const char* verb = active ? (on ? "Activate " : "Deactivate ") : (on ? "Show " : "Hide ");
+            undo.Push(verb + std::string(entity.GetName()), [set, on]() { set(!on); }, [set, on]() { set(on); });
+        };
+        bool active = e.IsActiveSelf();
+        if (ImGui::Checkbox("Active", &active))
+            toggle(e, active, true);
+        ImGui::SetItemTooltip("An inactive entity (and everything below it) isn't drawn or simulated, and its scripts and animation don't run.");
+        ImGui::SameLine();
+        bool visible = e.IsVisibleSelf();
+        if (ImGui::Checkbox("Visible", &visible))
+            toggle(e, visible, false);
+        ImGui::SetItemTooltip("A hidden entity (and everything below it) isn't drawn; it still runs.");
         if (!gameClock.IsPlaying())
             return;
         const auto found = keepOnStop.find(e.RawId());
@@ -534,6 +557,25 @@ void EditorApp::OnStart()
                                             found->second ? "keep (with children)" : "keep");
     };
     hierarchy->contextMenu = [this](Entity e) {
+        if (!gameClock.IsPlaying() && ImGui::MenuItem("Save as Prefab"))
+        {
+            // Into the project's Prefabs folder, named like the entity (replacing one of that name).
+            std::string name = e.GetName() && *e.GetName() ? e.GetName() : "Prefab";
+            for (char& c : name)
+                if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_' && c != ' ')
+                    c = '_';
+            const fs::path file = project / "Prefabs" / (name + ".prefab");
+            std::error_code ec;
+            fs::create_directories(file.parent_path(), ec);
+            std::string error;
+            if (SceneFile::SavePrefab(e, assets, file, error))
+            {
+                Logger::Info("Saved " + file.string());
+                OfferDownload(file);
+            }
+            else
+                Logger::Error(error);
+        }
         if (!gameClock.IsPlaying())
             return;
         const bool kept = keepOnStop.contains(e.RawId());
