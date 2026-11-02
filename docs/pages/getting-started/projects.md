@@ -10,7 +10,7 @@ A **project** is a folder with your game's content: scenes, models, textures, ma
 
 ## The project folder
 
-The engine comes with one project, **Sandbox**, in `projects/Sandbox/`. A project's folders are up to you, but these names are what the editor and the engine look for:
+The engine comes with one project, **Sandbox**, in `projects/Sandbox/`; make your own with **File > New Project** (see [below](#creating-and-opening-projects)). A project's folders are up to you, but these names are what the editor and the engine look for:
 
 | Folder or file | What goes there |
 |---|---|
@@ -55,15 +55,34 @@ Files that refer to other files use resource paths too, or paths relative to the
 - **Material** files name their images relative to the `.material` file (`albedo.png`), or by resource path when the path starts with `/`.
 - **Animation graphs** name the models their clips come from relative to the `.animgraph` file, or by resource path.
 
-## Which project the editor opens
+## Creating and opening projects
 
-The editor opens the project it was built for. That is the Sandbox unless you change it: the folder is set in `editor/CMakeLists.txt` (`MARIANA_PROJECT_DIR`), and likewise the player's in `runtime/CMakeLists.txt` (`MARIANA_PLAYER_PROJECT`). To start a game of your own today, either:
+**File > New Project...** makes a project: give it a name and a location (the folder it goes in), and press **Create**. The new folder gets:
 
-- **Work inside the Sandbox.** Add your scenes, scripts and models next to the samples, and point a [build profile](../building/build-profiles.md) at your start scene. Builds only take the files your scenes use, so the samples don't end up in your game.
-- **Make a project folder of your own.** Copy `projects/Sandbox` to `projects/MyGame`, change `MARIANA_PROJECT_DIR` in `editor/CMakeLists.txt` to that folder, and build the editor again.
+- the folders `Scenes`, `Models`, `Textures`, `Materials` and `Scripts`,
+- the Sandbox's `VehicleDriver.luau`, `CharacterDriver.luau` and `ChaseCamera.luau` in `Scripts`, which the editor's ready-made vehicles and characters use (Create > Vehicle, Create > Physics > Character attach them by resource path),
+- a `.gitignore` that keeps `.mariana/` and `Builds/` out of version control.
+
+The editor then starts again in a new window on the new project and closes the old one (after asking to save anything unsaved). The project starts with an empty scene: save it with **Ctrl+S** to give it a name in `Scenes/`.
+
+**File > Open Project...** opens another project: type its folder, or pick one of the **recent projects**. Any folder can be a project; the editor makes its `.mariana/` cache folder in it when it opens.
+
+When the editor starts, it opens:
+
+1. the project given on the command line, if there is one: `MarianaEditor.exe --project "C:/Games/My Game"`,
+2. else the project you had open last,
+3. else the Sandbox.
+
+In a project, it opens the scene you last had open there; the first time, the project's `Playground.scene`, else its first scene, else an empty one.
+
+The list of recent projects is kept for your user account (`%APPDATA%/Mariana/projects.json` on Windows), not in any project.
 
 > [!NOTE]
-> Keep `Scripts/VehicleDriver.luau`, `CharacterDriver.luau` and `ChaseCamera.luau` in any project where you use the editor's ready-made vehicles and characters (Create > Vehicle, Create > Physics > Character). The editor attaches those scripts to what it creates, by resource path.
+> The web editor has the Sandbox built into its page, so it can't create or open other projects: use the desktop editor for your own games.
+
+### Working in the Sandbox
+
+You can also make a game inside the Sandbox: add your scenes, scripts and models next to the samples, and point a [build profile](../building/build-profiles.md) at your start scene. Builds only take the files your scenes use, so the samples don't end up in your game.
 
 ## Version control
 

@@ -29,8 +29,12 @@ Everything happens in **one script** on **one entity**. The script builds the bo
 
 ## Step 1: A new scene
 
-1. Choose **File > New Scene** (Ctrl+N). If the editor asks about unsaved changes, choose **Don't Save** (or **Save** if you changed the Playground and want to keep it).
-2. The scene is empty: no entities, just the sky.
+Make the game in a project of its own, or in the Sandbox next to the samples:
+
+- **In a new project:** choose **File > New Project...**, name it *Snake* and press **Create**. The editor starts again on the new project, in a new window.
+- **In the Sandbox:** choose **File > New Scene** (Ctrl+N). If the editor asks about unsaved changes, choose **Don't Save** (or **Save** if you changed the Playground and want to keep it).
+
+Either way the scene is empty: no entities, just the sky.
 
 ## Step 2: A camera
 

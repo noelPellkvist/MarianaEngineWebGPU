@@ -6,6 +6,7 @@
 // check fails.
 #include <Mariana/Export/BuildProfile.hpp>
 #include <Mariana/Export/GameFiles.hpp>
+#include <Mariana/Export/Project.hpp>
 
 #include <json.hpp>
 
@@ -109,6 +110,35 @@ int main()
               fs::exists(staging / "Scripts" / "VehicleDriver.luau", ec) && !fs::exists(staging / "Models", ec),
           "staging copies the files", staging.string() + (error.empty() ? "" : " | " + error));
     fs::remove_all(staging.parent_path(), ec);
+
+    // A new project: its folders, the starter scripts and the .gitignore; a folder with files in it
+    // is refused; its Defaults profiles have no start scene until it has one.
+    const fs::path temp = fs::temp_directory_path() / "MarianaExportTest";
+    const fs::path project = temp / "My Game";
+    fs::remove_all(temp, ec);
+    std::string createError, refusedError;
+    const bool created = Project::Create(project, sandbox / "Scripts", createError);
+    const bool refused = !Project::Create(project, sandbox / "Scripts", refusedError);
+    const BuildProfiles fresh = BuildProfiles::Defaults(project);
+    Check(created && refused && fs::is_directory(project / "Scenes", ec) && fs::is_directory(project / "Models", ec) &&
+              fs::exists(project / "Scripts" / "VehicleDriver.luau", ec) && fs::exists(project / "Scripts" / "ChaseCamera.luau", ec) &&
+              fs::exists(project / ".gitignore", ec) && fresh.profiles.size() == 2 && fresh.profiles[0].scene.empty(),
+          "a new project", createError + (refused ? " | refused again: " + refusedError : " | made twice"));
+
+    // The recent projects: the latest first, each once, gone folders left out.
+    Project::RecentFile() = temp / "projects.json";
+    const fs::path other = temp / "Other";
+    fs::create_directories(other, ec);
+    Project::Remember(project);
+    Project::Remember(other);
+    Project::Remember(project);
+    Project::Remember(temp / "Gone");
+    const std::vector<fs::path> recent = Project::Recent();
+    std::string recentList;
+    for (const fs::path& folder : recent)
+        recentList += (recentList.empty() ? "" : ", ") + folder.filename().string();
+    Check(recent.size() == 2 && fs::equivalent(recent[0], project, ec) && fs::equivalent(recent[1], other, ec), "recent projects", recentList);
+    fs::remove_all(temp, ec);
 
     std::printf("%d checks, %d failed\n", checks, failed);
     return failed == 0 ? 0 : 1;

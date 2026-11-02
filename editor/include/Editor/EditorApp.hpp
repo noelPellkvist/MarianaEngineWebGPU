@@ -36,7 +36,8 @@ class ViewportWindow;
 class EditorApp : public Application
 {
     public:
-        EditorApp();
+        // Opens the project in `project` (a folder; its files are under one of FileSystem's roots).
+        explicit EditorApp(std::filesystem::path project);
         ~EditorApp() override;
 
     protected:
@@ -49,6 +50,9 @@ class EditorApp : public Application
         bool OnCloseRequested() override;
 
     private:
+        // The project's folder: where scenes are saved, new scripts and graphs go, and the editor's
+        // caches (.mariana), physics settings and build profiles are.
+        const std::filesystem::path project;
         GUI gui;
         UndoStack undo;
         TransformUndo gizmoUndo;
@@ -114,9 +118,23 @@ class EditorApp : public Application
         // A camera following the driven entity (ChaseCamera.luau with these properties), unless the
         // scene has one.
         void AddChaseCamera(float distance, float height, float lookHeight);
-        // What the editor opens with when the project has no /Scenes/Playground.scene (and what that
-        // was saved from): the vehicle playground, a drivable car, dancers, a pool, jellies and a flag.
+        // What the editor opens with in the Sandbox when it has no /Scenes/Playground.scene (and what
+        // that was saved from): the vehicle playground, a drivable car, dancers, a pool, jellies and a flag.
         void BuildStartupScene();
+        // The scene the project was left in, else its Playground.scene (made in code in the Sandbox
+        // when the file is missing), else its first scene, else a new empty one.
+        void OpenStartScene();
+        // Where the scene the project was left in is written (the project's .mariana/editor).
+        std::filesystem::path LastSceneFile() const;
+
+        // Projects (natively): New Project makes a folder (Project::Create) and Open Project picks one
+        // (or a recent one); either starts the editor again on it (--project) and closes this one,
+        // after asking to save. The web editor has its project built in.
+        bool newProjectPopup = false;
+        bool openProjectPopup = false;
+        std::string projectError;
+        void SwitchProject(const std::filesystem::path& folder);
+        void DrawProjectPopups();
 
         // Scene files (SceneFile): the one being edited (empty until saved), and whether it changed
         // since: what saving would write (SceneFile::Signature, checked twice a second while the

@@ -39,6 +39,8 @@
 #include <Editor/Windows/AnimationGraphWindow.hpp>
 #include <Editor/Windows/AssetsExplorer.hpp>
 #include <Editor/Windows/BuildWindow.hpp>
+#include <Mariana/Export/Process.hpp>
+#include <Mariana/Export/Project.hpp>
 #include <Editor/Windows/HierarchyWindow.hpp>
 #include <Editor/Windows/InspectorWindow.hpp>
 #include <Editor/Windows/LoadedAssetsWindow.hpp>
@@ -116,7 +118,9 @@ inline std::string ToString(const uint64_t& v)
 
 static ImGuizmo::OPERATION CurrentGizmoOperation = ImGuizmo::TRANSLATE;
 
-EditorApp::EditorApp() : Application({ .title = "Mariana Engine Editor", .width = 1366, .height = 768, .iconPath = "/logo.png" }),
+EditorApp::EditorApp(fs::path projectFolder)
+    : Application({ .title = "Mariana Engine Editor - " + projectFolder.filename().string(), .width = 1366, .height = 768, .iconPath = "/logo.png" }),
+project(std::move(projectFolder)),
 sceneRenderer(scene, assets),
 gameCamera(input)
 {
@@ -390,7 +394,7 @@ void EditorApp::OnStart()
     gui.InitGui(m_Window);
 
     // The project's physics settings, if it has them.
-    const fs::path physicsFile = fs::path(MARIANA_PROJECT_DIR) / "Physics.json";
+    const fs::path physicsFile = project / "Physics.json";
     PhysicsSettings physicsSettings;
     std::error_code exists;
     if (std::string error; fs::exists(physicsFile, exists) && !physicsSettings.Load(physicsFile, error))
@@ -407,7 +411,7 @@ void EditorApp::OnStart()
     if (!scriptChecker->DefinitionErrors().empty())
         Logger::Error("The script API's types don't load: " + scriptChecker->DefinitionErrors());
 #ifndef __EMSCRIPTEN__
-    ScriptEditor::WriteProjectTypes(MARIANA_PROJECT_DIR);
+    ScriptEditor::WriteProjectTypes(project);
 #endif
     auto scriptEditor = std::make_unique<ScriptEditorWindow>(gui, assets, *scriptChecker);
     scriptEditorWindow = scriptEditor.get();
@@ -419,7 +423,7 @@ void EditorApp::OnStart()
         const auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         char name[64];
         std::strftime(name, sizeof(name), "profile-%Y%m%d-%H%M%S.json", std::localtime(&now));
-        const fs::path file = fs::path(MARIANA_PROJECT_DIR) / ".mariana" / "profiles" / name;
+        const fs::path file = project / ".mariana" / "profiles" / name;
         std::error_code ec;
         fs::create_directories(file.parent_path(), ec);
         std::ofstream(file, std::ios::binary) << trace;
@@ -427,12 +431,12 @@ void EditorApp::OnStart()
         OfferDownload(file);
     });
     EditorWindows["Stats"] = std::make_unique<StatsWindow>(gui, [this]() { EditorWindows["Profiler"]->SetOpen(true); });
-    thumbnails = std::make_unique<ThumbnailCache>(MARIANA_PROJECT_DIR, input);
-    auto graphEditor = std::make_unique<AnimationGraphWindow>(gui, assets, undo, scene, MARIANA_PROJECT_DIR);
+    thumbnails = std::make_unique<ThumbnailCache>(project, input);
+    auto graphEditor = std::make_unique<AnimationGraphWindow>(gui, assets, undo, scene, project);
     graphWindow = graphEditor.get();
     EditorWindows["Animation Graph"] = std::move(graphEditor);
 
-    auto assetsExplorer = std::make_unique<AssetsExplorer>(gui, MARIANA_PROJECT_DIR, *thumbnails);
+    auto assetsExplorer = std::make_unique<AssetsExplorer>(gui, project, *thumbnails);
     assetsExplorer->onOpen = [this](const fs::path& file) {
         std::string extension = file.extension().string();
         std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
@@ -458,7 +462,7 @@ void EditorApp::OnStart()
         [this](Entity entity) {
             Animator* animator = entity.Get<Animator>();
             const std::string name = entity.GetName();
-            const fs::path file = fs::path(MARIANA_PROJECT_DIR) / "Animations" / ((name.empty() ? std::string("Animator") : name) + ".animgraph");
+            const fs::path file = project / "Animations" / ((name.empty() ? std::string("Animator") : name) + ".animgraph");
             if (AssetHandle<AnimationGraph> graph = graphWindow->CreateGraph(file, animator); graph.Get() && animator)
                 animator->graph = graph;
         } });
@@ -467,7 +471,7 @@ void EditorApp::OnStart()
         SelectEntity(entity.RawId());
     });
     PhysicsEditor::RegisterInspector(*inspector, undo, *physics, assets, scene);
-    ScriptEditor::RegisterInspector(*inspector, undo, *scripts, *scriptChecker, assets, MARIANA_PROJECT_DIR,
+    ScriptEditor::RegisterInspector(*inspector, undo, *scripts, *scriptChecker, assets, project,
                                     [this](const fs::path& file) { scriptEditorWindow->Open(file); });
     inspector->AddComponentOption({ "Rendering", "Camera",
         [](Entity e) { return !e.TryGet<CameraComponent>(); },
@@ -504,7 +508,7 @@ void EditorApp::OnStart()
     pipelineWindow->MarkSaved(); // the constructor's caller applied it
     EditorWindows["Render Pipeline"] = std::move(pipelineEditor);
     EditorWindows["Lighting"] = std::make_unique<LightingWindow>(gui, sceneRenderer.lighting);
-    auto builds = std::make_unique<BuildWindow>(gui, MARIANA_PROJECT_DIR);
+    auto builds = std::make_unique<BuildWindow>(gui, project);
     buildWindow = builds.get();
     EditorWindows["Build"] = std::move(builds);
     auto hierarchy = std::make_unique<HierarchyWindow>(
@@ -571,9 +575,7 @@ void EditorApp::OnStart()
     });
 #endif
 
-    // The project's playground scene, or the same made in code when it has none.
-    if (!OpenScene(FileSystem::Resolve("/Scenes/Playground.scene")))
-        BuildStartupScene();
+    OpenStartScene();
     // Where the camera was left in it, or looking at the car from behind and to its left, the jump
     // ahead of it.
     if (auto* editorCam = dynamic_cast<EditorCameraController*>(cam.get()); editorCam && !LoadEditorCamera())
@@ -769,6 +771,48 @@ void EditorApp::RememberScene(const fs::path& file)
     recentScenes.insert(recentScenes.begin(), file);
     if (recentScenes.size() > 8)
         recentScenes.resize(8);
+    // The project opens in it next time.
+    const std::string resource = FileSystem::ToResourcePath(file);
+    std::error_code ec;
+    fs::create_directories(LastSceneFile().parent_path(), ec);
+    std::ofstream(LastSceneFile(), std::ios::binary) << (resource.empty() ? file.generic_string() : resource);
+}
+
+fs::path EditorApp::LastSceneFile() const
+{
+    return project / ".mariana" / "editor" / "last-scene.txt";
+}
+
+void EditorApp::OpenStartScene()
+{
+    std::error_code ec;
+    // The scene the project was left in.
+    if (std::ifstream stream(LastSceneFile(), std::ios::binary); stream)
+    {
+        std::string last;
+        std::getline(stream, last);
+        const fs::path file = last.rfind('/', 0) == 0 ? FileSystem::Resolve(last) : fs::path(last);
+        if (!file.empty() && fs::exists(file, ec) && OpenScene(file))
+            return;
+    }
+    // Its playground; the Sandbox's is made in code when its file is missing.
+    if (const fs::path playground = project / "Scenes" / "Playground.scene"; fs::exists(playground, ec) && OpenScene(playground))
+        return;
+    if (fs::equivalent(project, MARIANA_PROJECT_DIR, ec))
+    {
+        BuildStartupScene();
+        return;
+    }
+    // Its first scene, else an empty one.
+    std::vector<fs::path> scenes;
+    for (const auto& entry : fs::directory_iterator(project / "Scenes", ec))
+        if (entry.path().extension() == ".scene")
+            scenes.push_back(entry.path());
+    std::sort(scenes.begin(), scenes.end());
+    for (const fs::path& file : scenes)
+        if (OpenScene(file))
+            return;
+    NewScene();
 }
 
 bool EditorApp::SceneModified() const
@@ -834,7 +878,7 @@ fs::path EditorApp::EditorCameraFile() const
 {
     if (scenePath.empty())
         return {};
-    return fs::path(MARIANA_PROJECT_DIR) / ".mariana" / "editor" / (scenePath.stem().string() + ".camera");
+    return project / ".mariana" / "editor" / (scenePath.stem().string() + ".camera");
 }
 
 void EditorApp::SaveEditorCamera() const
@@ -971,7 +1015,7 @@ void EditorApp::DrawScenePopups()
             for (char& c : clean)
                 if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_' && c != ' ')
                     c = '_';
-            if (const fs::path file = fs::path(MARIANA_PROJECT_DIR) / "Scenes" / (clean + ".scene"); SaveScene(file))
+            if (const fs::path file = project / "Scenes" / (clean + ".scene"); SaveScene(file))
                 OfferDownload(file);
             ImGui::CloseCurrentPopup();
         }
@@ -982,6 +1026,139 @@ void EditorApp::DrawScenePopups()
     // Save As closed without saving: what waited for the save doesn't happen.
     if (afterSavePrompt && !saveScenePopup && !savePromptPopup && !ImGui::IsPopupOpen("Save Scene As") && !ImGui::IsPopupOpen("Save Changes?"))
         afterSavePrompt = nullptr;
+}
+
+namespace
+{
+    std::string Utf8(const fs::path& path)
+    {
+        const std::u8string text = path.u8string();
+        return std::string(text.begin(), text.end());
+    }
+}
+
+void EditorApp::SwitchProject(const fs::path& folder)
+{
+    AskToSave([this, folder]() {
+        // A new editor on the project, then this one closes (it saves its editor camera and layout).
+        std::string error;
+        if (!Process::Launch({ Utf8(FileSystem::ExecutablePath()), "--project", Utf8(folder) }, FileSystem::ExecutableDirectory(), error))
+        {
+            projectError = error;
+            Logger::Error(error);
+            return;
+        }
+        Project::Remember(folder);
+        Quit();
+    });
+}
+
+void EditorApp::DrawProjectPopups()
+{
+    if (newProjectPopup)
+    {
+        ImGui::OpenPopup("New Project");
+        newProjectPopup = false;
+        projectError.clear();
+    }
+    if (openProjectPopup)
+    {
+        ImGui::OpenPopup("Open Project");
+        openProjectPopup = false;
+        projectError.clear();
+    }
+
+    if (ImGui::BeginPopupModal("New Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        static char name[128] = {};
+        static char location[1024] = {};
+        if (ImGui::IsWindowAppearing())
+        {
+            std::snprintf(name, sizeof(name), "%s", "My Game");
+            std::snprintf(location, sizeof(location), "%s", Utf8(project.parent_path()).c_str());
+            ImGui::SetKeyboardFocusHere();
+        }
+        ImGui::TextUnformatted("A new project: a folder for a game's scenes, models, textures and scripts.");
+        ImGui::Spacing();
+        ImGui::SetNextItemWidth(420.0f);
+        ImGui::InputText("Name", name, sizeof(name));
+        ImGui::SetNextItemWidth(420.0f);
+        ImGui::InputText("Location", location, sizeof(location));
+        const std::string text = name;
+        const bool validName = !text.empty() && text.find_first_of("<>:\"/\\|?*") == std::string::npos && text != "." && text != "..";
+        const fs::path folder = fs::path(std::u8string(location, location + std::strlen(location))) / fs::path(std::u8string(text.begin(), text.end()));
+        ImGui::TextDisabled("%s", validName ? Utf8(folder.lexically_normal()).c_str() : "A name can't have < > : \" / \\ | ? * in it");
+        ImGui::TextDisabled("It gets Scenes, Models, Textures, Materials and Scripts folders (with the vehicle and");
+        ImGui::TextDisabled("character driver scripts) and a .gitignore. The editor then opens it in a new window.");
+        if (!projectError.empty())
+            ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.4f, 1.0f), "%s", projectError.c_str());
+        ImGui::Spacing();
+        ImGui::BeginDisabled(!validName || location[0] == '\0');
+        if (ImGui::Button("Create", ImVec2(110.0f, 0.0f)))
+        {
+            // The driver scripts come from the Sandbox (the project the editor was built with).
+            if (Project::Create(folder.lexically_normal(), fs::path(MARIANA_PROJECT_DIR) / "Scripts", projectError))
+            {
+                ImGui::CloseCurrentPopup();
+                SwitchProject(folder.lexically_normal());
+            }
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(110.0f, 0.0f)) || ImGui::IsKeyPressed(ImGuiKey_Escape))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+
+    if (ImGui::BeginPopupModal("Open Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        static char path[1024] = {};
+        if (ImGui::IsWindowAppearing())
+            path[0] = '\0';
+        ImGui::TextUnformatted("A project folder (any folder: its files are the project's)");
+        ImGui::SetNextItemWidth(520.0f);
+        const bool entered = ImGui::InputTextWithHint("##folder", "C:/Games/My Game", path, sizeof(path), ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGui::SameLine();
+        ImGui::BeginDisabled(path[0] == '\0');
+        if (ImGui::Button("Open") || (entered && path[0] != '\0'))
+        {
+            std::error_code ec;
+            const fs::path folder = fs::path(std::u8string(path, path + std::strlen(path))).lexically_normal();
+            if (!fs::is_directory(folder, ec))
+                projectError = "There is no folder " + Utf8(folder);
+            else
+            {
+                ImGui::CloseCurrentPopup();
+                SwitchProject(folder);
+            }
+        }
+        ImGui::EndDisabled();
+        ImGui::Spacing();
+        ImGui::SeparatorText("Recent projects");
+        const std::vector<fs::path> recent = Project::Recent();
+        if (recent.empty())
+            ImGui::TextDisabled("None yet");
+        for (const fs::path& folder : recent)
+        {
+            std::error_code ec;
+            const bool current = fs::equivalent(folder, project, ec);
+            ImGui::PushID(Utf8(folder).c_str());
+            if (ImGui::Selectable(Utf8(folder.filename()).c_str(), current, current ? ImGuiSelectableFlags_Disabled : 0, ImVec2(160.0f, 0.0f)))
+            {
+                ImGui::CloseCurrentPopup();
+                SwitchProject(folder);
+            }
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s%s", Utf8(folder).c_str(), current ? "  (open)" : "");
+            ImGui::PopID();
+        }
+        if (!projectError.empty())
+            ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.4f, 1.0f), "%s", projectError.c_str());
+        ImGui::Spacing();
+        if (ImGui::Button("Cancel", ImVec2(110.0f, 0.0f)) || ImGui::IsKeyPressed(ImGuiKey_Escape))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
 }
 
 void EditorApp::BuildStartupScene()
@@ -1423,6 +1600,18 @@ void EditorApp::DrawTopMenu()
         if (ImGui::BeginMenu("File"))
         {
             const bool playing = gameClock.IsPlaying();
+#if defined(__EMSCRIPTEN__)
+            const bool canSwitchProjects = false;
+#else
+            const bool canSwitchProjects = true;
+#endif
+            if (ImGui::MenuItem("New Project...", nullptr, false, canSwitchProjects))
+                newProjectPopup = true;
+            if (ImGui::MenuItem("Open Project...", nullptr, false, canSwitchProjects))
+                openProjectPopup = true;
+            if (!canSwitchProjects && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                ImGui::SetTooltip("The web editor has its project built in: open other projects in the desktop editor");
+            ImGui::Separator();
             if (ImGui::MenuItem("New Scene", "Ctrl+N"))
                 AskToSave([this]() { NewScene(); });
             if (ImGui::MenuItem("Open Scene...", "Ctrl+O"))
@@ -1590,6 +1779,7 @@ void EditorApp::DrawTopMenu()
         ImGui::EndMainMenuBar();
     }
     DrawScenePopups();
+    DrawProjectPopups();
 }
 
 void EditorApp::DrawPlayControls()

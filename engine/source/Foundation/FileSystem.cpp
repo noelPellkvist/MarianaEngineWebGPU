@@ -106,7 +106,7 @@ namespace FileSystem
         return {};
     }
 
-    std::filesystem::path ExecutableDirectory()
+    std::filesystem::path ExecutablePath()
     {
 #if defined(_WIN32)
         std::wstring path(MAX_PATH, L'\0');
@@ -114,13 +114,23 @@ namespace FileSystem
         while ((length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()))) >= path.size())
             path.resize(path.size() * 2);
         path.resize(length);
-        return std::filesystem::path(path).parent_path();
+        return std::filesystem::path(path);
 #elif defined(__EMSCRIPTEN__)
-        return "/";
+        return {};
 #else
         std::error_code error;
         const std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", error);
-        return error ? std::filesystem::current_path() : self.parent_path();
+        return error ? std::filesystem::path() : self;
+#endif
+    }
+
+    std::filesystem::path ExecutableDirectory()
+    {
+#if defined(__EMSCRIPTEN__)
+        return "/";
+#else
+        const std::filesystem::path self = ExecutablePath();
+        return self.empty() ? std::filesystem::current_path() : self.parent_path();
 #endif
     }
 }

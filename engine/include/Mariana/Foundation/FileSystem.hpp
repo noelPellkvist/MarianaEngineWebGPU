@@ -25,6 +25,7 @@ namespace FileSystem
     // own spelling), or empty when it is under none.
     std::string ToResourcePath(const std::filesystem::path& file);
 
-    // The folder the running program is in ("/" on the web).
+    // The running program's file (empty on the web) and the folder it is in ("/" on the web).
+    std::filesystem::path ExecutablePath();
     std::filesystem::path ExecutableDirectory();
 }

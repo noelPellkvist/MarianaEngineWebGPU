@@ -53,7 +53,7 @@ Mariana is young. This page lists what it doesn't do yet, so you know before you
 
 - One entity is selected at a time; there is no copy, paste or duplicate for entities yet.
 - Your own prefabs: a "prefab" is a model file. Groups of entities can't be saved as reusable prefabs yet.
-- Open Recent remembers scenes for the current session only.
+- Open Recent remembers scenes for the current session only (a project does reopen in the scene you had open last).
 - On the web, the editor's files live in the page: saving also downloads the file, and everything is gone when the page reloads.
 - Undoing an edit back to the saved state still marks a `.material` or `.animgraph` file as modified.
 - A scene can make about 131,000 entities with transforms in one run: those destroyed while playing don't give their slot back until the scene starts again (Stop, or opening it). Reuse projectiles and effects (move them back into a pool) instead of creating new ones for hours on end.

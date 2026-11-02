@@ -27,7 +27,7 @@ More windows live in the **Window** menu: **Stats** and the **Profiler** (perfor
 
 | Menu | |
 |---|---|
-| **File** | New, Open, Open Recent, Save and Save As for scenes; **Build** (Build Settings, Build, Build and Run); Exit |
+| **File** | New Project and Open Project; New, Open, Open Recent, Save and Save As for scenes; **Build** (Build Settings, Build, Build and Run); Exit |
 | **Edit** | Undo and Redo (with the name of the step) |
 | **Create** | Empty entities, primitives (cube, sphere, plane, cylinder, capsule), cameras, physics objects, vehicles, characters, water, cloth and more |
 | **Window** | Open and close the editor's windows |

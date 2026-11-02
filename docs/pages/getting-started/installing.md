@@ -54,7 +54,7 @@ Run the editor:
 ./build/bin/Release/MarianaEditor.exe
 ```
 
-It opens the sample project, **Sandbox**, in its *Playground* scene: a car on a test track, a water pool, jellies, a flag and three dancers in the car's way. Press **Ctrl+P** to play and drive with **W A S D**.
+The first time, it opens the sample project, **Sandbox**, in its *Playground* scene (after that, the project and scene you had open last; see [Projects](projects.md#creating-and-opening-projects)): a car on a test track, a water pool, jellies, a flag and three dancers in the car's way. Press **Ctrl+P** to play and drive with **W A S D**.
 
 > [!TIP]
 > Keep the `build` folder. File > Build uses it to build the player for your games, so a game build after the first one only takes seconds.

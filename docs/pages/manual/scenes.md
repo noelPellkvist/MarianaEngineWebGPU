@@ -48,7 +48,7 @@ The log lists every file written. Each of those windows also has its own Save bu
 
 The scene's name on the right of the menu bar gets a `*` when anything isn't saved: an entity moved, a component setting changed, the lighting adjusted, a material or graph edited. Hover it to see what isn't saved. Undo back to how it was saved and the `*` goes away again for scene changes.
 
-Before throwing changes away (New Scene, Open Scene, Open Recent, Exit, or closing the window), the editor asks:
+Before throwing changes away (New Scene, Open Scene, Open Recent, New Project, Open Project, Exit, or closing the window), the editor asks:
 
 - **Save**: saves everything (and asks for a name if the scene has none), then goes on.
 - **Don't Save**: goes on without saving.
