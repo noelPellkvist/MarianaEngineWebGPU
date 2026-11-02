@@ -47,6 +47,7 @@
       "scripting/api/entity",
       "scripting/api/components",
       "scripting/api/component-reference",
+      "scripting/api/meshes",
       "scripting/api/animator",
       "scripting/api/scene",
       "scripting/api/input",

@@ -176,6 +176,21 @@ In the editor keys read as up while a text field has them or the right mouse but
 
 `options` = `{ ignore = entity, triggers = true, layers = mask }`.
 
+## Meshes, materials and textures
+
+| | |
+|---|---|
+| `mesh.new{ positions, normals?, uvs?, colors?, indices? \| submeshes?, topology?, smooth?, dynamic? }` | a Mesh: attributes as tables of vectors or buffers of floats; indices from 1 in tables, from 0 in buffers of u32; no normals = flat (or `smooth = true`) |
+| `m:Update{ positions?, normals?, uvs?, colors? }` | a dynamic mesh's vertices again (as many) |
+| `m.vertexCount`, `m.boundsMin`, `m.boundsMax`, `m.dynamic` | |
+| `entity:SetMesh(m, materials?)`, `entity:GetMesh()` | draw a mesh (a Mesh Renderer, casting shadows) |
+| `entity:GetMaterial(slot?)` | the material in a slot (from 1): the entity's own copy the first time, so only it changes |
+| `entity:SetMaterial(material, slot?)`, `material.new(fields?)`, `mat:Clone()` | |
+| material fields | `color`, `alpha`, `metallic`, `roughness`, `emissive`, `normalStrength`, `occlusionStrength`, `clearcoat`, `clearcoatRoughness`, `doubleSided`, `alphaMode` ("Opaque" / "Mask" / "Blend"), `alphaCutoff`, `tiling`, `offset`, `baseColorMap`, `normalMap`, `metallicRoughnessMap`, `occlusionMap`, `emissiveMap`, `name` (read) |
+| `texture.load(path)` | an image by resource path, loaded in the colour space of the slot it is put in |
+
+What scripts make or change this way lasts while the game runs: Stop puts the scene back.
+
 ## Control scripts (in the Sandbox)
 
 Game controls are scripts too: the engine gives vehicles, characters and cameras, and these decide

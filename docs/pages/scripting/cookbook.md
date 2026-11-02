@@ -204,6 +204,41 @@ Feeds a character controller's speed and ground state into its animation graph's
 
 The graph needs a float parameter `speed` driving a **Blend 1D** (idle at 0, walk at about 1.5, run at about 4), a bool `grounded`, and a trigger `jump` used by a transition into a jump state. See [Animation](../manual/animation.md).
 
+## Meshes and materials
+
+### Procedural terrain
+
+Builds rolling hills from a height function: one mesh of a grid of vertices, smooth normals, colours by height, and a Mesh Collider so things land on it. Put it on an empty entity.
+
+```luau title="ProceduralTerrain.luau"
+@include docs/snippets/cookbook/ProceduralTerrain.luau
+```
+
+- Indices count from 1 and name the vertices of each triangle; a triangle's front is the side its corners go round anticlockwise.
+- Change `heightAt` for other landscapes: noise, craters, a heightmap read from a table.
+- See [Meshes, Materials and Textures](api/meshes.md) for every option.
+
+### A moving surface
+
+A **dynamic** mesh whose vertices move every frame: rings of waves spreading from the middle.
+
+```luau title="Ripples.luau"
+@include docs/snippets/cookbook/Ripples.luau
+```
+
+- `Update` takes as many positions as the mesh was made with; the triangles stay the same.
+- With `smooth = true` the normals follow the waves, so the light does too.
+
+### Flash when hit
+
+The entity glows red for a moment when something hits it hard. Put it on an entity with a mesh and a rigid body.
+
+```luau title="HitFlash.luau"
+@include docs/snippets/cookbook/HitFlash.luau
+```
+
+`GetMaterial` gives the entity its own copy of its material the first time, so only this entity flashes, and the scene is back to normal when you press Stop.
+
 ## Time
 
 ### Slow motion

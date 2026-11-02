@@ -82,7 +82,9 @@ A few fields aren't saved in scene files: they're inputs your scripts set every 
 
 ## What scripts can't reach yet
 
-Fields that refer to **assets** (a Mesh Renderer's mesh and materials, an Animator's skeleton, clips and graph, a Mesh Collider's mesh, a Scripts component's scripts) and **lists of objects** (an Animator's clips and events) aren't available from scripts. Set them in the editor. Choose a primitive's colour when you spawn it (`scene.SpawnPrimitive(shape, position, color)`).
+Fields that refer to **assets** and **lists of objects** aren't component fields scripts can read or write: an Animator's skeleton, clips, graph and events, a Mesh Collider's mesh, a Scripts component's scripts. Set those in the editor.
+
+A Mesh Renderer's mesh and materials have methods of their own instead: [`entity:SetMesh`, `GetMesh`, `GetMaterial` and `SetMaterial`](meshes.md).
 
 ## The Animator
 

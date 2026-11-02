@@ -11,7 +11,11 @@
 #include <Mariana/Physics/Character.hpp>
 #include <Mariana/Physics/Vehicle.hpp>
 #include <Mariana/Platform/IInput.hpp>
+#include <Mariana/Geometry/MeshBuilder.hpp>
+#include <Mariana/Graphics/Mesh.hpp>
+#include <Mariana/Rendering/BuiltinAssets.hpp>
 #include <Mariana/Rendering/Components.hpp>
+#include <Mariana/Rendering/MaterialAsset.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Scene/Transform.hpp>
 #include <Mariana/Scripting/ScriptWorld.hpp>
@@ -806,9 +810,114 @@ return W
         return Finish(log, "cookbook runs", std::to_string(ran) + " scripts" + (report.empty() ? ", no errors" : report), ran >= 15 && report.empty());
     }
 
+    // Meshes and materials from Luau: a quad from tables with smooth normals, a flat one, a
+    // triangle from buffers updated (dynamic), lines; a shared material changed through
+    // GetMaterial (the entity gets its own copy, the other keeps the shared one), material.new and
+    // Clone; mistakes are errors.
+    inline Result MeshesAndMaterials(const Log& log)
+    {
+        using namespace detail;
+        World w;
+        auto shared = std::make_shared<MaterialAsset>();
+        const AssetHandle<MaterialAsset> sharedHandle = w.assets.RegisterAsset<MaterialAsset>(shared, AssetType::Material, "Shared");
+        const AssetHandle<IMesh> cube = BuiltinAssets::PrimitiveMesh(w.assets, BuiltinMesh::Cube);
+        Entity a = w.Make("A");
+        Entity b = w.Make("B");
+        a.Add<MeshComponent>(MeshComponent{ cube, { sharedHandle } });
+        b.Add<MeshComponent>(MeshComponent{ cube, { sharedHandle } });
+        Entity tester = w.Make("Tester");
+        Entity errors = w.Make("Errors");
+        Attach(tester, w.Source("MeshMaker.luau", R"(
+local T = {}
+function T:Start()
+    local results = {}
+    local quad = mesh.new{
+        positions = { vec3(0, 0, 0), vec3(1, 0, 0), vec3(1, 0, 1), vec3(0, 0, 1) },
+        uvs = { vec3(0, 0, 0), vec3(1, 0, 0), vec3(1, 1, 0), vec3(0, 1, 0) },
+        indices = { 1, 3, 2, 1, 4, 3 },
+        smooth = true,
+        dynamic = true,
+    }
+    local q = scene.Create("Quad")
+    q:SetMesh(quad)
+    table.insert(results, `quad={quad.vertexCount} same={tostring(q:GetMesh() == quad)}`)
+
+    scene.Create("Flat"):SetMesh(mesh.new{ positions = { vec3(0, 0, 0), vec3(1, 0, 1), vec3(1, 0, 0), vec3(0, 0, 0), vec3(0, 0, 1), vec3(1, 0, 1) } })
+
+    local p = buffer.create(36)
+    for i, v in { 0, 0, 0, 0, 0, 1, 1, 0, 0 } do
+        buffer.writef32(p, (i - 1) * 4, v)
+    end
+    local idx = buffer.create(12)
+    buffer.writeu32(idx, 0, 0)
+    buffer.writeu32(idx, 4, 1)
+    buffer.writeu32(idx, 8, 2)
+    local tri = mesh.new{ positions = p, indices = idx, dynamic = true }
+    scene.Create("Tri"):SetMesh(tri)
+    tri:Update{ positions = { vec3(0, 2, 0), vec3(0, 2, 1), vec3(1, 2, 0) } }
+    table.insert(results, `triMinY={tri.boundsMin.y}`)
+
+    scene.Create("Line"):SetMesh(mesh.new{ positions = { vec3(0, 0, 0), vec3(0, 1, 0) }, topology = "lines" })
+
+    local a = scene.Find("A")
+    local m = a:GetMaterial()
+    m.color = vec3(1, 0, 0)
+    m.roughness = 0.25
+    table.insert(results, `again={tostring(a:GetMaterial() == m)}`)
+    local gold = material.new{ color = vec3(1, 0.8, 0.2), metallic = 1, roughness = 0.3 }
+    q:SetMaterial(gold)
+    local copy = gold:Clone()
+    copy.emissive = vec3(2, 2, 2)
+    table.insert(results, `clone={tostring(copy ~= gold)} metallic={copy.metallic} mode={copy.alphaMode}`)
+
+    local ok1, e1 = pcall(mesh.new, { positions = { vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0) }, indices = { 1, 2, 5 } })
+    local ok2, e2 = pcall(mesh.new, { positions = { vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0) }, normal = {} })
+    local ok3, e3 = pcall(function() tri:Update{ positions = { vec3(0, 0, 0) } } end)
+    local ok4, e4 = pcall(function() (gold :: any).colour = vec3(1, 1, 1) end)
+    table.insert(results, `errors={tostring(not (ok1 or ok2 or ok3 or ok4))}`)
+    scene.Find("Errors").name = table.concat({ tostring(e1), tostring(e2), tostring(e3), tostring(e4) }, " | ")
+    self.entity.name = table.concat(results, " ")
+end
+return T
+)"));
+        w.Frames(1);
+        auto find = [&](const char* name) { return w.scene.FindByName(name); };
+        auto meshOf = [&](const char* name) -> const IMesh* {
+            const MeshComponent* mc = find(name).IsValid() ? find(name).TryGet<MeshComponent>() : nullptr;
+            return mc ? mc->mesh.Get().get() : nullptr;
+        };
+        const IMesh* quad = meshOf("Quad");
+        const IMesh* flat = meshOf("Flat");
+        const IMesh* tri = meshOf("Tri");
+        const IMesh* line = meshOf("Line");
+        const MeshComponent* quadRenderer = find("Quad").IsValid() ? find("Quad").TryGet<MeshComponent>() : nullptr;
+        const MaterialAsset* gold = quadRenderer && !quadRenderer->materials.empty() ? quadRenderer->materials[0].Get().get() : nullptr;
+        const MeshComponent* ar = a.TryGet<MeshComponent>();
+        const MeshComponent* br = b.TryGet<MeshComponent>();
+        const MaterialAsset* aMaterial = ar && !ar->materials.empty() ? ar->materials[0].Get().get() : nullptr;
+        const glm::vec3 quadNormal = quad && quad->source && !quad->source->vertices.empty() ? quad->source->vertices[0].normal : glm::vec3(0.0f);
+        const bool meshes = quad && quad->VertexCount() == 4 && quad->IndexCount() == 6 && glm::length(quadNormal - glm::vec3(0, 1, 0)) < 1e-5f &&
+                            quad->boundsMax == glm::vec3(1, 0, 1) && flat && flat->VertexCount() == 6 && tri && tri->boundsMin.y == 2.0f &&
+                            tri->deformVersion == 1 && line && line->IndexCount() == 2 && line->submeshes[0].topology == PrimitiveTopology::Lines;
+        const bool materials = gold && gold->properties.metallicFactor == 1.0f && gold->properties.baseColor == glm::vec4(1.0f, 0.8f, 0.2f, 1.0f) &&
+                               aMaterial && aMaterial != shared.get() && aMaterial->properties.baseColor == glm::vec4(1, 0, 0, 1) &&
+                               aMaterial->properties.roughnessFactor == 0.25f && shared->properties.baseColor == glm::vec4(1.0f) && br &&
+                               br->materials[0].Get().get() == shared.get();
+        const std::string said = tester.GetName();
+        const std::string why = errors.GetName();
+        const bool messages = why.find("indices go from 1") != std::string::npos && why.find("isn't a mesh field") != std::string::npos &&
+                              why.find("keeps the mesh's 3 positions") != std::string::npos && why.find("can't set 'colour'") != std::string::npos;
+        return Finish(log, "meshes and materials",
+                      said + Format(" | quad normal (%.2f, %.2f, %.2f), flat %.0f vertices", quadNormal.x, quadNormal.y, quadNormal.z,
+                                    flat ? static_cast<double>(flat->VertexCount()) : -1.0) +
+                          (messages ? "" : " | errors: " + why),
+                      meshes && materials && messages &&
+                          said == "quad=4 same=true triMinY=2 again=true clone=true metallic=1 mode=Opaque errors=true");
+    }
+
     inline std::vector<Result> RunAll(const Log& log)
     {
         return { Lifecycle(log), Components(log), Physics(log), Spawning(log), Talking(log), Reload(log), Errors(log), Driving(log),
-                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log), LookAtFromLua(log), WatchCar(log), SnakeTutorial(log), SnakeTutorialStages(log), CookbookRuns(log) };
+                 StandardVehicle(log), StandardCharacter(log), Describe(log), AnimationEvents(log), LookAtFromLua(log), WatchCar(log), SnakeTutorial(log), SnakeTutorialStages(log), CookbookRuns(log), MeshesAndMaterials(log) };
     }
 }

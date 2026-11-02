@@ -27,7 +27,7 @@ Mariana is young. This page lists what it doesn't do yet, so you know before you
 ## Scripting
 
 - Scripts can't put scripts on entities they create, or copy an existing entity. Have one script drive what it spawns (see [Spawning things that have scripts](../scripting/api/scene.md#spawning-things-that-have-scripts)).
-- Fields that are assets (meshes, materials, textures, animation clips and graphs) can't be read or set from scripts, so a script can't change a material's colour after spawning. A primitive's colour is chosen when it's spawned.
+- Animation clips and graphs can't be assigned from scripts (meshes, materials and textures can: see [Meshes, Materials and Textures](../scripting/api/meshes.md)). Meshes made by scripts aren't saved in scene files.
 - There is no `require`: scripts reach each other through [`entity:GetScript`](../scripting/api/entity.md#getscript).
 - There is no `wait` or yielding: spread work over frames with timers in `self`.
 

@@ -186,6 +186,9 @@ struct ScriptWorld::Impl
         instances.clear();
         context.destroys.clear();
         context.entityCache = LUA_NOREF;
+        // After the state: its userdata let go of their meshes and materials as it closed.
+        context.scriptMaterials.clear();
+        context.scriptMeshes.clear();
     }
 
     // ---- Calls ----------------------------------------------------------------------------------

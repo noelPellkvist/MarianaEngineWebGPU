@@ -129,7 +129,10 @@ namespace ScriptingInternal
         OpenMath(L);
         OpenEntity(L);
         if (context.game)
+        {
             OpenGame(L);
+            OpenAssets(L);
+        }
 
         // Globals and libraries read-only; each module gets globals of its own.
         luaL_sandbox(L);
@@ -214,7 +217,8 @@ namespace ScriptingInternal
         const char* const kAtomNames[kAtomCount] = {
             "id", "name", "parent", "position", "rotation", "scale", "worldPosition", "worldRotation",
             "forward", "right", "up", "IsValid", "Destroy", "Has", "Get", "Add", "Remove", "GetScript",
-            "GetChildren", "FindChild", "Rotate", "Translate", "LookAt",
+            "GetChildren", "FindChild", "Rotate", "Translate", "LookAt", "SetMesh", "GetMesh", "GetMaterial",
+            "SetMaterial",
             "x", "y", "z", "w", "Inverse", "ToEuler",
             "delta", "time", "frame",
             "SetFloat", "SetBool", "SetTrigger", "ResetTrigger", "GetFloat", "GetBool", "Play", "CrossFade",

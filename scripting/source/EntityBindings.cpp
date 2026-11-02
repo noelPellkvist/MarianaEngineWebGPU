@@ -636,6 +636,10 @@ namespace ScriptingInternal
             case kRotate: return Rotate;
             case kTranslate: return Translate;
             case kLookAt: return LookAt;
+            case kSetMesh: return EntitySetMesh;
+            case kGetMesh: return EntityGetMesh;
+            case kGetMaterial: return EntityGetMaterial;
+            case kSetMaterial: return EntitySetMaterial;
             default: return nullptr;
             }
         }

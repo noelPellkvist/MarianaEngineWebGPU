@@ -52,6 +52,88 @@ end
 
 -- @components
 
+-- An image file (texture.load), read in the colour space of the material slot it is put in.
+declare extern type Texture with
+    path: string
+end
+
+-- How a surface looks. Materials scripts get are their own: material.new and Clone make new ones,
+-- and entity:GetMaterial gives the entity a copy the first time.
+declare extern type Material with
+    name: string
+    color: vector
+    alpha: number
+    metallic: number
+    roughness: number
+    emissive: vector
+    normalStrength: number
+    occlusionStrength: number
+    clearcoat: number
+    clearcoatRoughness: number
+    doubleSided: boolean
+    alphaMode: "Opaque" | "Mask" | "Blend"
+    alphaCutoff: number
+    tiling: vector
+    offset: vector
+    baseColorMap: Texture?
+    normalMap: Texture?
+    metallicRoughnessMap: Texture?
+    occlusionMap: Texture?
+    emissiveMap: Texture?
+    function Clone(self): Material
+end
+
+export type MaterialFields = {
+    color: vector?,
+    alpha: number?,
+    metallic: number?,
+    roughness: number?,
+    emissive: vector?,
+    normalStrength: number?,
+    occlusionStrength: number?,
+    clearcoat: number?,
+    clearcoatRoughness: number?,
+    doubleSided: boolean?,
+    alphaMode: ("Opaque" | "Mask" | "Blend")?,
+    alphaCutoff: number?,
+    tiling: vector?,
+    offset: vector?,
+    baseColorMap: Texture?,
+    normalMap: Texture?,
+    metallicRoughnessMap: Texture?,
+    occlusionMap: Texture?,
+    emissiveMap: Texture?,
+}
+
+-- What mesh.new makes a mesh from: per vertex a position (and optionally a normal, uv and colour),
+-- as tables of vectors or buffers of 32-bit floats; triangles (or lines, points) by indices from 1
+-- in tables, from 0 in buffers of 32-bit integers.
+export type MeshData = {
+    positions: { vector } | buffer,
+    normals: ({ vector } | buffer)?,
+    uvs: ({ vector } | buffer)?,
+    colors: ({ vector } | buffer)?,
+    indices: ({ number } | buffer)?,
+    submeshes: { { number } | buffer }?,
+    topology: ("triangles" | "lines" | "points")?,
+    smooth: boolean?,
+    dynamic: boolean?,
+}
+export type MeshUpdate = {
+    positions: ({ vector } | buffer)?,
+    normals: ({ vector } | buffer)?,
+    uvs: ({ vector } | buffer)?,
+    colors: ({ vector } | buffer)?,
+}
+
+declare extern type Mesh with
+    vertexCount: number
+    boundsMin: vector
+    boundsMax: vector
+    dynamic: boolean
+    function Update(self, data: MeshUpdate): ()
+end
+
 declare extern type Entity with
     id: number
     name: string
@@ -74,6 +156,10 @@ declare extern type Entity with
     function Rotate(self, axis: vector, degrees: number): ()
     function Translate(self, offset: vector): ()
     function LookAt(self, target: vector | Entity, up: vector?): ()
+    function SetMesh(self, mesh: Mesh, materials: { Material }?): ()
+    function GetMesh(self): Mesh?
+    function GetMaterial(self, slot: number?): Material?
+    function SetMaterial(self, material: Material, slot: number?): ()
     -- @componentMethods
 end
 
@@ -84,6 +170,18 @@ export type Script = { entity: Entity, properties: { [string]: any }?, [string]:
 export type Contact = { point: vector, normal: vector, speed: number }
 export type RaycastHit = { entity: Entity, point: vector, normal: vector, distance: number }
 export type QueryOptions = { ignore: Entity?, triggers: boolean?, layers: number? }
+
+declare mesh: {
+    new: (data: MeshData) -> Mesh,
+}
+
+declare material: {
+    new: (fields: MaterialFields?) -> Material,
+}
+
+declare texture: {
+    load: (path: string) -> Texture,
+}
 
 declare scene: {
     Find: (name: string) -> Entity?,

@@ -115,7 +115,7 @@ And by shape:
 | `SphereCollider` | `radius` | number | 0.5 | |
 | `CapsuleCollider` | `radius`, `height` | number | 0.5, 2 | Along local Y; height from tip to tip |
 | `CylinderCollider` | `radius`, `height` | number | 0.5, 1 | Along local Y |
-| `MeshCollider` | `convex` | boolean | false | Use the mesh's convex hull (its mesh is set in the editor) |
+| `MeshCollider` | `convex` | boolean | false | Use the mesh's convex hull (the entity's mesh unless one is set in the editor) |
 
 All collider sizes are scaled by the entity's scale.
 

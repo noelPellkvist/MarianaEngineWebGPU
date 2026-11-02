@@ -18,6 +18,9 @@ This is the complete reference for what scripts can use. For how scripts work, s
 | [`input`](input.md) | Keyboard and mouse |
 | [`time`](time.md) | Frame time, game time, frame count, time scale |
 | [`physics`](physics.md) | Raycasts, overlaps, forces, velocities, teleporting, vehicle, character and ragdoll control, water |
+| [`mesh`](meshes.md#mesh-new) | Builds meshes at run time: `mesh.new{ positions = ..., indices = ... }` |
+| [`material`](meshes.md#material-new) | New materials: `material.new{ color = ..., metallic = ... }` |
+| [`texture`](meshes.md#texture-load) | Loads images for materials: `texture.load("/Textures/Grass.png")` |
 | `print(...)`, `warn(...)` | Log messages, with the script's name and line |
 
 Plus Luau's standard libraries: `math`, `string`, `table`, `vector`, `bit32`, `utf8`, `buffer`, `coroutine` and `os.clock`/`os.time`/`os.date`. See [Luau for Game Scripting](../luau.md#the-standard-library).
@@ -32,6 +35,7 @@ Plus Luau's standard libraries: `math`, `string`, `table`, `vector`, `bit32`, `u
 | [Component types](component-reference.md) | `RigidBody`, `BoxCollider`, `Vehicle`, `CharacterController`, … with their fields |
 | `vector` | A 3D vector (made with `vec3`) |
 | [`quat`](quat.md) | A rotation |
+| [`Mesh`, `Material`, `Texture`](meshes.md) | A mesh to draw, how a surface looks, an image |
 | [`Script`](types.md#script) | A script's table and its `self` |
 | [`Contact`](types.md#contact) | A physics contact: point, normal, speed |
 | [`RaycastHit`](types.md#raycasthit) | What a ray or shape cast hit |
@@ -95,6 +99,12 @@ physics.OverlapSphere(center, radius);  physics.SphereCast(origin, radius, direc
 physics.AddForce(e, f);  physics.AddImpulse(e, i);  physics.SetVelocity(e, v)
 physics.Teleport(e, position, rotation);  physics.GetVelocity(e)
 physics.GetVehicleInfo(e);  physics.GetCharacterInfo(e);  physics.SetRagdollMode(e, "Limp")
+
+-- Meshes and materials
+local tri = mesh.new{ positions = { vec3(0, 0, 0), vec3(0, 1, 0), vec3(1, 0, 0) } }
+e:SetMesh(tri)
+local m = e:GetMaterial();  m.color = vec3(1, 0, 0);  m.roughness = 0.2
+e:SetMaterial(material.new{ color = vec3(0, 0, 1), metallic = 1 })
 
 -- Animation
 local anim = e:Get("Animator")

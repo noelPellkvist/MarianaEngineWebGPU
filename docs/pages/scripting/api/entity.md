@@ -139,6 +139,22 @@ camera:LookAt(player)
 turret:LookAt(target.worldPosition + vec3(0, 1, 0))
 ```
 
+### Meshes and materials {#meshes-and-materials}
+
+| Method | |
+|---|---|
+| [`entity:SetMesh(mesh, materials?)`](meshes.md#setmesh) | Draws a mesh (one a script made with `mesh.new`) |
+| [`entity:GetMesh() -> Mesh?`](meshes.md#getmesh) | The mesh it draws |
+| [`entity:GetMaterial(slot?) -> Material?`](meshes.md#getmaterial) | The material in a slot (from 1), the entity's own copy to change |
+| [`entity:SetMaterial(material, slot?)`](meshes.md#setmaterial) | Puts a material in a slot |
+
+```luau
+local m = self.entity:GetMaterial()
+if m then
+    m.color = vec3(1, 0, 0)    -- this entity turns red, nothing else does
+end
+```
+
 ## Printing
 
 `print(entity)` shows `Entity(42 'Crate')`, or `Entity(destroyed)` for one that's gone.

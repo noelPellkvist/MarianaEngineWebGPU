@@ -1,6 +1,7 @@
 #pragma once
 // What the Luau bindings share (private to MarianaScripting): the state's context, the userdata
 // types and the conversions between Luau values and engine types.
+#include <Mariana/Assets/AssetsStructs.hpp>
 #include <Mariana/Scene/ECS.hpp>
 #include <Mariana/Scene/Transform.hpp>
 
@@ -9,7 +10,10 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "lua.h"
@@ -18,6 +22,7 @@
 class AssetManager2;
 class GameClock;
 class IInput;
+class IMesh;
 class PhysicsWorld;
 
 namespace ScriptingInternal
@@ -29,7 +34,12 @@ namespace ScriptingInternal
         kComponentTag,
         kQuatTag,
         kTimeTag,
+        kMeshTag,
+        kMaterialTag,
+        kTextureTag,
     };
+
+    struct ScriptMesh; // AssetBindings.cpp
 
     // What the bindings work with, reached from any thread of the state (lua_callbacks userdata).
     struct Context
@@ -52,6 +62,11 @@ namespace ScriptingInternal
         double timeLimit = 2.0; // seconds a call may take
         uint32_t interrupts = 0;
         int entityCache = LUA_NOREF; // weak table: entity id -> its userdata
+        // Materials scripts made (material.new, Clone) or were given a copy of (entity:GetMaterial):
+        // theirs to change, so changing them never reaches a material the edited scene or a model
+        // shares. Meshes scripts made, by their engine mesh (what entity:GetMesh finds again).
+        std::unordered_set<AssetID> scriptMaterials;
+        std::unordered_map<const IMesh*, std::shared_ptr<ScriptMesh>> scriptMeshes;
     };
     Context& GetContext(lua_State* L);
 
@@ -83,7 +98,8 @@ namespace ScriptingInternal
         // Entity
         kId, kName, kParent, kPosition, kRotation, kScale, kWorldPosition, kWorldRotation,
         kForward, kRight, kUp, kIsValid, kDestroy, kHas, kGet, kAdd, kRemove, kGetScript,
-        kGetChildren, kFindChild, kRotate, kTranslate, kLookAt,
+        kGetChildren, kFindChild, kRotate, kTranslate, kLookAt, kSetMesh, kGetMesh, kGetMaterial,
+        kSetMaterial,
         // quat
         kX, kY, kZ, kW, kInverse, kToEuler,
         // time
@@ -101,6 +117,13 @@ namespace ScriptingInternal
     void OpenMath(lua_State* L);
     void OpenEntity(lua_State* L);
     void OpenGame(lua_State* L);
+    void OpenAssets(lua_State* L);
+
+    // Entity methods that work with meshes and materials (AssetBindings.cpp).
+    int EntitySetMesh(lua_State* L);
+    int EntityGetMesh(lua_State* L);
+    int EntityGetMaterial(lua_State* L);
+    int EntitySetMaterial(lua_State* L);
 
     // An error with the message, raised from a C function.
     [[noreturn]] void Error(lua_State* L, const char* fmt, ...);
